@@ -13,7 +13,7 @@ class AppDatabase {
 
     final database = await openDatabase(
       path,
-      version: 5,
+      version: 6,
       onConfigure: (db) async {
         await db.execute('PRAGMA foreign_keys = ON');
       },
@@ -64,6 +64,7 @@ class AppDatabase {
         note TEXT,
         archived INTEGER NOT NULL DEFAULT 0,
         tags TEXT NOT NULL DEFAULT '',
+        assignee_id TEXT REFERENCES employees(id) ON DELETE SET NULL,
         created_at INTEGER NOT NULL,
         updated_at INTEGER NOT NULL
       )
@@ -115,6 +116,49 @@ class AppDatabase {
     await _createInventorySchema(db);
     await _createBookingSchema(db);
     await _createReminderSchema(db);
+    await _createTeamSchema(db);
+  }
+
+  static Future<void> _createTeamSchema(Database db) async {
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS employees (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        role TEXT NOT NULL DEFAULT 'employee',
+        pay_type TEXT NOT NULL DEFAULT 'hourly',
+        rate_cents INTEGER NOT NULL DEFAULT 0,
+        percent REAL NOT NULL DEFAULT 0,
+        archived INTEGER NOT NULL DEFAULT 0,
+        created_at INTEGER NOT NULL
+      )
+    ''');
+
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS time_entries (
+        id TEXT PRIMARY KEY,
+        employee_id TEXT NOT NULL REFERENCES employees(id) ON DELETE CASCADE,
+        job_id TEXT REFERENCES jobs(id) ON DELETE SET NULL,
+        started_at INTEGER NOT NULL,
+        ended_at INTEGER,
+        minutes INTEGER NOT NULL DEFAULT 0,
+        note TEXT,
+        created_at INTEGER NOT NULL
+      )
+    ''');
+    await db.execute('CREATE INDEX idx_time_entries_emp ON time_entries(employee_id)');
+    await db.execute('CREATE INDEX idx_time_entries_job ON time_entries(job_id)');
+
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS employee_payments (
+        id TEXT PRIMARY KEY,
+        employee_id TEXT NOT NULL REFERENCES employees(id) ON DELETE CASCADE,
+        type TEXT NOT NULL, -- advance, bonus, penalty, payout
+        amount_cents INTEGER NOT NULL,
+        note TEXT,
+        created_at INTEGER NOT NULL
+      )
+    ''');
+    await db.execute('CREATE INDEX idx_emp_payments_emp ON employee_payments(employee_id)');
   }
 
   static Future<void> _createReminderSchema(Database db) async {
@@ -316,6 +360,14 @@ class AppDatabase {
     }
     if (oldVersion < 5) {
       await _createReminderSchema(db);
+    }
+    if (oldVersion < 6) {
+      await _createTeamSchema(db);
+      try {
+        await db.execute('ALTER TABLE jobs ADD COLUMN assignee_id TEXT REFERENCES employees(id) ON DELETE SET NULL');
+      } catch (_) {
+        // column may already exist
+      }
     }
   }
 

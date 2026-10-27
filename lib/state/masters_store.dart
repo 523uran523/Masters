@@ -7,6 +7,8 @@ import '../data/models/appointment.dart';
 import '../data/models/booking_resource.dart';
 import '../data/models/cash_shift.dart';
 import '../data/models/client.dart';
+import '../data/models/employee.dart';
+import '../data/models/time_entry.dart';
 import '../data/models/client_reminder.dart';
 import '../data/models/inventory_item.dart';
 import '../data/models/stock_movement.dart';
@@ -18,6 +20,8 @@ import '../data/repositories/account_repository.dart';
 import '../data/repositories/appointment_repository.dart';
 import '../data/repositories/booking_resource_repository.dart';
 import '../data/repositories/cash_shift_repository.dart';
+import '../data/repositories/employee_repository.dart';
+import '../data/repositories/time_entry_repository.dart';
 import '../data/repositories/client_reminder_repository.dart';
 import '../data/repositories/client_repository.dart';
 import '../data/repositories/inventory_item_repository.dart';
@@ -40,6 +44,9 @@ class MastersStore extends ChangeNotifier {
     _sessionRepo = SessionRepository(_appDatabase.database);
     _accountRepo = AccountRepository(_appDatabase.database);
     _reminderRepo = ClientReminderRepository(_appDatabase.database);
+    _employeeRepo = EmployeeRepository(_appDatabase.database);
+    _timeEntryRepo = TimeEntryRepository(_appDatabase.database);
+    _paymentRepo = EmployeePaymentRepository(_appDatabase.database);
     _moneyTxRepo = MoneyTransactionRepository(_appDatabase.database);
     _shiftRepo = CashShiftRepository(_appDatabase.database);
     _inventoryRepo = InventoryItemRepository(_appDatabase.database);
@@ -59,6 +66,9 @@ class MastersStore extends ChangeNotifier {
   late final SessionRepository _sessionRepo;
   late final AccountRepository _accountRepo;
   late final ClientReminderRepository _reminderRepo;
+  late final EmployeeRepository _employeeRepo;
+  late final TimeEntryRepository _timeEntryRepo;
+  late final EmployeePaymentRepository _paymentRepo;
   late final MoneyTransactionRepository _moneyTxRepo;
   late final CashShiftRepository _shiftRepo;
   late final InventoryItemRepository _inventoryRepo;
@@ -80,6 +90,9 @@ class MastersStore extends ChangeNotifier {
   List<Appointment> _appointments = [];
   List<BookingResource> _bookingResources = [];
   List<ClientReminder> _reminders = [];
+  List<Employee> _employees = [];
+  List<TimeEntry> _timeEntries = [];
+  List<EmployeePayment> _employeePayments = [];
   bool _loaded = false;
 
   bool get isLoaded => _loaded;
@@ -98,6 +111,9 @@ class MastersStore extends ChangeNotifier {
   List<Appointment> get appointments => List.unmodifiable(_appointments);
   List<BookingResource> get bookingResources => List.unmodifiable(_bookingResources);
   List<ClientReminder> get reminders => List.unmodifiable(_reminders);
+  List<Employee> get employees => List.unmodifiable(_employees);
+  List<TimeEntry> get timeEntries => List.unmodifiable(_timeEntries);
+  List<EmployeePayment> get employeePayments => List.unmodifiable(_employeePayments);
 
   Client? clientById(String id) {
     for (final c in _clients) {
@@ -149,6 +165,9 @@ class MastersStore extends ChangeNotifier {
     _appointments = await _appointmentRepo.getAll();
     _bookingResources = await _bookingResourceRepo.getAll();
     _reminders = await _reminderRepo.getAll(includeDone: true);
+    _employees = await _employeeRepo.getAll();
+    _timeEntries = await _timeEntryRepo.getAll();
+    _employeePayments = await _paymentRepo.getAll();
     if (_bookingResources.isEmpty) {
       final r = BookingResource(id: newId(), name: 'Основной', createdAt: DateTime.now());
       await _bookingResourceRepo.save(r);
@@ -263,12 +282,14 @@ class MastersStore extends ChangeNotifier {
     int costCents = 0,
     DateTime? dueDate,
     String? note,
+    String? assigneeId,
   }) async {
     final now = DateTime.now();
     final job = Job(
       id: newId(),
       clientId: clientId,
       objectId: objectId,
+      assigneeId: assigneeId,
       title: title.trim(),
       status: status,
       priority: priority,
@@ -825,11 +846,132 @@ class MastersStore extends ChangeNotifier {
 
   // Auto-warranty reminder on job done could be added in setJobStatus, but keep manual for now.
 
+  // Employees
+  Employee? employeeById(String id) {
+    for (final e in _employees) {
+      if (e.id == id) return e;
+    }
+    return null;
+  }
+
+  List<TimeEntry> timeEntriesForEmployee(String employeeId) =>
+      _timeEntries.where((t) => t.employeeId == employeeId).toList();
+  List<EmployeePayment> paymentsForEmployee(String employeeId) =>
+      _employeePayments.where((p) => p.employeeId == employeeId).toList();
+
+  Future<Employee> createEmployee({
+    required String name,
+    String role = 'employee',
+    String payType = 'hourly',
+    int rateCents = 0,
+    double percent = 0,
+  }) async {
+    final e = Employee(id: newId(), name: name.trim(), role: role, payType: payType, rateCents: rateCents, percent: percent, createdAt: DateTime.now());
+    await _employeeRepo.save(e);
+    _employees = [..._employees, e];
+    notifyListeners();
+    return e;
+  }
+
+  Future<void> updateEmployee(Employee e) async {
+    await _employeeRepo.save(e);
+    final idx = _employees.indexWhere((x) => x.id == e.id);
+    if (idx == -1) {
+      _employees = [..._employees, e];
+    } else {
+      _employees[idx] = e;
+    }
+    notifyListeners();
+  }
+
+  Future<void> deleteEmployee(String id) async {
+    await _employeeRepo.delete(id);
+    _employees = _employees.where((e) => e.id != id).toList();
+    _timeEntries = _timeEntries.where((t) => t.employeeId != id).toList();
+    _employeePayments = _employeePayments.where((p) => p.employeeId != id).toList();
+    notifyListeners();
+  }
+
+  Future<TimeEntry> addTimeEntry({
+    required String employeeId,
+    String? jobId,
+    required DateTime startedAt,
+    DateTime? endedAt,
+    int minutes = 0,
+    String? note,
+  }) async {
+    final t = TimeEntry(id: newId(), employeeId: employeeId, jobId: jobId, startedAt: startedAt, endedAt: endedAt, minutes: minutes < 0 ? 0 : minutes, note: note?.trim().isEmpty == true ? null : note?.trim(), createdAt: DateTime.now());
+    await _timeEntryRepo.save(t);
+    _timeEntries = [t, ..._timeEntries];
+    notifyListeners();
+    return t;
+  }
+
+  Future<void> deleteTimeEntry(String id) async {
+    await _timeEntryRepo.delete(id);
+    _timeEntries = _timeEntries.where((t) => t.id != id).toList();
+    notifyListeners();
+  }
+
+  Future<EmployeePayment> addEmployeePayment({
+    required String employeeId,
+    required String type,
+    required int amountCents,
+    String? note,
+  }) async {
+    final p = EmployeePayment(id: newId(), employeeId: employeeId, type: type, amountCents: amountCents < 0 ? 0 : amountCents, note: note?.trim().isEmpty == true ? null : note?.trim(), createdAt: DateTime.now());
+    await _paymentRepo.save(p);
+    _employeePayments = [p, ..._employeePayments];
+    notifyListeners();
+    return p;
+  }
+
+  Future<void> deleteEmployeePayment(String id) async {
+    await _paymentRepo.delete(id);
+    _employeePayments = _employeePayments.where((p) => p.id != id).toList();
+    notifyListeners();
+  }
+
+  int earnedCents(String employeeId) {
+    final emp = employeeById(employeeId);
+    if (emp == null) return 0;
+    int earned = 0;
+    // hourly time
+    if (emp.payType == 'hourly' || emp.payType == 'mixed' || emp.payType == 'salary') {
+      final mins = _timeEntries.where((t) => t.employeeId == employeeId).fold(0, (s, t) => s + t.minutes);
+      earned += (mins * emp.rateCents / 60).round();
+    }
+    // piece: fixed per completed job
+    if (emp.payType == 'piece' || emp.payType == 'mixed') {
+      final doneJobs = _jobs.where((j) => j.assigneeId == employeeId && (j.status == JobStatus.done || j.status == JobStatus.closed) && !j.archived);
+      if (emp.payType == 'piece') {
+        earned += doneJobs.length * emp.rateCents;
+      }
+    }
+    // percent of job price
+    if (emp.payType == 'percent' || emp.payType == 'mixed') {
+      final doneJobs = _jobs.where((j) => j.assigneeId == employeeId && (j.status == JobStatus.done || j.status == JobStatus.closed) && !j.archived);
+      final price = doneJobs.fold(0, (s, j) => s + j.priceCents);
+      earned += (price * emp.percent / 100).round();
+    }
+    return earned;
+  }
+
+  int employeeBalanceOwed(String employeeId) {
+    final earned = earnedCents(employeeId);
+    final payments = _employeePayments.where((p) => p.employeeId == employeeId);
+    final advances = payments.where((p) => p.type == 'advance').fold(0, (s, p) => s + p.amountCents);
+    final payouts = payments.where((p) => p.type == 'payout').fold(0, (s, p) => s + p.amountCents);
+    final bonuses = payments.where((p) => p.type == 'bonus').fold(0, (s, p) => s + p.amountCents);
+    final penalties = payments.where((p) => p.type == 'penalty').fold(0, (s, p) => s + p.amountCents);
+    return earned + bonuses - penalties - advances - payouts;
+  }
+
   // backup
   Map<String, dynamic> backupData() {
     return {
       'format': 'masters-backup',
-      'version': 5,
+      'version': 6,
       'exported_at': DateTime.now().toIso8601String(),
       'clients': _clients.map((c) => c.toMap()).toList(),
       'objects': _objects.map((o) => o.toMap()).toList(),
@@ -845,6 +987,9 @@ class MastersStore extends ChangeNotifier {
       'appointments': _appointments.map((a) => a.toMap()).toList(),
       'booking_resources': _bookingResources.map((r) => r.toMap()).toList(),
       'client_reminders': _reminders.map((r) => r.toMap()).toList(),
+      'employees': _employees.map((e) => e.toMap()).toList(),
+      'time_entries': _timeEntries.map((t) => t.toMap()).toList(),
+      'employee_payments': _employeePayments.map((p) => p.toMap()).toList(),
     };
   }
 
@@ -853,7 +998,7 @@ class MastersStore extends ChangeNotifier {
       throw const FormatException('Это не резервная копия «Masters».');
     }
     final version = data['version'];
-    if (version is! int || version > 5) {
+    if (version is! int || version > 6) {
       throw const FormatException('Неподдерживаемая версия копии.');
     }
 
@@ -947,12 +1092,34 @@ class MastersStore extends ChangeNotifier {
       }
     }
 
+    final employees = <Employee>[];
+    if (data['employees'] is List) {
+      for (final item in data['employees'] as List) {
+        if (item is Map) employees.add(Employee.fromMap(Map<String, Object?>.from(item)));
+      }
+    }
+    final timeEntries = <TimeEntry>[];
+    if (data['time_entries'] is List) {
+      for (final item in data['time_entries'] as List) {
+        if (item is Map) timeEntries.add(TimeEntry.fromMap(Map<String, Object?>.from(item)));
+      }
+    }
+    final employeePayments = <EmployeePayment>[];
+    if (data['employee_payments'] is List) {
+      for (final item in data['employee_payments'] as List) {
+        if (item is Map) employeePayments.add(EmployeePayment.fromMap(Map<String, Object?>.from(item)));
+      }
+    }
+
     final jobIds = jobs.map((j) => j.id).toSet();
 
     await _appDatabase.database.transaction((txn) async {
       await txn.delete('appointments');
       await txn.delete('booking_resources');
       await txn.delete('client_reminders');
+      await txn.delete('employee_payments');
+      await txn.delete('time_entries');
+      await txn.delete('employees');
       await txn.delete('stock_movements');
       await txn.delete('inventory_items');
       await txn.delete('money_transactions');
@@ -989,6 +1156,9 @@ class MastersStore extends ChangeNotifier {
       for (final a in appointments) { batch.insert('appointments', a.toMap()); }
       for (final r in bookingResources) { batch.insert('booking_resources', r.toMap()); }
       for (final r in reminders) { batch.insert('client_reminders', r.toMap()); }
+      for (final e in employees) { batch.insert('employees', e.toMap()); }
+      for (final t in timeEntries) { batch.insert('time_entries', t.toMap()); }
+      for (final p in employeePayments) { batch.insert('employee_payments', p.toMap()); }
       await batch.commit(noResult: true);
     });
 
@@ -1000,6 +1170,9 @@ class MastersStore extends ChangeNotifier {
       await txn.delete('appointments');
       await txn.delete('booking_resources');
       await txn.delete('client_reminders');
+      await txn.delete('employee_payments');
+      await txn.delete('time_entries');
+      await txn.delete('employees');
       await txn.delete('stock_movements');
       await txn.delete('inventory_items');
       await txn.delete('money_transactions');

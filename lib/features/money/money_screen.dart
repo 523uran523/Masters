@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 
 import '../../app/theme/app_theme.dart';
 import '../../app/ui.dart';
+import '../employees/employees_screen.dart';
 import '../stats/stats_screen.dart';
 import '../../state/masters_store.dart';
 
@@ -306,6 +307,14 @@ class _MoneyScreenState extends State<MoneyScreen> {
                           ),
                         ),
                   const SizedBox(height: 12),
+                  SecondaryButton(
+                    label: 'Команда и зарплата',
+                    icon: CupertinoIcons.person_2,
+                    onPressed: () => Navigator.of(context).push(
+                      CupertinoPageRoute(builder: (_) => const EmployeesScreen()),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
                   SecondaryButton(
                     label: 'Расширенная аналитика (P&L)',
                     icon: CupertinoIcons.chart_bar,

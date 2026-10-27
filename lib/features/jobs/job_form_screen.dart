@@ -24,6 +24,7 @@ class _JobFormScreenState extends State<JobFormScreen> {
 
   String? _clientId;
   String? _objectId;
+  String? _assigneeId;
   JobStatus _status = JobStatus.nuevo;
   JobPriority _priority = JobPriority.medium;
   DateTime? _dueDate;
@@ -41,6 +42,7 @@ class _JobFormScreenState extends State<JobFormScreen> {
         _titleController.text = job.title;
         _clientId = job.clientId;
         _objectId = job.objectId;
+        _assigneeId = job.assigneeId;
         _status = job.status;
         _priority = job.priority;
         _priceController.text =
@@ -227,6 +229,46 @@ class _JobFormScreenState extends State<JobFormScreen> {
     setState(() => _objectId = selected);
   }
 
+  Future<void> _pickAssignee() async {
+    final store = context.read<MastersStore>();
+    final emps = store.employees;
+    final selected = await showCupertinoModalPopup<String?>(
+      context: context,
+      builder: (ctx) => Container(
+        height: 300,
+        color: context.colors.card,
+        child: Column(
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                CupertinoButton(child: const Text('Отмена'), onPressed: () => Navigator.of(ctx).pop()),
+                CupertinoButton(child: const Text('Без'), onPressed: () => Navigator.of(ctx).pop('__none__')),
+              ],
+            ),
+            Expanded(
+              child: ListView(
+                children: [
+                  for (final e in emps)
+                    CupertinoButton(
+                      onPressed: () => Navigator.of(ctx).pop(e.id),
+                      child: Align(alignment: Alignment.centerLeft, child: Text(e.name)),
+                    ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (selected == null) return;
+    if (selected == '__none__') {
+      setState(() => _assigneeId = null);
+      return;
+    }
+    setState(() => _assigneeId = selected);
+  }
+
   Future<void> _pickDueDate() async {
     DateTime selected = _dueDate ?? DateTime.now();
     await showCupertinoModalPopup<void>(
@@ -282,6 +324,7 @@ class _JobFormScreenState extends State<JobFormScreen> {
           title: title,
           clientId: _clientId!,
           objectId: _objectId,
+          assigneeId: _assigneeId,
           status: _status,
           priority: _priority,
           priceCents: _parseCents(_priceController.text),
@@ -293,6 +336,7 @@ class _JobFormScreenState extends State<JobFormScreen> {
         await store.createJob(
           clientId: _clientId!,
           objectId: _objectId,
+          assigneeId: _assigneeId,
           title: title,
           status: _status,
           priority: _priority,
@@ -365,6 +409,24 @@ class _JobFormScreenState extends State<JobFormScreen> {
                         padding: EdgeInsets.zero,
                         onPressed: _clientId == null ? null : _pickObject,
                         child: const Text('Объект'),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          _assigneeId == null
+                              ? 'Исполнитель не выбран'
+                              : (context.read<MastersStore>().employeeById(_assigneeId!)?.name ?? 'Исполнитель'),
+                          style: TextStyle(color: colors.secondaryLabel),
+                        ),
+                      ),
+                      CupertinoButton(
+                        padding: EdgeInsets.zero,
+                        onPressed: _pickAssignee,
+                        child: const Text('Исполнитель'),
                       ),
                     ],
                   ),
