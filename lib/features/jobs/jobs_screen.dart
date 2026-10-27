@@ -40,8 +40,7 @@ class _JobsScreenState extends State<JobsScreen> {
     if (q.isNotEmpty) {
       list = list.where((j) {
         return j.title.toLowerCase().contains(q) ||
-            (j.note ?? '').toLowerCase().contains(q) ||
-            j.tags.any((t) => t.toLowerCase().contains(q));
+            (j.note ?? '').toLowerCase().contains(q);
       }).toList();
     }
     list.sort((a, b) => b.updatedAt.compareTo(a.updatedAt));

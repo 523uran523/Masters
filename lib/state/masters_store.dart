@@ -192,7 +192,6 @@ class MastersStore extends ChangeNotifier {
     int costCents = 0,
     DateTime? dueDate,
     String? note,
-    List<String> tags = const [],
   }) async {
     final now = DateTime.now();
     final job = Job(
@@ -206,7 +205,6 @@ class MastersStore extends ChangeNotifier {
       costCents: costCents,
       dueDate: dueDate,
       note: note?.trim().isEmpty == true ? null : note?.trim(),
-      tags: tags,
       createdAt: now,
       updatedAt: now,
     );

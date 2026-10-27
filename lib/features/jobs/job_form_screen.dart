@@ -5,6 +5,7 @@ import '../../app/theme/app_theme.dart';
 import '../../app/ui.dart';
 import '../../core/utils/app_utils.dart';
 import '../../data/models/job.dart';
+import 'cost_calculator_screen.dart';
 import '../../state/masters_store.dart';
 
 class JobFormScreen extends StatefulWidget {
@@ -20,7 +21,6 @@ class _JobFormScreenState extends State<JobFormScreen> {
   final _priceController = TextEditingController();
   final _costController = TextEditingController();
   final _noteController = TextEditingController();
-  final _tagController = TextEditingController();
 
   String? _clientId;
   String? _objectId;
@@ -48,7 +48,6 @@ class _JobFormScreenState extends State<JobFormScreen> {
         _costController.text =
             (job.costCents / 100).toStringAsFixed(2).replaceAll('.00', '');
         _noteController.text = job.note ?? '';
-        _tagController.text = job.tags.join(', ');
         _dueDate = job.dueDate;
       }
     }
@@ -60,7 +59,6 @@ class _JobFormScreenState extends State<JobFormScreen> {
     _priceController.dispose();
     _costController.dispose();
     _noteController.dispose();
-    _tagController.dispose();
     super.dispose();
   }
 
@@ -278,11 +276,6 @@ class _JobFormScreenState extends State<JobFormScreen> {
     setState(() => _saving = true);
     try {
       final store = context.read<MastersStore>();
-      final tags = _tagController.text
-          .split(',')
-          .map((e) => e.trim())
-          .where((e) => e.isNotEmpty)
-          .toList();
       if (_isEdit) {
         final job = store.jobById(widget.jobId!)!;
         await store.updateJob(job.copyWith(
@@ -295,7 +288,6 @@ class _JobFormScreenState extends State<JobFormScreen> {
           costCents: _parseCents(_costController.text),
           dueDate: _dueDate,
           note: _noteController.text.trim().isEmpty ? null : _noteController.text.trim(),
-          tags: tags,
         ));
       } else {
         await store.createJob(
@@ -308,7 +300,6 @@ class _JobFormScreenState extends State<JobFormScreen> {
           costCents: _parseCents(_costController.text),
           dueDate: _dueDate,
           note: _noteController.text.trim().isEmpty ? null : _noteController.text.trim(),
-          tags: tags,
         );
       }
       if (mounted) Navigator.of(context).pop();
@@ -463,6 +454,22 @@ class _JobFormScreenState extends State<JobFormScreen> {
                 ],
               ),
             ),
+            const SizedBox(height: 12),
+            SecondaryButton(
+              label: 'Калькулятор расходов',
+              icon: CupertinoIcons.money_dollar,
+              onPressed: () async {
+                final result = await Navigator.of(context).push<Map<String, int>>(
+                  CupertinoPageRoute(
+                      builder: (_) => const CostCalculatorScreen()),
+                );
+                if (result == null || !mounted) return;
+                _costController.text =
+                    ((result['costCents'] as int) / 100).toStringAsFixed(2);
+                _priceController.text =
+                    ((result['priceCents'] as int) / 100).toStringAsFixed(2);
+              },
+            ),
             const SizedBox(height: 16),
             SectionLabel('Срок и заметки'),
             AppCard(
@@ -488,11 +495,6 @@ class _JobFormScreenState extends State<JobFormScreen> {
                           child: const Icon(CupertinoIcons.xmark, size: 16),
                         ),
                     ],
-                  ),
-                  const SizedBox(height: 8),
-                  CupertinoTextField(
-                    controller: _tagController,
-                    placeholder: 'Теги (через запятую)',
                   ),
                   const SizedBox(height: 8),
                   CupertinoTextField(
