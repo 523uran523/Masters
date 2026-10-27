@@ -13,7 +13,7 @@ class AppDatabase {
 
     final database = await openDatabase(
       path,
-      version: 3,
+      version: 4,
       onConfigure: (db) async {
         await db.execute('PRAGMA foreign_keys = ON');
       },
@@ -113,6 +113,39 @@ class AppDatabase {
 
     await _createMoneySchema(db);
     await _createInventorySchema(db);
+    await _createBookingSchema(db);
+  }
+
+  static Future<void> _createBookingSchema(Database db) async {
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS booking_resources (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        color TEXT NOT NULL DEFAULT '#007AFF',
+        archived INTEGER NOT NULL DEFAULT 0,
+        created_at INTEGER NOT NULL
+      )
+    ''');
+
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS appointments (
+        id TEXT PRIMARY KEY,
+        client_id TEXT REFERENCES clients(id) ON DELETE SET NULL,
+        object_id TEXT REFERENCES objects(id) ON DELETE SET NULL,
+        resource_id TEXT REFERENCES booking_resources(id) ON DELETE SET NULL,
+        title TEXT NOT NULL,
+        start_at INTEGER NOT NULL,
+        end_at INTEGER NOT NULL,
+        status TEXT NOT NULL DEFAULT 'scheduled',
+        note TEXT,
+        created_at INTEGER NOT NULL,
+        updated_at INTEGER NOT NULL
+      )
+    ''');
+    await db.execute('CREATE INDEX idx_appts_start ON appointments(start_at)');
+    await db.execute('CREATE INDEX idx_appts_client ON appointments(client_id)');
+    await db.execute('CREATE INDEX idx_appts_resource ON appointments(resource_id)');
+    await db.execute('CREATE INDEX idx_appts_status ON appointments(status)');
   }
 
   static Future<void> _createInventorySchema(Database db) async {
@@ -257,6 +290,9 @@ class AppDatabase {
     }
     if (oldVersion < 3) {
       await _createInventorySchema(db);
+    }
+    if (oldVersion < 4) {
+      await _createBookingSchema(db);
     }
   }
 

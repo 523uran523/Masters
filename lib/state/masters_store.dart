@@ -3,6 +3,8 @@ import 'package:flutter/foundation.dart';
 import '../core/utils/app_utils.dart';
 import '../data/app_database.dart';
 import '../data/models/account.dart';
+import '../data/models/appointment.dart';
+import '../data/models/booking_resource.dart';
 import '../data/models/cash_shift.dart';
 import '../data/models/client.dart';
 import '../data/models/inventory_item.dart';
@@ -12,6 +14,8 @@ import '../data/models/job_items.dart';
 import '../data/models/money_transaction.dart';
 import '../data/models/work_object.dart';
 import '../data/repositories/account_repository.dart';
+import '../data/repositories/appointment_repository.dart';
+import '../data/repositories/booking_resource_repository.dart';
 import '../data/repositories/cash_shift_repository.dart';
 import '../data/repositories/client_repository.dart';
 import '../data/repositories/inventory_item_repository.dart';
@@ -37,6 +41,8 @@ class MastersStore extends ChangeNotifier {
     _shiftRepo = CashShiftRepository(_appDatabase.database);
     _inventoryRepo = InventoryItemRepository(_appDatabase.database);
     _stockMovementRepo = StockMovementRepository(_appDatabase.database);
+    _appointmentRepo = AppointmentRepository(_appDatabase.database);
+    _bookingResourceRepo = BookingResourceRepository(_appDatabase.database);
   }
 
   final AppDatabase _appDatabase;
@@ -53,6 +59,8 @@ class MastersStore extends ChangeNotifier {
   late final CashShiftRepository _shiftRepo;
   late final InventoryItemRepository _inventoryRepo;
   late final StockMovementRepository _stockMovementRepo;
+  late final AppointmentRepository _appointmentRepo;
+  late final BookingResourceRepository _bookingResourceRepo;
 
   List<Client> _clients = [];
   List<WorkObject> _objects = [];
@@ -65,6 +73,8 @@ class MastersStore extends ChangeNotifier {
   List<CashShift> _shifts = [];
   List<InventoryItem> _inventoryItems = [];
   List<StockMovement> _stockMovements = [];
+  List<Appointment> _appointments = [];
+  List<BookingResource> _bookingResources = [];
   bool _loaded = false;
 
   bool get isLoaded => _loaded;
@@ -80,6 +90,8 @@ class MastersStore extends ChangeNotifier {
   List<CashShift> get shifts => List.unmodifiable(_shifts);
   List<InventoryItem> get inventoryItems => List.unmodifiable(_inventoryItems);
   List<StockMovement> get stockMovements => List.unmodifiable(_stockMovements);
+  List<Appointment> get appointments => List.unmodifiable(_appointments);
+  List<BookingResource> get bookingResources => List.unmodifiable(_bookingResources);
 
   Client? clientById(String id) {
     for (final c in _clients) {
@@ -128,6 +140,13 @@ class MastersStore extends ChangeNotifier {
     _shifts = await _shiftRepo.getAll();
     _inventoryItems = await _inventoryRepo.getAll();
     _stockMovements = await _stockMovementRepo.getAll();
+    _appointments = await _appointmentRepo.getAll();
+    _bookingResources = await _bookingResourceRepo.getAll();
+    if (_bookingResources.isEmpty) {
+      final r = BookingResource(id: newId(), name: 'Основной', createdAt: DateTime.now());
+      await _bookingResourceRepo.save(r);
+      _bookingResources = [r];
+    }
     _loaded = true;
     notifyListeners();
   }
@@ -684,11 +703,72 @@ class MastersStore extends ChangeNotifier {
   List<StockMovement> movementsForItem(String itemId) =>
       _stockMovements.where((m) => m.itemId == itemId).toList();
 
+  // Booking
+  BookingResource? defaultResource() => _bookingResources.isEmpty ? null : _bookingResources.first;
+
+  List<Appointment> appointmentsForDay(DateTime day) {
+    final start = DateTime(day.year, day.month, day.day);
+    final end = start.add(const Duration(days: 1));
+    return _appointments
+        .where((a) => a.startAt.isAfter(start.subtract(const Duration(seconds: 1))) && a.startAt.isBefore(end))
+        .toList()
+      ..sort((a, b) => a.startAt.compareTo(b.startAt));
+  }
+
+  Future<Appointment> createAppointment({
+    required String title,
+    DateTime? startAt,
+    DateTime? endAt,
+    String? clientId,
+    String? objectId,
+    String? resourceId,
+    String? note,
+  }) async {
+    final now = DateTime.now();
+    final s = startAt ?? now;
+    final e = endAt ?? s.add(const Duration(hours: 1));
+    final r = resourceId ?? defaultResource()?.id;
+    final appt = Appointment(
+      id: newId(),
+      clientId: clientId,
+      objectId: objectId,
+      resourceId: r,
+      title: title.trim(),
+      startAt: s,
+      endAt: e,
+      note: note?.trim().isEmpty == true ? null : note?.trim(),
+      createdAt: now,
+      updatedAt: now,
+    );
+    await _appointmentRepo.save(appt);
+    _appointments = [..._appointments, appt];
+    notifyListeners();
+    return appt;
+  }
+
+  Future<void> updateAppointment(Appointment a) async {
+    final updated = a.copyWith(updatedAt: DateTime.now());
+    await _appointmentRepo.save(updated);
+    final idx = _appointments.indexWhere((x) => x.id == updated.id);
+    if (idx == -1) {
+      _appointments = [..._appointments, updated];
+    } else {
+      _appointments[idx] = updated;
+    }
+    notifyListeners();
+  }
+
+  Future<void> deleteAppointment(String id) async {
+    await _appointmentRepo.delete(id);
+    _appointments = _appointments.where((a) => a.id != id).toList();
+    notifyListeners();
+  }
+
   // backup
   Map<String, dynamic> backupData() {
     return {
       'format': 'masters-backup',
-      'version': 3,
+      'version': 4,
       'exported_at': DateTime.now().toIso8601String(),
       'clients': _clients.map((c) => c.toMap()).toList(),
       'objects': _objects.map((o) => o.toMap()).toList(),
@@ -701,6 +781,8 @@ class MastersStore extends ChangeNotifier {
       'money_transactions': _moneyTransactions.map((t) => t.toMap()).toList(),
       'inventory_items': _inventoryItems.map((i) => i.toMap()).toList(),
       'stock_movements': _stockMovements.map((m) => m.toMap()).toList(),
+      'appointments': _appointments.map((a) => a.toMap()).toList(),
+      'booking_resources': _bookingResources.map((r) => r.toMap()).toList(),
     };
   }
 
@@ -709,7 +791,7 @@ class MastersStore extends ChangeNotifier {
       throw const FormatException('Это не резервная копия «Masters».');
     }
     final version = data['version'];
-    if (version is! int || version > 3) {
+    if (version is! int || version > 4) {
       throw const FormatException('Неподдерживаемая версия копии.');
     }
 
@@ -783,9 +865,24 @@ class MastersStore extends ChangeNotifier {
       }
     }
 
+    final appointments = <Appointment>[];
+    if (data['appointments'] is List) {
+      for (final item in data['appointments'] as List) {
+        if (item is Map) appointments.add(Appointment.fromMap(Map<String, Object?>.from(item)));
+      }
+    }
+    final bookingResources = <BookingResource>[];
+    if (data['booking_resources'] is List) {
+      for (final item in data['booking_resources'] as List) {
+        if (item is Map) bookingResources.add(BookingResource.fromMap(Map<String, Object?>.from(item)));
+      }
+    }
+
     final jobIds = jobs.map((j) => j.id).toSet();
 
     await _appDatabase.database.transaction((txn) async {
+      await txn.delete('appointments');
+      await txn.delete('booking_resources');
       await txn.delete('stock_movements');
       await txn.delete('inventory_items');
       await txn.delete('money_transactions');
@@ -819,6 +916,8 @@ class MastersStore extends ChangeNotifier {
       for (final t in moneyTransactions) { batch.insert('money_transactions', t.toMap()); }
       for (final i in inventoryItems) { batch.insert('inventory_items', i.toMap()); }
       for (final m in stockMovements) { batch.insert('stock_movements', m.toMap()); }
+      for (final a in appointments) { batch.insert('appointments', a.toMap()); }
+      for (final r in bookingResources) { batch.insert('booking_resources', r.toMap()); }
       await batch.commit(noResult: true);
     });
 
@@ -827,6 +926,8 @@ class MastersStore extends ChangeNotifier {
 
   Future<void> clearAll() async {
     await _appDatabase.database.transaction((txn) async {
+      await txn.delete('appointments');
+      await txn.delete('booking_resources');
       await txn.delete('stock_movements');
       await txn.delete('inventory_items');
       await txn.delete('money_transactions');
