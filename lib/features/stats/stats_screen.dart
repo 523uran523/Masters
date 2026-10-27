@@ -5,6 +5,7 @@ import '../../app/theme/app_theme.dart';
 import '../../app/ui.dart';
 import '../../core/utils/app_utils.dart';
 import '../../data/models/job.dart';
+import '../../data/models/money_transaction.dart';
 import '../../state/masters_store.dart';
 
 class StatsScreen extends StatefulWidget {
@@ -15,46 +16,64 @@ class StatsScreen extends StatefulWidget {
 }
 
 class _StatsScreenState extends State<StatsScreen> {
-  int _period = 0; // 0 all, 1 month, 2 week
+  int _period = 1; // 0 week, 1 month, 2 quarter
 
-  DateTime _startOfPeriod() {
-    final now = DateTime.now();
-    if (_period == 2) {
-      return DateTime(now.year, now.month, now.day).subtract(const Duration(days: 7));
-    }
-    if (_period == 1) {
-      return DateTime(now.year, now.month, 1);
-    }
-    return DateTime(2000);
+  DateTime _start(DateTime now) {
+    if (_period == 0) return DateTime(now.year, now.month, now.day).subtract(const Duration(days: 7));
+    if (_period == 1) return DateTime(now.year, now.month, 1);
+    // quarter
+    final qMonth = ((now.month - 1) ~/ 3) * 3 + 1;
+    return DateTime(now.year, qMonth, 1);
   }
+
+  Duration _duration(DateTime start, DateTime end) => end.difference(start);
 
   @override
   Widget build(BuildContext context) {
     final store = context.watch<MastersStore>();
     final colors = context.colors;
-    final start = _startOfPeriod();
-    final jobs = store.jobs.where((j) {
+    final now = DateTime.now();
+    final start = _start(now);
+    final prevStart = start.subtract(_duration(start, now));
+
+    bool inRange(MoneyTransaction t) => !t.voided && !t.createdAt.isBefore(start) && !t.createdAt.isAfter(now);
+    bool inPrev(MoneyTransaction t) => !t.voided && !t.createdAt.isBefore(prevStart) && t.createdAt.isBefore(start);
+
+    final tx = store.moneyTransactions.where(inRange).toList();
+    final txPrev = store.moneyTransactions.where(inPrev).toList();
+
+    final revenue = tx.where((t) => t.direction == 'in').fold(0, (s, t) => s + t.amountCents);
+    final revenuePrev = txPrev.where((t) => t.direction == 'in').fold(0, (s, t) => s + t.amountCents);
+    final expense = tx.where((t) => t.direction == 'out').fold(0, (s, t) => s + t.amountCents);
+    final expensePrev = txPrev.where((t) => t.direction == 'out').fold(0, (s, t) => s + t.amountCents);
+    final profit = revenue - expense;
+    final profitPrev = revenuePrev - expensePrev;
+
+    final completedJobs = store.jobs.where((j) {
       if (j.archived) return false;
-      if (_period == 0) return true;
-      return j.updatedAt.isAfter(start) || j.createdAt.isAfter(start);
+      final d = j.finishedAt ?? j.updatedAt;
+      return (j.status == JobStatus.done || j.status == JobStatus.closed) && !d.isBefore(start) && !d.isAfter(now);
     }).toList();
+    final jobRevenue = completedJobs.fold(0, (s, j) => s + j.priceCents);
+    final jobCost = completedJobs.fold(0, (s, j) => s + j.costCents + store.totalMaterialCents(j.id));
+    final jobMargin = jobRevenue - jobCost;
 
-    final totalIncome = jobs.fold<int>(0, (s, j) => s + j.priceCents);
-    final totalCostEntered = jobs.fold<int>(0, (s, j) => s + j.costCents);
-    final totalMaterial = jobs.fold<int>(0, (s, j) => s + store.totalMaterialCents(j.id));
-    final totalCost = totalCostEntered + totalMaterial;
-    final margin = totalIncome - totalCost;
-    final totalMinutes = jobs.fold<int>(0, (s, j) => s + store.totalMinutesForJob(j.id));
-    final doneCount = jobs.where((j) => j.status == JobStatus.done || j.status == JobStatus.closed).length;
-    final avgCheck = jobs.isEmpty ? 0 : totalIncome ~/ jobs.length;
-
-    // top clients
-    final clientTotals = <String, int>{};
-    for (final j in jobs) {
-      clientTotals[j.clientId] = (clientTotals[j.clientId] ?? 0) + j.priceCents;
+    final incomeCats = <String, int>{};
+    for (final t in tx.where((t) => t.direction == 'in')) {
+      final key = t.category.isEmpty ? 'Без категории' : t.category;
+      incomeCats[key] = (incomeCats[key] ?? 0) + t.amountCents;
     }
-    final topClients = clientTotals.entries.toList()
-      ..sort((a, b) => b.value.compareTo(a.value));
+    final expenseCats = <String, int>{};
+    for (final t in tx.where((t) => t.direction == 'out')) {
+      final key = t.category.isEmpty ? 'Без категории' : t.category;
+      expenseCats[key] = (expenseCats[key] ?? 0) + t.amountCents;
+    }
+
+    final topClients = <String, int>{};
+    for (final j in completedJobs) {
+      topClients[j.clientId] = (topClients[j.clientId] ?? 0) + j.priceCents;
+    }
+    final sortedClients = topClients.entries.toList()..sort((a, b) => b.value.compareTo(a.value));
 
     return CupertinoPageScaffold(
       navigationBar: const CupertinoNavigationBar(middle: Text('Итоги')),
@@ -64,63 +83,67 @@ class _StatsScreenState extends State<StatsScreen> {
           children: [
             CupertinoSlidingSegmentedControl<int>(
               groupValue: _period,
-              onValueChanged: (v) => setState(() => _period = v ?? 0),
+              onValueChanged: (v) => setState(() => _period = v ?? 1),
               children: const {
-                0: Padding(padding: EdgeInsets.symmetric(horizontal: 10, vertical: 6), child: Text('Всё время')),
+                0: Padding(padding: EdgeInsets.symmetric(horizontal: 10, vertical: 6), child: Text('Неделя')),
                 1: Padding(padding: EdgeInsets.symmetric(horizontal: 10, vertical: 6), child: Text('Месяц')),
-                2: Padding(padding: EdgeInsets.symmetric(horizontal: 10, vertical: 6), child: Text('Неделя')),
+                2: Padding(padding: EdgeInsets.symmetric(horizontal: 10, vertical: 6), child: Text('Квартал')),
               },
             ),
             const SizedBox(height: 12),
             Row(
               children: [
-                Expanded(child: StatTile(label: 'Заказов', value: '${jobs.length}', icon: CupertinoIcons.doc_text, tint: colors.accent)),
+                Expanded(child: StatTile(label: 'Выручка', value: _money(revenue), icon: CupertinoIcons.money_dollar, tint: colors.green)),
                 const SizedBox(width: 8),
-                Expanded(child: StatTile(label: 'Завершено', value: '$doneCount', icon: CupertinoIcons.checkmark_seal, tint: colors.green)),
+                Expanded(child: StatTile(label: 'Расходы', value: _money(expense), icon: CupertinoIcons.minus_circle, tint: colors.red)),
               ],
             ),
             const SizedBox(height: 8),
             Row(
               children: [
-                Expanded(child: StatTile(label: 'Доход', value: _money(totalIncome), icon: CupertinoIcons.money_dollar, tint: colors.green)),
+                Expanded(child: StatTile(label: 'Прибыль', value: _money(profit), icon: CupertinoIcons.chart_bar, tint: colors.accent)),
                 const SizedBox(width: 8),
-                Expanded(child: StatTile(label: 'Расход', value: _money(totalCost), icon: CupertinoIcons.minus_circle, tint: colors.red)),
+                Expanded(child: StatTile(label: 'Маржа заказов', value: _money(jobMargin), icon: CupertinoIcons.chart_pie, tint: colors.purple)),
               ],
             ),
             const SizedBox(height: 8),
             Row(
               children: [
-                Expanded(child: StatTile(label: 'Маржа', value: _money(margin), icon: CupertinoIcons.chart_bar, tint: colors.accent)),
+                Expanded(child: StatTile(label: 'Заказов', value: '${completedJobs.length}', icon: CupertinoIcons.doc_text, tint: colors.accent)),
                 const SizedBox(width: 8),
-                Expanded(child: StatTile(label: 'Средний чек', value: _money(avgCheck), icon: CupertinoIcons.chart_pie, tint: colors.purple)),
+                Expanded(child: StatTile(label: 'Время', value: _minutes(completedJobs, store), icon: CupertinoIcons.clock, tint: colors.orange)),
               ],
             ),
-            const SizedBox(height: 8),
-            Row(
-              children: [
-                Expanded(child: StatTile(label: 'Время', value: formatMinutes(totalMinutes), icon: CupertinoIcons.clock, tint: colors.orange)),
-                const SizedBox(width: 8),
-                Expanded(child: StatTile(label: 'Клиентов', value: '${clientTotals.length}', icon: CupertinoIcons.person_2, tint: colors.accent)),
-              ],
+            const SizedBox(height: 12),
+            AppCard(
+              child: Column(
+                children: [
+                  _KV('Предыдущий период: прибыль', _money(profitPrev)),
+                  _KV('Изменение', '${profit - profitPrev >= 0 ? '+' : ''}${_money(profit - profitPrev)} (${_pct(profit, profitPrev)})'),
+                  _KV('Выручка заказов (цена)', _money(jobRevenue)),
+                  _KV('Себестоимость заказов', _money(jobCost)),
+                ],
+              ),
             ),
+            const SizedBox(height: 16),
+            SectionLabel('Доходы по категориям'),
+            _categoryCard(colors, incomeCats, colors.green),
+            const SizedBox(height: 16),
+            SectionLabel('Расходы по категориям'),
+            _categoryCard(colors, expenseCats, colors.red),
             const SizedBox(height: 16),
             SectionLabel('Топ клиентов'),
             AppCard(
-              child: topClients.isEmpty
-                  ? EmptyState(
-                      title: 'Нет данных',
-                      message: 'Создайте заказы, чтобы увидеть статистику.',
-                      art: Icon(CupertinoIcons.chart_bar, size: 36, color: colors.tertiaryLabel),
-                    )
+              child: sortedClients.isEmpty
+                  ? EmptyState(title: 'Нет данных', message: 'Завершите заказы, чтобы увидеть статистику.', art: Icon(CupertinoIcons.chart_bar, size: 36, color: colors.tertiaryLabel))
                   : Column(
-                      children: topClients.take(8).map((e) {
+                      children: sortedClients.take(8).map((e) {
                         final client = store.clientById(e.key);
-                        final name = client?.name ?? 'Клиент';
                         return Padding(
                           padding: const EdgeInsets.symmetric(vertical: 6),
                           child: Row(
                             children: [
-                              Expanded(child: Text(name, style: const TextStyle(fontWeight: FontWeight.w500))),
+                              Expanded(child: Text(client?.name ?? 'Клиент', style: const TextStyle(fontWeight: FontWeight.w500))),
                               Text(_money(e.value), style: const TextStyle(fontWeight: FontWeight.w600)),
                             ],
                           ),
@@ -135,4 +158,65 @@ class _StatsScreenState extends State<StatsScreen> {
   }
 
   String _money(int cents) => '${(cents / 100).toStringAsFixed(0)} ₽';
+
+  String _minutes(List<Job> jobs, MastersStore store) {
+    final total = jobs.fold(0, (s, j) => s + store.totalMinutesForJob(j.id));
+    return formatMinutes(total);
+  }
+
+  String _pct(int current, int prev) {
+    if (prev == 0) return current == 0 ? '0%' : '∞';
+    final p = ((current - prev) / prev * 100).toStringAsFixed(1);
+    return '$p%';
+  }
+
+  Widget _categoryCard(AppColors colors, Map<String, int> cats, Color tint) {
+    if (cats.isEmpty) {
+      return AppCard(child: EmptyState(title: 'Нет данных', message: 'Нет операций в периоде.', art: Icon(CupertinoIcons.chart_bar, size: 36, color: colors.tertiaryLabel)));
+    }
+    final max = cats.values.reduce((a, b) => a > b ? a : b);
+    return AppCard(
+      child: Column(
+        children: cats.entries.map((e) {
+          final v = max == 0 ? 0.0 : e.value / max;
+          return Padding(
+            padding: const EdgeInsets.symmetric(vertical: 6),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Expanded(child: Text(e.key, style: const TextStyle(fontWeight: FontWeight.w500))),
+                    Text(_money(e.value), style: const TextStyle(fontWeight: FontWeight.w600)),
+                  ],
+                ),
+                const SizedBox(height: 4),
+                ProgressBar(value: v, color: tint),
+              ],
+            ),
+          );
+        }).toList(),
+      ),
+    );
+  }
+}
+
+class _KV extends StatelessWidget {
+  const _KV(this.label, this.value);
+  final String label;
+  final String value;
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.colors;
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 3),
+      child: Row(
+        children: [
+          Text(label, style: TextStyle(color: colors.secondaryLabel)),
+          const Spacer(),
+          Text(value, style: const TextStyle(fontWeight: FontWeight.w600)),
+        ],
+      ),
+    );
+  }
 }

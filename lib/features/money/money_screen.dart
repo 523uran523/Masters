@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 
 import '../../app/theme/app_theme.dart';
 import '../../app/ui.dart';
+import '../stats/stats_screen.dart';
 import '../../state/masters_store.dart';
 
 class MoneyScreen extends StatefulWidget {
@@ -304,6 +305,14 @@ class _MoneyScreenState extends State<MoneyScreen> {
                             }).toList(),
                           ),
                         ),
+                  const SizedBox(height: 12),
+                  SecondaryButton(
+                    label: 'Расширенная аналитика (P&L)',
+                    icon: CupertinoIcons.chart_bar,
+                    onPressed: () => Navigator.of(context).push(
+                      CupertinoPageRoute(builder: (_) => const StatsScreen()),
+                    ),
+                  ),
                   const SizedBox(height: 16),
                   SectionLabel('Журнал (${store.moneyTransactions.length})'),
                   store.moneyTransactions.isEmpty
