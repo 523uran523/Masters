@@ -28,6 +28,9 @@ class SettingsController extends ChangeNotifier {
   static const _modulesKey = 'modules';
   static const _objectTermKey = 'object_term';
   static const _clientTermKey = 'client_term';
+  static const _yandexLoginKey = 'yandex_login';
+  static const _yandexPasswordKey = 'yandex_password';
+  static const _yandexAutoBackupKey = 'yandex_auto_backup';
   static const _onboardingKey = 'onboarding_done';
   static const _reminderEnabledKey = 'reminder_enabled';
   static const _reminderHourKey = 'reminder_hour';
@@ -94,6 +97,29 @@ class SettingsController extends ChangeNotifier {
 
   Future<void> setClientTerm(String value) async {
     await _prefs.setString(_clientTermKey, value);
+    notifyListeners();
+  }
+
+  String? get yandexLogin => _prefs.getString(_yandexLoginKey);
+  String? get yandexPassword => _prefs.getString(_yandexPasswordKey);
+  bool get yandexAutoBackup => _prefs.getBool(_yandexAutoBackupKey) ?? false;
+
+  Future<void> setYandexCredentials(String? login, String? password) async {
+    if (login == null || login.trim().isEmpty) {
+      await _prefs.remove(_yandexLoginKey);
+    } else {
+      await _prefs.setString(_yandexLoginKey, login.trim());
+    }
+    if (password == null || password.trim().isEmpty) {
+      await _prefs.remove(_yandexPasswordKey);
+    } else {
+      await _prefs.setString(_yandexPasswordKey, password);
+    }
+    notifyListeners();
+  }
+
+  Future<void> setYandexAutoBackup(bool value) async {
+    await _prefs.setBool(_yandexAutoBackupKey, value);
     notifyListeners();
   }
 

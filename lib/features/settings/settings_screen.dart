@@ -5,6 +5,7 @@ import '../../app/theme/app_theme.dart';
 import '../../app/ui.dart';
 import '../../core/backup_service.dart';
 import '../../core/reminder_service.dart';
+import '../../core/yandex_disk_service.dart';
 import '../../data/models/job.dart';
 import '../../state/masters_store.dart';
 import '../../state/settings_controller.dart';
@@ -18,6 +19,23 @@ class SettingsScreen extends StatefulWidget {
 
 class _SettingsScreenState extends State<SettingsScreen> {
   bool _busy = false;
+  final _yandexLoginController = TextEditingController();
+  final _yandexPasswordController = TextEditingController();
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final s = context.read<SettingsController>();
+    if (_yandexLoginController.text.isEmpty && s.yandexLogin != null) _yandexLoginController.text = s.yandexLogin!;
+    if (_yandexPasswordController.text.isEmpty && s.yandexPassword != null) _yandexPasswordController.text = s.yandexPassword!;
+  }
+
+  @override
+  void dispose() {
+    _yandexLoginController.dispose();
+    _yandexPasswordController.dispose();
+    super.dispose();
+  }
 
   Future<void> _pickReminderTime(SettingsController settings) async {
     final initial = DateTime(2024, 1, 1, settings.reminderHour, settings.reminderMinute);
@@ -141,6 +159,65 @@ class _SettingsScreenState extends State<SettingsScreen> {
     if (mounted) await showAppAlert(context, title: 'Готово', message: 'Данные очищены.');
   }
 
+  Future<void> _saveYandexCredentials() async {
+    final settings = context.read<SettingsController>();
+    await settings.setYandexCredentials(_yandexLoginController.text, _yandexPasswordController.text);
+    if (mounted) await showAppAlert(context, title: 'Сохранено', message: 'Данные Яндекс Диска сохранены.');
+  }
+
+  Future<void> _testYandex() async {
+    await _saveYandexCredentials();
+    if (!mounted) return;
+    final settings = context.read<SettingsController>();
+    if (settings.yandexLogin == null || settings.yandexPassword == null) return;
+    setState(() => _busy = true);
+    try {
+      final ok = await YandexDiskService.testCredentials(settings.yandexLogin!, settings.yandexPassword!);
+      if (mounted) await showAppAlert(context, title: ok ? 'Успешно' : 'Ошибка', message: ok ? 'Подключение работает.' : 'Не удалось авторизоваться. Проверьте логин и пароль приложения.');
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _uploadYandex() async {
+    await _saveYandexCredentials();
+    if (!mounted) return;
+    final settings = context.read<SettingsController>();
+    final store = context.read<MastersStore>();
+    if (settings.yandexLogin == null || settings.yandexPassword == null) return;
+    setState(() => _busy = true);
+    try {
+      final ok = await YandexDiskService.uploadBackup(settings.yandexLogin!, settings.yandexPassword!, store.backupData(), 'masters-backup-latest.json');
+      if (mounted) await showAppAlert(context, title: ok ? 'Готово' : 'Ошибка', message: ok ? 'Бэкап загружен на Яндекс Диск.' : 'Не удалось загрузить бэкап.');
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _restoreYandex() async {
+    await _saveYandexCredentials();
+    if (!mounted) return;
+    final settings = context.read<SettingsController>();
+    final store = context.read<MastersStore>();
+    if (settings.yandexLogin == null || settings.yandexPassword == null) return;
+    final okc = await showAppConfirm(context, title: 'Восстановить данные?', message: 'Локальные данные будут заменены бэкапом с Яндекс Диска.', destructive: true, confirmLabel: 'Восстановить');
+    if (!okc) return;
+    setState(() => _busy = true);
+    try {
+      final data = await YandexDiskService.downloadBackup(settings.yandexLogin!, settings.yandexPassword!, 'masters-backup-latest.json');
+      if (data == null) {
+        if (mounted) await showAppAlert(context, title: 'Ошибка', message: 'Не найден бэкап на Яндекс Диске.');
+        return;
+      }
+      await store.restoreFromBackup(data);
+      if (mounted) await showAppAlert(context, title: 'Готово', message: 'Данные восстановлены.');
+    } catch (e) {
+      if (mounted) await showAppAlert(context, title: 'Ошибка', message: e.toString());
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
@@ -249,6 +326,49 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         destructive: true,
                         onTap: _clearData,
                       ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 16),
+                SectionLabel('Яндекс Диск (автобэкап)'),
+                AppCard(
+                  child: Column(
+                    children: [
+                      CupertinoTextField(
+                        controller: _yandexLoginController,
+                        placeholder: 'Логин Яндекса',
+                      ),
+                      const SizedBox(height: 8),
+                      CupertinoTextField(
+                        controller: _yandexPasswordController,
+                        placeholder: 'Пароль приложения (WebDAV)',
+                        obscureText: true,
+                      ),
+                      const SizedBox(height: 8),
+                      Row(
+                        children: [
+                          const Expanded(child: Text('Автобэкап при запуске')),
+                          CupertinoSwitch(
+                            value: context.watch<SettingsController>().yandexAutoBackup,
+                            onChanged: (v) async {
+                              await _saveYandexCredentials();
+                              if (!context.mounted) return;
+                              await context.read<SettingsController>().setYandexAutoBackup(v);
+                              if (!context.mounted) return;
+                              setState(() {});
+                            },
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      Text('Используется WebDAV Яндекс Диска. Для 2FA создайте пароль приложения в настройках Яндекса.',
+                          style: TextStyle(color: colors.secondaryLabel, fontSize: 12)),
+                      const SizedBox(height: 8),
+                      SecondaryButton(label: 'Проверить подключение', icon: CupertinoIcons.checkmark, onPressed: _testYandex),
+                      const SizedBox(height: 8),
+                      SecondaryButton(label: 'Загрузить бэкап сейчас', icon: CupertinoIcons.cloud_upload, onPressed: _uploadYandex),
+                      const SizedBox(height: 8),
+                      SecondaryButton(label: 'Восстановить из Яндекс Диска', icon: CupertinoIcons.cloud_download, onPressed: _restoreYandex),
                     ],
                   ),
                 ),

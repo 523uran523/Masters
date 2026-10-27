@@ -24,6 +24,7 @@ dependencies:
   intl: ^0.20.3
   timezone: ^0.9.4
   csv: ^8.0.0
+  http: ^1.2.0
   pdf: ^3.11.1
   flutter_local_notifications: ^17.0.0
   crypto: ^3.0.7

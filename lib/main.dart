@@ -8,6 +8,7 @@ import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 import 'app/app.dart';
 import 'core/reminder_service.dart';
+import 'core/yandex_disk_service.dart';
 import 'data/app_database.dart';
 import 'state/masters_store.dart';
 import 'state/settings_controller.dart';
@@ -41,6 +42,22 @@ Future<void> main() async {
 
   final store = MastersStore(database, settings);
   await store.load();
+
+  if (settings.yandexAutoBackup &&
+      settings.yandexLogin != null &&
+      settings.yandexPassword != null) {
+    try {
+      final fileName = 'masters-backup-latest.json';
+      await YandexDiskService.uploadBackup(
+        settings.yandexLogin!,
+        settings.yandexPassword!,
+        store.backupData(),
+        fileName,
+      );
+    } catch (_) {
+      // best-effort
+    }
+  }
 
   runApp(MastersApp(store: store, settings: settings));
 }
