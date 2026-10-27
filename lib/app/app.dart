@@ -2,6 +2,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:provider/provider.dart';
 
+import '../features/onboarding/onboarding_screen.dart';
 import '../state/masters_store.dart';
 import '../state/settings_controller.dart';
 import 'root_shell.dart';
@@ -83,7 +84,9 @@ class _MastersAppState extends State<MastersApp> with WidgetsBindingObserver {
               GlobalMaterialLocalizations.delegate,
               GlobalWidgetsLocalizations.delegate,
             ],
-            home: const RootShell(),
+            home: widget.settings.onboardingDone
+                ? const RootShell()
+                : const OnboardingScreen(),
           );
         },
       ),

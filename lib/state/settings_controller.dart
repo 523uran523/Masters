@@ -24,6 +24,10 @@ class SettingsController extends ChangeNotifier {
   final SharedPreferences _prefs;
 
   static const _themeKey = 'theme_mode';
+  static const _businessTypeKey = 'business_type';
+  static const _modulesKey = 'modules';
+  static const _objectTermKey = 'object_term';
+  static const _clientTermKey = 'client_term';
   static const _onboardingKey = 'onboarding_done';
   static const _reminderEnabledKey = 'reminder_enabled';
   static const _reminderHourKey = 'reminder_hour';
@@ -65,6 +69,31 @@ class SettingsController extends ChangeNotifier {
 
   Future<void> setDndEnabled(bool value) async {
     await _prefs.setBool(_dndEnabledKey, value);
+    notifyListeners();
+  }
+
+  String get businessType => _prefs.getString(_businessTypeKey) ?? 'service';
+  List<String> get modules => (_prefs.getString(_modulesKey) ?? '').split(',').where((e) => e.isNotEmpty).toList();
+  String get objectTerm => _prefs.getString(_objectTermKey) ?? 'Объект';
+  String get clientTerm => _prefs.getString(_clientTermKey) ?? 'Клиент';
+
+  Future<void> setBusinessType(String value) async {
+    await _prefs.setString(_businessTypeKey, value);
+    notifyListeners();
+  }
+
+  Future<void> setModules(List<String> value) async {
+    await _prefs.setString(_modulesKey, value.join(','));
+    notifyListeners();
+  }
+
+  Future<void> setObjectTerm(String value) async {
+    await _prefs.setString(_objectTermKey, value);
+    notifyListeners();
+  }
+
+  Future<void> setClientTerm(String value) async {
+    await _prefs.setString(_clientTermKey, value);
     notifyListeners();
   }
 
