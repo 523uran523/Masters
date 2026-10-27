@@ -85,6 +85,61 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
     );
   }
 
+  Future<void> _acceptPayment(MastersStore store, Job job) async {
+    final remaining = job.priceCents - store.paidForJob(job.id);
+    final amountStr = await _promptText(
+        'Сумма оплаты', remaining > 0 ? (remaining / 100).toStringAsFixed(0) : '0');
+    final amount = ((double.tryParse((amountStr ?? '0').replaceAll(',', '.')) ?? 0) * 100).round();
+    if (amount <= 0) return;
+    final accountId = await _pickAccount(store);
+    if (accountId == null) return;
+    await store.addTransaction(
+      accountId: accountId,
+      kind: 'payment',
+      direction: 'in',
+      amountCents: amount,
+      category: 'Оплата заказа',
+      note: job.title,
+      clientId: job.clientId,
+      jobId: job.id,
+    );
+  }
+
+  Future<String?> _pickAccount(MastersStore store) async {
+    final accounts = store.accounts.where((a) => !a.archived).toList();
+    return showCupertinoModalPopup<String?>(
+      context: context,
+      builder: (ctx) => Container(
+        height: 320,
+        color: context.colors.card,
+        child: Column(
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                CupertinoButton(child: const Text('Отмена'), onPressed: () => Navigator.of(ctx).pop()),
+              ],
+            ),
+            Expanded(
+              child: ListView(
+                children: [
+                  for (final a in accounts)
+                    CupertinoButton(
+                      onPressed: () => Navigator.of(ctx).pop(a.id),
+                      child: Align(
+                        alignment: Alignment.centerLeft,
+                        child: Text(a.name),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Future<void> _addSessionManual(MastersStore store) async {
     final minStr = await _promptText('Время (минуты)', '60');
     final minutes = int.tryParse((minStr ?? '').trim()) ?? 0;
@@ -389,6 +444,23 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
               ),
             ),
             const SizedBox(height: 16),
+            if (store.paidForJob(job.id) > 0 || job.priceCents > 0) ...[
+              SectionLabel('Оплата'),
+              AppCard(
+                child: Column(
+                  children: [
+                    _KV('Оплачено', '${(store.paidForJob(job.id) / 100).toStringAsFixed(0)} ₽'),
+                    _KV('Остаток', '${((job.priceCents - store.paidForJob(job.id)) / 100).toStringAsFixed(0)} ₽'),
+                    SecondaryButton(
+                      label: 'Принять оплату',
+                      icon: CupertinoIcons.money_dollar,
+                      onPressed: () => _acceptPayment(store, job),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+            ],
             SectionLabel('Действия'),
             AppCard(
               child: Column(

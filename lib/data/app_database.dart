@@ -13,7 +13,7 @@ class AppDatabase {
 
     final database = await openDatabase(
       path,
-      version: 1,
+      version: 2,
       onConfigure: (db) async {
         await db.execute('PRAGMA foreign_keys = ON');
       },
@@ -110,6 +110,62 @@ class AppDatabase {
     ''');
     await db.execute('CREATE INDEX idx_wsessions_job ON work_sessions(job_id)');
     await db.execute('CREATE INDEX idx_wsessions_started ON work_sessions(started_at)');
+
+    await _createMoneySchema(db);
+  }
+
+  static Future<void> _createMoneySchema(Database db) async {
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS accounts (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        type TEXT NOT NULL DEFAULT 'cash',
+        color TEXT NOT NULL DEFAULT '#007AFF',
+        archived INTEGER NOT NULL DEFAULT 0,
+        created_at INTEGER NOT NULL
+      )
+    ''');
+
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS cash_shifts (
+        id TEXT PRIMARY KEY,
+        account_id TEXT NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+        opened_at INTEGER NOT NULL,
+        closed_at INTEGER,
+        opening_cents INTEGER NOT NULL DEFAULT 0,
+        closing_cents INTEGER,
+        expected_cents INTEGER,
+        discrepancy_cents INTEGER,
+        note TEXT,
+        status TEXT NOT NULL DEFAULT 'open'
+      )
+    ''');
+    await db.execute('CREATE INDEX idx_shifts_account ON cash_shifts(account_id)');
+    await db.execute('CREATE INDEX idx_shifts_opened ON cash_shifts(opened_at)');
+
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS money_transactions (
+        id TEXT PRIMARY KEY,
+        account_id TEXT NOT NULL REFERENCES accounts(id) ON DELETE RESTRICT,
+        kind TEXT NOT NULL,
+        direction TEXT NOT NULL,
+        amount_cents INTEGER NOT NULL,
+        category TEXT NOT NULL DEFAULT '',
+        note TEXT,
+        client_id TEXT REFERENCES clients(id) ON DELETE SET NULL,
+        job_id TEXT REFERENCES jobs(id) ON DELETE SET NULL,
+        shift_id TEXT REFERENCES cash_shifts(id) ON DELETE SET NULL,
+        related_transaction_id TEXT,
+        created_at INTEGER NOT NULL,
+        voided INTEGER NOT NULL DEFAULT 0
+      )
+    ''');
+    await db.execute('CREATE INDEX idx_money_tx_account ON money_transactions(account_id)');
+    await db.execute('CREATE INDEX idx_money_tx_created ON money_transactions(created_at)');
+    await db.execute('CREATE INDEX idx_money_tx_job ON money_transactions(job_id)');
+    await db.execute('CREATE INDEX idx_money_tx_client ON money_transactions(client_id)');
+    await db.execute('CREATE INDEX idx_money_tx_shift ON money_transactions(shift_id)');
+    await db.execute('CREATE INDEX idx_money_tx_kind ON money_transactions(kind)');
   }
 
   static Future<void> _upgradeSchema(
@@ -117,7 +173,9 @@ class AppDatabase {
     int oldVersion,
     int newVersion,
   ) async {
-    // Reserved for future migrations (v2+).
+    if (oldVersion < 2) {
+      await _createMoneySchema(db);
+    }
   }
 
   Future<void> close() => database.close();

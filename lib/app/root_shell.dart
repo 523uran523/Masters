@@ -3,7 +3,7 @@ import 'package:flutter/cupertino.dart';
 import '../features/today/today_screen.dart';
 import '../features/jobs/jobs_screen.dart';
 import '../features/clients/clients_screen.dart';
-import '../features/stats/stats_screen.dart';
+import '../features/money/money_screen.dart';
 import '../features/settings/settings_screen.dart';
 import 'theme/app_theme.dart';
 
@@ -45,8 +45,8 @@ class _RootShellState extends State<RootShell> {
             label: 'Клиенты',
           ),
           BottomNavigationBarItem(
-            icon: Icon(CupertinoIcons.chart_bar, size: 23),
-            label: 'Итоги',
+            icon: Icon(CupertinoIcons.money_dollar, size: 23),
+            label: 'Деньги',
           ),
           BottomNavigationBarItem(
             icon: Icon(CupertinoIcons.gear, size: 23),
@@ -59,7 +59,7 @@ class _RootShellState extends State<RootShell> {
           0 => CupertinoTabView(builder: (context) => const TodayScreen()),
           1 => CupertinoTabView(builder: (context) => const JobsScreen()),
           2 => CupertinoTabView(builder: (context) => const ClientsScreen()),
-          3 => CupertinoTabView(builder: (context) => const StatsScreen()),
+          3 => CupertinoTabView(builder: (context) => const MoneyScreen()),
           _ => CupertinoTabView(builder: (context) => const SettingsScreen()),
         };
       },

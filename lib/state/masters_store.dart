@@ -2,12 +2,18 @@ import 'package:flutter/foundation.dart';
 
 import '../core/utils/app_utils.dart';
 import '../data/app_database.dart';
+import '../data/models/account.dart';
+import '../data/models/cash_shift.dart';
 import '../data/models/client.dart';
 import '../data/models/job.dart';
 import '../data/models/job_items.dart';
+import '../data/models/money_transaction.dart';
 import '../data/models/work_object.dart';
+import '../data/repositories/account_repository.dart';
+import '../data/repositories/cash_shift_repository.dart';
 import '../data/repositories/client_repository.dart';
 import '../data/repositories/job_repository.dart';
+import '../data/repositories/money_transaction_repository.dart';
 import '../data/repositories/material_repository.dart';
 import '../data/repositories/object_repository.dart';
 import '../data/repositories/session_repository.dart';
@@ -22,6 +28,9 @@ class MastersStore extends ChangeNotifier {
     _stageRepo = StageRepository(_appDatabase.database);
     _materialRepo = MaterialRepository(_appDatabase.database);
     _sessionRepo = SessionRepository(_appDatabase.database);
+    _accountRepo = AccountRepository(_appDatabase.database);
+    _moneyTxRepo = MoneyTransactionRepository(_appDatabase.database);
+    _shiftRepo = CashShiftRepository(_appDatabase.database);
   }
 
   final AppDatabase _appDatabase;
@@ -33,6 +42,9 @@ class MastersStore extends ChangeNotifier {
   late final StageRepository _stageRepo;
   late final MaterialRepository _materialRepo;
   late final SessionRepository _sessionRepo;
+  late final AccountRepository _accountRepo;
+  late final MoneyTransactionRepository _moneyTxRepo;
+  late final CashShiftRepository _shiftRepo;
 
   List<Client> _clients = [];
   List<WorkObject> _objects = [];
@@ -40,6 +52,9 @@ class MastersStore extends ChangeNotifier {
   List<JobStage> _stages = [];
   List<MaterialItem> _materials = [];
   List<WorkSession> _sessions = [];
+  List<Account> _accounts = [];
+  List<MoneyTransaction> _moneyTransactions = [];
+  List<CashShift> _shifts = [];
   bool _loaded = false;
 
   bool get isLoaded => _loaded;
@@ -50,6 +65,9 @@ class MastersStore extends ChangeNotifier {
   List<JobStage> get stages => List.unmodifiable(_stages);
   List<MaterialItem> get materials => List.unmodifiable(_materials);
   List<WorkSession> get sessions => List.unmodifiable(_sessions);
+  List<Account> get accounts => List.unmodifiable(_accounts);
+  List<MoneyTransaction> get moneyTransactions => List.unmodifiable(_moneyTransactions);
+  List<CashShift> get shifts => List.unmodifiable(_shifts);
 
   Client? clientById(String id) {
     for (final c in _clients) {
@@ -83,6 +101,19 @@ class MastersStore extends ChangeNotifier {
       _materials.addAll(await _materialRepo.forJob(job.id));
     }
     _sessions = await _sessionRepo.getAll();
+    _accounts = await _accountRepo.getAll();
+    if (_accounts.isEmpty) {
+      final acc = Account(
+        id: newId(),
+        name: 'Наличные',
+        type: 'cash',
+        createdAt: DateTime.now(),
+      );
+      await _accountRepo.save(acc);
+      _accounts = [acc];
+    }
+    _moneyTransactions = await _moneyTxRepo.getAll();
+    _shifts = await _shiftRepo.getAll();
     _loaded = true;
     notifyListeners();
   }
@@ -374,11 +405,168 @@ class MastersStore extends ChangeNotifier {
     notifyListeners();
   }
 
+  // Money
+  Account? accountById(String id) {
+    for (final a in _accounts) {
+      if (a.id == id) return a;
+    }
+    return null;
+  }
+
+  int balanceCents(String accountId) {
+    return _moneyTransactions
+        .where((t) => !t.voided && t.accountId == accountId)
+        .fold(0, (s, t) => s + t.signedAmount);
+  }
+
+  int totalBalanceCents() =>
+      _accounts.fold(0, (s, a) => s + balanceCents(a.id));
+
+  CashShift? openShift() {
+    for (final s in _shifts) {
+      if (s.isOpen) return s;
+    }
+    return null;
+  }
+
+  Future<Account> createAccount({
+    required String name,
+    String type = 'cash',
+    String color = '#007AFF',
+  }) async {
+    final acc = Account(id: newId(), name: name.trim(), type: type, color: color, createdAt: DateTime.now());
+    await _accountRepo.save(acc);
+    _accounts = [..._accounts, acc];
+    notifyListeners();
+    return acc;
+  }
+
+  Future<void> updateAccount(Account acc) async {
+    await _accountRepo.save(acc);
+    final idx = _accounts.indexWhere((a) => a.id == acc.id);
+    if (idx == -1) {
+      _accounts = [..._accounts, acc];
+    } else {
+      _accounts[idx] = acc;
+    }
+    notifyListeners();
+  }
+
+  Future<void> archiveAccount(String id, bool value) async {
+    final acc = accountById(id);
+    if (acc == null) return;
+    await updateAccount(acc.copyWith(archived: value));
+  }
+
+  Future<CashShift> openCashShift({
+    required String accountId,
+    required int openingCents,
+    String? note,
+  }) async {
+    final shift = CashShift(
+      id: newId(),
+      accountId: accountId,
+      openedAt: DateTime.now(),
+      openingCents: openingCents,
+      note: note?.trim().isEmpty == true ? null : note?.trim(),
+      status: 'open',
+    );
+    await _shiftRepo.save(shift);
+    _shifts = [shift, ..._shifts];
+    notifyListeners();
+    return shift;
+  }
+
+  int expectedForShift(CashShift shift) {
+    final txSum = _moneyTransactions
+        .where((t) => !t.voided && t.shiftId == shift.id)
+        .fold(0, (s, t) => s + t.signedAmount);
+    return shift.openingCents + txSum;
+  }
+
+  Future<void> closeCashShift(CashShift shift, int closingCents, {String? note}) async {
+    final expected = expectedForShift(shift);
+    final updated = shift.copyWith(
+      closedAt: DateTime.now(),
+      closingCents: closingCents,
+      expectedCents: expected,
+      discrepancyCents: closingCents - expected,
+      note: note?.trim().isEmpty == true ? shift.note : note?.trim(),
+      status: 'closed',
+    );
+    await _shiftRepo.save(updated);
+    final idx = _shifts.indexWhere((s) => s.id == updated.id);
+    if (idx != -1) _shifts[idx] = updated;
+    notifyListeners();
+  }
+
+  Future<MoneyTransaction> addTransaction({
+    required String accountId,
+    required String kind,
+    required String direction,
+    required int amountCents,
+    String category = '',
+    String? note,
+    String? clientId,
+    String? jobId,
+    String? shiftId,
+  }) async {
+    if (amountCents <= 0) throw ArgumentError('Сумма должна быть больше 0.');
+    final tx = MoneyTransaction(
+      id: newId(),
+      accountId: accountId,
+      kind: kind,
+      direction: direction,
+      amountCents: amountCents,
+      category: category.trim(),
+      note: note?.trim().isEmpty == true ? null : note?.trim(),
+      clientId: clientId,
+      jobId: jobId,
+      shiftId: shiftId ?? openShift()?.id,
+      createdAt: DateTime.now(),
+    );
+    await _moneyTxRepo.save(tx);
+    _moneyTransactions = [tx, ..._moneyTransactions];
+    notifyListeners();
+    return tx;
+  }
+
+  Future<void> voidTransaction(String id) async {
+    await _moneyTxRepo.voidTransaction(id);
+    final idx = _moneyTransactions.indexWhere((t) => t.id == id);
+    if (idx != -1) {
+      _moneyTransactions[idx] = MoneyTransaction.fromMap(
+        _moneyTransactions[idx].toMap()..['voided'] = 1,
+      );
+      // easier: mark by recreating
+    }
+    // reload list cleanly
+    _moneyTransactions = await _moneyTxRepo.getAll();
+    notifyListeners();
+  }
+
+  int paidForJob(String jobId) {
+    return _moneyTransactions
+        .where((t) => !t.voided && t.jobId == jobId && t.direction == 'in')
+        .fold(0, (s, t) => s + t.amountCents);
+  }
+
+  int clientDebtCents(String clientId) {
+    // receivable: job prices unpaid (sum price) - payments
+    final price = _jobs
+        .where((j) => j.clientId == clientId && !j.archived)
+        .fold(0, (s, j) => s + j.priceCents);
+    final paid = _moneyTransactions
+        .where((t) => !t.voided && t.clientId == clientId && t.direction == 'in')
+        .fold(0, (s, t) => s + t.amountCents);
+    return price - paid;
+  }
+
   // backup
   Map<String, dynamic> backupData() {
     return {
       'format': 'masters-backup',
-      'version': 1,
+      'version': 2,
       'exported_at': DateTime.now().toIso8601String(),
       'clients': _clients.map((c) => c.toMap()).toList(),
       'objects': _objects.map((o) => o.toMap()).toList(),
@@ -386,6 +574,9 @@ class MastersStore extends ChangeNotifier {
       'stages': _stages.map((s) => s.toMap()).toList(),
       'materials': _materials.map((m) => m.toMap()).toList(),
       'sessions': _sessions.map((s) => s.toMap()).toList(),
+      'accounts': _accounts.map((a) => a.toMap()).toList(),
+      'shifts': _shifts.map((s) => s.toMap()).toList(),
+      'money_transactions': _moneyTransactions.map((t) => t.toMap()).toList(),
     };
   }
 
@@ -394,7 +585,7 @@ class MastersStore extends ChangeNotifier {
       throw const FormatException('Это не резервная копия «Masters».');
     }
     final version = data['version'];
-    if (version is! int || version > 1) {
+    if (version is! int || version > 2) {
       throw const FormatException('Неподдерживаемая версия копии.');
     }
 
@@ -436,9 +627,31 @@ class MastersStore extends ChangeNotifier {
       }
     }
 
+    final accounts = <Account>[];
+    if (data['accounts'] is List) {
+      for (final item in data['accounts'] as List) {
+        if (item is Map) accounts.add(Account.fromMap(Map<String, Object?>.from(item)));
+      }
+    }
+    final shifts = <CashShift>[];
+    if (data['shifts'] is List) {
+      for (final item in data['shifts'] as List) {
+        if (item is Map) shifts.add(CashShift.fromMap(Map<String, Object?>.from(item)));
+      }
+    }
+    final moneyTransactions = <MoneyTransaction>[];
+    if (data['money_transactions'] is List) {
+      for (final item in data['money_transactions'] as List) {
+        if (item is Map) moneyTransactions.add(MoneyTransaction.fromMap(Map<String, Object?>.from(item)));
+      }
+    }
+
     final jobIds = jobs.map((j) => j.id).toSet();
 
     await _appDatabase.database.transaction((txn) async {
+      await txn.delete('money_transactions');
+      await txn.delete('cash_shifts');
+      await txn.delete('accounts');
       await txn.delete('work_sessions');
       await txn.delete('materials');
       await txn.delete('job_stages');
@@ -462,6 +675,9 @@ class MastersStore extends ChangeNotifier {
         if (!jobIds.contains(s.jobId)) continue;
         batch.insert('work_sessions', s.toMap());
       }
+      for (final a in accounts) { batch.insert('accounts', a.toMap()); }
+      for (final sh in shifts) { batch.insert('cash_shifts', sh.toMap()); }
+      for (final t in moneyTransactions) { batch.insert('money_transactions', t.toMap()); }
       await batch.commit(noResult: true);
     });
 
@@ -470,6 +686,9 @@ class MastersStore extends ChangeNotifier {
 
   Future<void> clearAll() async {
     await _appDatabase.database.transaction((txn) async {
+      await txn.delete('money_transactions');
+      await txn.delete('cash_shifts');
+      await txn.delete('accounts');
       await txn.delete('work_sessions');
       await txn.delete('materials');
       await txn.delete('job_stages');
