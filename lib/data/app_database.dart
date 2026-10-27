@@ -13,7 +13,7 @@ class AppDatabase {
 
     final database = await openDatabase(
       path,
-      version: 2,
+      version: 3,
       onConfigure: (db) async {
         await db.execute('PRAGMA foreign_keys = ON');
       },
@@ -112,6 +112,85 @@ class AppDatabase {
     await db.execute('CREATE INDEX idx_wsessions_started ON work_sessions(started_at)');
 
     await _createMoneySchema(db);
+    await _createInventorySchema(db);
+  }
+
+  static Future<void> _createInventorySchema(Database db) async {
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS inventory_items (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        kind TEXT NOT NULL DEFAULT 'good', -- good / service
+        unit TEXT NOT NULL DEFAULT 'шт',
+        sell_price_cents INTEGER NOT NULL DEFAULT 0,
+        cost_cents INTEGER NOT NULL DEFAULT 0,
+        category TEXT NOT NULL DEFAULT '',
+        track_stock INTEGER NOT NULL DEFAULT 1,
+        stock_qty REAL NOT NULL DEFAULT 0,
+        min_qty REAL NOT NULL DEFAULT 0,
+        archived INTEGER NOT NULL DEFAULT 0,
+        created_at INTEGER NOT NULL,
+        updated_at INTEGER NOT NULL
+      )
+    ''');
+    await db.execute('CREATE INDEX idx_inv_items_name ON inventory_items(name COLLATE NOCASE)');
+    await db.execute('CREATE INDEX idx_inv_items_kind ON inventory_items(kind)');
+
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS suppliers (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        phone TEXT NOT NULL DEFAULT '',
+        note TEXT,
+        created_at INTEGER NOT NULL
+      )
+    ''');
+
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS purchases (
+        id TEXT PRIMARY KEY,
+        supplier_id TEXT REFERENCES suppliers(id) ON DELETE SET NULL,
+        account_id TEXT REFERENCES accounts(id) ON DELETE SET NULL,
+        total_cents INTEGER NOT NULL DEFAULT 0,
+        note TEXT,
+        created_at INTEGER NOT NULL
+      )
+    ''');
+    await db.execute('CREATE INDEX idx_purchases_created ON purchases(created_at)');
+
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS purchase_lines (
+        id TEXT PRIMARY KEY,
+        purchase_id TEXT NOT NULL REFERENCES purchases(id) ON DELETE CASCADE,
+        item_id TEXT NOT NULL REFERENCES inventory_items(id) ON DELETE RESTRICT,
+        qty REAL NOT NULL,
+        unit_price_cents INTEGER NOT NULL DEFAULT 0
+      )
+    ''');
+    await db.execute('CREATE INDEX idx_purch_lines_purchase ON purchase_lines(purchase_id)');
+
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS stock_movements (
+        id TEXT PRIMARY KEY,
+        item_id TEXT NOT NULL REFERENCES inventory_items(id) ON DELETE CASCADE,
+        type TEXT NOT NULL, -- in, out, writeoff, adjust
+        qty REAL NOT NULL,
+        note TEXT,
+        created_at INTEGER NOT NULL
+      )
+    ''');
+    await db.execute('CREATE INDEX idx_stock_moves_item ON stock_movements(item_id)');
+    await db.execute('CREATE INDEX idx_stock_moves_created ON stock_movements(created_at)');
+
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS recipe_lines (
+        id TEXT PRIMARY KEY,
+        product_item_id TEXT NOT NULL REFERENCES inventory_items(id) ON DELETE CASCADE,
+        ingredient_item_id TEXT NOT NULL REFERENCES inventory_items(id) ON DELETE RESTRICT,
+        qty REAL NOT NULL
+      )
+    ''');
+    await db.execute('CREATE INDEX idx_recipe_product ON recipe_lines(product_item_id)');
   }
 
   static Future<void> _createMoneySchema(Database db) async {
@@ -175,6 +254,9 @@ class AppDatabase {
   ) async {
     if (oldVersion < 2) {
       await _createMoneySchema(db);
+    }
+    if (oldVersion < 3) {
+      await _createInventorySchema(db);
     }
   }
 

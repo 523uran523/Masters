@@ -5,6 +5,8 @@ import '../data/app_database.dart';
 import '../data/models/account.dart';
 import '../data/models/cash_shift.dart';
 import '../data/models/client.dart';
+import '../data/models/inventory_item.dart';
+import '../data/models/stock_movement.dart';
 import '../data/models/job.dart';
 import '../data/models/job_items.dart';
 import '../data/models/money_transaction.dart';
@@ -12,7 +14,9 @@ import '../data/models/work_object.dart';
 import '../data/repositories/account_repository.dart';
 import '../data/repositories/cash_shift_repository.dart';
 import '../data/repositories/client_repository.dart';
+import '../data/repositories/inventory_item_repository.dart';
 import '../data/repositories/job_repository.dart';
+import '../data/repositories/stock_movement_repository.dart';
 import '../data/repositories/money_transaction_repository.dart';
 import '../data/repositories/material_repository.dart';
 import '../data/repositories/object_repository.dart';
@@ -31,6 +35,8 @@ class MastersStore extends ChangeNotifier {
     _accountRepo = AccountRepository(_appDatabase.database);
     _moneyTxRepo = MoneyTransactionRepository(_appDatabase.database);
     _shiftRepo = CashShiftRepository(_appDatabase.database);
+    _inventoryRepo = InventoryItemRepository(_appDatabase.database);
+    _stockMovementRepo = StockMovementRepository(_appDatabase.database);
   }
 
   final AppDatabase _appDatabase;
@@ -45,6 +51,8 @@ class MastersStore extends ChangeNotifier {
   late final AccountRepository _accountRepo;
   late final MoneyTransactionRepository _moneyTxRepo;
   late final CashShiftRepository _shiftRepo;
+  late final InventoryItemRepository _inventoryRepo;
+  late final StockMovementRepository _stockMovementRepo;
 
   List<Client> _clients = [];
   List<WorkObject> _objects = [];
@@ -55,6 +63,8 @@ class MastersStore extends ChangeNotifier {
   List<Account> _accounts = [];
   List<MoneyTransaction> _moneyTransactions = [];
   List<CashShift> _shifts = [];
+  List<InventoryItem> _inventoryItems = [];
+  List<StockMovement> _stockMovements = [];
   bool _loaded = false;
 
   bool get isLoaded => _loaded;
@@ -68,6 +78,8 @@ class MastersStore extends ChangeNotifier {
   List<Account> get accounts => List.unmodifiable(_accounts);
   List<MoneyTransaction> get moneyTransactions => List.unmodifiable(_moneyTransactions);
   List<CashShift> get shifts => List.unmodifiable(_shifts);
+  List<InventoryItem> get inventoryItems => List.unmodifiable(_inventoryItems);
+  List<StockMovement> get stockMovements => List.unmodifiable(_stockMovements);
 
   Client? clientById(String id) {
     for (final c in _clients) {
@@ -114,6 +126,8 @@ class MastersStore extends ChangeNotifier {
     }
     _moneyTransactions = await _moneyTxRepo.getAll();
     _shifts = await _shiftRepo.getAll();
+    _inventoryItems = await _inventoryRepo.getAll();
+    _stockMovements = await _stockMovementRepo.getAll();
     _loaded = true;
     notifyListeners();
   }
@@ -562,11 +576,119 @@ class MastersStore extends ChangeNotifier {
     return price - paid;
   }
 
+  // Inventory
+  List<InventoryItem> lowStockItems() =>
+      _inventoryItems.where((i) => i.lowStock).toList();
+
+  Future<InventoryItem> createInventoryItem({
+    required String name,
+    String kind = 'good',
+    String unit = 'шт',
+    int sellPriceCents = 0,
+    int costCents = 0,
+    String category = '',
+    bool trackStock = true,
+    double stockQty = 0,
+    double minQty = 0,
+  }) async {
+    final now = DateTime.now();
+    final item = InventoryItem(
+      id: newId(),
+      name: name.trim(),
+      kind: kind,
+      unit: unit.trim().isEmpty ? 'шт' : unit.trim(),
+      sellPriceCents: sellPriceCents,
+      costCents: costCents,
+      category: category.trim(),
+      trackStock: trackStock,
+      stockQty: stockQty,
+      minQty: minQty,
+      createdAt: now,
+      updatedAt: now,
+    );
+    await _inventoryRepo.save(item);
+    _inventoryItems = [..._inventoryItems, item];
+    notifyListeners();
+    return item;
+  }
+
+  Future<void> updateInventoryItem(InventoryItem item) async {
+    final updated = item.copyWith(updatedAt: DateTime.now());
+    await _inventoryRepo.save(updated);
+    final idx = _inventoryItems.indexWhere((i) => i.id == updated.id);
+    if (idx == -1) {
+      _inventoryItems = [..._inventoryItems, updated];
+    } else {
+      _inventoryItems[idx] = updated;
+    }
+    notifyListeners();
+  }
+
+  Future<void> deleteInventoryItem(String id) async {
+    await _inventoryRepo.delete(id);
+    _inventoryItems = _inventoryItems.where((i) => i.id != id).toList();
+    _stockMovements = _stockMovements.where((m) => m.itemId != id).toList();
+    notifyListeners();
+  }
+
+  Future<void> receiveStock({
+    required String itemId,
+    required double qty,
+    int? unitPriceCents,
+    String? note,
+  }) async {
+    final idx = _inventoryItems.indexWhere((i) => i.id == itemId);
+    if (idx == -1 || qty <= 0) return;
+    final item = _inventoryItems[idx];
+    final updated = item.copyWith(stockQty: item.stockQty + qty, updatedAt: DateTime.now());
+    await _inventoryRepo.save(updated);
+    _inventoryItems[idx] = updated;
+    final movement = StockMovement(
+      id: newId(),
+      itemId: itemId,
+      type: 'in',
+      qty: qty,
+      note: note?.trim().isEmpty == true ? null : note?.trim(),
+      createdAt: DateTime.now(),
+    );
+    await _stockMovementRepo.save(movement);
+    _stockMovements = [movement, ..._stockMovements];
+    notifyListeners();
+  }
+
+  Future<void> writeOffStock({
+    required String itemId,
+    required double qty,
+    String? note,
+  }) async {
+    final idx = _inventoryItems.indexWhere((i) => i.id == itemId);
+    if (idx == -1 || qty <= 0) return;
+    final item = _inventoryItems[idx];
+    final newQty = item.stockQty - qty;
+    final updated = item.copyWith(stockQty: newQty < 0 ? 0 : newQty, updatedAt: DateTime.now());
+    await _inventoryRepo.save(updated);
+    _inventoryItems[idx] = updated;
+    final movement = StockMovement(
+      id: newId(),
+      itemId: itemId,
+      type: 'writeoff',
+      qty: qty,
+      note: note?.trim().isEmpty == true ? null : note?.trim(),
+      createdAt: DateTime.now(),
+    );
+    await _stockMovementRepo.save(movement);
+    _stockMovements = [movement, ..._stockMovements];
+    notifyListeners();
+  }
+
+  List<StockMovement> movementsForItem(String itemId) =>
+      _stockMovements.where((m) => m.itemId == itemId).toList();
+
   // backup
   Map<String, dynamic> backupData() {
     return {
       'format': 'masters-backup',
-      'version': 2,
+      'version': 3,
       'exported_at': DateTime.now().toIso8601String(),
       'clients': _clients.map((c) => c.toMap()).toList(),
       'objects': _objects.map((o) => o.toMap()).toList(),
@@ -577,6 +699,8 @@ class MastersStore extends ChangeNotifier {
       'accounts': _accounts.map((a) => a.toMap()).toList(),
       'shifts': _shifts.map((s) => s.toMap()).toList(),
       'money_transactions': _moneyTransactions.map((t) => t.toMap()).toList(),
+      'inventory_items': _inventoryItems.map((i) => i.toMap()).toList(),
+      'stock_movements': _stockMovements.map((m) => m.toMap()).toList(),
     };
   }
 
@@ -585,7 +709,7 @@ class MastersStore extends ChangeNotifier {
       throw const FormatException('Это не резервная копия «Masters».');
     }
     final version = data['version'];
-    if (version is! int || version > 2) {
+    if (version is! int || version > 3) {
       throw const FormatException('Неподдерживаемая версия копии.');
     }
 
@@ -646,9 +770,24 @@ class MastersStore extends ChangeNotifier {
       }
     }
 
+    final inventoryItems = <InventoryItem>[];
+    if (data['inventory_items'] is List) {
+      for (final item in data['inventory_items'] as List) {
+        if (item is Map) inventoryItems.add(InventoryItem.fromMap(Map<String, Object?>.from(item)));
+      }
+    }
+    final stockMovements = <StockMovement>[];
+    if (data['stock_movements'] is List) {
+      for (final item in data['stock_movements'] as List) {
+        if (item is Map) stockMovements.add(StockMovement.fromMap(Map<String, Object?>.from(item)));
+      }
+    }
+
     final jobIds = jobs.map((j) => j.id).toSet();
 
     await _appDatabase.database.transaction((txn) async {
+      await txn.delete('stock_movements');
+      await txn.delete('inventory_items');
       await txn.delete('money_transactions');
       await txn.delete('cash_shifts');
       await txn.delete('accounts');
@@ -678,6 +817,8 @@ class MastersStore extends ChangeNotifier {
       for (final a in accounts) { batch.insert('accounts', a.toMap()); }
       for (final sh in shifts) { batch.insert('cash_shifts', sh.toMap()); }
       for (final t in moneyTransactions) { batch.insert('money_transactions', t.toMap()); }
+      for (final i in inventoryItems) { batch.insert('inventory_items', i.toMap()); }
+      for (final m in stockMovements) { batch.insert('stock_movements', m.toMap()); }
       await batch.commit(noResult: true);
     });
 
@@ -686,6 +827,8 @@ class MastersStore extends ChangeNotifier {
 
   Future<void> clearAll() async {
     await _appDatabase.database.transaction((txn) async {
+      await txn.delete('stock_movements');
+      await txn.delete('inventory_items');
       await txn.delete('money_transactions');
       await txn.delete('cash_shifts');
       await txn.delete('accounts');
