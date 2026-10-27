@@ -52,30 +52,59 @@ class TodayScreen extends StatelessWidget {
         ),
       ),
       child: SafeArea(
-        child: ListView(
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
-          children: [
-            if (active.isEmpty && dueToday.isEmpty && newJobs.isEmpty)
-              EmptyState(
+        child: OrientationBuilder(
+          builder: (context, orientation) {
+            final isLandscape = orientation == Orientation.landscape;
+            if (active.isEmpty && dueToday.isEmpty && newJobs.isEmpty) {
+              return EmptyState(
                 title: 'Всё спокойно',
                 message: 'Нет активных заказов. Нажмите +, чтобы создать новый.',
                 art: Icon(CupertinoIcons.sun_max, size: 48, color: colors.tertiaryLabel),
-              ),
-            if (active.isNotEmpty) ...[
-              SectionLabel('В работе'),
-              ...active.map((job) => _jobTile(context, store, job, colors)),
-              const SizedBox(height: 12),
-            ],
-            if (dueToday.isNotEmpty) ...[
-              SectionLabel('Срок сегодня'),
-              ...dueToday.map((job) => _jobTile(context, store, job, colors)),
-              const SizedBox(height: 12),
-            ],
-            if (newJobs.isNotEmpty) ...[
-              SectionLabel('Новые'),
-              ...newJobs.map((job) => _jobTile(context, store, job, colors)),
-            ],
-          ],
+              );
+            }
+            Widget buildSection(String title, List<Job> jobs) {
+              if (jobs.isEmpty) return const SizedBox.shrink();
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  SectionLabel(title),
+                  ...jobs.map((job) => _jobTile(context, store, job, colors)),
+                  const SizedBox(height: 12),
+                ],
+              );
+            }
+
+            if (!isLandscape) {
+              return ListView(
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+                children: [
+                  buildSection('В работе', active),
+                  buildSection('Срок сегодня', dueToday),
+                  buildSection('Новые', newJobs),
+                ],
+              );
+            }
+            return Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: ListView(
+                    padding: const EdgeInsets.fromLTRB(16, 12, 8, 24),
+                    children: [buildSection('В работе', active)],
+                  ),
+                ),
+                Expanded(
+                  child: ListView(
+                    padding: const EdgeInsets.fromLTRB(8, 12, 16, 24),
+                    children: [
+                      buildSection('Срок сегодня', dueToday),
+                      buildSection('Новые', newJobs),
+                    ],
+                  ),
+                ),
+              ],
+            );
+          },
         ),
       ),
     );

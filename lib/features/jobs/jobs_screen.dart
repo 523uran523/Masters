@@ -221,13 +221,17 @@ class _JobsScreenState extends State<JobsScreen> {
 
   Widget _buildProcessView(MastersStore store) {
     final colors = context.colors;
+    final size = MediaQuery.of(context).size;
+    final columnWidth = size.width > size.height
+        ? (size.width / 4.2).clamp(260.0, 400.0)
+        : (size.width * 0.78).clamp(260.0, 320.0);
     return ListView(
       scrollDirection: Axis.horizontal,
       padding: const EdgeInsets.fromLTRB(12, 4, 12, 24),
       children: JobStatus.values.map((status) {
         final jobs = store.jobsByStatus(status);
         return Container(
-          width: 290,
+          width: columnWidth,
           margin: const EdgeInsets.only(right: 10),
           child: DragTarget<Job>(
             onWillAcceptWithDetails: (_) => true,
