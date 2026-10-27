@@ -7,26 +7,47 @@ class _ResourceLine {
   _ResourceLine({
     String name = '',
     String qty = '1',
-    String unit = 'шт',
+    bool weight = false,
+    String qtyUnit = 'г',
     String price = '0',
+    String priceUnit = '100 г',
   })  : nameController = TextEditingController(text: name),
         qtyController = TextEditingController(text: qty),
-        unitController = TextEditingController(text: unit),
-        priceController = TextEditingController(text: price);
+        qtyUnitValue = qtyUnit,
+        weightValue = weight,
+        priceController = TextEditingController(text: price),
+        priceUnitValue = priceUnit;
 
   final TextEditingController nameController;
   final TextEditingController qtyController;
-  final TextEditingController unitController;
+  String qtyUnitValue;
+  bool weightValue;
   final TextEditingController priceController;
+  String priceUnitValue;
 
   double get qty => double.tryParse(qtyController.text.trim().replaceAll(',', '.')) ?? 0;
-  int get unitPriceCents => ((double.tryParse(priceController.text.trim().replaceAll(',', '.')) ?? 0) * 100).round();
-  int get totalCents => (unitPriceCents * qty).round();
+
+  int get totalCents {
+    final price = double.tryParse(priceController.text.trim().replaceAll(',', '.')) ?? 0;
+    if (!weightValue) {
+      return (qty * price * 100).round();
+    }
+    // весовой расчёт: приводим количество к граммам
+    double grams = qty;
+    if (qtyUnitValue == 'кг') grams = qty * 1000;
+    if (qtyUnitValue == 'т') grams = qty * 1000000;
+
+    double divisor = 1;
+    if (priceUnitValue == '100 г') divisor = 100;
+    if (priceUnitValue == '1 кг') divisor = 1000;
+    if (priceUnitValue == '1 т') divisor = 1000000;
+
+    return ((grams / divisor) * price * 100).round();
+  }
 
   void dispose() {
     nameController.dispose();
     qtyController.dispose();
-    unitController.dispose();
     priceController.dispose();
   }
 }
@@ -58,7 +79,7 @@ class _CostCalculatorScreenState extends State<CostCalculatorScreen> {
       _resources.add(_ResourceLine(
         name: 'Материалы',
         qty: '1',
-        unit: 'компл',
+        weight: false,
         price: (widget.initialMaterialsCents / 100).toStringAsFixed(2),
       ));
     }
@@ -66,7 +87,9 @@ class _CostCalculatorScreenState extends State<CostCalculatorScreen> {
 
   @override
   void dispose() {
-    for (final r in _resources) { r.dispose(); }
+    for (final r in _resources) {
+      r.dispose();
+    }
     _laborHoursController.dispose();
     _laborRateController.dispose();
     _overheadController.dispose();
@@ -118,10 +141,28 @@ class _CostCalculatorScreenState extends State<CostCalculatorScreen> {
     });
   }
 
+  Widget _segmented<T extends Object>({
+    required T groupValue,
+    required List<T> values,
+    required List<String> labels,
+    required ValueChanged<T?> onChanged,
+  }) {
+    return CupertinoSlidingSegmentedControl<T>(
+      groupValue: groupValue,
+      onValueChanged: onChanged,
+      children: {
+        for (var i = 0; i < values.length; i++)
+          values[i]: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+            child: Text(labels[i], style: const TextStyle(fontSize: 11)),
+          ),
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
-    // trigger rebuild on text changes
     return CupertinoPageScaffold(
       navigationBar: CupertinoNavigationBar(
         middle: const Text('Калькулятор расходов'),
@@ -143,64 +184,141 @@ class _CostCalculatorScreenState extends State<CostCalculatorScreen> {
                     final i = entry.key;
                     final r = entry.value;
                     return Padding(
-                      padding: const EdgeInsets.only(bottom: 8),
+                      padding: const EdgeInsets.only(bottom: 12),
                       child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Row(
                             children: [
                               Expanded(
-                                flex: 3,
                                 child: CupertinoTextField(
                                   controller: r.nameController,
                                   placeholder: 'Наименование',
                                   onChanged: (_) => setState(() {}),
                                 ),
                               ),
-                              const SizedBox(width: 6),
-                              Expanded(
-                                child: CupertinoTextField(
-                                  controller: r.qtyController,
-                                  placeholder: 'Кол-во',
-                                  keyboardType: TextInputType.numberWithOptions(decimal: true),
-                                  onChanged: (_) => setState(() {}),
-                                ),
-                              ),
-                              const SizedBox(width: 6),
-                              Expanded(
-                                child: CupertinoTextField(
-                                  controller: r.unitController,
-                                  placeholder: 'ед.',
-                                  onChanged: (_) => setState(() {}),
+                              const SizedBox(width: 8),
+                              SizedBox(
+                                width: 70,
+                                child: CupertinoSlidingSegmentedControl<bool>(
+                                  groupValue: r.weightValue,
+                                  onValueChanged: (v) {
+                                    if (v == null) return;
+                                    setState(() => r.weightValue = v);
+                                  },
+                                  children: const {
+                                    false: Padding(
+                                      padding: EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+                                      child: Text('шт', style: TextStyle(fontSize: 11)),
+                                    ),
+                                    true: Padding(
+                                      padding: EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+                                      child: Text('вес', style: TextStyle(fontSize: 11)),
+                                    ),
+                                  },
                                 ),
                               ),
                             ],
                           ),
                           const SizedBox(height: 6),
-                          Row(
-                            children: [
-                              Expanded(
-                                child: CupertinoTextField(
-                                  controller: r.priceController,
-                                  placeholder: 'Цена за ед.',
-                                  keyboardType: TextInputType.numberWithOptions(decimal: true),
-                                  prefix: const Padding(
-                                    padding: EdgeInsets.only(left: 8),
-                                    child: Text('₽'),
+                          if (!r.weightValue) ...[
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: CupertinoTextField(
+                                    controller: r.qtyController,
+                                    placeholder: 'Кол-во (шт)',
+                                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                                    onChanged: (_) => setState(() {}),
                                   ),
-                                  onChanged: (_) => setState(() {}),
                                 ),
-                              ),
-                              const SizedBox(width: 8),
-                              Text('${(r.totalCents / 100).toStringAsFixed(0)} ₽',
-                                  style: const TextStyle(fontWeight: FontWeight.w600)),
-                              CupertinoButton(
-                                padding: EdgeInsets.zero,
-                                onPressed: () => _removeResource(i),
-                                child: Icon(CupertinoIcons.xmark, size: 16, color: colors.tertiaryLabel),
-                              ),
-                            ],
-                          ),
-                          if (i < _resources.length - 1) const SizedBox(height: 8),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: CupertinoTextField(
+                                    controller: r.priceController,
+                                    placeholder: 'Цена за шт',
+                                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                                    prefix: const Padding(
+                                      padding: EdgeInsets.only(left: 8),
+                                      child: Text('₽'),
+                                    ),
+                                    onChanged: (_) => setState(() {}),
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                Text('${(r.totalCents / 100).toStringAsFixed(0)} ₽',
+                                    style: const TextStyle(fontWeight: FontWeight.w600)),
+                                CupertinoButton(
+                                  padding: EdgeInsets.zero,
+                                  onPressed: () => _removeResource(i),
+                                  child: Icon(CupertinoIcons.xmark, size: 16, color: colors.tertiaryLabel),
+                                ),
+                              ],
+                            ),
+                          ] else ...[
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: CupertinoTextField(
+                                    controller: r.qtyController,
+                                    placeholder: 'Количество',
+                                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                                    onChanged: (_) => setState(() {}),
+                                  ),
+                                ),
+                                const SizedBox(width: 6),
+                                SizedBox(
+                                  width: 90,
+                                  child: _segmented<String>(
+                                    groupValue: r.qtyUnitValue,
+                                    values: const ['г', 'кг'],
+                                    labels: const ['г', 'кг'],
+                                    onChanged: (v) {
+                                      if (v != null) setState(() => r.qtyUnitValue = v);
+                                    },
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 6),
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: CupertinoTextField(
+                                    controller: r.priceController,
+                                    placeholder: 'Цена',
+                                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                                    prefix: const Padding(
+                                      padding: EdgeInsets.only(left: 8),
+                                      child: Text('₽'),
+                                    ),
+                                    onChanged: (_) => setState(() {}),
+                                  ),
+                                ),
+                                const SizedBox(width: 6),
+                                SizedBox(
+                                  width: 120,
+                                  child: _segmented<String>(
+                                    groupValue: r.priceUnitValue,
+                                    values: const ['г', '100 г', '1 кг'],
+                                    labels: const ['за г', 'за 100г', 'за кг'],
+                                    onChanged: (v) {
+                                      if (v != null) setState(() => r.priceUnitValue = v);
+                                    },
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                Text('${(r.totalCents / 100).toStringAsFixed(0)} ₽',
+                                    style: const TextStyle(fontWeight: FontWeight.w600)),
+                                CupertinoButton(
+                                  padding: EdgeInsets.zero,
+                                  onPressed: () => _removeResource(i),
+                                  child: Icon(CupertinoIcons.xmark, size: 16, color: colors.tertiaryLabel),
+                                ),
+                              ],
+                            ),
+                          ],
+                          if (i < _resources.length - 1) const SizedBox(height: 4),
                         ],
                       ),
                     );
