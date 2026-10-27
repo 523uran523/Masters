@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../../app/theme/app_theme.dart';
 import '../../app/ui.dart';
 import '../../core/utils/app_utils.dart';
+import '../../data/models/client_reminder.dart';
 import '../../data/models/job.dart';
 import '../../state/masters_store.dart';
 import '../jobs/job_detail_screen.dart';
@@ -31,6 +32,7 @@ class TodayScreen extends StatelessWidget {
     final newJobs = store.jobs
         .where((j) => !j.archived && j.status == JobStatus.nuevo)
         .toList();
+    final dueRems = store.dueReminders();
 
     return CupertinoPageScaffold(
       navigationBar: CupertinoNavigationBar(
@@ -55,7 +57,7 @@ class TodayScreen extends StatelessWidget {
         child: OrientationBuilder(
           builder: (context, orientation) {
             final isLandscape = orientation == Orientation.landscape;
-            if (active.isEmpty && dueToday.isEmpty && newJobs.isEmpty) {
+            if (active.isEmpty && dueToday.isEmpty && newJobs.isEmpty && dueRems.isEmpty) {
               return EmptyState(
                 title: 'Всё спокойно',
                 message: 'Нет активных заказов. Нажмите +, чтобы создать новый.',
@@ -81,6 +83,36 @@ class TodayScreen extends StatelessWidget {
                   buildSection('В работе', active),
                   buildSection('Срок сегодня', dueToday),
                   buildSection('Новые', newJobs),
+                  if (dueRems.isNotEmpty) ...[
+                    SectionLabel('Напоминания'),
+                    ...dueRems.map((r) {
+                      final c = store.clientById(r.clientId);
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 8),
+                        child: AppCard(
+                          onTap: () {},
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(r.title, style: const TextStyle(fontWeight: FontWeight.w600)),
+                                    Text(c?.name ?? 'Клиент', style: TextStyle(color: colors.secondaryLabel, fontSize: 12)),
+                                  ],
+                                ),
+                              ),
+                              CupertinoButton(
+                                padding: EdgeInsets.zero,
+                                onPressed: () => store.setReminderStatus(r.id, ReminderStatus.done),
+                                child: Icon(CupertinoIcons.checkmark_circle, color: colors.green),
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                    }),
+                  ],
                 ],
               );
             }
@@ -99,6 +131,35 @@ class TodayScreen extends StatelessWidget {
                     children: [
                       buildSection('Срок сегодня', dueToday),
                       buildSection('Новые', newJobs),
+                      if (dueRems.isNotEmpty) ...[
+                        SectionLabel('Напоминания'),
+                        ...dueRems.map((r) {
+                          final c = store.clientById(r.clientId);
+                          return Padding(
+                            padding: const EdgeInsets.only(bottom: 8),
+                            child: AppCard(
+                              child: Row(
+                                children: [
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(r.title, style: const TextStyle(fontWeight: FontWeight.w600)),
+                                        Text(c?.name ?? 'Клиент', style: TextStyle(color: colors.secondaryLabel, fontSize: 12)),
+                                      ],
+                                    ),
+                                  ),
+                                  CupertinoButton(
+                                    padding: EdgeInsets.zero,
+                                    onPressed: () => store.setReminderStatus(r.id, ReminderStatus.done),
+                                    child: Icon(CupertinoIcons.checkmark_circle, color: colors.green),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          );
+                        }),
+                      ],
                     ],
                   ),
                 ),

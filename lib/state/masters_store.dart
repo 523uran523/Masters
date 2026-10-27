@@ -7,6 +7,7 @@ import '../data/models/appointment.dart';
 import '../data/models/booking_resource.dart';
 import '../data/models/cash_shift.dart';
 import '../data/models/client.dart';
+import '../data/models/client_reminder.dart';
 import '../data/models/inventory_item.dart';
 import '../data/models/stock_movement.dart';
 import '../data/models/job.dart';
@@ -17,6 +18,7 @@ import '../data/repositories/account_repository.dart';
 import '../data/repositories/appointment_repository.dart';
 import '../data/repositories/booking_resource_repository.dart';
 import '../data/repositories/cash_shift_repository.dart';
+import '../data/repositories/client_reminder_repository.dart';
 import '../data/repositories/client_repository.dart';
 import '../data/repositories/inventory_item_repository.dart';
 import '../data/repositories/job_repository.dart';
@@ -37,6 +39,7 @@ class MastersStore extends ChangeNotifier {
     _materialRepo = MaterialRepository(_appDatabase.database);
     _sessionRepo = SessionRepository(_appDatabase.database);
     _accountRepo = AccountRepository(_appDatabase.database);
+    _reminderRepo = ClientReminderRepository(_appDatabase.database);
     _moneyTxRepo = MoneyTransactionRepository(_appDatabase.database);
     _shiftRepo = CashShiftRepository(_appDatabase.database);
     _inventoryRepo = InventoryItemRepository(_appDatabase.database);
@@ -55,6 +58,7 @@ class MastersStore extends ChangeNotifier {
   late final MaterialRepository _materialRepo;
   late final SessionRepository _sessionRepo;
   late final AccountRepository _accountRepo;
+  late final ClientReminderRepository _reminderRepo;
   late final MoneyTransactionRepository _moneyTxRepo;
   late final CashShiftRepository _shiftRepo;
   late final InventoryItemRepository _inventoryRepo;
@@ -75,6 +79,7 @@ class MastersStore extends ChangeNotifier {
   List<StockMovement> _stockMovements = [];
   List<Appointment> _appointments = [];
   List<BookingResource> _bookingResources = [];
+  List<ClientReminder> _reminders = [];
   bool _loaded = false;
 
   bool get isLoaded => _loaded;
@@ -92,6 +97,7 @@ class MastersStore extends ChangeNotifier {
   List<StockMovement> get stockMovements => List.unmodifiable(_stockMovements);
   List<Appointment> get appointments => List.unmodifiable(_appointments);
   List<BookingResource> get bookingResources => List.unmodifiable(_bookingResources);
+  List<ClientReminder> get reminders => List.unmodifiable(_reminders);
 
   Client? clientById(String id) {
     for (final c in _clients) {
@@ -142,6 +148,7 @@ class MastersStore extends ChangeNotifier {
     _stockMovements = await _stockMovementRepo.getAll();
     _appointments = await _appointmentRepo.getAll();
     _bookingResources = await _bookingResourceRepo.getAll();
+    _reminders = await _reminderRepo.getAll(includeDone: true);
     if (_bookingResources.isEmpty) {
       final r = BookingResource(id: newId(), name: 'Основной', createdAt: DateTime.now());
       await _bookingResourceRepo.save(r);
@@ -304,6 +311,15 @@ class MastersStore extends ChangeNotifier {
     await _jobRepo.save(updated);
     final index = _jobs.indexWhere((j) => j.id == jobId);
     if (index != -1) _jobs[index] = updated;
+    if (status == JobStatus.done && !_reminders.any((r) => r.jobId == jobId && r.type == 'warranty')) {
+      await createReminder(
+        clientId: job.clientId,
+        jobId: jobId,
+        type: 'warranty',
+        title: 'Проверить гарантию: ${job.title}',
+        dueAt: now.add(const Duration(days: 180)),
+      );
+    }
     notifyListeners();
   }
 
@@ -764,11 +780,56 @@ class MastersStore extends ChangeNotifier {
     notifyListeners();
   }
 
+  // Reminders
+  List<ClientReminder> dueReminders() => _reminders.where((r) => r.isDue).toList();
+  List<ClientReminder> remindersForClient(String clientId) => _reminders.where((r) => r.clientId == clientId).toList();
+
+  Future<ClientReminder> createReminder({
+    required String clientId,
+    String? jobId,
+    String type = 'manual',
+    required String title,
+    String? body,
+    required DateTime dueAt,
+  }) async {
+    final r = ClientReminder(
+      id: newId(),
+      clientId: clientId,
+      jobId: jobId,
+      type: type,
+      title: title.trim(),
+      body: body?.trim().isEmpty == true ? null : body?.trim(),
+      dueAt: dueAt,
+      createdAt: DateTime.now(),
+    );
+    await _reminderRepo.save(r);
+    _reminders = [..._reminders, r];
+    notifyListeners();
+    return r;
+  }
+
+  Future<void> setReminderStatus(String id, ReminderStatus status) async {
+    final idx = _reminders.indexWhere((r) => r.id == id);
+    if (idx == -1) return;
+    final updated = _reminders[idx].copyWith(status: status);
+    await _reminderRepo.save(updated);
+    _reminders[idx] = updated;
+    notifyListeners();
+  }
+
+  Future<void> deleteReminder(String id) async {
+    await _reminderRepo.delete(id);
+    _reminders = _reminders.where((r) => r.id != id).toList();
+    notifyListeners();
+  }
+
+  // Auto-warranty reminder on job done could be added in setJobStatus, but keep manual for now.
+
   // backup
   Map<String, dynamic> backupData() {
     return {
       'format': 'masters-backup',
-      'version': 4,
+      'version': 5,
       'exported_at': DateTime.now().toIso8601String(),
       'clients': _clients.map((c) => c.toMap()).toList(),
       'objects': _objects.map((o) => o.toMap()).toList(),
@@ -783,6 +844,7 @@ class MastersStore extends ChangeNotifier {
       'stock_movements': _stockMovements.map((m) => m.toMap()).toList(),
       'appointments': _appointments.map((a) => a.toMap()).toList(),
       'booking_resources': _bookingResources.map((r) => r.toMap()).toList(),
+      'client_reminders': _reminders.map((r) => r.toMap()).toList(),
     };
   }
 
@@ -791,7 +853,7 @@ class MastersStore extends ChangeNotifier {
       throw const FormatException('Это не резервная копия «Masters».');
     }
     final version = data['version'];
-    if (version is! int || version > 4) {
+    if (version is! int || version > 5) {
       throw const FormatException('Неподдерживаемая версия копии.');
     }
 
@@ -878,11 +940,19 @@ class MastersStore extends ChangeNotifier {
       }
     }
 
+    final reminders = <ClientReminder>[];
+    if (data['client_reminders'] is List) {
+      for (final item in data['client_reminders'] as List) {
+        if (item is Map) reminders.add(ClientReminder.fromMap(Map<String, Object?>.from(item)));
+      }
+    }
+
     final jobIds = jobs.map((j) => j.id).toSet();
 
     await _appDatabase.database.transaction((txn) async {
       await txn.delete('appointments');
       await txn.delete('booking_resources');
+      await txn.delete('client_reminders');
       await txn.delete('stock_movements');
       await txn.delete('inventory_items');
       await txn.delete('money_transactions');
@@ -918,6 +988,7 @@ class MastersStore extends ChangeNotifier {
       for (final m in stockMovements) { batch.insert('stock_movements', m.toMap()); }
       for (final a in appointments) { batch.insert('appointments', a.toMap()); }
       for (final r in bookingResources) { batch.insert('booking_resources', r.toMap()); }
+      for (final r in reminders) { batch.insert('client_reminders', r.toMap()); }
       await batch.commit(noResult: true);
     });
 
@@ -928,6 +999,7 @@ class MastersStore extends ChangeNotifier {
     await _appDatabase.database.transaction((txn) async {
       await txn.delete('appointments');
       await txn.delete('booking_resources');
+      await txn.delete('client_reminders');
       await txn.delete('stock_movements');
       await txn.delete('inventory_items');
       await txn.delete('money_transactions');

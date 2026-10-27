@@ -13,7 +13,7 @@ class AppDatabase {
 
     final database = await openDatabase(
       path,
-      version: 4,
+      version: 5,
       onConfigure: (db) async {
         await db.execute('PRAGMA foreign_keys = ON');
       },
@@ -114,6 +114,26 @@ class AppDatabase {
     await _createMoneySchema(db);
     await _createInventorySchema(db);
     await _createBookingSchema(db);
+    await _createReminderSchema(db);
+  }
+
+  static Future<void> _createReminderSchema(Database db) async {
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS client_reminders (
+        id TEXT PRIMARY KEY,
+        client_id TEXT NOT NULL REFERENCES clients(id) ON DELETE CASCADE,
+        job_id TEXT REFERENCES jobs(id) ON DELETE SET NULL,
+        type TEXT NOT NULL DEFAULT 'manual',
+        title TEXT NOT NULL,
+        body TEXT,
+        due_at INTEGER NOT NULL,
+        status TEXT NOT NULL DEFAULT 'pending',
+        created_at INTEGER NOT NULL
+      )
+    ''');
+    await db.execute('CREATE INDEX idx_reminders_due ON client_reminders(due_at)');
+    await db.execute('CREATE INDEX idx_reminders_client ON client_reminders(client_id)');
+    await db.execute('CREATE INDEX idx_reminders_status ON client_reminders(status)');
   }
 
   static Future<void> _createBookingSchema(Database db) async {
@@ -293,6 +313,9 @@ class AppDatabase {
     }
     if (oldVersion < 4) {
       await _createBookingSchema(db);
+    }
+    if (oldVersion < 5) {
+      await _createReminderSchema(db);
     }
   }
 
