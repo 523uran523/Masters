@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 
 import '../../app/theme/app_theme.dart';
 import '../../app/ui.dart';
+import '../../core/document_service.dart';
 import '../../core/utils/app_utils.dart';
 import '../../data/models/job.dart';
 import 'job_form_screen.dart';
@@ -28,6 +29,30 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
   void dispose() {
     _timer?.cancel();
     super.dispose();
+  }
+
+  Future<void> _createDocument(MastersStore store, Job job) async {
+    final type = await showCupertinoModalPopup<String?>(
+      context: context,
+      builder: (ctx) => Container(
+        height: 220,
+        color: context.colors.card,
+        child: Column(
+          children: [
+            CupertinoButton(child: const Text('Квитанция'), onPressed: () => Navigator.of(ctx).pop('Квитанция')),
+            CupertinoButton(child: const Text('Акт выполненных работ'), onPressed: () => Navigator.of(ctx).pop('Акт выполненных работ')),
+            CupertinoButton(child: const Text('Счёт'), onPressed: () => Navigator.of(ctx).pop('Счёт')),
+          ],
+        ),
+      ),
+    );
+    if (type == null) return;
+    final bytes = await DocumentService.buildJobPdf(store: store, job: job, type: type);
+    final name = 'document-${job.id.substring(0, 6)}-${DateTime.now().millisecondsSinceEpoch}.pdf';
+    final ok = await DocumentService.savePdf(bytes, name);
+    if (mounted && ok) {
+      await showAppAlert(context, title: 'Готово', message: 'Документ сохранён.');
+    }
   }
 
   void _startTimer() {
@@ -469,6 +494,12 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
                     icon: job.archived ? CupertinoIcons.tray_full : CupertinoIcons.archivebox,
                     label: job.archived ? 'Восстановить' : 'В архив',
                     onTap: () => store.setArchived(job.id, !job.archived),
+                  ),
+                  Hairline(indent: 0),
+                  SecondaryButton(
+                    label: 'Создать документ (PDF)',
+                    icon: CupertinoIcons.doc_text,
+                    onPressed: () => _createDocument(store, job),
                   ),
                   Hairline(indent: 0),
                   _ActionTile(
