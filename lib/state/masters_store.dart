@@ -1395,6 +1395,28 @@ class MastersStore extends ChangeNotifier {
     }
   }
 
+  Future<List<Map<String, Object?>>> auditEntries({int limit = 100}) async {
+    return _appDatabase.auditLog(limit: limit);
+  }
+
+  Future<void> auditAction({
+    required String action,
+    String entity = 'app',
+    String? entityId,
+    Object? before,
+    Object? after,
+    String? deviceId,
+  }) async {
+    await _appDatabase.audit(
+      action: action,
+      entity: entity,
+      entityId: entityId,
+      before: before,
+      after: after,
+      deviceId: deviceId,
+    );
+  }
+
   Future<void> clearAll() async {
     await _appDatabase.database.transaction((txn) async {
       await txn.delete('appointments');

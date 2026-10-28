@@ -3,6 +3,9 @@ import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:sqflite/sqflite.dart';
 
+import '../core/utils/app_utils.dart';
+import 'dart:convert';
+
 class AppDatabase {
   AppDatabase._(this.database);
 
@@ -22,7 +25,7 @@ class AppDatabase {
 
     final database = await openDatabase(
       resolved,
-      version: 7,
+      version: 8,
       onConfigure: (db) async {
         if (!kIsWeb) await db.execute('PRAGMA foreign_keys = ON');
       },
@@ -127,6 +130,25 @@ class AppDatabase {
     await _createReminderSchema(db);
     await _createTeamSchema(db);
     await _ensureSyncColumns(db);
+    await _createAuditLogSchema(db);
+  }
+
+  static Future<void> _createAuditLogSchema(Database db) async {
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS audit_log (
+        id TEXT PRIMARY KEY,
+        actor TEXT NOT NULL DEFAULT 'local',
+        action TEXT NOT NULL,
+        entity TEXT NOT NULL,
+        entity_id TEXT,
+        before_json TEXT,
+        after_json TEXT,
+        at INTEGER NOT NULL,
+        device_id TEXT
+      )
+    ''');
+    await db.execute('CREATE INDEX idx_audit_log_entity ON audit_log(entity, entity_id)');
+    await db.execute('CREATE INDEX idx_audit_log_at ON audit_log(at)');
   }
 
   static Future<void> _ensureSyncColumns(Database db) async {
@@ -406,6 +428,9 @@ class AppDatabase {
     if (oldVersion < 7) {
       await _ensureSyncColumns(db);
     }
+    if (oldVersion < 8) {
+      await _createAuditLogSchema(db);
+    }
   }
 
   Future<List<String>> integrityIssues() async {
@@ -431,6 +456,37 @@ class AppDatabase {
       issues.add('quick_check failed: $e');
     }
     return issues;
+  }
+
+  Future<List<Map<String, Object?>>> auditLog({int limit = 100}) async {
+    return database.query(
+      'audit_log',
+      orderBy: 'at DESC, id DESC',
+      limit: limit < 1 ? 1 : limit,
+    );
+  }
+
+  Future<void> audit({
+    required String action,
+    String entity = 'app',
+    String? entityId,
+    Object? before,
+    Object? after,
+    String? deviceId,
+  }) async {
+    await database.insert(
+      'audit_log',
+      {
+        'id': newId(),
+        'action': action,
+        'entity': entity,
+        'entity_id': entityId,
+        'before_json': before == null ? null : jsonEncode(before),
+        'after_json': after == null ? null : jsonEncode(after),
+        'at': DateTime.now().millisecondsSinceEpoch,
+        'device_id': deviceId,
+      },
+    );
   }
 
   Future<void> close() => database.close();
