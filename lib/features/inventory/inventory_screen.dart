@@ -110,6 +110,23 @@ class _InventoryScreenState extends State<InventoryScreen> {
     }
   }
 
+  Future<void> _importInventoryExcel() async {
+    setState(() => _busy = true);
+    try {
+      final count = await context.read<MastersStore>().importInventoryFromExcel();
+      if (!mounted) return;
+      await showAppAlert(
+        context,
+        title: count > 0 ? 'Импорт завершён' : 'Импорт',
+        message: count > 0
+            ? 'Добавлено товаров/услуг: $count.'
+            : 'Не удалось добавить записи. Нужен столбец name; проверьте файл Excel.',
+      );
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
   Future<void> _delete(InventoryItem item) async {
     final ok = await showAppConfirm(context, title: 'Удалить позицию?', message: item.name, destructive: true, confirmLabel: 'Удалить');
     if (!ok) return;
@@ -182,6 +199,8 @@ class _InventoryScreenState extends State<InventoryScreen> {
                     ),
                     const SizedBox(height: 16),
                   ],
+                  SecondaryButton(label: 'Импорт из Excel', icon: CupertinoIcons.doc_on_doc, onPressed: _importInventoryExcel),
+                  const SizedBox(height: 8),
                   SectionLabel('Позиции (${store.inventoryItems.length})'),
                   store.inventoryItems.isEmpty
                       ? EmptyState(

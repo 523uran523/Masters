@@ -178,6 +178,24 @@ class _MoneyScreenState extends State<MoneyScreen> {
     );
   }
 
+
+  Future<void> _importTransactionsExcel() async {
+    setState(() => _busy = true);
+    try {
+      final count = await context.read<MastersStore>().importTransactionsFromExcel();
+      if (!mounted) return;
+      await showAppAlert(
+        context,
+        title: count > 0 ? 'Импорт завершён' : 'Импорт',
+        message: count > 0
+            ? 'Добавлено транзакций: $count.'
+            : 'Не удалось добавить записи. Проверьте шаблон Excel (колонка amount обязательна).',
+      );
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
   Future<void> _newAccount() async {
     final name = await _prompt('Название счёта', 'Карта');
     if (name == null || name.trim().isEmpty) return;
@@ -405,6 +423,8 @@ class _MoneyScreenState extends State<MoneyScreen> {
                   ),
                   const SizedBox(height: 8),
                   SecondaryButton(label: 'Перевод между счетами', icon: CupertinoIcons.arrow_left_right, onPressed: _transferBetweenAccounts),
+                  const SizedBox(height: 8),
+                  SecondaryButton(label: 'Импорт транзакций (Excel)', icon: CupertinoIcons.doc_on_doc, onPressed: _importTransactionsExcel),
                   const SizedBox(height: 16),
                   SectionLabel('Смена кассы'),
                   AppCard(
