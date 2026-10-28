@@ -680,6 +680,7 @@ class MastersStore extends ChangeNotifier {
     String? clientId,
     String? jobId,
     String? shiftId,
+    String? relatedTransactionId,
   }) async {
     if (amountCents <= 0) throw ArgumentError('Сумма должна быть больше 0.');
     final tx = MoneyTransaction(
@@ -693,12 +694,60 @@ class MastersStore extends ChangeNotifier {
       clientId: clientId,
       jobId: jobId,
       shiftId: shiftId ?? openShift()?.id,
+      relatedTransactionId: relatedTransactionId,
       createdAt: DateTime.now(),
     );
     await _moneyTxRepo.save(tx);
     _moneyTransactions = [tx, ..._moneyTransactions];
     notifyListeners();
     return tx;
+  }
+
+  Future<void> transferBetweenAccounts(
+    String fromAccountId,
+    String toAccountId,
+    int amountCents, {
+    String? note,
+  }) async {
+    if (amountCents <= 0) throw ArgumentError('Сумма должна быть больше 0.');
+    if (fromAccountId == toAccountId) throw ArgumentError('Счета должны различаться.');
+    final from = await addTransaction(
+      accountId: fromAccountId,
+      kind: 'transfer',
+      direction: 'out',
+      amountCents: amountCents,
+      category: 'Перевод',
+      note: note,
+      shiftId: openShift()?.id,
+    );
+    final to = await addTransaction(
+      accountId: toAccountId,
+      kind: 'transfer',
+      direction: 'in',
+      amountCents: amountCents,
+      category: 'Перевод',
+      note: note,
+      relatedTransactionId: from.id,
+      shiftId: openShift()?.id,
+    );
+    final linkedFrom = MoneyTransaction(
+      id: from.id,
+      accountId: from.accountId,
+      kind: from.kind,
+      direction: from.direction,
+      amountCents: from.amountCents,
+      category: from.category,
+      note: from.note,
+      clientId: null,
+      jobId: null,
+      shiftId: from.shiftId,
+      relatedTransactionId: to.id,
+      createdAt: from.createdAt,
+      voided: from.voided,
+    );
+    await _moneyTxRepo.save(linkedFrom);
+    _moneyTransactions = await _moneyTxRepo.getAll();
+    notifyListeners();
   }
 
   Future<void> voidTransaction(String id) async {

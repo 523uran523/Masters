@@ -10,7 +10,6 @@ import 'theme/app_theme.dart';
 
 import '../core/yandex_backup_meta.dart';
 import '../core/yandex_disk_service.dart';
-import '../core/yandex_sync.dart';
 
 class MastersApp extends StatefulWidget {
   const MastersApp({
