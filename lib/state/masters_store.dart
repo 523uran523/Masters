@@ -264,6 +264,8 @@ class MastersStore extends ChangeNotifier {
     _timeEntries = rest[8] as List<TimeEntry>;
     _employeePayments = rest[9] as List<EmployeePayment>;
 
+    await _reconcileEmployeePayments();
+
     if (_bookingResources.isEmpty) {
       final r = BookingResource(id: newId(), name: 'Основной', createdAt: DateTime.now());
       await _bookingResourceRepo.save(r);
@@ -1071,6 +1073,29 @@ class MastersStore extends ChangeNotifier {
     final p = EmployeePayment(id: newId(), employeeId: employeeId, type: type, amountCents: amountCents < 0 ? 0 : amountCents, note: note?.trim().isEmpty == true ? null : note?.trim(), createdAt: DateTime.now());
     await _paymentRepo.save(p);
     _employeePayments = [p, ..._employeePayments];
+
+    // Платежи наличными отражаются в журнале денег и балансах счетов.
+    final cashTypes = {'advance', 'payout'};
+    if (cashTypes.contains(type) && _accounts.isNotEmpty) {
+      final account = _accounts.firstWhere(
+        (a) => !a.archived,
+        orElse: () => _accounts.first,
+      );
+        final tx = MoneyTransaction(
+          id: newId(),
+          accountId: account.id,
+          kind: 'employee_payment',
+          direction: 'out',
+          amountCents: amountCents < 0 ? 0 : amountCents,
+          category: type == 'advance' ? 'Аванс сотруднику' : 'Выплата зарплаты',
+          note: note?.trim().isEmpty == true ? p.note : note?.trim(),
+          relatedTransactionId: p.id,
+          createdAt: p.createdAt,
+          shiftId: openShift()?.id,
+        );
+        await _moneyTxRepo.save(tx);
+        _moneyTransactions = [tx, ..._moneyTransactions];
+      }
     notifyListeners();
     return p;
   }
@@ -1078,6 +1103,19 @@ class MastersStore extends ChangeNotifier {
   Future<void> deleteEmployeePayment(String id) async {
     await _paymentRepo.delete(id);
     _employeePayments = _employeePayments.where((p) => p.id != id).toList();
+
+    // Возвращаем связанные денежные транзакции.
+    final linked = _moneyTransactions.where((t) => t.kind == 'employee_payment' && t.relatedTransactionId == id).toList();
+    for (final tx in linked) {
+      await _moneyTxRepo.voidTransaction(tx.id);
+      final idx = _moneyTransactions.indexWhere((t) => t.id == tx.id);
+      if (idx != -1) {
+        _moneyTransactions[idx] = MoneyTransaction.fromMap(
+          _moneyTransactions[idx].toMap()..['voided'] = 1,
+        );
+      }
+    }
+    _moneyTransactions = await _moneyTxRepo.getAll();
     notifyListeners();
   }
 
@@ -1321,6 +1359,40 @@ class MastersStore extends ChangeNotifier {
   /// App-level integrity check, used on web where FK enforcement is off.
   Future<List<String>> checkDataIntegrity() async {
     return _appDatabase.integrityIssues();
+  }
+
+  Future<void> _reconcileEmployeePayments() async {
+    const cashTypes = {'advance', 'payout'};
+    bool changed = false;
+    for (final payment in List<EmployeePayment>.from(_employeePayments)) {
+      if (!cashTypes.contains(payment.type)) continue;
+      final already = _moneyTransactions.any(
+          (t) => t.kind == 'employee_payment' && !t.voided && t.relatedTransactionId == payment.id);
+      if (already) continue;
+      if (_accounts.isEmpty) continue;
+      final account = _accounts.firstWhere(
+        (a) => !a.archived,
+        orElse: () => _accounts.first,
+      );
+      final tx = MoneyTransaction(
+        id: newId(),
+        accountId: account.id,
+        kind: 'employee_payment',
+        direction: 'out',
+        amountCents: payment.amountCents,
+        category: payment.type == 'advance' ? 'Аванс сотруднику' : 'Выплата зарплаты',
+        note: payment.note,
+        relatedTransactionId: payment.id,
+        createdAt: payment.createdAt,
+        shiftId: null,
+      );
+      await _moneyTxRepo.save(tx);
+      _moneyTransactions = [tx, ..._moneyTransactions];
+      changed = true;
+    }
+    if (!_loaded && changed) {
+      // notify happens after load(); suppress extra flicker here.
+    }
   }
 
   Future<void> clearAll() async {
