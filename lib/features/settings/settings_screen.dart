@@ -141,7 +141,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             job.dueDate == null ? '' : job.dueDate!.toIso8601String().substring(0, 10),
           ],
       ];
-      final ok = await BackupService.saveSpreadsheet(rows, fileName: 'masters.xlsx', sheetName: 'Orders');
+      final ok = await BackupService.saveExcel(rows, fileName: 'masters.xlsx', sheetName: 'Orders');
       if (mounted && ok) {
         await showAppAlert(context, title: 'Готово', message: 'Excel-таблица сохранена.');
       }
