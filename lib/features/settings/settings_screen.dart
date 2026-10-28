@@ -212,6 +212,60 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
+  Future<void> _managePin() async {
+    final settings = context.read<SettingsController>();
+    if (settings.hasAppPin) {
+      final current = await _promptPin('Текущий PIN (4-6 цифр)', '****');
+      if (!mounted) return;
+      if (current == null || !settings.verifyAppPin(current)) {
+        await showAppAlert(context, title: 'Ошибка', message: 'PIN не совпал.');
+        return;
+      }
+    }
+    final next = await _promptPin('Новый PIN (пусто - убрать)', '****');
+    if (!mounted) return;
+    if (next == null) return;
+    await settings.setAppPin(next.trim().isEmpty ? null : next.trim());
+    if (mounted) {
+      await showAppAlert(
+        context,
+        title: 'Готово',
+        message: next.trim().isEmpty ? 'PIN отключён.' : 'PIN установлен.',
+      );
+    }
+  }
+
+  Future<String?> _promptPin(String title, String placeholder) async {
+    final controller = TextEditingController();
+    return showCupertinoDialog<String?>(
+      context: context,
+      builder: (dialogContext) => CupertinoAlertDialog(
+        title: Text(title),
+        content: Padding(
+          padding: const EdgeInsets.only(top: 12),
+          child: CupertinoTextField(
+            controller: controller,
+            placeholder: placeholder,
+            obscureText: true,
+            autofocus: true,
+            keyboardType: TextInputType.number,
+          ),
+        ),
+        actions: [
+          CupertinoDialogAction(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: const Text('Отмена'),
+          ),
+          CupertinoDialogAction(
+            isDefaultAction: true,
+            onPressed: () => Navigator.of(dialogContext).pop(controller.text.trim()),
+            child: const Text('OK'),
+          ),
+        ],
+      ),
+    );
+  }
+
   Future<void> _clearData() async {
     final store = context.read<MastersStore>();
     final ok = await showAppConfirm(
@@ -619,6 +673,24 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         ),
                         if (i != 6 && i != 5) const SizedBox(height: 8),
                       ],
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 16),
+                const SizedBox(height: 16),
+                SectionLabel('Безопасность'),
+                AppCard(
+                  child: Column(
+                    children: [
+                      CupertinoListTile(
+                        title: Text(settings.hasAppPin ? 'PIN-код активен' : 'PIN-код не установлен'),
+                        subtitle: const Text('Экран блокируется при запуске. Биометрия — в плане.'),
+                      ),
+                      SecondaryButton(
+                        label: settings.hasAppPin ? 'Сменить или убрать PIN' : 'Установить PIN',
+                        icon: CupertinoIcons.lock,
+                        onPressed: _managePin,
+                      ),
                     ],
                   ),
                 ),

@@ -8,6 +8,7 @@ import '../state/settings_controller.dart';
 import 'root_shell.dart';
 import 'theme/app_theme.dart';
 
+import '../core/app_biometric.dart';
 import '../core/yandex_backup_meta.dart';
 import '../core/yandex_disk_service.dart';
 
@@ -46,6 +47,16 @@ class _MastersAppState extends State<MastersApp> with WidgetsBindingObserver {
   Future<void> _ensureAppPinIfNeeded() async {
     final settings = widget.settings;
     if (!settings.hasAppPin || settings.isAppPinUnlockedNow) return;
+
+    // Try biometric first on devices that support it.
+    if (settings.biometricEnabled && await AppBiometricService.isAvailable()) {
+      final ok = await AppBiometricService.authenticate();
+      if (!mounted) return;
+      if (ok) {
+        settings.unlockAppPin(const Duration(minutes: 15));
+        return;
+      }
+    }
 
     final navigator = widget.navigatorKey?.currentState;
     var context = navigator?.context;

@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:timezone/data/latest.dart' as tzdata;
 
+import '../core/app_biometric.dart';
 import '../core/app_pin_service.dart';
 import '../core/yandex_oauth.dart';
 
@@ -47,6 +48,7 @@ class SettingsController extends ChangeNotifier {
   static const _hiddenTabsKey = 'hidden_tabs';
   static const _appPinHashKey = 'app_pin_hash';
   static const _appPinUnlockedUntilKey = 'app_pin_unlocked_until';
+  static const _appBiometricEnabledKey = 'app_biometric_enabled';
 
   static Future<SettingsController> load() async {
     tzdata.initializeTimeZones();
@@ -252,6 +254,13 @@ class SettingsController extends ChangeNotifier {
   bool verifyAppPin(String pin) {
     final stored = _prefs.getString(_appPinHashKey);
     return AppPinService.verify(pin, stored);
+  }
+
+  bool get biometricEnabled => _prefs.getBool(_appBiometricEnabledKey) ?? false;
+
+  Future<void> setBiometricEnabled(bool value) async {
+    await _prefs.setBool(_appBiometricEnabledKey, value);
+    notifyListeners();
   }
 
   bool get onboardingDone => _prefs.getBool(_onboardingKey) ?? false;
