@@ -74,6 +74,13 @@ class _StatsScreenState extends State<StatsScreen> {
       topClients[j.clientId] = (topClients[j.clientId] ?? 0) + j.priceCents;
     }
     final sortedClients = topClients.entries.toList()..sort((a, b) => b.value.compareTo(a.value));
+    final staffRevenue = <String, int>{};
+    for (final j in completedJobs) {
+      final key = j.assigneeId ?? 'unassigned';
+      staffRevenue[key] = (staffRevenue[key] ?? 0) + j.priceCents;
+    }
+    final sortedStaff = staffRevenue.entries.toList()
+      ..sort((a, b) => b.value.compareTo(a.value));
 
     return CupertinoPageScaffold(
       navigationBar: const CupertinoNavigationBar(middle: Text('Итоги')),
@@ -144,6 +151,29 @@ class _StatsScreenState extends State<StatsScreen> {
                           child: Row(
                             children: [
                               Expanded(child: Text(client?.name ?? 'Клиент', style: const TextStyle(fontWeight: FontWeight.w500))),
+                              Text(_money(e.value), style: const TextStyle(fontWeight: FontWeight.w600)),
+                            ],
+                          ),
+                        );
+                      }).toList(),
+                    ),
+            ),
+            const SizedBox(height: 16),
+            SectionLabel('По сотрудникам'),
+            AppCard(
+              child: sortedStaff.isEmpty
+                  ? EmptyState(title: 'Нет данных', message: 'Здесь появится разбор по исполнителям.', art: Icon(CupertinoIcons.person_2, size: 36, color: colors.tertiaryLabel))
+                  : Column(
+                      children: sortedStaff.map((e) {
+                        final name = e.key == 'unassigned'
+                            ? 'Без исполнителя'
+                            : store.employeeById(e.key)?.name ?? e.key;
+                        return Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 6),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Expanded(child: Text(name, style: const TextStyle(fontWeight: FontWeight.w500))),
                               Text(_money(e.value), style: const TextStyle(fontWeight: FontWeight.w600)),
                             ],
                           ),
