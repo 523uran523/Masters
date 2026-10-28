@@ -1,10 +1,10 @@
-import 'dart:io';
-
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:intl/intl.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
+import 'package:sqflite_common_ffi_web/sqflite_ffi_web.dart';
 
 import 'app/app.dart';
 import 'core/reminder_service.dart';
@@ -16,7 +16,11 @@ import 'state/settings_controller.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  if (Platform.isWindows || Platform.isLinux) {
+  if (kIsWeb) {
+    // Web platform uses IndexedDB
+    databaseFactory = databaseFactoryFfiWeb;
+  } else {
+    // Desktop platforms use FFI
     sqfliteFfiInit();
     databaseFactory = databaseFactoryFfi;
   }

@@ -1,8 +1,12 @@
 import 'dart:convert';
-import 'dart:io';
 import 'dart:typed_data';
 
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:http/http.dart' as http;
+
+// Условный импорт: dart:io только для не-web платформ
+import 'yandex_disk_service_io.dart'
+    if (dart.library.html) 'yandex_disk_service_web.dart' as platform;
 
 class YandexDiskService {
   static const _base = 'https://webdav.yandex.ru';
@@ -11,33 +15,11 @@ class YandexDiskService {
       'Basic ${base64Encode(utf8.encode('$login:$password'))}';
 
   static Future<bool> testCredentials(String login, String password) async {
-    final client = HttpClient();
-    try {
-      final req = await client.openUrl('PROPFIND', Uri.parse('$_base/'));
-      req.headers.set('Authorization', _auth(login, password));
-      req.headers.set('Depth', '0');
-      final res = await req.close();
-      await res.drain();
-      return res.statusCode == 207 || res.statusCode == 200;
-    } catch (_) {
-      return false;
-    } finally {
-      client.close();
-    }
+    return platform.testCredentialsImpl(login, password, _base, _auth);
   }
 
   static Future<void> _ensureFolder(String login, String password) async {
-    final client = HttpClient();
-    try {
-      final req = await client.openUrl('MKCOL', Uri.parse('$_base/Masters'));
-      req.headers.set('Authorization', _auth(login, password));
-      final res = await req.close();
-      await res.drain();
-    } catch (_) {
-      // ignore
-    } finally {
-      client.close();
-    }
+    return platform.ensureFolderImpl(login, password, _base, _auth);
   }
 
   static Future<bool> uploadBackup(String login, String password, Map<String, dynamic> data, String fileName) async {

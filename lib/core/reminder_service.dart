@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:timezone/data/latest.dart' as tzdata;
 import 'package:timezone/timezone.dart' as tz;
@@ -7,6 +8,11 @@ class ReminderService {
       FlutterLocalNotificationsPlugin();
 
   static Future<void> init() async {
+    if (kIsWeb) {
+      // Web doesn't support local notifications
+      return;
+    }
+    
     tzdata.initializeTimeZones();
     const android = AndroidInitializationSettings('@mipmap/ic_launcher');
     const ios = DarwinInitializationSettings();
@@ -21,6 +27,11 @@ class ReminderService {
   }
 
   static Future<void> scheduleDaily(int hour, int minute) async {
+    if (kIsWeb) {
+      // Web doesn't support local notifications
+      return;
+    }
+    
     await _plugin.cancelAll();
     final now = tz.TZDateTime.now(tz.local);
     var scheduled = tz.TZDateTime(
@@ -58,6 +69,9 @@ class ReminderService {
   }
 
   static Future<void> cancel() async {
+    if (kIsWeb) {
+      return;
+    }
     await _plugin.cancelAll();
   }
 }
