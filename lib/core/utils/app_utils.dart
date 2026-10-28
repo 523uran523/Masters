@@ -3,13 +3,20 @@ import 'dart:math';
 import 'package:intl/intl.dart';
 
 String newId() {
-  final time = DateTime.now().microsecondsSinceEpoch.toRadixString(36);
-  // `1 << 32` overflows to 0 on the web (JS numbers are 32-bit for shifts),
-  // so combine two 30-bit values instead.
-  final random = Random();
-  final high = random.nextInt(1 << 30).toRadixString(36);
-  final low = random.nextInt(1 << 30).toRadixString(36);
-  return '$time-$high$low';
+  final now = DateTime.now().microsecondsSinceEpoch;
+  // 48 bits of timestamp keep the id sortable across devices.
+  final timestamp = now & ((1 << 48) - 1);
+  final random = Random.secure();
+  String hex(int value, int width) =>
+      value.toRadixString(16).padLeft(width, '0').substring(0, width);
+
+  final part1 = (timestamp >> 16) & 0xFFFFFFFF;
+  final part2 = timestamp & 0xFFFF;
+  final randomA = random.nextInt(0x1000) & 0xFFF;
+  final randomB = random.nextInt(0x8000) & 0x7FFF;
+  final tail = List.generate(14, (_) => random.nextInt(16)).map((v) => v.toRadixString(16)).join();
+  return '${hex(part1, 8)}-${hex(part2, 4)}-7${hex(randomA, 3)}-'
+      '${hex((randomB & 0x3FFF) | 0x8000, 4)}-$tail';
 }
 
 String formatMinutes(int minutes) {

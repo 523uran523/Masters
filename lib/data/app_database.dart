@@ -380,10 +380,6 @@ class AppDatabase {
     }
   }
 
-  Future<void> close() => database.close();
-
-  /// App-level integrity check used especially on web where FK enforcement
-  /// is disabled. Returns a human-readable list of violations (empty when OK).
   Future<List<String>> integrityIssues() async {
     final issues = <String>[];
     try {
@@ -408,4 +404,6 @@ class AppDatabase {
     }
     return issues;
   }
+
+  Future<void> close() => database.close();
 }
