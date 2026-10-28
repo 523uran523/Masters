@@ -10,8 +10,8 @@ import 'dart:async';
 
 import 'app/app.dart';
 import 'core/reminder_service.dart';
-import 'core/web_url.dart';
-import 'core/yandex_disk_service.dart';
+import 'core/single_tab_coordinator.dart';
+import 'core/web_url.dart';import 'core/yandex_disk_service.dart';
 import 'core/yandex_oauth.dart';
 import 'data/app_database.dart';
 import 'state/masters_store.dart';
@@ -23,6 +23,7 @@ Future<void> main() async {
   if (kIsWeb) {
     // Web platform uses IndexedDB via sqlite3.wasm
     databaseFactory = databaseFactoryFfiWebNoWebWorker;
+    BrowserTabCoordinator.instance.start();
   } else if (defaultTargetPlatform == TargetPlatform.windows ||
       defaultTargetPlatform == TargetPlatform.linux) {
     // Desktop platforms use FFI

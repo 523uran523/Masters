@@ -8,7 +8,6 @@ import '../state/settings_controller.dart';
 import 'root_shell.dart';
 import 'theme/app_theme.dart';
 
-import '../core/app_pin_service.dart';
 import '../core/yandex_backup_meta.dart';
 import '../core/yandex_disk_service.dart';
 

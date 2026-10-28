@@ -1,6 +1,8 @@
 import 'package:flutter/cupertino.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:provider/provider.dart';
 
+import '../core/single_tab_coordinator.dart';
 import '../features/today/today_screen.dart';
 import '../features/jobs/jobs_screen.dart';
 import '../features/clients/clients_screen.dart';
@@ -20,6 +22,23 @@ class RootShell extends StatefulWidget {
 
 class _RootShellState extends State<RootShell> {
   int _index = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    BrowserTabCoordinator.instance.addListener(() {
+      if (mounted) setState(() {});
+    });
+    if (kIsWeb) BrowserTabCoordinator.instance.start();
+  }
+
+  @override
+  void dispose() {
+    BrowserTabCoordinator.instance.removeListener(() {
+      if (mounted) setState(() {});
+    });
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -55,7 +74,24 @@ class _RootShellState extends State<RootShell> {
       ),
       tabBuilder: (context, localIndex) {
         final global = visibleIndices[localIndex.clamp(0, visibleIndices.length - 1)];
-        return CupertinoTabView(builder: (context) => _tabDefs[global].screen);
+        final showWarning = kIsWeb && BrowserTabCoordinator.instance.hasOtherActiveTabs;
+        return Column(
+          children: [
+            if (showWarning)
+              Container(
+                width: double.infinity,
+                color: colors.orange,
+                child: SafeArea(
+                  bottom: false,
+                  child: Padding(
+                    padding: const EdgeInsets.all(10),
+                    child: Text('Приложение уже открыто в другой вкладке.', style: TextStyle(color: CupertinoColors.white, fontWeight: FontWeight.w600)),
+                  ),
+                ),
+              ),
+            Expanded(child: CupertinoTabView(builder: (context) => _tabDefs[global].screen)),
+          ],
+        );
       },
     );
   }
