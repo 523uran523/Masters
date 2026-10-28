@@ -701,6 +701,14 @@ class MastersStore extends ChangeNotifier {
     );
     await _moneyTxRepo.save(tx);
     _moneyTransactions = [tx, ..._moneyTransactions];
+    try {
+      await _appDatabase.audit(
+        action: 'money.transaction.add',
+        entity: 'money_transaction',
+        entityId: tx.id,
+        after: tx.toMap(),
+      );
+    } catch (_) {}
     notifyListeners();
     return tx;
   }
@@ -749,6 +757,19 @@ class MastersStore extends ChangeNotifier {
     );
     await _moneyTxRepo.save(linkedFrom);
     _moneyTransactions = await _moneyTxRepo.getAll();
+    try {
+      await _appDatabase.audit(
+        action: 'money.transfer',
+        entity: 'account',
+        after: {
+          'from': fromAccountId,
+          'to': toAccountId,
+          'amountCents': amountCents,
+          'fromTransactionId': from.id,
+          'toTransactionId': to.id,
+        },
+      );
+    } catch(_) {}
     notifyListeners();
   }
 
@@ -1116,6 +1137,7 @@ class MastersStore extends ChangeNotifier {
       }
     }
     _moneyTransactions = await _moneyTxRepo.getAll();
+    try { await _appDatabase.audit(action:'employee_payment.delete'); } catch (_) {}
     notifyListeners();
   }
 
@@ -1418,6 +1440,7 @@ class MastersStore extends ChangeNotifier {
   }
 
   Future<void> clearAll() async {
+    try { await _appDatabase.audit(action:'data.clearAll'); } catch (_) {}
     await _appDatabase.database.transaction((txn) async {
       await txn.delete('appointments');
       await txn.delete('booking_resources');
