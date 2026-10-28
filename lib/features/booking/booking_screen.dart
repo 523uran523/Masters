@@ -4,8 +4,11 @@ import 'package:provider/provider.dart';
 
 import '../../app/theme/app_theme.dart';
 import '../../app/ui.dart';
+import '../../core/utils/app_utils.dart';
 import '../../data/models/appointment.dart';
+import '../../data/models/job.dart';
 import '../../data/models/work_object.dart';
+import '../jobs/job_detail_screen.dart';
 import '../../state/masters_store.dart';
 
 class BookingScreen extends StatefulWidget {
@@ -177,6 +180,11 @@ class _BookingScreenState extends State<BookingScreen> {
     final store = context.watch<MastersStore>();
     final colors = context.colors;
     final dayAppts = store.appointmentsForDay(_selectedDay);
+    final dayJobs = store.jobs.where((j) => !j.archived && j.dueDate != null && dayKey(j.dueDate!) == dayKey(_selectedDay)).toList();
+    final dayEntries = <_BookingDayEntry>[
+      for (final a in dayAppts) _BookingDayEntry('appointment', a, a.startAt),
+      for (final j in dayJobs) _BookingDayEntry('job', j, DateTime(j.dueDate!.year, j.dueDate!.month, j.dueDate!.day, 23, 59)),
+    ]..sort((a, b) => a.time.compareTo(b.time));
     final month = _monthStart();
     final firstWeekday = month.weekday;
     final daysInMonth = DateTime(month.year, month.month + 1, 0).day;
@@ -262,66 +270,103 @@ class _BookingScreenState extends State<BookingScreen> {
                       children: [
                         Text(DateFormat('d MMMM yyyy', 'ru').format(_selectedDay), style: const TextStyle(fontWeight: FontWeight.w600)),
                         const Spacer(),
-                        Text('${dayAppts.length} записей', style: TextStyle(color: colors.secondaryLabel, fontSize: 12)),
+                        Text('${dayEntries.length} записей', style: TextStyle(color: colors.secondaryLabel, fontSize: 12)),
                       ],
                     ),
                   ),
                   Expanded(
-                    child: dayAppts.isEmpty
+                    child: dayEntries.isEmpty
                         ? EmptyState(
                             title: 'Нет записей',
-                            message: 'Нажмите +, чтобы создать запись.',
+                            message: 'Нет записей на этот день.',
                             art: Icon(CupertinoIcons.calendar, size: 36, color: colors.tertiaryLabel),
                           )
                         : ListView.builder(
                             padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
-                            itemCount: dayAppts.length,
+                            itemCount: dayEntries.length,
                             itemBuilder: (context, index) {
-                              final a = dayAppts[index];
-                              final client = a.clientId == null ? null : store.clientById(a.clientId!);
+                              final entry = dayEntries[index];
+                              if (entry.kind == 'appointment') {
+                                final a = entry.item as Appointment;
+                                final client = a.clientId == null ? null : store.clientById(a.clientId!);
+                                return Padding(
+                                  padding: const EdgeInsets.only(bottom: 8),
+                                  child: Dismissible(
+                                    key: ValueKey(a.id),
+                                    direction: DismissDirection.endToStart,
+                                    background: Container(
+                                      alignment: Alignment.centerRight,
+                                      padding: const EdgeInsets.only(right: 16),
+                                      decoration: BoxDecoration(color: colors.red.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(16)),
+                                      child: Icon(CupertinoIcons.delete, color: colors.red),
+                                    ),
+                                    confirmDismiss: (_) => showAppConfirm(context, title: 'Удалить запись?', message: a.title, destructive: true, confirmLabel: 'Удалить'),
+                                    onDismissed: (_) => store.deleteAppointment(a.id),
+                                    child: AppCard(
+                                      child: Row(
+                                        children: [
+                                          Container(
+                                            width: 4,
+                                            height: 36,
+                                            margin: const EdgeInsets.only(right: 10),
+                                            decoration: BoxDecoration(color: colors.accent, borderRadius: BorderRadius.circular(4)),
+                                          ),
+                                          Expanded(
+                                            child: Column(
+                                              crossAxisAlignment: CrossAxisAlignment.start,
+                                              children: [
+                                                Text(a.title, style: const TextStyle(fontWeight: FontWeight.w600)),
+                                                Text(
+                                                  '${DateFormat('HH:mm', 'ru').format(a.startAt)}–${DateFormat('HH:mm', 'ru').format(a.endAt)}${client != null ? ' • ${client.name}' : ''}',
+                                                  style: TextStyle(color: colors.secondaryLabel, fontSize: 12),
+                                                ),
+                                                if (a.note != null && a.note!.isNotEmpty)
+                                                  Text(a.note!, style: TextStyle(color: colors.tertiaryLabel, fontSize: 12)),
+                                              ],
+                                            ),
+                                          ),
+                                          CupertinoButton(
+                                            padding: EdgeInsets.zero,
+                                            onPressed: () => store.updateAppointment(a.copyWith(status: a.status == AppointmentStatus.done ? AppointmentStatus.scheduled : AppointmentStatus.done)),
+                                            child: Icon(CupertinoIcons.checkmark_circle, size: 20, color: colors.green),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                );
+                              }
+                              final j = entry.item as Job;
+                              final client = store.clientById(j.clientId);
                               return Padding(
                                 padding: const EdgeInsets.only(bottom: 8),
-                                child: Dismissible(
-                                  key: ValueKey(a.id),
-                                  direction: DismissDirection.endToStart,
-                                  background: Container(
-                                    alignment: Alignment.centerRight,
-                                    padding: const EdgeInsets.only(right: 16),
-                                    decoration: BoxDecoration(color: colors.red.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(16)),
-                                    child: Icon(CupertinoIcons.delete, color: colors.red),
+                                child: AppCard(
+                                  onTap: () => Navigator.of(context).push(
+                                    CupertinoPageRoute(builder: (_) => JobDetailScreen(jobId: j.id)),
                                   ),
-                                  confirmDismiss: (_) => showAppConfirm(context, title: 'Удалить запись?', message: a.title, destructive: true, confirmLabel: 'Удалить'),
-                                  onDismissed: (_) => store.deleteAppointment(a.id),
-                                  child: AppCard(
-                                    child: Row(
-                                      children: [
-                                        Container(
-                                          width: 4,
-                                          height: 36,
-                                          margin: const EdgeInsets.only(right: 10),
-                                          decoration: BoxDecoration(color: colors.accent, borderRadius: BorderRadius.circular(4)),
+                                  child: Row(
+                                    children: [
+                                      Container(
+                                        width: 4,
+                                        height: 36,
+                                        margin: const EdgeInsets.only(right: 10),
+                                        decoration: BoxDecoration(color: colors.orange, borderRadius: BorderRadius.circular(4)),
+                                      ),
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            Text(j.title, style: const TextStyle(fontWeight: FontWeight.w600)),
+                                            Text(
+                                              'Срок: ${DateFormat('d MMM HH:mm', 'ru').format(j.dueDate!)}${client != null ? ' • ${client.name}' : ''}',
+                                              style: TextStyle(color: colors.secondaryLabel, fontSize: 12),
+                                            ),
+                                            Text('Заказ', style: TextStyle(color: colors.tertiaryLabel, fontSize: 11)),
+                                          ],
                                         ),
-                                        Expanded(
-                                          child: Column(
-                                            crossAxisAlignment: CrossAxisAlignment.start,
-                                            children: [
-                                              Text(a.title, style: const TextStyle(fontWeight: FontWeight.w600)),
-                                              Text(
-                                                '${DateFormat('HH:mm', 'ru').format(a.startAt)}–${DateFormat('HH:mm', 'ru').format(a.endAt)}${client != null ? ' • ${client.name}' : ''}',
-                                                style: TextStyle(color: colors.secondaryLabel, fontSize: 12),
-                                              ),
-                                              if (a.note != null && a.note!.isNotEmpty)
-                                                Text(a.note!, style: TextStyle(color: colors.tertiaryLabel, fontSize: 12)),
-                                            ],
-                                          ),
-                                        ),
-                                        CupertinoButton(
-                                          padding: EdgeInsets.zero,
-                                          onPressed: () => store.updateAppointment(a.copyWith(status: AppointmentStatus.done)),
-                                          child: Icon(CupertinoIcons.checkmark_circle, size: 20, color: colors.green),
-                                        ),
-                                      ],
-                                    ),
+                                      ),
+                                      Icon(CupertinoIcons.chevron_forward, size: 16, color: colors.tertiaryLabel),
+                                    ],
                                   ),
                                 ),
                               );
@@ -333,4 +378,11 @@ class _BookingScreenState extends State<BookingScreen> {
             ),
     );
   }
+}
+
+class _BookingDayEntry {
+  const _BookingDayEntry(this.kind, this.item, this.time);
+  final String kind;
+  final Object item;
+  final DateTime time;
 }
