@@ -68,7 +68,8 @@ Future<void> main() async {
     }));
   }
 
-  runApp(MastersApp(store: store, settings: settings));
+  final navigatorKey = GlobalKey<NavigatorState>();
+  runApp(MastersApp(store: store, settings: settings, navigatorKey: navigatorKey));
 }
 
 /// Завершает OAuth-вход, если приложение открыто по redirect-адресу с кодом.

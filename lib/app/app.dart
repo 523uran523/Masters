@@ -8,15 +8,21 @@ import '../state/settings_controller.dart';
 import 'root_shell.dart';
 import 'theme/app_theme.dart';
 
+import '../core/yandex_backup_meta.dart';
+import '../core/yandex_disk_service.dart';
+import '../core/yandex_sync.dart';
+
 class MastersApp extends StatefulWidget {
   const MastersApp({
     super.key,
     required this.store,
     required this.settings,
+    this.navigatorKey,
   });
 
   final MastersStore store;
   final SettingsController settings;
+  final GlobalKey<NavigatorState>? navigatorKey;
 
   @override
   State<MastersApp> createState() => _MastersAppState();
@@ -32,7 +38,49 @@ class _MastersAppState extends State<MastersApp> with WidgetsBindingObserver {
         WidgetsBinding.instance.platformDispatcher.platformBrightness;
     WidgetsBinding.instance.addObserver(this);
     widget.store.addListener(_updateWidget);
-    WidgetsBinding.instance.addPostFrameCallback((_) => _updateWidget());
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _updateWidget();
+      WidgetsBinding.instance.addPostFrameCallback((_) => _tryAutoSync());
+    });
+  }
+
+  Future<void> _tryAutoSync() async {
+    final settings = widget.settings;
+    final store = widget.store;
+    if (!settings.yandexAutoBackup || !settings.yandexConnected) return;
+    try {
+      final token = await settings.ensureYandexToken();
+      if (token == null) return;
+      final remote = await getBackupMeta(token);
+      if (remote == null) return;
+      final last = settings.yandexLastCloudModified;
+      if (last != null && !remote.modified.isAfter(last)) return;
+      final context = widget.navigatorKey?.currentState?.context;
+      if (!mounted || context == null) return;
+      final restore = await showCupertinoDialog<bool>(
+        context: context,
+        builder: (context) => CupertinoAlertDialog(
+          title: const Text('Нашлось обновление на Яндекс Диске'),
+          content: const Text('В облаке новее резервная копия. Заменить локальные данные?'),
+          actions: [
+            CupertinoDialogAction(
+              child: const Text('Пропустить'),
+              onPressed: () => Navigator.pop(context, false),
+            ),
+            CupertinoDialogAction(
+              isDestructiveAction: true,
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('Восстановить'),
+            ),
+          ],
+        ),
+      );
+      if (restore != true) return;
+      final data = await YandexDiskService.downloadBackup(token);
+      if (data == null || !mounted) return;
+      await store.restoreFromBackup(data);
+      await settings.setYandexLastCloudModified(remote.modified);
+    } catch (_) {}
   }
 
   void _updateWidget() {
@@ -71,6 +119,7 @@ class _MastersAppState extends State<MastersApp> with WidgetsBindingObserver {
           };
 
           return CupertinoApp(
+            navigatorKey: widget.navigatorKey,
             title: 'Masters',
             debugShowCheckedModeBanner: false,
             theme: buildCupertinoTheme(brightness),
