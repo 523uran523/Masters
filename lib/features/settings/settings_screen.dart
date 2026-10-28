@@ -9,6 +9,7 @@ import '../../core/backup_service.dart';
 import '../../core/reminder_service.dart';
 import '../../core/yandex_disk_service.dart';
 import '../../core/yandex_oauth.dart';
+import '../../core/yandex_sync.dart';
 import '../../data/models/job.dart';
 import '../../state/masters_store.dart';
 import '../../state/settings_controller.dart';
@@ -202,6 +203,20 @@ class _SettingsScreenState extends State<SettingsScreen> {
       if (mounted) {
         setState(() => _awaitingCode = false);
         await showAppAlert(context, title: 'Готово', message: 'Яндекс Диск подключён.');
+      }
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _syncYandex() async {
+    final settings = context.read<SettingsController>();
+    final store = context.read<MastersStore>();
+    setState(() => _busy = true);
+    try {
+      final result = await YandexSyncService.sync(store, settings);
+      if (mounted) {
+        await showAppAlert(context, title: 'Синхронизация', message: result.message);
       }
     } finally {
       if (mounted) setState(() => _busy = false);
@@ -441,6 +456,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           ],
                         ),
                         const SizedBox(height: 8),
+                        if (settings.yandexLastCloudModified != null)
+                          Text(
+                            'Облако обновлено: ${settings.yandexLastCloudModified!.toLocal()}',
+                            style: TextStyle(color: colors.secondaryLabel, fontSize: 12),
+                          ),
                         Row(
                           children: [
                             const Expanded(child: Text('Автобэкап при запуске')),
@@ -465,6 +485,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           label: 'Проверить подключение',
                           icon: CupertinoIcons.checkmark,
                           onPressed: _testYandex,
+                        ),
+                        const SizedBox(height: 8),
+                        SecondaryButton(
+                          label: 'Синхронизировать',
+                          icon: CupertinoIcons.refresh,
+                          onPressed: _syncYandex,
                         ),
                         const SizedBox(height: 8),
                         SecondaryButton(

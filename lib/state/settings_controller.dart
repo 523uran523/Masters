@@ -36,6 +36,7 @@ class SettingsController extends ChangeNotifier {
   static const _yandexTokenKey = 'yandex_access_token';
   static const _yandexRefreshTokenKey = 'yandex_refresh_token';
   static const _yandexTokenExpiresKey = 'yandex_token_expires_at';
+  static const _yandexLastCloudModifiedKey = 'yandex_last_cloud_modified_at';
   static const _yandexAutoBackupKey = 'yandex_auto_backup';
   static const _onboardingKey = 'onboarding_done';
   static const _reminderEnabledKey = 'reminder_enabled';
@@ -115,6 +116,21 @@ class SettingsController extends ChangeNotifier {
   bool get yandexConnected =>
       (_prefs.getString(_yandexTokenKey) ?? '').isNotEmpty;
   bool get yandexAutoBackup => _prefs.getBool(_yandexAutoBackupKey) ?? false;
+
+  DateTime? get yandexLastCloudModified {
+    final ms = _prefs.getInt(_yandexLastCloudModifiedKey);
+    if (ms == null) return null;
+    return DateTime.fromMillisecondsSinceEpoch(ms);
+  }
+
+  Future<void> setYandexLastCloudModified(DateTime? value) async {
+    if (value == null) {
+      await _prefs.remove(_yandexLastCloudModifiedKey);
+    } else {
+      await _prefs.setInt(_yandexLastCloudModifiedKey, value.millisecondsSinceEpoch);
+    }
+    notifyListeners();
+  }
 
   DateTime? get yandexTokenExpiresAt {
     final raw = _prefs.getInt(_yandexTokenExpiresKey);
