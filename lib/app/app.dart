@@ -8,6 +8,7 @@ import '../state/settings_controller.dart';
 import 'root_shell.dart';
 import 'theme/app_theme.dart';
 
+import '../core/app_pin_service.dart';
 import '../core/yandex_backup_meta.dart';
 import '../core/yandex_disk_service.dart';
 
@@ -39,8 +40,71 @@ class _MastersAppState extends State<MastersApp> with WidgetsBindingObserver {
     widget.store.addListener(_updateWidget);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _updateWidget();
-      WidgetsBinding.instance.addPostFrameCallback((_) => _tryAutoSync());
+      WidgetsBinding.instance.addPostFrameCallback((_) => _ensureAppPinIfNeeded().then((_) => _tryAutoSync()));
     });
+  }
+
+  Future<void> _ensureAppPinIfNeeded() async {
+    final settings = widget.settings;
+    if (!settings.hasAppPin || settings.isAppPinUnlockedNow) return;
+
+    final navigator = widget.navigatorKey?.currentState;
+    var context = navigator?.context;
+    if (!mounted || context == null) return;
+
+    var unlocked = false;
+    while (!unlocked && mounted) {
+      final pin = await showCupertinoDialog<String?>(
+        context: context,
+        builder: (context) => CupertinoAlertDialog(
+          title: const Text('Введите PIN'),
+          content: Padding(
+            padding: const EdgeInsets.only(top: 12),
+            child: CupertinoTextField(
+              obscureText: true,
+              autofocus: true,
+              keyboardType: TextInputType.number,
+              onSubmitted: (value) => Navigator.of(context).pop(value.trim()),
+            ),
+          ),
+          actions: [
+            CupertinoDialogAction(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Отмена'),
+            ),
+            CupertinoDialogAction(
+              isDefaultAction: true,
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('OK'),
+            ),
+          ],
+        ),
+      );
+      if (!mounted) return;
+      if (pin == null) {
+        await Future.delayed(const Duration(seconds: 1));
+        continue;
+      }
+      if (settings.verifyAppPin(pin)) {
+        settings.unlockAppPin(const Duration(minutes: 15));
+        unlocked = true;
+      } else {
+        await showCupertinoDialog(
+          context: context,
+          builder: (dc) => CupertinoAlertDialog(
+            title: const Text('Ошибка'),
+            content: const Text('Неверный PIN.'),
+            actions: [
+              CupertinoDialogAction(
+                onPressed: () => Navigator.of(dc).pop(),
+                child: const Text('OK'),
+              ),
+            ],
+          ),
+        );
+        await Future.delayed(const Duration(seconds: 1));
+      }
+    }
   }
 
   Future<void> _tryAutoSync() async {

@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:timezone/data/latest.dart' as tzdata;
 
+import '../core/app_pin_service.dart';
 import '../core/yandex_oauth.dart';
 
 enum AppThemeMode { system, light, dark }
@@ -44,6 +45,8 @@ class SettingsController extends ChangeNotifier {
   static const _reminderMinuteKey = 'reminder_minute';
   static const _dndEnabledKey = 'dnd_enabled';
   static const _hiddenTabsKey = 'hidden_tabs';
+  static const _appPinHashKey = 'app_pin_hash';
+  static const _appPinUnlockedUntilKey = 'app_pin_unlocked_until';
 
   static Future<SettingsController> load() async {
     tzdata.initializeTimeZones();
@@ -208,6 +211,47 @@ class SettingsController extends ChangeNotifier {
   Future<void> setYandexAutoBackup(bool value) async {
     await _prefs.setBool(_yandexAutoBackupKey, value);
     notifyListeners();
+  }
+
+  bool get hasAppPin => (_prefs.getString(_appPinHashKey) ?? '').isNotEmpty;
+
+  DateTime? get appPinUnlockedUntil {
+    final value = _prefs.getInt(_appPinUnlockedUntilKey);
+    if (value == null) return null;
+    return DateTime.fromMillisecondsSinceEpoch(value);
+  }
+
+  bool get isAppPinUnlockedNow =>
+      !hasAppPin ||
+      (appPinUnlockedUntil != null &&
+          appPinUnlockedUntil!.isAfter(DateTime.now()));
+
+  Future<void> setAppPin(String? pin) async {
+    if (pin == null || pin.trim().isEmpty) {
+      await _prefs.remove(_appPinHashKey);
+      await _prefs.remove(_appPinUnlockedUntilKey);
+    } else {
+      await _prefs.setString(_appPinHashKey, AppPinService.hash(pin.trim()));
+      await _prefs.setInt(
+        _appPinUnlockedUntilKey,
+        DateTime.now().add(const Duration(minutes: 15)).millisecondsSinceEpoch,
+      );
+    }
+    notifyListeners();
+  }
+
+  void unlockAppPin(Duration window) {
+    if (!hasAppPin) return;
+    _prefs.setInt(
+      _appPinUnlockedUntilKey,
+      DateTime.now().add(window).millisecondsSinceEpoch,
+    );
+    notifyListeners();
+  }
+
+  bool verifyAppPin(String pin) {
+    final stored = _prefs.getString(_appPinHashKey);
+    return AppPinService.verify(pin, stored);
   }
 
   bool get onboardingDone => _prefs.getBool(_onboardingKey) ?? false;
