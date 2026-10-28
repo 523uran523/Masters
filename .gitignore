@@ -46,3 +46,8 @@ app.*.map.json
 
 # Local dev dart-defines (contains OAuth secrets) - copy from example
 /dart_defines.json
+
+# Android release signing (never commit real values)
+/android/key.properties
+/android/*.jks
+/android/*.keystore
