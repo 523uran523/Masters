@@ -1,3 +1,4 @@
+import 'dart:math';
 import 'package:flutter/cupertino.dart';
 import 'package:provider/provider.dart';
 
@@ -80,6 +81,8 @@ class TodayScreen extends StatelessWidget {
               return ListView(
                 padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
                 children: [
+                  _buildTodayOverview(store, context),
+                  const SizedBox(height: 12),
                   buildSection('В работе', active),
                   buildSection('Срок сегодня', dueToday),
                   buildSection('Новые', newJobs),
@@ -212,4 +215,58 @@ class TodayScreen extends StatelessWidget {
       ),
     );
   }
+}
+
+  Widget _buildTodayOverview(MastersStore store, BuildContext context) {
+
+    final colors = context.colors;
+    final todayStart = DateTime.now();
+    final tx = store.moneyTransactions.where((t) => !t.voided && t.createdAt.isAfter(DateTime(todayStart.year, todayStart.month, todayStart.day))).toList();
+    final income = tx.where((t) => t.direction == 'in').fold(0, (s, t) => s + t.amountCents);
+    final expense = tx.where((t) => t.direction == 'out').fold(0, (s, t) => s + t.amountCents);
+    final total = (income + expense).abs();
+    return AppCard(
+      child: Column(
+        children: [
+          Text('Сегодня', style: const TextStyle(fontWeight: FontWeight.w600)),
+          const SizedBox(height: 8),
+          SizedBox(
+            height: 140,
+            child: CustomPaint(
+              painter: _IncomeExpensePiePainter(income: income, expense: expense),
+              child: Center(child: Text(total == 0 ? '—' : 'И/Р', style: TextStyle(color: colors.secondaryLabel))),
+            ),
+          ),
+          const SizedBox(height: 8),
+          Row(mainAxisAlignment: MainAxisAlignment.spaceAround, children: [
+            Text('Доход ${ (income/100).toStringAsFixed(0)}', style: TextStyle(color: colors.green)),
+            Text('Расход ${ (expense/100).toStringAsFixed(0)}', style: TextStyle(color: colors.red)),
+          ]),
+        ],
+      ),
+    );
+  }
+
+class _IncomeExpensePiePainter extends CustomPainter {
+  const _IncomeExpensePiePainter({required this.income, required this.expense});
+  final int income;
+  final int expense;
+  @override
+  void paint(Canvas canvas, Size size) {
+    final total = income + expense;
+    if (total <= 0) return;
+    final center = Offset(size.width/2, size.height/2);
+    final radius = size.shortestSide*0.4;
+    final rect = Rect.fromCircle(center:center, radius:radius);
+    double start = -pi/2;
+    final paint = Paint()..style = PaintingStyle.fill;
+    paint.color = const Color(0xFF34C759);
+    final incAngle = (income/total)*2*pi;
+    canvas.drawArc(rect,start,incAngle,true,paint);
+    paint.color = const Color(0xFFFF3B30);
+    canvas.drawArc(rect,start+incAngle,2*pi-incAngle,true,paint);
+  }
+  @override
+  bool shouldRepaint(covariant _IncomeExpensePiePainter old) =>
+      old.income != income || old.expense != expense;
 }
