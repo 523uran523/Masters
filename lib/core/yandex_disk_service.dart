@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:http/http.dart' as http;
 
+import 'api_config.dart';
 /// Работа с Яндекс Диском через REST API по OAuth-токену.
 ///
 /// Логин и пароль приложение не хранит и не видит: вход выполняется в браузере,
@@ -13,9 +14,8 @@ class YandexDiskService {
 
   /// На web запросы идут через локальный сервер (обход CORS),
   /// на остальных платформах — напрямую в API.
-  static String get _api => kIsWeb
-      ? '/api/disk'
-      : 'https://cloud-api.yandex.net/v1/disk';
+  static String get _api =>
+      kIsWeb ? '${ApiConfig.apiBase}/api/disk' : 'https://cloud-api.yandex.net/v1/disk';
 
   static Map<String, String> _auth(String token) => {
         'Authorization': 'OAuth $token',
@@ -67,9 +67,8 @@ class YandexDiskService {
 
       final body = utf8.encode(jsonEncode(data));
       final upload = kIsWeb
-          // Обход CORS: загрузку выполняет локальный сервер.
           ? await http.put(
-              Uri.parse('/api/upload')
+              Uri.parse(ApiConfig.uploadProxy)
                   .replace(queryParameters: {'href': href}),
               headers: {'Content-Type': 'application/json; charset=utf-8'},
               body: body,
@@ -108,7 +107,8 @@ class YandexDiskService {
 
       final file = kIsWeb
           ? await http.get(
-              Uri.parse('/api/fetch').replace(queryParameters: {'href': href}),
+              Uri.parse(ApiConfig.fetchProxy)
+                  .replace(queryParameters: {'href': href}),
             )
           : await http.get(Uri.parse(href));
       if (file.statusCode != 200) return null;

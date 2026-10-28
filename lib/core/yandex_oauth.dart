@@ -6,7 +6,7 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
-/// OAuth-вход в Яндекс ID без логина и пароля внутри приложения.
+import 'api_config.dart';
 ///
 /// Используется authorization code flow с PKCE: приложение получает только
 /// токен, а ввод пароля и 2FA остаются на стороне Яндекса в браузере.
@@ -38,9 +38,9 @@ class YandexOAuth {
 
   static String get redirectUri => kIsWeb ? _webRedirect : _codeRedirect;
 
-  static Uri get _tokenEndpoint => Uri.parse(
-        kIsWeb ? '/api/oauth/token' : 'https://oauth.yandex.ru/token',
-      );
+  static Uri get _tokenEndpoint => kIsWeb
+      ? Uri.parse('${ApiConfig.apiBase}/api/oauth/token')
+      : Uri.parse('https://oauth.yandex.ru/token');
 
   static String _randomString(int length) {
     const alphabet =
