@@ -124,7 +124,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     }
   }
 
-  Future<void> _exportCsv() async {
+  Future<void> _exportExcel() async {
     final store = context.read<MastersStore>();
     setState(() => _busy = true);
     try {
@@ -141,9 +141,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
             job.dueDate == null ? '' : job.dueDate!.toIso8601String().substring(0, 10),
           ],
       ];
-      final ok = await BackupService.saveCsv(rows);
+      final ok = await BackupService.saveSpreadsheet(rows, fileName: 'masters.xlsx', sheetName: 'Orders');
       if (mounted && ok) {
-        await showAppAlert(context, title: 'Готово', message: 'Таблица сохранена.');
+        await showAppAlert(context, title: 'Готово', message: 'Excel-таблица сохранена.');
       }
     } finally {
       if (mounted) setState(() => _busy = false);
@@ -480,7 +480,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       _ActionTile(
                         icon: CupertinoIcons.table,
                         label: 'Экспорт CSV',
-                        onTap: _exportCsv,
+                        onTap: _exportExcel,
                       ),
                       Hairline(indent: 0),
                       _ActionTile(
