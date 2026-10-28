@@ -117,6 +117,31 @@ class _InventoryScreenState extends State<InventoryScreen> {
     await context.read<MastersStore>().deleteInventoryItem(item.id);
   }
 
+  Future<void> _editItem(InventoryItem item) async {
+    final name = await _prompt('Название', item.name, initial: item.name);
+    if (name == null || name.trim().isEmpty) return;
+    final unit = await _prompt('Ед. измерения', item.unit, initial: item.unit) ?? item.unit;
+    final sellStr = await _prompt('Цена продажи (₽)', (item.sellPriceCents / 100).toStringAsFixed(0), initial: (item.sellPriceCents / 100).toStringAsFixed(0)) ?? (item.sellPriceCents / 100).toString();
+    final costStr = await _prompt('Себестоимость (₽)', (item.costCents / 100).toStringAsFixed(0), initial: (item.costCents / 100).toStringAsFixed(0)) ?? '0';
+    final minStr = await _prompt('Мин. остаток', item.minQty.toString(), initial: item.minQty.toString()) ?? '0';
+    if (!mounted) return;
+    final sell = ((double.tryParse(sellStr.replaceAll(',', '.')) ?? 0) * 100).round();
+    final cost = ((double.tryParse(costStr.replaceAll(',', '.')) ?? 0) * 100).round();
+    final minQty = double.tryParse(minStr.replaceAll(',', '.')) ?? 0;
+    setState(() => _busy = true);
+    try {
+      await context.read<MastersStore>().updateInventoryItem(item.copyWith(
+        name: name.trim(),
+        unit: unit.trim(),
+        sellPriceCents: sell,
+        costCents: cost,
+        minQty: minQty,
+      ));
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final store = context.watch<MastersStore>();
@@ -172,6 +197,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
                             return Padding(
                               padding: const EdgeInsets.only(bottom: 8),
                               child: AppCard(
+                                onTap: () => _editItem(item),
                                 child: Row(
                                   children: [
                                     Expanded(

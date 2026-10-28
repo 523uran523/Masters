@@ -22,7 +22,7 @@ class AppDatabase {
 
     final database = await openDatabase(
       resolved,
-      version: 6,
+      version: 7,
       onConfigure: (db) async {
         if (!kIsWeb) await db.execute('PRAGMA foreign_keys = ON');
       },
@@ -126,6 +126,31 @@ class AppDatabase {
     await _createBookingSchema(db);
     await _createReminderSchema(db);
     await _createTeamSchema(db);
+    await _ensureSyncColumns(db);
+  }
+
+  static Future<void> _ensureSyncColumns(Database db) async {
+    const tables = <String>[
+      'clients', 'objects', 'jobs', 'job_stages', 'materials', 'work_sessions',
+      'accounts', 'cash_shifts', 'money_transactions', 'inventory_items',
+      'suppliers', 'purchases', 'purchase_lines', 'stock_movements',
+      'recipe_lines', 'booking_resources', 'appointments', 'client_reminders',
+      'employees', 'time_entries', 'employee_payments',
+    ];
+
+    Future<void> add(String table, String column, String type) async {
+      try {
+        await db.execute("ALTER TABLE $table ADD COLUMN $column $type");
+      } catch (_) {
+        // Column already exists or table was just created with these columns.
+      }
+    }
+
+    for (final table in tables) {
+      await add(table, 'updated_at', 'INTEGER');
+      await add(table, 'deleted_at', 'INTEGER');
+      await add(table, 'device_id', 'TEXT');
+    }
   }
 
   static Future<void> _createTeamSchema(Database db) async {
@@ -377,6 +402,9 @@ class AppDatabase {
       } catch (_) {
         // column may already exist
       }
+    }
+    if (oldVersion < 7) {
+      await _ensureSyncColumns(db);
     }
   }
 
