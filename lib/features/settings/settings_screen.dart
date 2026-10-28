@@ -162,6 +162,56 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
+  Future<void> _showAuditLog() async {
+    final entries = await context.read<MastersStore>().auditEntries(limit: 50);
+    if (!mounted) return;
+    await showCupertinoDialog<void>(
+      context: context,
+      builder: (context) => CupertinoAlertDialog(
+        title: const Text('Журнал действий'),
+        content: SizedBox(
+          height: 300,
+          width: 340,
+          child: entries.isEmpty
+              ? const Padding(
+                  padding: EdgeInsets.only(top: 12),
+                  child: Text('Записей пока нет.'),
+                )
+              : ListView.builder(
+                  itemCount: entries.length,
+                  itemBuilder: (context, i) {
+                    final row = entries[i];
+                    final at = DateTime.fromMillisecondsSinceEpoch((row['at'] as int?) ?? 0);
+                    return Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 4),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            '${row['action']} ? ${row['entity']} ${row['entity_id'] ?? ''}',
+                            style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12),
+                          ),
+                          Text(
+                            '${at.toLocal()}  '
+                            '${row['before_json'] ?? ''} -> ${row['after_json'] ?? ''}',
+                            style: const TextStyle(fontSize: 10),
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                ),
+        ),
+        actions: [
+          CupertinoDialogAction(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('OK'),
+          ),
+        ],
+      ),
+    );
+  }
+
   Future<void> _clearData() async {
     final store = context.read<MastersStore>();
     final ok = await showAppConfirm(
@@ -409,6 +459,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 AppCard(
                   child: Column(
                     children: [
+                      _ActionTile(
+                        icon: CupertinoIcons.list_bullet,
+                        label: 'Журнал действий',
+                        onTap: _showAuditLog,
+                      ),
+                      Hairline(indent: 0),
                       _ActionTile(
                         icon: CupertinoIcons.cloud_download,
                         label: 'Экспорт JSON',
