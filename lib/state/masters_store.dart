@@ -95,25 +95,100 @@ class MastersStore extends ChangeNotifier {
   List<EmployeePayment> _employeePayments = [];
   bool _loaded = false;
 
+  // Cache invalidation is centralized: notifyListeners() bumps state and
+  // clears the derived views and memoized computations above.
+  bool _viewsDirty = true;
+  List<Client>? _clientsView;
+  List<WorkObject>? _objectsView;
+  List<Job>? _jobsView;
+  List<JobStage>? _stagesView;
+  List<MaterialItem>? _materialsView;
+  List<WorkSession>? _sessionsView;
+  List<Account>? _accountsView;
+  List<MoneyTransaction>? _moneyTransactionsView;
+  List<CashShift>? _shiftsView;
+  List<InventoryItem>? _inventoryItemsView;
+  List<StockMovement>? _stockMovementsView;
+  List<Appointment>? _appointmentsView;
+  List<BookingResource>? _bookingResourcesView;
+  List<ClientReminder>? _remindersView;
+  List<Employee>? _employeesView;
+  List<TimeEntry>? _timeEntriesView;
+  List<EmployeePayment>? _employeePaymentsView;
+
+  final Map<String, int> _intCache = {};
+
+  @override
+  void notifyListeners() {
+    _viewsDirty = true;
+    _clientsView = null;
+    _objectsView = null;
+    _jobsView = null;
+    _stagesView = null;
+    _materialsView = null;
+    _sessionsView = null;
+    _accountsView = null;
+    _moneyTransactionsView = null;
+    _shiftsView = null;
+    _inventoryItemsView = null;
+    _stockMovementsView = null;
+    _appointmentsView = null;
+    _bookingResourcesView = null;
+    _remindersView = null;
+    _employeesView = null;
+    _timeEntriesView = null;
+    _employeePaymentsView = null;
+    _intCache.clear();
+    _earnedCache.clear();
+    _balanceCache.clear();
+    super.notifyListeners();
+  }
+
+  void _ensureViews() {
+    if (_viewsDirty) {
+      _clientsView = List.unmodifiable(_clients);
+      _objectsView = List.unmodifiable(_objects);
+      _jobsView = List.unmodifiable(_jobs);
+      _stagesView = List.unmodifiable(_stages);
+      _materialsView = List.unmodifiable(_materials);
+      _sessionsView = List.unmodifiable(_sessions);
+      _accountsView = List.unmodifiable(_accounts);
+      _moneyTransactionsView = List.unmodifiable(_moneyTransactions);
+      _shiftsView = List.unmodifiable(_shifts);
+      _inventoryItemsView = List.unmodifiable(_inventoryItems);
+      _stockMovementsView = List.unmodifiable(_stockMovements);
+      _appointmentsView = List.unmodifiable(_appointments);
+      _bookingResourcesView = List.unmodifiable(_bookingResources);
+      _remindersView = List.unmodifiable(_reminders);
+      _employeesView = List.unmodifiable(_employees);
+      _timeEntriesView = List.unmodifiable(_timeEntries);
+      _employeePaymentsView = List.unmodifiable(_employeePayments);
+      _viewsDirty = false;
+    }
+  }
+
+  final Map<String, int> _earnedCache = {};
+  final Map<String, int> _balanceCache = {};
+
   bool get isLoaded => _loaded;
 
-  List<Client> get clients => List.unmodifiable(_clients);
-  List<WorkObject> get objects => List.unmodifiable(_objects);
-  List<Job> get jobs => List.unmodifiable(_jobs);
-  List<JobStage> get stages => List.unmodifiable(_stages);
-  List<MaterialItem> get materials => List.unmodifiable(_materials);
-  List<WorkSession> get sessions => List.unmodifiable(_sessions);
-  List<Account> get accounts => List.unmodifiable(_accounts);
-  List<MoneyTransaction> get moneyTransactions => List.unmodifiable(_moneyTransactions);
-  List<CashShift> get shifts => List.unmodifiable(_shifts);
-  List<InventoryItem> get inventoryItems => List.unmodifiable(_inventoryItems);
-  List<StockMovement> get stockMovements => List.unmodifiable(_stockMovements);
-  List<Appointment> get appointments => List.unmodifiable(_appointments);
-  List<BookingResource> get bookingResources => List.unmodifiable(_bookingResources);
-  List<ClientReminder> get reminders => List.unmodifiable(_reminders);
-  List<Employee> get employees => List.unmodifiable(_employees);
-  List<TimeEntry> get timeEntries => List.unmodifiable(_timeEntries);
-  List<EmployeePayment> get employeePayments => List.unmodifiable(_employeePayments);
+  List<Client> get clients { _ensureViews(); return _clientsView!; }
+  List<WorkObject> get objects { _ensureViews(); return _objectsView!; }
+  List<Job> get jobs { _ensureViews(); return _jobsView!; }
+  List<JobStage> get stages { _ensureViews(); return _stagesView!; }
+  List<MaterialItem> get materials { _ensureViews(); return _materialsView!; }
+  List<WorkSession> get sessions { _ensureViews(); return _sessionsView!; }
+  List<Account> get accounts { _ensureViews(); return _accountsView!; }
+  List<MoneyTransaction> get moneyTransactions { _ensureViews(); return _moneyTransactionsView!; }
+  List<CashShift> get shifts { _ensureViews(); return _shiftsView!; }
+  List<InventoryItem> get inventoryItems { _ensureViews(); return _inventoryItemsView!; }
+  List<StockMovement> get stockMovements { _ensureViews(); return _stockMovementsView!; }
+  List<Appointment> get appointments { _ensureViews(); return _appointmentsView!; }
+  List<BookingResource> get bookingResources { _ensureViews(); return _bookingResourcesView!; }
+  List<ClientReminder> get reminders { _ensureViews(); return _remindersView!; }
+  List<Employee> get employees { _ensureViews(); return _employeesView!; }
+  List<TimeEntry> get timeEntries { _ensureViews(); return _timeEntriesView!; }
+  List<EmployeePayment> get employeePayments { _ensureViews(); return _employeePaymentsView!; }
 
   Client? clientById(String id) {
     for (final c in _clients) {
@@ -467,7 +542,8 @@ class MastersStore extends ChangeNotifier {
       _sessions.where((s) => s.jobId == jobId).toList();
 
   int totalMinutesForJob(String jobId) =>
-      sessionsForJob(jobId).fold(0, (sum, s) => sum + s.minutes);
+      _intCache.putIfAbsent('minutes:$jobId', () =>
+          sessionsForJob(jobId).fold(0, (sum, s) => sum + s.minutes));
 
   Future<WorkSession> addSession({
     required String jobId,
@@ -504,14 +580,15 @@ class MastersStore extends ChangeNotifier {
     return null;
   }
 
-  int balanceCents(String accountId) {
-    return _moneyTransactions
-        .where((t) => !t.voided && t.accountId == accountId)
-        .fold(0, (s, t) => s + t.signedAmount);
-  }
+  int balanceCents(String accountId) =>
+      _intCache.putIfAbsent('balance:$accountId', () =>
+          _moneyTransactions
+              .where((t) => !t.voided && t.accountId == accountId)
+              .fold(0, (s, t) => s + t.signedAmount));
 
   int totalBalanceCents() =>
-      _accounts.fold(0, (s, a) => s + balanceCents(a.id));
+      _intCache.putIfAbsent('balance:total', () =>
+          _accounts.fold(0, (s, a) => s + balanceCents(a.id)));
 
   CashShift? openShift() {
     for (final s in _shifts) {
@@ -636,22 +713,22 @@ class MastersStore extends ChangeNotifier {
     notifyListeners();
   }
 
-  int paidForJob(String jobId) {
-    return _moneyTransactions
-        .where((t) => !t.voided && t.jobId == jobId && t.direction == 'in')
-        .fold(0, (s, t) => s + t.amountCents);
-  }
+  int paidForJob(String jobId) =>
+      _intCache.putIfAbsent('paid:$jobId', () =>
+          _moneyTransactions
+              .where((t) => !t.voided && t.jobId == jobId && t.direction == 'in')
+              .fold(0, (s, t) => s + t.amountCents));
 
-  int clientDebtCents(String clientId) {
-    // receivable: job prices unpaid (sum price) - payments
-    final price = _jobs
-        .where((j) => j.clientId == clientId && !j.archived)
-        .fold(0, (s, j) => s + j.priceCents);
-    final paid = _moneyTransactions
-        .where((t) => !t.voided && t.clientId == clientId && t.direction == 'in')
-        .fold(0, (s, t) => s + t.amountCents);
-    return price - paid;
-  }
+  int clientDebtCents(String clientId) =>
+      _intCache.putIfAbsent('debt:$clientId', () {
+        final price = _jobs
+            .where((j) => j.clientId == clientId && !j.archived)
+            .fold(0, (s, j) => s + j.priceCents);
+        final paid = _moneyTransactions
+            .where((t) => !t.voided && t.clientId == clientId && t.direction == 'in')
+            .fold(0, (s, t) => s + t.amountCents);
+        return price - paid;
+      });
 
   // Inventory
   List<InventoryItem> lowStockItems() =>
@@ -954,38 +1031,42 @@ class MastersStore extends ChangeNotifier {
   }
 
   int earnedCents(String employeeId) {
-    final emp = employeeById(employeeId);
-    if (emp == null) return 0;
-    int earned = 0;
-    // hourly time
-    if (emp.payType == 'hourly' || emp.payType == 'mixed' || emp.payType == 'salary') {
-      final mins = _timeEntries.where((t) => t.employeeId == employeeId).fold(0, (s, t) => s + t.minutes);
-      earned += (mins * emp.rateCents / 60).round();
-    }
-    // piece: fixed per completed job
-    if (emp.payType == 'piece' || emp.payType == 'mixed') {
-      final doneJobs = _jobs.where((j) => j.assigneeId == employeeId && (j.status == JobStatus.done || j.status == JobStatus.closed) && !j.archived);
-      if (emp.payType == 'piece') {
-        earned += doneJobs.length * emp.rateCents;
+    return _intCache.putIfAbsent('earned:$employeeId', () {
+      final emp = employeeById(employeeId);
+      if (emp == null) return 0;
+      int earned = 0;
+      // hourly time
+      if (emp.payType == 'hourly' || emp.payType == 'mixed' || emp.payType == 'salary') {
+        final mins = _timeEntries.where((t) => t.employeeId == employeeId).fold(0, (s, t) => s + t.minutes);
+        earned += (mins * emp.rateCents / 60).round();
       }
-    }
-    // percent of job price
-    if (emp.payType == 'percent' || emp.payType == 'mixed') {
-      final doneJobs = _jobs.where((j) => j.assigneeId == employeeId && (j.status == JobStatus.done || j.status == JobStatus.closed) && !j.archived);
-      final price = doneJobs.fold(0, (s, j) => s + j.priceCents);
-      earned += (price * emp.percent / 100).round();
-    }
-    return earned;
+      // piece: fixed per completed job
+      if (emp.payType == 'piece' || emp.payType == 'mixed') {
+        final doneJobs = _jobs.where((j) => j.assigneeId == employeeId && (j.status == JobStatus.done || j.status == JobStatus.closed) && !j.archived);
+        if (emp.payType == 'piece') {
+          earned += doneJobs.length * emp.rateCents;
+        }
+      }
+      // percent of job price
+      if (emp.payType == 'percent' || emp.payType == 'mixed') {
+        final doneJobs = _jobs.where((j) => j.assigneeId == employeeId && (j.status == JobStatus.done || j.status == JobStatus.closed) && !j.archived);
+        final price = doneJobs.fold(0, (s, j) => s + j.priceCents);
+        earned += (price * emp.percent / 100).round();
+      }
+      return earned;
+    });
   }
 
   int employeeBalanceOwed(String employeeId) {
-    final earned = earnedCents(employeeId);
-    final payments = _employeePayments.where((p) => p.employeeId == employeeId);
-    final advances = payments.where((p) => p.type == 'advance').fold(0, (s, p) => s + p.amountCents);
-    final payouts = payments.where((p) => p.type == 'payout').fold(0, (s, p) => s + p.amountCents);
-    final bonuses = payments.where((p) => p.type == 'bonus').fold(0, (s, p) => s + p.amountCents);
-    final penalties = payments.where((p) => p.type == 'penalty').fold(0, (s, p) => s + p.amountCents);
-    return earned + bonuses - penalties - advances - payouts;
+    return _balanceCache.putIfAbsent(employeeId, () {
+      final earned = earnedCents(employeeId);
+      final payments = _employeePayments.where((p) => p.employeeId == employeeId);
+      final advances = payments.where((p) => p.type == 'advance').fold(0, (s, p) => s + p.amountCents);
+      final payouts = payments.where((p) => p.type == 'payout').fold(0, (s, p) => s + p.amountCents);
+      final bonuses = payments.where((p) => p.type == 'bonus').fold(0, (s, p) => s + p.amountCents);
+      final penalties = payments.where((p) => p.type == 'penalty').fold(0, (s, p) => s + p.amountCents);
+      return earned + bonuses - penalties - advances - payouts;
+    });
   }
 
   // backup
