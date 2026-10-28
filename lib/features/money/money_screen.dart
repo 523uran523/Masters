@@ -106,6 +106,78 @@ class _MoneyScreenState extends State<MoneyScreen> {
     }
   }
 
+  Future<void> _transferBetweenAccounts() async {
+    final store = context.read<MastersStore>();
+    final accounts = store.accounts.where((a) => !a.archived).toList();
+    if (accounts.length < 2) {
+      if (!mounted) return;
+      await showAppAlert(context,
+          title: 'Перевод', message: 'Нужно минимум 2 счёта.');
+      return;
+    }
+    final amountStr = await _prompt('Сумма перевода', '0');
+    if (amountStr == null) return;
+    final amount = ((double.tryParse(amountStr.replaceAll(',', '.')) ?? 0) * 100).round();
+    if (amount <= 0) return;
+
+    final fromId = await _pickAccountExcluding(null);
+    if (fromId == null || !mounted) return;
+    final toId = await _pickAccountExcluding(fromId);
+    if (toId == null || !mounted) return;
+    final note = await _prompt('Комментарий', '');
+
+    setState(() => _busy = true);
+    try {
+      await store.transferBetweenAccounts(fromId, toId, amount, note: note);
+    } catch (e) {
+      if (mounted) {
+        await showAppAlert(context, title: 'Ошибка', message: e.toString());
+      }
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<String?> _pickAccountExcluding(String? excludedId) async {
+    final store = context.read<MastersStore>();
+    final accounts = store.accounts
+        .where((a) => !a.archived && a.id != excludedId)
+        .toList();
+    return showCupertinoModalPopup<String?>(
+      context: context,
+      builder: (ctx) => Container(
+        height: 320,
+        color: context.colors.card,
+        child: Column(
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                CupertinoButton(
+                    child: const Text('Отмена'),
+                    onPressed: () => Navigator.of(ctx).pop()),
+              ],
+            ),
+            Expanded(
+              child: ListView(
+                children: [
+                  for (final a in accounts)
+                    CupertinoButton(
+                      onPressed: () => Navigator.of(ctx).pop(a.id),
+                      child: Align(
+                        alignment: Alignment.centerLeft,
+                        child: Text(a.name),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Future<void> _newAccount() async {
     final name = await _prompt('Название счёта', 'Карта');
     if (name == null || name.trim().isEmpty) return;
@@ -247,6 +319,8 @@ class _MoneyScreenState extends State<MoneyScreen> {
                       Expanded(child: SecondaryButton(label: 'Расход', icon: CupertinoIcons.minus, onPressed: _addExpense)),
                     ],
                   ),
+                  const SizedBox(height: 8),
+                  SecondaryButton(label: 'Перевод между счетами', icon: CupertinoIcons.arrow_left_right, onPressed: _transferBetweenAccounts),
                   const SizedBox(height: 16),
                   SectionLabel('Смена кассы'),
                   AppCard(
