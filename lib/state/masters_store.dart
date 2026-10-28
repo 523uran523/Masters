@@ -507,7 +507,8 @@ class MastersStore extends ChangeNotifier {
       _materials.where((m) => m.jobId == jobId).toList();
 
   int totalMaterialCents(String jobId) =>
-      materialsForJob(jobId).fold(0, (sum, m) => sum + m.totalCents);
+      _intCache.putIfAbsent('materials:$jobId', () =>
+          materialsForJob(jobId).fold(0, (sum, m) => sum + m.totalCents));
 
   Future<MaterialItem> addMaterial({
     required String jobId,
@@ -645,12 +646,13 @@ class MastersStore extends ChangeNotifier {
     return shift;
   }
 
-  int expectedForShift(CashShift shift) {
-    final txSum = _moneyTransactions
-        .where((t) => !t.voided && t.shiftId == shift.id)
-        .fold(0, (s, t) => s + t.signedAmount);
-    return shift.openingCents + txSum;
-  }
+  int expectedForShift(CashShift shift) =>
+      _intCache.putIfAbsent('shiftExpected:${shift.id}', () {
+        final txSum = _moneyTransactions
+            .where((t) => !t.voided && t.shiftId == shift.id)
+            .fold(0, (s, t) => s + t.signedAmount);
+        return shift.openingCents + txSum;
+      });
 
   Future<void> closeCashShift(CashShift shift, int closingCents, {String? note}) async {
     final expected = expectedForShift(shift);
