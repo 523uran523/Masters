@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 
+import '../core/backup_service.dart';
 import '../core/utils/app_utils.dart';
 import '../data/app_database.dart';
 import '../data/models/account.dart';
@@ -1178,6 +1179,161 @@ class MastersStore extends ChangeNotifier {
       final penalties = payments.where((p) => p.type == 'penalty').fold(0, (s, p) => s + p.amountCents);
       return earned + bonuses - penalties - advances - payouts;
     });
+  }
+
+  // Excel/CSV import helpers: Finance and inventory only; backup format stays JSON.
+  Future<int> importInventoryFromExcel() async {
+    final rows = await BackupService.pickSpreadsheet();
+    if (rows == null || rows.isEmpty) return 0;
+    final header = rows.first.map(_norm).toList();
+    final nameIdx = _col(header, ['name', 'название', 'наименование']);
+    if (nameIdx < 0) return 0;
+    final kindIdx = _col(header, ['kind', 'тип']);
+    final unitIdx = _col(header, ['unit']);
+    final sellIdx = _col(header, ['sell_price', 'sell_price_cents', 'price']);
+    final costIdx = _col(header, ['cost_cents', 'cost']);
+    final stockIdx = _col(header, ['stock', 'stock_qty', 'qty']);
+    final minIdx = _col(header, ['min', 'min_qty', 'min stock']);
+    final categoryIdx = _col(header, ['category', 'категория']);
+    final now = DateTime.now();
+    final created = <InventoryItem>[];
+    for (final raw in rows.skip(1)) {
+      if (raw.length <= nameIdx) continue;
+      final name = _str(raw, nameIdx);
+      if (name.isEmpty) continue;
+      final sellCents = _moneyCents(raw, sellIdx, 0);
+      final costCents = _moneyCents(raw, costIdx, 0);
+      final stockQty = _num(raw, stockIdx, 0);
+      final minQty = _num(raw, minIdx, 0);
+      final kindRaw = _str(raw, kindIdx);
+      final kind = kindRaw == 'service' ? 'service' : 'good';
+      final unit = _strDefault(raw, unitIdx, 'шт');
+      final category = _str(raw, categoryIdx);
+      final item = InventoryItem(
+        id: newId(),
+        name: name,
+        kind: kind,
+        unit: unit,
+        sellPriceCents: sellCents,
+        costCents: costCents,
+        category: category,
+        trackStock: true,
+        stockQty: stockQty,
+        minQty: minQty,
+        archived: false,
+        createdAt: now,
+        updatedAt: now,
+      );
+      await _inventoryRepo.save(item);
+      created.add(item);
+    }
+    if (created.isNotEmpty) {
+      _inventoryItems = [...created, ..._inventoryItems];
+      notifyListeners();
+    }
+    return created.length;
+  }
+
+  Future<int> importTransactionsFromExcel() async {
+    final rows = await BackupService.pickSpreadsheet();
+    if (rows == null || rows.isEmpty || _accounts.isEmpty) return 0;
+    final header = rows.first.map(_norm).toList();
+    final dateIdx = _col(header, ['date', 'дата']);
+    final accountIdx = _col(header, ['account', 'счёт', 'счет']);
+    final directionIdx = _col(header, ['direction', 'направление']);
+    final amountIdx = _col(header, ['amount', 'amount_cents', 'сумма']);
+    final categoryIdx = _col(header, ['category', 'категория']);
+    final noteIdx = _col(header, ['note', 'примечание']);
+    final kindIdx = _col(header, ['kind', 'тип']);
+    if (amountIdx < 0) return 0;
+
+    final created = <MoneyTransaction>[];
+    for (final raw in rows.skip(1)) {
+      final amount = _moneyCents(raw, amountIdx, -1);
+      if (amount <= 0) continue;
+      final accountName = accountIdx >= 0 ? _str(raw, accountIdx) : '';
+      final account = accountName.isEmpty
+          ? _accounts.firstWhere((a) => !a.archived, orElse: () => _accounts.first)
+          : _accounts.firstWhere(
+              (a) => a.name.toLowerCase() == accountName.toLowerCase(),
+              orElse: () => _accounts.first,
+            );
+      final directionRaw = directionIdx >= 0 ? _str(raw, directionIdx).toLowerCase() : '';
+      final direction = directionRaw == 'out' || directionRaw == 'expense' || directionRaw == ' расход'
+          ? 'out'
+          : 'in';
+      final kindRaw = kindIdx >= 0 ? _str(raw, kindIdx).toLowerCase() : 'income';
+      final kind = kindRaw.isEmpty ? (direction == 'in' ? 'income' : 'expense') : kindRaw;
+      final note = noteIdx >= 0 ? _str(raw, noteIdx) : null;
+      final category = categoryIdx >= 0 ? _str(raw, categoryIdx) : '';
+      final parsedDate = dateIdx >= 0 ? _parseImportDate(_str(raw, dateIdx)) : null;
+      final tx = MoneyTransaction(
+        id: newId(),
+        accountId: account.id,
+        kind: kind,
+        direction: direction,
+        amountCents: amount,
+        category: category,
+        note: note,
+        createdAt: parsedDate ?? DateTime.now(),
+        shiftId: openShift()?.id,
+      );
+      await _moneyTxRepo.save(tx);
+      created.add(tx);
+    }
+    if (created.isNotEmpty) {
+      _moneyTransactions = [...created, ..._moneyTransactions];
+      notifyListeners();
+    }
+    return created.length;
+  }
+
+  static String _norm(dynamic value) => value?.toString().trim().toLowerCase() ?? '';
+
+  static int _col(List<String> header, List<String> names) {
+    for (final name in names) {
+      final idx = header.indexWhere((h) => h == _norm(name));
+      if (idx >= 0) return idx;
+    }
+    return -1;
+  }
+
+  static String _str(List<dynamic> row, int idx) =>
+      idx >= 0 && idx < row.length ? row[idx]?.toString().trim() ?? '' : '';
+
+  static String _strDefault(List<dynamic> row, int idx, String fallback) {
+    final v = _str(row, idx);
+    return v.isEmpty ? fallback : v;
+  }
+
+  static int _moneyCents(List<dynamic> row, int idx, int fallback) {
+    if (idx < 0 || idx >= row.length) return fallback;
+    final raw = row[idx]?.toString().trim().replaceAll(' ', '').replaceAll(',', '.') ?? '';
+    final value = double.tryParse(raw);
+    if (value == null) return fallback;
+    return (value * 100).round();
+  }
+
+  static double _num(List<dynamic> row, int idx, double fallback) {
+    if (idx < 0 || idx >= row.length) return fallback;
+    final raw = row[idx]?.toString().trim().replaceAll(' ', '').replaceAll(',', '.') ?? '';
+    return double.tryParse(raw) ?? fallback;
+  }
+
+  static DateTime? _parseImportDate(String value) {
+    if (value.isEmpty) return null;
+    final iso = DateTime.tryParse(value);
+    if (iso != null) return iso;
+    final parts = value.split('.');
+    if (parts.length == 3) {
+      final day = int.tryParse(parts[0]);
+      final month = int.tryParse(parts[1]);
+      final year = int.tryParse(parts[2]);
+      if (day != null && month != null && year != null) {
+        return DateTime(year, month, day);
+      }
+    }
+    return null;
   }
 
   // backup
