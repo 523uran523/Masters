@@ -1,11 +1,14 @@
 import 'package:flutter/cupertino.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:provider/provider.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../app/theme/app_theme.dart';
 import '../../app/ui.dart';
 import '../../core/backup_service.dart';
 import '../../core/reminder_service.dart';
 import '../../core/yandex_disk_service.dart';
+import '../../core/yandex_oauth.dart';
 import '../../data/models/job.dart';
 import '../../state/masters_store.dart';
 import '../../state/settings_controller.dart';
@@ -19,21 +22,12 @@ class SettingsScreen extends StatefulWidget {
 
 class _SettingsScreenState extends State<SettingsScreen> {
   bool _busy = false;
-  final _yandexLoginController = TextEditingController();
-  final _yandexPasswordController = TextEditingController();
-
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    final s = context.read<SettingsController>();
-    if (_yandexLoginController.text.isEmpty && s.yandexLogin != null) _yandexLoginController.text = s.yandexLogin!;
-    if (_yandexPasswordController.text.isEmpty && s.yandexPassword != null) _yandexPasswordController.text = s.yandexPassword!;
-  }
+  bool _awaitingCode = false;
+  final _yandexCodeController = TextEditingController();
 
   @override
   void dispose() {
-    _yandexLoginController.dispose();
-    _yandexPasswordController.dispose();
+    _yandexCodeController.dispose();
     super.dispose();
   }
 
@@ -159,52 +153,128 @@ class _SettingsScreenState extends State<SettingsScreen> {
     if (mounted) await showAppAlert(context, title: 'Готово', message: 'Данные очищены.');
   }
 
-  Future<void> _saveYandexCredentials() async {
-    final settings = context.read<SettingsController>();
-    await settings.setYandexCredentials(_yandexLoginController.text, _yandexPasswordController.text);
-    if (mounted) await showAppAlert(context, title: 'Сохранено', message: 'Данные Яндекс Диска сохранены.');
+  Future<void> _connectYandex() async {
+    if (!YandexOAuth.isConfigured) {
+      await showAppAlert(
+        context,
+        title: 'Вход не настроен',
+        message: 'Приложение не зарегистрировано в Яндекс ID.\n\n'
+            'Создайте OAuth-приложение на oauth.yandex.ru, добавьте redirect URI '
+            '${YandexOAuth.redirectUri} и соберите проект с '
+            '--dart-define=YANDEX_CLIENT_ID=<id>.',
+      );
+      return;
+    }
+    setState(() => _busy = true);
+    try {
+      final uri = await YandexOAuth.buildAuthorizeUri();
+      final opened = await launchUrl(
+        uri,
+        // На web уходим в той же вкладке, чтобы вернуться в приложение.
+        webOnlyWindowName: kIsWeb ? '_self' : '_blank',
+      );
+      if (!opened && mounted) {
+        await showAppAlert(context, title: 'Ошибка', message: 'Не удалось открыть браузер.');
+      }
+      if (!kIsWeb && mounted) setState(() => _awaitingCode = true);
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _submitYandexCode() async {
+    final code = _yandexCodeController.text.trim();
+    if (code.isEmpty) return;
+    setState(() => _busy = true);
+    try {
+      final token = await YandexOAuth.exchangeCode(code);
+      if (!mounted) return;
+      if (token == null) {
+        await showAppAlert(context, title: 'Ошибка', message: 'Код не принят. Попробуйте войти заново.');
+        return;
+      }
+      await context.read<SettingsController>().setYandexTokens(
+            accessToken: token['access_token'] as String,
+            refreshToken: token['refresh_token'] as String?,
+            expiresInSeconds: token['expires_in'] as int?,
+          );
+      _yandexCodeController.clear();
+      if (mounted) {
+        setState(() => _awaitingCode = false);
+        await showAppAlert(context, title: 'Готово', message: 'Яндекс Диск подключён.');
+      }
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _disconnectYandex() async {
+    final ok = await showAppConfirm(
+      context,
+      title: 'Отключить Яндекс Диск?',
+      message: 'Токен будет удалён с устройства. Данные на диске останутся.',
+      destructive: true,
+      confirmLabel: 'Отключить',
+    );
+    if (!ok || !mounted) return;
+    await context.read<SettingsController>().disconnectYandex();
   }
 
   Future<void> _testYandex() async {
-    await _saveYandexCredentials();
-    if (!mounted) return;
     final settings = context.read<SettingsController>();
-    if (settings.yandexLogin == null || settings.yandexPassword == null) return;
+    final token = await settings.ensureYandexToken();
+    if (token == null) return;
     setState(() => _busy = true);
     try {
-      final ok = await YandexDiskService.testCredentials(settings.yandexLogin!, settings.yandexPassword!);
-      if (mounted) await showAppAlert(context, title: ok ? 'Успешно' : 'Ошибка', message: ok ? 'Подключение работает.' : 'Не удалось авторизоваться. Проверьте логин и пароль приложения.');
+      final ok = await YandexDiskService.testConnection(token);
+      if (mounted) {
+        await showAppAlert(
+          context,
+          title: ok ? 'Успешно' : 'Ошибка',
+          message: ok ? 'Подключение работает.' : 'Не удалось получить доступ к Диску. Войдите заново.',
+        );
+      }
     } finally {
       if (mounted) setState(() => _busy = false);
     }
   }
 
   Future<void> _uploadYandex() async {
-    await _saveYandexCredentials();
-    if (!mounted) return;
     final settings = context.read<SettingsController>();
     final store = context.read<MastersStore>();
-    if (settings.yandexLogin == null || settings.yandexPassword == null) return;
+    final token = await settings.ensureYandexToken();
+    if (token == null || !mounted) return;
     setState(() => _busy = true);
     try {
-      final ok = await YandexDiskService.uploadBackup(settings.yandexLogin!, settings.yandexPassword!, store.backupData(), 'masters-backup-latest.json');
-      if (mounted) await showAppAlert(context, title: ok ? 'Готово' : 'Ошибка', message: ok ? 'Бэкап загружен на Яндекс Диск.' : 'Не удалось загрузить бэкап.');
+      final ok = await YandexDiskService.uploadBackup(token, store.backupData());
+      if (mounted) {
+        await showAppAlert(
+          context,
+          title: ok ? 'Готово' : 'Ошибка',
+          message: ok ? 'Бэкап загружен на Яндекс Диск.' : 'Не удалось загрузить бэкап.',
+        );
+      }
     } finally {
       if (mounted) setState(() => _busy = false);
     }
   }
 
   Future<void> _restoreYandex() async {
-    await _saveYandexCredentials();
-    if (!mounted) return;
     final settings = context.read<SettingsController>();
     final store = context.read<MastersStore>();
-    if (settings.yandexLogin == null || settings.yandexPassword == null) return;
-    final okc = await showAppConfirm(context, title: 'Восстановить данные?', message: 'Локальные данные будут заменены бэкапом с Яндекс Диска.', destructive: true, confirmLabel: 'Восстановить');
+    final token = await settings.ensureYandexToken();
+    if (token == null || !mounted) return;
+    final okc = await showAppConfirm(
+      context,
+      title: 'Восстановить данные?',
+      message: 'Локальные данные будут заменены бэкапом с Яндекс Диска.',
+      destructive: true,
+      confirmLabel: 'Восстановить',
+    );
     if (!okc) return;
     setState(() => _busy = true);
     try {
-      final data = await YandexDiskService.downloadBackup(settings.yandexLogin!, settings.yandexPassword!, 'masters-backup-latest.json');
+      final data = await YandexDiskService.downloadBackup(token);
       if (data == null) {
         if (mounted) await showAppAlert(context, title: 'Ошибка', message: 'Не найден бэкап на Яндекс Диске.');
         return;
@@ -330,45 +400,91 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ),
                 ),
                 const SizedBox(height: 16),
-                SectionLabel('Яндекс Диск (автобэкап)'),
+                SectionLabel('Яндекс Диск (бэкап и синхронизация)'),
                 AppCard(
                   child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      CupertinoTextField(
-                        controller: _yandexLoginController,
-                        placeholder: 'Логин Яндекса',
-                      ),
-                      const SizedBox(height: 8),
-                      CupertinoTextField(
-                        controller: _yandexPasswordController,
-                        placeholder: 'Пароль приложения (WebDAV)',
-                        obscureText: true,
-                      ),
-                      const SizedBox(height: 8),
-                      Row(
-                        children: [
-                          const Expanded(child: Text('Автобэкап при запуске')),
-                          CupertinoSwitch(
-                            value: context.watch<SettingsController>().yandexAutoBackup,
-                            onChanged: (v) async {
-                              await _saveYandexCredentials();
-                              if (!context.mounted) return;
-                              await context.read<SettingsController>().setYandexAutoBackup(v);
-                              if (!context.mounted) return;
-                              setState(() {});
-                            },
+                      if (!settings.yandexConnected) ...[
+                        Text(
+                          'Вход выполняется на сайте Яндекса в браузере. '
+                          'Приложение не видит ваш пароль и хранит только токен доступа.',
+                          style: TextStyle(color: colors.secondaryLabel, fontSize: 12),
+                        ),
+                        const SizedBox(height: 10),
+                        SecondaryButton(
+                          label: 'Войти через Яндекс',
+                          icon: CupertinoIcons.person_badge_plus,
+                          onPressed: _connectYandex,
+                        ),
+                        if (_awaitingCode) ...[
+                          const SizedBox(height: 8),
+                          CupertinoTextField(
+                            controller: _yandexCodeController,
+                            placeholder: 'Код со страницы Яндекса',
+                            onSubmitted: (_) => _submitYandexCode(),
+                          ),
+                          const SizedBox(height: 8),
+                          SecondaryButton(
+                            label: 'Подтвердить код',
+                            icon: CupertinoIcons.checkmark,
+                            onPressed: _submitYandexCode,
                           ),
                         ],
-                      ),
-                      const SizedBox(height: 8),
-                      Text('Используется WebDAV Яндекс Диска. Для 2FA создайте пароль приложения в настройках Яндекса.',
-                          style: TextStyle(color: colors.secondaryLabel, fontSize: 12)),
-                      const SizedBox(height: 8),
-                      SecondaryButton(label: 'Проверить подключение', icon: CupertinoIcons.checkmark, onPressed: _testYandex),
-                      const SizedBox(height: 8),
-                      SecondaryButton(label: 'Загрузить бэкап сейчас', icon: CupertinoIcons.cloud_upload, onPressed: _uploadYandex),
-                      const SizedBox(height: 8),
-                      SecondaryButton(label: 'Восстановить из Яндекс Диска', icon: CupertinoIcons.cloud_download, onPressed: _restoreYandex),
+                      ] else ...[
+                        Row(
+                          children: [
+                            Icon(CupertinoIcons.checkmark_seal_fill,
+                                color: colors.accent, size: 18),
+                            const SizedBox(width: 8),
+                            const Expanded(child: Text('Яндекс Диск подключён')),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        Row(
+                          children: [
+                            const Expanded(child: Text('Автобэкап при запуске')),
+                            CupertinoSwitch(
+                              value: settings.yandexAutoBackup,
+                              onChanged: (v) async {
+                                await context.read<SettingsController>().setYandexAutoBackup(v);
+                                if (!context.mounted) return;
+                                setState(() {});
+                              },
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          'Бэкап хранится в папке «Masters» на Диске в формате JSON. '
+                          'Этот же файл использует приложение на Android.',
+                          style: TextStyle(color: colors.secondaryLabel, fontSize: 12),
+                        ),
+                        const SizedBox(height: 10),
+                        SecondaryButton(
+                          label: 'Проверить подключение',
+                          icon: CupertinoIcons.checkmark,
+                          onPressed: _testYandex,
+                        ),
+                        const SizedBox(height: 8),
+                        SecondaryButton(
+                          label: 'Загрузить бэкап сейчас',
+                          icon: CupertinoIcons.cloud_upload,
+                          onPressed: _uploadYandex,
+                        ),
+                        const SizedBox(height: 8),
+                        SecondaryButton(
+                          label: 'Восстановить из Яндекс Диска',
+                          icon: CupertinoIcons.cloud_download,
+                          onPressed: _restoreYandex,
+                        ),
+                        const SizedBox(height: 8),
+                        SecondaryButton(
+                          label: 'Отключить',
+                          icon: CupertinoIcons.person_badge_minus,
+                          onPressed: _disconnectYandex,
+                        ),
+                      ],
                     ],
                   ),
                 ),

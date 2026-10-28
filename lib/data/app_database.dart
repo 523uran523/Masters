@@ -24,7 +24,7 @@ class AppDatabase {
       resolved,
       version: 6,
       onConfigure: (db) async {
-        await db.execute('PRAGMA foreign_keys = ON');
+        if (!kIsWeb) await db.execute('PRAGMA foreign_keys = ON');
       },
       onCreate: _createSchema,
       onUpgrade: _upgradeSchema,

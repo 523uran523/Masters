@@ -5,6 +5,10 @@ setlocal enabledelayedexpansion
 set "MASTERS_DIR=%~dp0"
 cd /d "%MASTERS_DIR%"
 
+if /i "%~1"=="--rebuild" (
+    if exist "build\web" rmdir /s /q "build\web"
+)
+
 if not exist "build\web\index.html" (
     title Masters - First Launch
     mode con: cols=60 lines=15
@@ -34,7 +38,10 @@ if not exist "build\web\index.html" (
         echo.
     )
     
-    call flutter build web --release --no-web-resources-cdn --no-wasm-dry-run 2>nul
+    set "YANDEX_ARG="
+    if defined YANDEX_CLIENT_ID set "YANDEX_ARG=--dart-define=YANDEX_CLIENT_ID=%YANDEX_CLIENT_ID%"
+
+    call flutter build web --release --no-web-resources-cdn --no-wasm-dry-run %YANDEX_ARG% 2>nul
     
     if errorlevel 1 (
         color 0C

@@ -2,6 +2,8 @@ import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:timezone/data/latest.dart' as tzdata;
 
+import '../core/yandex_oauth.dart';
+
 enum AppThemeMode { system, light, dark }
 
 extension AppThemeModeLabel on AppThemeMode {
@@ -28,8 +30,12 @@ class SettingsController extends ChangeNotifier {
   static const _modulesKey = 'modules';
   static const _objectTermKey = 'object_term';
   static const _clientTermKey = 'client_term';
-  static const _yandexLoginKey = 'yandex_login';
-  static const _yandexPasswordKey = 'yandex_password';
+  // Устаревшие ключи WebDAV (логин/пароль): удаляются при загрузке.
+  static const _legacyYandexLoginKey = 'yandex_login';
+  static const _legacyYandexPasswordKey = 'yandex_password';
+  static const _yandexTokenKey = 'yandex_access_token';
+  static const _yandexRefreshTokenKey = 'yandex_refresh_token';
+  static const _yandexTokenExpiresKey = 'yandex_token_expires_at';
   static const _yandexAutoBackupKey = 'yandex_auto_backup';
   static const _onboardingKey = 'onboarding_done';
   static const _reminderEnabledKey = 'reminder_enabled';
@@ -39,7 +45,11 @@ class SettingsController extends ChangeNotifier {
 
   static Future<SettingsController> load() async {
     tzdata.initializeTimeZones();
-    return SettingsController._(await SharedPreferences.getInstance());
+    final prefs = await SharedPreferences.getInstance();
+    // Миграция: пароли Яндекс Диска больше не хранятся в приложении.
+    await prefs.remove(_legacyYandexLoginKey);
+    await prefs.remove(_legacyYandexPasswordKey);
+    return SettingsController._(prefs);
   }
 
   AppThemeMode get themeMode {
@@ -100,22 +110,62 @@ class SettingsController extends ChangeNotifier {
     notifyListeners();
   }
 
-  String? get yandexLogin => _prefs.getString(_yandexLoginKey);
-  String? get yandexPassword => _prefs.getString(_yandexPasswordKey);
+  String? get yandexToken => _prefs.getString(_yandexTokenKey);
+  String? get yandexRefreshToken => _prefs.getString(_yandexRefreshTokenKey);
+  bool get yandexConnected =>
+      (_prefs.getString(_yandexTokenKey) ?? '').isNotEmpty;
   bool get yandexAutoBackup => _prefs.getBool(_yandexAutoBackupKey) ?? false;
 
-  Future<void> setYandexCredentials(String? login, String? password) async {
-    if (login == null || login.trim().isEmpty) {
-      await _prefs.remove(_yandexLoginKey);
-    } else {
-      await _prefs.setString(_yandexLoginKey, login.trim());
+  DateTime? get yandexTokenExpiresAt {
+    final raw = _prefs.getInt(_yandexTokenExpiresKey);
+    if (raw == null) return null;
+    return DateTime.fromMillisecondsSinceEpoch(raw);
+  }
+
+  /// Сохраняет токены, полученные после входа через Яндекс ID.
+  Future<void> setYandexTokens({
+    required String accessToken,
+    String? refreshToken,
+    int? expiresInSeconds,
+  }) async {
+    await _prefs.setString(_yandexTokenKey, accessToken);
+    if (refreshToken != null && refreshToken.isNotEmpty) {
+      await _prefs.setString(_yandexRefreshTokenKey, refreshToken);
     }
-    if (password == null || password.trim().isEmpty) {
-      await _prefs.remove(_yandexPasswordKey);
-    } else {
-      await _prefs.setString(_yandexPasswordKey, password);
+    if (expiresInSeconds != null) {
+      final expires = DateTime.now().add(Duration(seconds: expiresInSeconds));
+      await _prefs.setInt(_yandexTokenExpiresKey, expires.millisecondsSinceEpoch);
     }
     notifyListeners();
+  }
+
+  Future<void> disconnectYandex() async {
+    await _prefs.remove(_yandexTokenKey);
+    await _prefs.remove(_yandexRefreshTokenKey);
+    await _prefs.remove(_yandexTokenExpiresKey);
+    notifyListeners();
+  }
+
+  /// Возвращает рабочий токен, обновляя его при необходимости.
+  Future<String?> ensureYandexToken() async {
+    final token = yandexToken;
+    if (token == null || token.isEmpty) return null;
+    final expires = yandexTokenExpiresAt;
+    // Обновляем заранее, за минуту до истечения.
+    if (expires == null ||
+        expires.isAfter(DateTime.now().add(const Duration(minutes: 1)))) {
+      return token;
+    }
+    final refresh = yandexRefreshToken;
+    if (refresh == null || refresh.isEmpty) return token;
+    final fresh = await YandexOAuth.refresh(refresh);
+    if (fresh == null) return token;
+    await setYandexTokens(
+      accessToken: fresh['access_token'] as String,
+      refreshToken: fresh['refresh_token'] as String?,
+      expiresInSeconds: fresh['expires_in'] as int?,
+    );
+    return yandexToken;
   }
 
   Future<void> setYandexAutoBackup(bool value) async {

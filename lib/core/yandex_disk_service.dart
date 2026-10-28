@@ -1,55 +1,120 @@
 import 'dart:convert';
-import 'dart:typed_data';
 
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:http/http.dart' as http;
 
-// Условный импорт: dart:io только для не-web платформ
-import 'yandex_disk_service_io.dart'
-    if (dart.library.html) 'yandex_disk_service_web.dart' as platform;
-
+/// Работа с Яндекс Диском через REST API по OAuth-токену.
+///
+/// Логин и пароль приложение не хранит и не видит: вход выполняется в браузере,
+/// приложение получает только токен.
 class YandexDiskService {
-  static const _base = 'https://webdav.yandex.ru';
+  static const String folder = 'disk:/Masters';
+  static const String backupFileName = 'masters-backup-latest.json';
 
-  static String _auth(String login, String password) =>
-      'Basic ${base64Encode(utf8.encode('$login:$password'))}';
+  /// На web запросы идут через локальный сервер (обход CORS),
+  /// на остальных платформах — напрямую в API.
+  static String get _api => kIsWeb
+      ? '/api/disk'
+      : 'https://cloud-api.yandex.net/v1/disk';
 
-  static Future<bool> testCredentials(String login, String password) async {
-    return platform.testCredentialsImpl(login, password, _base, _auth);
-  }
+  static Map<String, String> _auth(String token) => {
+        'Authorization': 'OAuth $token',
+        'Accept': 'application/json',
+      };
 
-  static Future<void> _ensureFolder(String login, String password) async {
-    return platform.ensureFolderImpl(login, password, _base, _auth);
-  }
-
-  static Future<bool> uploadBackup(String login, String password, Map<String, dynamic> data, String fileName) async {
+  /// Проверка, что токен работает и диск доступен.
+  static Future<bool> testConnection(String token) async {
     try {
-      await _ensureFolder(login, password);
-      final bytes = Uint8List.fromList(utf8.encode(const JsonEncoder.withIndent('  ').convert(data)));
-      final r = await http.put(
-        Uri.parse('$_base/Masters/$fileName'),
-        headers: {
-          'Authorization': _auth(login, password),
-          'Content-Type': 'application/json; charset=utf-8',
-        },
-        body: bytes,
-      );
-      return r.statusCode == 201 || r.statusCode == 204 || r.statusCode == 200;
+      final r = await http.get(Uri.parse('$_api/'), headers: _auth(token));
+      return r.statusCode == 200;
     } catch (_) {
       return false;
     }
   }
 
-  static Future<Map<String, dynamic>?> downloadBackup(String login, String password, String fileName) async {
+  /// Создаёт папку `Masters`, если её ещё нет.
+  static Future<void> ensureFolder(String token) async {
     try {
-      final r = await http.get(
-        Uri.parse('$_base/Masters/$fileName'),
-        headers: {'Authorization': _auth(login, password)},
+      await http.put(Uri.parse('$_api/resources')
+          .replace(queryParameters: {'path': folder}), headers: _auth(token));
+    } catch (_) {
+      // 409 (уже существует) и прочие ответы не критичны.
+    }
+  }
+
+  /// Загружает JSON-бэкап на диск (перезаписывая предыдущий).
+  static Future<bool> uploadBackup(
+    String token,
+    Map<String, dynamic> data, {
+    String fileName = backupFileName,
+  }) async {
+    try {
+      await ensureFolder(token);
+      final target = '$folder/$fileName';
+
+      final metaResponse = await http.get(
+        Uri.parse('$_api/resources/upload').replace(queryParameters: {
+          'path': target,
+          'overwrite': 'true',
+        }),
+        headers: _auth(token),
       );
-      if (r.statusCode != 200) return null;
-      final decoded = jsonDecode(utf8.decode(r.bodyBytes));
-      if (decoded is Map<String, dynamic>) return decoded;
-      return null;
+      if (metaResponse.statusCode != 200) return false;
+
+      final meta = jsonDecode(utf8.decode(metaResponse.bodyBytes));
+      final href = meta is Map ? meta['href'] as String? : null;
+      if (href == null) return false;
+
+      final body = utf8.encode(jsonEncode(data));
+      final upload = kIsWeb
+          // Обход CORS: загрузку выполняет локальный сервер.
+          ? await http.put(
+              Uri.parse('/api/upload')
+                  .replace(queryParameters: {'href': href}),
+              headers: {'Content-Type': 'application/json; charset=utf-8'},
+              body: body,
+            )
+          : await http.put(
+              Uri.parse(href),
+              headers: {'Content-Type': 'application/json; charset=utf-8'},
+              body: body,
+            );
+
+      return upload.statusCode == 201 ||
+          upload.statusCode == 202 ||
+          upload.statusCode == 200 ||
+          upload.statusCode == 204;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// Скачивает JSON-бэкап. Возвращает null, если файла нет.
+  static Future<Map<String, dynamic>?> downloadBackup(
+    String token, {
+    String fileName = backupFileName,
+  }) async {
+    try {
+      final metaResponse = await http.get(
+        Uri.parse('$_api/resources/download')
+            .replace(queryParameters: {'path': '$folder/$fileName'}),
+        headers: _auth(token),
+      );
+      if (metaResponse.statusCode != 200) return null;
+
+      final meta = jsonDecode(utf8.decode(metaResponse.bodyBytes));
+      final href = meta is Map ? meta['href'] as String? : null;
+      if (href == null) return null;
+
+      final file = kIsWeb
+          ? await http.get(
+              Uri.parse('/api/fetch').replace(queryParameters: {'href': href}),
+            )
+          : await http.get(Uri.parse(href));
+      if (file.statusCode != 200) return null;
+
+      final decoded = jsonDecode(utf8.decode(file.bodyBytes));
+      return decoded is Map<String, dynamic> ? decoded : null;
     } catch (_) {
       return null;
     }
