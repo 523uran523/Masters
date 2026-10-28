@@ -5,6 +5,11 @@ class StageRepository {
   StageRepository(this._db);
   final Database _db;
 
+  Future<List<JobStage>> getAll() async {
+    final rows = await _db.query('job_stages', orderBy: 'job_id, sort_order ASC');
+    return rows.map(JobStage.fromMap).toList();
+  }
+
   Future<List<JobStage>> forJob(String jobId) async {
     final rows = await _db.query('job_stages',
         where: 'job_id = ?', whereArgs: [jobId], orderBy: 'sort_order ASC');

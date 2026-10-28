@@ -1,5 +1,4 @@
 import 'dart:io';
-import 'dart:convert';
 import 'package:path/path.dart' as p;
 
 void main(List<String> args) async {
@@ -24,39 +23,49 @@ void main(List<String> args) async {
       await _handleRequest(request, webDir);
     } catch (e) {
       print('❌ Ошибка: $e');
-      request.response.statusCode = HttpStatus.internalServerError;
-      await request.response.close();
+      try {
+        request.response.statusCode = HttpStatus.internalServerError;
+        await request.response.close();
+      } catch (_) {}
     }
   }
 }
 
 Future<void> _handleRequest(HttpRequest request, String webDir) async {
-  var path = request.uri.path;
-  if (path == '/') path = '/index.html';
+  var urlPath = Uri.decodeComponent(request.uri.path);
+  if (urlPath == '/') urlPath = '/index.html';
 
-  final file = File(p.join(webDir, path.substring(1)));
+  // Защита от выхода за пределы папки build/web
+  final relative = urlPath.startsWith('/') ? urlPath.substring(1) : urlPath;
+  final file = File(p.join(webDir, relative));
+  final normalizedFile = p.normalize(file.path);
+  final normalizedRoot = p.normalize(webDir);
 
-  if (!file.existsSync()) {
-    // Для SPA возвращаем index.html на все несуществующие пути
+  if (!normalizedFile.startsWith(normalizedRoot) || !file.existsSync()) {
+    // Для SPA возвращаем index.html только для «страничных» адресов.
+    // Отсутствующие файлы ресурсов должны давать честный 404.
+    final isAsset = p.extension(relative).isNotEmpty;
     final indexFile = File(p.join(webDir, 'index.html'));
-    if (indexFile.existsSync()) {
+    if (!isAsset && indexFile.existsSync()) {
       request.response.headers.contentType = ContentType.html;
+      request.response.headers.set('Cache-Control', 'no-store');
       await request.response.addStream(indexFile.openRead());
     } else {
       request.response.statusCode = HttpStatus.notFound;
       request.response.write('404 Not Found');
     }
     await request.response.close();
+    print('${request.method} ${request.uri.path} - ${request.response.statusCode}');
     return;
   }
 
-  // Определяем MIME-тип
-  final contentType = _getContentType(path);
+  final contentType = _getContentType(relative);
   if (contentType != null) {
     request.response.headers.contentType = contentType;
   }
+  // Локальный сервер: никогда не кэшируем, чтобы обновления подхватывались сразу
+  request.response.headers.set('Cache-Control', 'no-store');
 
-  // Отправляем файл
   await request.response.addStream(file.openRead());
   await request.response.close();
 
@@ -67,7 +76,7 @@ ContentType? _getContentType(String path) {
   final ext = p.extension(path).toLowerCase();
   return switch (ext) {
     '.html' => ContentType.html,
-    '.js' => ContentType('application', 'javascript', charset: 'utf-8'),
+    '.js' || '.mjs' => ContentType('application', 'javascript', charset: 'utf-8'),
     '.json' => ContentType.json,
     '.css' => ContentType('text', 'css', charset: 'utf-8'),
     '.png' => ContentType('image', 'png'),
@@ -77,8 +86,10 @@ ContentType? _getContentType(String path) {
     '.ico' => ContentType('image', 'x-icon'),
     '.wasm' => ContentType('application', 'wasm'),
     '.ttf' => ContentType('font', 'ttf'),
+    '.otf' => ContentType('font', 'otf'),
     '.woff' => ContentType('font', 'woff'),
     '.woff2' => ContentType('font', 'woff2'),
+    '.map' => ContentType('application', 'json', charset: 'utf-8'),
     _ => ContentType.binary,
   };
 }

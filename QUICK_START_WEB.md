@@ -51,7 +51,7 @@ http://localhost:8080
 cd Masters
 flutter pub get
 flutter clean
-flutter build web --release
+flutter build web --release --no-web-resources-cdn
 ```
 
 ---

@@ -21,8 +21,20 @@ if not exist "build\web\index.html" (
     echo  Building web version...
     echo  This will take 1-2 minutes.
     echo.
+
+    if not exist "web\sqlite3.wasm" (
+        echo  Preparing web database...
+        call dart run sqflite_common_ffi_web:setup --force
+        echo.
+    )
+
+    if not exist "web\sqflite_sw.js" (
+        echo  Preparing web database worker...
+        call dart run sqflite_common_ffi_web:setup --force
+        echo.
+    )
     
-    call flutter build web --release 2>nul
+    call flutter build web --release --no-web-resources-cdn --no-wasm-dry-run 2>nul
     
     if errorlevel 1 (
         color 0C
@@ -31,7 +43,7 @@ if not exist "build\web\index.html" (
         echo.
         echo  Try manually:
         echo   flutter pub get
-        echo   flutter build web --release
+        echo   flutter build web --release --no-web-resources-cdn
         echo.
         pause
         exit /b 1

@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:sqflite/sqflite.dart';
@@ -7,12 +8,20 @@ class AppDatabase {
 
   final Database database;
 
-  static Future<AppDatabase> open() async {
-    final directory = await getApplicationSupportDirectory();
-    final path = p.join(directory.path, 'masters.db');
+  static Future<AppDatabase> open({String? path}) async {
+    final String resolved;
+    if (path != null && path.isNotEmpty) {
+      resolved = path;
+    } else if (kIsWeb) {
+      // Web: path is a virtual name stored in IndexedDB
+      resolved = 'masters.db';
+    } else {
+      final directory = await getApplicationSupportDirectory();
+      resolved = p.join(directory.path, 'masters.db');
+    }
 
     final database = await openDatabase(
-      path,
+      resolved,
       version: 6,
       onConfigure: (db) async {
         await db.execute('PRAGMA foreign_keys = ON');

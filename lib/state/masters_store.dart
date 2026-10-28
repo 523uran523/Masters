@@ -138,16 +138,23 @@ class MastersStore extends ChangeNotifier {
   }
 
   Future<void> load() async {
-    _clients = await _clientRepo.getAll();
-    _objects = await _objectRepo.getAll();
-    _jobs = await _jobRepo.getAll();
-    // load stages/materials/sessions globally
-    for (final job in _jobs) {
-      _stages.addAll(await _stageRepo.forJob(job.id));
-      _materials.addAll(await _materialRepo.forJob(job.id));
-    }
-    _sessions = await _sessionRepo.getAll();
-    _accounts = await _accountRepo.getAll();
+    final core = await Future.wait([
+      _clientRepo.getAll(),
+      _objectRepo.getAll(),
+      _jobRepo.getAll(),
+      _stageRepo.getAll(),
+      _materialRepo.getAll(),
+      _sessionRepo.getAll(),
+    ]);
+    _clients = core[0] as List<Client>;
+    _objects = core[1] as List<WorkObject>;
+    _jobs = core[2] as List<Job>;
+    _stages = core[3] as List<JobStage>;
+    _materials = core[4] as List<MaterialItem>;
+    _sessions = core[5] as List<WorkSession>;
+
+    final accounts = await _accountRepo.getAll();
+    _accounts = accounts;
     if (_accounts.isEmpty) {
       final acc = Account(
         id: newId(),
@@ -158,16 +165,30 @@ class MastersStore extends ChangeNotifier {
       await _accountRepo.save(acc);
       _accounts = [acc];
     }
-    _moneyTransactions = await _moneyTxRepo.getAll();
-    _shifts = await _shiftRepo.getAll();
-    _inventoryItems = await _inventoryRepo.getAll();
-    _stockMovements = await _stockMovementRepo.getAll();
-    _appointments = await _appointmentRepo.getAll();
-    _bookingResources = await _bookingResourceRepo.getAll();
-    _reminders = await _reminderRepo.getAll(includeDone: true);
-    _employees = await _employeeRepo.getAll();
-    _timeEntries = await _timeEntryRepo.getAll();
-    _employeePayments = await _paymentRepo.getAll();
+
+    final rest = await Future.wait([
+      _moneyTxRepo.getAll(),
+      _shiftRepo.getAll(),
+      _inventoryRepo.getAll(),
+      _stockMovementRepo.getAll(),
+      _appointmentRepo.getAll(),
+      _bookingResourceRepo.getAll(),
+      _reminderRepo.getAll(includeDone: true),
+      _employeeRepo.getAll(),
+      _timeEntryRepo.getAll(),
+      _paymentRepo.getAll(),
+    ]);
+    _moneyTransactions = rest[0] as List<MoneyTransaction>;
+    _shifts = rest[1] as List<CashShift>;
+    _inventoryItems = rest[2] as List<InventoryItem>;
+    _stockMovements = rest[3] as List<StockMovement>;
+    _appointments = rest[4] as List<Appointment>;
+    _bookingResources = rest[5] as List<BookingResource>;
+    _reminders = rest[6] as List<ClientReminder>;
+    _employees = rest[7] as List<Employee>;
+    _timeEntries = rest[8] as List<TimeEntry>;
+    _employeePayments = rest[9] as List<EmployeePayment>;
+
     if (_bookingResources.isEmpty) {
       final r = BookingResource(id: newId(), name: 'Основной', createdAt: DateTime.now());
       await _bookingResourceRepo.save(r);

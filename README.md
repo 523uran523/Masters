@@ -51,7 +51,7 @@ flutter build windows --release
 
 ### Web
 ```bash
-flutter build web --release
+flutter build web --release --no-web-resources-cdn
 ```
 
 ## Архитектура Web-версии
