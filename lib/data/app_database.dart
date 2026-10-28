@@ -381,4 +381,31 @@ class AppDatabase {
   }
 
   Future<void> close() => database.close();
+
+  /// App-level integrity check used especially on web where FK enforcement
+  /// is disabled. Returns a human-readable list of violations (empty when OK).
+  Future<List<String>> integrityIssues() async {
+    final issues = <String>[];
+    try {
+      final fk = await database.rawQuery('PRAGMA foreign_key_check');
+      for (final row in fk) {
+        final table = row['table'] ?? '?';
+        final rowid = row['rowid'] ?? '?';
+        final parent = row['parent'] ?? '?';
+        issues.add('FK violation: $table.rowid=$rowid -> $parent');
+      }
+    } catch (e) {
+      issues.add('foreign_key_check failed: $e');
+    }
+    try {
+      final q = await database.rawQuery('PRAGMA quick_check');
+      for (final row in q) {
+        final value = row.values.first?.toString() ?? 'ok';
+        if (value.toLowerCase() != 'ok') issues.add('quick_check: $value');
+      }
+    } catch (e) {
+      issues.add('quick_check failed: $e');
+    }
+    return issues;
+  }
 }

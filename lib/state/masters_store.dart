@@ -1269,6 +1269,11 @@ class MastersStore extends ChangeNotifier {
     await load();
   }
 
+  /// App-level integrity check, used on web where FK enforcement is off.
+  Future<List<String>> checkDataIntegrity() async {
+    return _appDatabase.integrityIssues();
+  }
+
   Future<void> clearAll() async {
     await _appDatabase.database.transaction((txn) async {
       await txn.delete('appointments');

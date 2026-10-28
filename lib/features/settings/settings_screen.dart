@@ -140,6 +140,18 @@ class _SettingsScreenState extends State<SettingsScreen> {
     }
   }
 
+  Future<void> _checkDataIntegrity() async {
+    final issues = await context.read<MastersStore>().checkDataIntegrity();
+    if (!mounted) return;
+    await showAppAlert(
+      context,
+      title: issues.isEmpty ? '\u041fроверка завершена' : 'Нарушения целостности',
+      message: issues.isEmpty
+          ? 'Нарушений не найдено.'
+          : issues.join('\n'),
+    );
+  }
+
   Future<void> _clearData() async {
     final store = context.read<MastersStore>();
     final ok = await showAppConfirm(
@@ -410,6 +422,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         label: 'Очистить данные',
                         destructive: true,
                         onTap: _clearData,
+                      ),
+                      Hairline(indent: 0),
+                      _ActionTile(
+                        icon: CupertinoIcons.shield_fill,
+                        label: 'Проверить целостность данных',
+                        onTap: _checkDataIntegrity,
                       ),
                     ],
                   ),
