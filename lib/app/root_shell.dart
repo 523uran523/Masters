@@ -1,4 +1,5 @@
 import 'package:flutter/cupertino.dart';
+import 'package:provider/provider.dart';
 
 import '../features/today/today_screen.dart';
 import '../features/jobs/jobs_screen.dart';
@@ -7,6 +8,7 @@ import '../features/booking/booking_screen.dart';
 import '../features/inventory/inventory_screen.dart';
 import '../features/money/money_screen.dart';
 import '../features/settings/settings_screen.dart';
+import '../state/settings_controller.dart';
 import 'theme/app_theme.dart';
 
 class RootShell extends StatefulWidget {
@@ -22,10 +24,24 @@ class _RootShellState extends State<RootShell> {
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
+    final settings = context.watch<SettingsController>();
+
+    // Settings must remain reachable, otherwise the user could lock itself out.
+    final visibleIndices = <int>[
+      for (var i = 0; i < _tabDefs.length; i++)
+        if (settings.isTabVisible(i) || i == _tabDefs.length - 1) i,
+    ];
+    if (visibleIndices.isEmpty) visibleIndices.add(_tabDefs.length - 1);
+    if (_index >= visibleIndices.length) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) setState(() => _index = 0);
+      });
+    }
+    final safeIndex = _index.clamp(0, visibleIndices.length - 1);
 
     return CupertinoTabScaffold(
       tabBar: CupertinoTabBar(
-        currentIndex: _index,
+        currentIndex: safeIndex,
         onTap: (index) => setState(() => _index = index),
         backgroundColor: colors.bar,
         activeColor: colors.accent,
@@ -33,48 +49,37 @@ class _RootShellState extends State<RootShell> {
         border: Border(
           top: BorderSide(color: colors.separator, width: 0.5),
         ),
-        items: const [
-          BottomNavigationBarItem(
-            icon: Icon(CupertinoIcons.house, size: 23),
-            label: 'Сегодня',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(CupertinoIcons.doc_text, size: 23),
-            label: 'Заказы',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(CupertinoIcons.person_2, size: 23),
-            label: 'Клиенты',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(CupertinoIcons.money_dollar, size: 23),
-            label: 'Деньги',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(CupertinoIcons.cube, size: 23),
-            label: 'Склад',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(CupertinoIcons.calendar, size: 23),
-            label: 'Запись',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(CupertinoIcons.gear, size: 23),
-            label: 'Настройки',
-          ),
+        items: [
+          for (final i in visibleIndices) _tabDefs[i].item,
         ],
       ),
-      tabBuilder: (context, index) {
-        return switch (index) {
-          0 => CupertinoTabView(builder: (context) => const TodayScreen()),
-          1 => CupertinoTabView(builder: (context) => const JobsScreen()),
-          2 => CupertinoTabView(builder: (context) => const ClientsScreen()),
-          3 => CupertinoTabView(builder: (context) => const MoneyScreen()),
-          4 => CupertinoTabView(builder: (context) => const InventoryScreen()),
-          5 => CupertinoTabView(builder: (context) => const BookingScreen()),
-          _ => CupertinoTabView(builder: (context) => const SettingsScreen()),
-        };
+      tabBuilder: (context, localIndex) {
+        final global = visibleIndices[localIndex.clamp(0, visibleIndices.length - 1)];
+        return CupertinoTabView(builder: (context) => _tabDefs[global].screen);
       },
     );
   }
 }
+
+class _TabDef {
+  const _TabDef(this.icon, this.label, this.screen);
+
+  final IconData icon;
+  final String label;
+  final Widget screen;
+
+  BottomNavigationBarItem get item => BottomNavigationBarItem(
+        icon: Icon(icon, size: 23),
+        label: label,
+      );
+}
+
+const List<_TabDef> _tabDefs = [
+  _TabDef(CupertinoIcons.house, 'Сегодня', TodayScreen()),
+  _TabDef(CupertinoIcons.doc_text, 'Заказы', JobsScreen()),
+  _TabDef(CupertinoIcons.person_2, 'Клиенты', ClientsScreen()),
+  _TabDef(CupertinoIcons.money_dollar, 'Деньги', MoneyScreen()),
+  _TabDef(CupertinoIcons.cube, 'Склад', InventoryScreen()),
+  _TabDef(CupertinoIcons.calendar, 'Бронь', BookingScreen()),
+  _TabDef(CupertinoIcons.gear, 'Настройки', SettingsScreen()),
+];

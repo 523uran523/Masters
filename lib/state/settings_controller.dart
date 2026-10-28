@@ -43,6 +43,7 @@ class SettingsController extends ChangeNotifier {
   static const _reminderHourKey = 'reminder_hour';
   static const _reminderMinuteKey = 'reminder_minute';
   static const _dndEnabledKey = 'dnd_enabled';
+  static const _hiddenTabsKey = 'hidden_tabs';
 
   static Future<SettingsController> load() async {
     tzdata.initializeTimeZones();
@@ -83,6 +84,26 @@ class SettingsController extends ChangeNotifier {
 
   Future<void> setDndEnabled(bool value) async {
     await _prefs.setBool(_dndEnabledKey, value);
+    notifyListeners();
+  }
+
+  List<int> get hiddenTabs => (_prefs.getStringList(_hiddenTabsKey) ?? const [])
+      .map((e) => int.tryParse(e) ?? -1)
+      .where((e) => e >= 0)
+      .toSet()
+      .toList();
+
+  bool isTabVisible(int index) => !hiddenTabs.contains(index);
+
+  Future<void> toggleTabVisible(int index, {required bool visible}) async {
+    if (index < 0 || index >= 7) return;
+    final list = <int>[...hiddenTabs];
+    if (visible) {
+      list.remove(index);
+    } else if (!list.contains(index)) {
+      list.add(index);
+    }
+    await _prefs.setStringList(_hiddenTabsKey, list.map((e) => e.toString()).toList());
     notifyListeners();
   }
 

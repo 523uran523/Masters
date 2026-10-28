@@ -23,6 +23,16 @@ class SettingsScreen extends StatefulWidget {
 
 class _SettingsScreenState extends State<SettingsScreen> {
   bool _busy = false;
+
+  static const List<String> _tabLabels = [
+    'Сегодня',
+    'Заказы',
+    'Клиенты',
+    'Деньги',
+    'Склад',
+    'Бронь',
+    'Настройки',
+  ];
   bool _awaitingCode = false;
   final _yandexCodeController = TextEditingController();
 
@@ -528,6 +538,30 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           icon: CupertinoIcons.person_badge_minus,
                           onPressed: _disconnectYandex,
                         ),
+                      ],
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 16),
+                SectionLabel('Вкладки главного меню'),
+                AppCard(
+                  child: Column(
+                    children: [
+                      for (var i = 0; i < 7; i++) ...[
+                        if (i != 6) Row(
+                          children: [
+                            Expanded(child: Text(_tabLabels[i])),
+                            CupertinoSwitch(
+                              value: settings.isTabVisible(i),
+                              onChanged: (v) async {
+                                await context.read<SettingsController>().toggleTabVisible(i, visible: v);
+                                if (!context.mounted) return;
+                                setState(() {});
+                              },
+                            ),
+                          ],
+                        ),
+                        if (i != 6 && i != 5) const SizedBox(height: 8),
                       ],
                     ],
                   ),
