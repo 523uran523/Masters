@@ -170,7 +170,28 @@ class _StatsScreenState extends State<StatsScreen> {
                     ),
             ),
             const SizedBox(height: 16),
-            SectionLabel('По сотрудникам'),
+                        SectionLabel('Маржа заказов'),
+            AppCard(
+              child: completedJobs.isEmpty
+                  ? EmptyState(title: 'Нет завершённых заказов', message: 'Маржа появится после закрытия заказа.', art: Icon(CupertinoIcons.doc_text, size: 36, color: colors.tertiaryLabel))
+                  : Column(
+                      children: (completedJobs
+                          ..sort((a, b) => (b.priceCents - b.costCents - store.totalMaterialCents(b.id)).compareTo(a.priceCents - a.costCents - store.totalMaterialCents(a.id))))
+                          .take(6)
+                          .map((j) => Padding(
+                                padding: const EdgeInsets.symmetric(vertical: 6),
+                                child: Row(
+                                  children: [
+                                    Expanded(child: Text(j.title, style: const TextStyle(fontWeight: FontWeight.w500))),
+                                    Text(_money(j.priceCents - j.costCents - store.totalMaterialCents(j.id)), style: const TextStyle(fontWeight: FontWeight.w600)),
+                                  ],
+                                ),
+                              ))
+                          .toList(),
+                    ),
+            ),
+            const SizedBox(height: 16),
+SectionLabel('По сотрудникам'),
             AppCard(
               child: sortedStaff.isEmpty
                   ? EmptyState(title: 'Нет данных', message: 'Здесь появится разбор по исполнителям.', art: Icon(CupertinoIcons.person_2, size: 36, color: colors.tertiaryLabel))

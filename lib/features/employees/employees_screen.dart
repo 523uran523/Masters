@@ -1,8 +1,10 @@
 import 'package:flutter/cupertino.dart';
+import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
 import '../../app/theme/app_theme.dart';
 import '../../app/ui.dart';
+import '../../core/document_service.dart';
 import '../../data/models/employee.dart';
 import '../../state/masters_store.dart';
 
@@ -108,6 +110,31 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
     }
   }
 
+  Future<void> _exportPayroll() async {
+    final store = context.read<MastersStore>();
+    final now = DateTime.now();
+    final start = DateTime(now.year, now.month, 1);
+    final end = DateTime(now.year, now.month + 1, 0, 23, 59, 59, 999);
+    setState(() => _busy = true);
+    try {
+      final summary = store.payrollSummary(start, end);
+      final rows = summary.map((r) => <String, Object?>{
+        'employeeName': (r['employee'] as dynamic)?.name?.toString() ?? 'Сотрудник',
+        'earned': r['earned'],
+        'bonus': r['bonus'],
+        'penalty': r['penalty'],
+        'advance': r['advance'],
+        'payout': r['payout'],
+        'net': r['net'],
+      }).toList();
+      final bytes = await DocumentService.buildPayrollPdf(title: 'Ведомость: ${DateFormat('MMMM yyyy', 'ru').format(now)}', summary: rows);
+      final ok = await DocumentService.savePdf(bytes, 'payroll-${now.year}-${now.month}.pdf');
+      if (mounted && ok) await showAppAlert(context, title: 'Готово', message: 'Ведомость сохранена.');
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
   Future<void> _delete(Employee e) async {
     final ok = await showAppConfirm(context, title: 'Удалить сотрудника?', message: e.name, destructive: true, confirmLabel: 'Удалить');
     if (!ok) return;
@@ -165,6 +192,7 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
                                     SecondaryButton(label: 'Штраф', icon: CupertinoIcons.minus, onPressed: () => _addPayment(e.id, 'penalty', 'Штраф')),
                                     SecondaryButton(label: 'Выплата', icon: CupertinoIcons.arrow_right, onPressed: () => _addPayment(e.id, 'payout', 'Выплата')),
                                     CupertinoButton(padding: EdgeInsets.zero, onPressed: () => _delete(e), child: Text('Удалить', style: TextStyle(color: colors.red))),
+                                    SecondaryButton(label: 'PDF', icon: CupertinoIcons.doc_text, onPressed: _exportPayroll),
                                   ],
                                 ),
                               ],

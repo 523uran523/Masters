@@ -86,6 +86,45 @@ class DocumentService {
     return pdf.save();
   }
 
+  static Future<Uint8List> buildPayrollPdf({
+    required String title,
+    required List<Map<String, Object?>> summary,
+  }) async {
+    final pdf = pw.Document();
+    pdf.addPage(
+      pw.Page(
+        pageFormat: PdfPageFormat.a4,
+        build: (context) {
+          return pw.Column(
+            crossAxisAlignment: pw.CrossAxisAlignment.start,
+            children: [
+              pw.Text(title, style: pw.TextStyle(fontSize: 20, fontWeight: pw.FontWeight.bold)),
+              pw.SizedBox(height: 10),
+              pw.TableHelper.fromTextArray(
+                headers: const ['Сотрудник', 'Зарплата', 'Бонусы', 'Штрафы', 'Аванс', 'Выплата', 'К выплате'],
+                data: [
+                  for (final row in summary)
+                    [
+                      (row['employeeName'] ?? row['employee']?.toString() ?? '?').toString(),
+                      (row['earned'] as int? ?? 0).toString(),
+                      (row['bonus'] as int? ?? 0).toString(),
+                      (row['penalty'] as int? ?? 0).toString(),
+                      (row['advance'] as int? ?? 0).toString(),
+                      (row['payout'] as int? ?? 0).toString(),
+                      (row['net'] as int? ?? 0).toString(),
+                    ],
+                ],
+                cellStyle: const pw.TextStyle(fontSize: 9),
+                headerStyle: pw.TextStyle(fontSize: 9, fontWeight: pw.FontWeight.bold),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+    return pdf.save();
+  }
+
   static Future<bool> savePdf(Uint8List bytes, String suggestedName) async {
     final uri = await FilePicker.saveFile(
       fileName: suggestedName,

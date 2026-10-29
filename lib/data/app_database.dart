@@ -37,7 +37,7 @@ class AppDatabase {
 
     final database = await openDatabase(
       resolved,
-      version: 9,
+      version: 10,
       onConfigure: (db) async {
         if (!kIsWeb) await db.execute('PRAGMA foreign_keys = ON');
       },
@@ -144,6 +144,8 @@ class AppDatabase {
     await _ensureSyncColumns(db);
     await _createAuditLogSchema(db);
     await _createPeriodClosureSchema(db);
+    await _createRecurringPaymentSchema(db);
+    await _createPayrollPeriodSchema(db);
   }
 
   static Future<void> _createAuditLogSchema(Database db) async {
@@ -178,6 +180,46 @@ class AppDatabase {
     await db.execute('CREATE INDEX idx_period_closures_start ON period_closures(start_at)');
   }
 
+  static Future<void> _createRecurringPaymentSchema(Database db) async {
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS recurring_payments (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        direction TEXT NOT NULL DEFAULT 'out',
+        amount_cents INTEGER NOT NULL,
+        category TEXT NOT NULL DEFAULT '',
+        account_id TEXT REFERENCES accounts(id) ON DELETE SET NULL,
+        interval_days INTEGER NOT NULL DEFAULT 30,
+        next_due_at INTEGER NOT NULL,
+        active INTEGER NOT NULL DEFAULT 1,
+        note TEXT,
+        created_at INTEGER NOT NULL,
+        updated_at INTEGER,
+        deleted_at INTEGER,
+        device_id TEXT
+      )
+    ''');
+    await db.execute('CREATE INDEX idx_recurring_next_due ON recurring_payments(next_due_at)');
+  }
+
+  static Future<void> _createPayrollPeriodSchema(Database db) async {
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS payroll_periods (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        start_at INTEGER NOT NULL,
+        end_at INTEGER NOT NULL,
+        note TEXT,
+        closed_at INTEGER,
+        created_at INTEGER NOT NULL,
+        updated_at INTEGER,
+        deleted_at INTEGER,
+        device_id TEXT
+      )
+    ''');
+    await db.execute('CREATE INDEX idx_payroll_periods_start ON payroll_periods(start_at)');
+  }
+
   static Future<void> _ensureSyncColumns(Database db) async {
     const tables = <String>[
       'clients', 'objects', 'jobs', 'job_stages', 'materials', 'work_sessions',
@@ -185,6 +227,7 @@ class AppDatabase {
       'suppliers', 'purchases', 'purchase_lines', 'stock_movements',
       'recipe_lines', 'booking_resources', 'appointments', 'client_reminders',
       'employees', 'time_entries', 'employee_payments',
+      'recurring_payments', 'payroll_periods',
     ];
 
     Future<void> add(String table, String column, String type) async {
@@ -461,6 +504,10 @@ class AppDatabase {
     if (oldVersion < 9) {
       await _createPeriodClosureSchema(db);
     }
+    if (oldVersion < 10) {
+      await _createRecurringPaymentSchema(db);
+      await _createPayrollPeriodSchema(db);
+    }
   }
 
   Future<List<String>> integrityIssues() async {
@@ -669,6 +716,19 @@ class AppDatabase {
       conflicts: conflicts,
     );
   }
+
+  Future<List<Map<String,Object?>>> recurringPayments() async {
+    return database.query('recurring_payments', orderBy: 'active DESC, next_due_at ASC');
+  }
+
+  Future<void> insertRecurringPayment(Map<String,Object?> row) => database.insert('recurring_payments', row);
+  Future<void> updateRecurringPayment(Map<String,Object?> row) => database.update('recurring_payments', row, where: 'id = ?', whereArgs: [row['id']]);
+  Future<void> deleteRecurringPayment(String id) => database.delete('recurring_payments', where: 'id = ?', whereArgs: [id]);
+  Future<List<Map<String,Object?>>> payrollPeriods() async {
+    return database.query('payroll_periods', orderBy: 'start_at DESC');
+  }
+  Future<void> insertPayrollPeriod(Map<String,Object?> row) => database.insert('payroll_periods', row);
+  Future<void> deletePayrollPeriod(String id) => database.delete('payroll_periods', where: 'id = ?', whereArgs: [id]);
 
   Future<void> close() => database.close();
 }

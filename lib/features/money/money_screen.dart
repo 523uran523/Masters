@@ -196,6 +196,51 @@ class _MoneyScreenState extends State<MoneyScreen> {
     }
   }
 
+  Future<void> _addRecurringPayment() async {
+    final store = context.read<MastersStore>();
+    if (store.accounts.isEmpty) {
+      await showAppAlert(context, title: 'Нет счёта', message: 'Сначала создайте счёт в разделе Money.');
+      return;
+    }
+    final name = await _prompt('Название платежа', 'Аренда');
+    if (name == null || name.trim().isEmpty) return;
+    final amountStr = await _prompt('Сумма', '0');
+    if (amountStr == null) return;
+    final amount = ((double.tryParse((amountStr).replaceAll(',', '.')) ?? 0) * 100).round();
+    if (amount <= 0) return;
+    final intervalStr = await _prompt('Интервал, дней', '30');
+    final interval = int.tryParse(intervalStr ?? '30') ?? 30;
+    final accountId = await _pickAccount();
+    if (accountId == null) return;
+    final category = await _prompt('Категория', 'Регулярно') ?? 'Регулярно';
+    final dtNow = DateTime.now();
+    setState(() => _busy = true);
+    try {
+      await store.createRecurringPayment(
+        name: name,
+        direction: 'out',
+        amountCents: amount,
+        category: category,
+        accountId: accountId,
+        intervalDays: interval < 1 ? 1 : interval,
+        nextDueAt: dtNow.add(Duration(days: interval < 1 ? 1 : interval)),
+      );
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _runDueRecurring() async {
+    final store = context.read<MastersStore>();
+    setState(() => _busy = true);
+    try {
+      final count = await store.runDueRecurringPayments();
+      if (mounted) await showAppAlert(context, title: 'Готово', message: 'Проведено плановых платежей: $count');
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
   Future<void> _newAccount() async {
     final name = await _prompt('Название счёта', 'Карта');
     if (name == null || name.trim().isEmpty) return;
@@ -462,7 +507,54 @@ class _MoneyScreenState extends State<MoneyScreen> {
                       )),
                   const SizedBox(height: 16),
                   const SizedBox(height: 8),
-                  SectionLabel('Команда'),
+                  SectionLabel('Регулярные платежи (${store.recurringPayments.length})'),
+                  if (store.recurringPayments.isEmpty)
+                    EmptyState(
+                      title: 'Нет регулярных платежей',
+                      message: 'Добавьте регулярные расходы или поступления.',
+                      art: Icon(CupertinoIcons.repeat, size: 36, color: colors.tertiaryLabel),
+                    )
+                  else
+                    AppCard(
+                      child: Column(
+                        children: store.recurringPayments.map((p) {
+                          return Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 4),
+                            child: Row(
+                              children: [
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(p.name, style: const TextStyle(fontWeight: FontWeight.w600)),
+                                      Text(
+                                        '${p.direction == "in" ? "+" : "-"} ${_money(p.amountCents)} · каждые ${p.intervalDays} дн · дата ${p.nextDueAt.day}.${p.nextDueAt.month}.${p.nextDueAt.year}',
+                                        style: TextStyle(color: colors.secondaryLabel, fontSize: 12),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                CupertinoSwitch(
+                                  value: p.active,
+                                  onChanged: (v) => store.updateRecurringPayment(p.copyWith(active: v)),
+                                ),
+                                CupertinoButton(
+                                  padding: EdgeInsets.zero,
+                                  onPressed: () => store.deleteRecurringPayment(p.id),
+                                  child: Icon(CupertinoIcons.trash, size: 18, color: colors.red),
+                                ),
+                              ],
+                            ),
+                          );
+                        }).toList(),
+                      ),
+                    ),
+                  const SizedBox(height: 8),
+                  SecondaryButton(label: 'Добавить регулярный платёж', icon: CupertinoIcons.repeat, onPressed: _addRecurringPayment),
+                  const SizedBox(height: 4),
+                  SecondaryButton(label: 'Провести плановые', icon: CupertinoIcons.play, onPressed: _runDueRecurring),
+                  const SizedBox(height: 16),
+SectionLabel('Команда'),
                   ..._teamCards(store, colors),
                   const SizedBox(height: 16),
                   SectionLabel('Долги клиентов (${_money(totalDebt)})'),

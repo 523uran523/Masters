@@ -16,6 +16,8 @@ import '../data/models/stock_movement.dart';
 import '../data/models/job.dart';
 import '../data/models/job_items.dart';
 import '../data/models/money_transaction.dart';
+import '../data/models/recurring_payment.dart';
+import '../data/repositories/recurring_payment_repository.dart';
 import '../data/models/work_object.dart';
 import '../data/repositories/account_repository.dart';
 import '../data/repositories/appointment_repository.dart';
@@ -91,6 +93,8 @@ class MastersStore extends ChangeNotifier {
     _stockMovementRepo = StockMovementRepository(_appDatabase.database);
     _appointmentRepo = AppointmentRepository(_appDatabase.database);
     _bookingResourceRepo = BookingResourceRepository(_appDatabase.database);
+    _recurringRepo = RecurringPaymentRepository(_appDatabase.database);
+    _payrollRepo = PayrollPeriodRepository(_appDatabase.database);
   }
 
   final AppDatabase _appDatabase;
@@ -113,6 +117,8 @@ class MastersStore extends ChangeNotifier {
   late final StockMovementRepository _stockMovementRepo;
   late final AppointmentRepository _appointmentRepo;
   late final BookingResourceRepository _bookingResourceRepo;
+  late final RecurringPaymentRepository _recurringRepo;
+  late final PayrollPeriodRepository _payrollRepo;
 
   List<Client> _clients = [];
   List<WorkObject> _objects = [];
@@ -156,6 +162,8 @@ class MastersStore extends ChangeNotifier {
 
   final Map<String, int> _intCache = {};
   List<ClosedPeriod> _closedPeriods = [];
+  List<RecurringPayment> _recurringPayments = [];
+  List<PayrollPeriod> _payrollPeriods = [];
 
   @override
   void notifyListeners() {
@@ -304,6 +312,8 @@ class MastersStore extends ChangeNotifier {
     _employeePayments = rest[9] as List<EmployeePayment>;
 
     _closedPeriods = (await _appDatabase.periodClosures()).map((m) => ClosedPeriod.fromMap(Map<String, Object?>.from(m))).toList();
+    _recurringPayments = await _recurringRepo.getAll();
+    _payrollPeriods = await _payrollRepo.getAll();
     await _reconcileEmployeePayments();
 
     if (_bookingResources.isEmpty) {
@@ -1714,6 +1724,247 @@ class MastersStore extends ChangeNotifier {
     } catch (_) {}
     notifyListeners();
   }
+
+  List<RecurringPayment> get recurringPayments => List.unmodifiable(_recurringPayments);
+
+  Future<RecurringPayment> createRecurringPayment({
+    required String name,
+    String direction = 'out',
+    required int amountCents,
+    String category = '',
+    String? accountId,
+    int intervalDays = 30,
+    DateTime? nextDueAt,
+    String? note,
+  }) async {
+    ensurePeriodOpen();
+    final now = DateTime.now();
+    final payment = RecurringPayment(
+      id: newId(),
+      name: name.trim(),
+      direction: direction,
+      amountCents: amountCents < 0 ? 0 : amountCents,
+      category: category.trim(),
+      accountId: accountId,
+      intervalDays: intervalDays < 1 ? 1 : intervalDays,
+      nextDueAt: nextDueAt ?? now.add(Duration(days: intervalDays < 1 ? 1 : intervalDays)),
+      note: note?.trim().isEmpty == true ? null : note?.trim(),
+      createdAt: now,
+      updatedAt: now,
+    );
+    await _recurringRepo.save(payment);
+    _recurringPayments = [payment, ..._recurringPayments];
+    await auditAction(action: 'recurring_payment.create', entity: 'recurring_payment', entityId: payment.id, after: payment.toMap());
+    notifyListeners();
+    return payment;
+  }
+
+  Future<void> updateRecurringPayment(RecurringPayment payment) async {
+    ensurePeriodOpen();
+    final updated = payment.copyWith(updatedAt: DateTime.now());
+    await _recurringRepo.save(updated);
+    final idx = _recurringPayments.indexWhere((r) => r.id == updated.id);
+    if (idx == -1) _recurringPayments = [updated, ..._recurringPayments];
+    else _recurringPayments[idx] = updated;
+    await auditAction(action: 'recurring_payment.update', entity: 'recurring_payment', entityId: updated.id, after: updated.toMap());
+    notifyListeners();
+  }
+
+  Future<void> deleteRecurringPayment(String id) async {
+    ensurePeriodOpen();
+    await _recurringRepo.delete(id);
+    _recurringPayments = _recurringPayments.where((r) => r.id != id).toList();
+    await auditAction(action: 'recurring_payment.delete', entity: 'recurring_payment', entityId: id);
+    notifyListeners();
+  }
+
+  /// Executes all recurring payments due on or before [now].
+  Future<int> runDueRecurringPayments({DateTime? now}) async {
+    final current = now ?? DateTime.now();
+    int count = 0;
+    for (final payment in List<RecurringPayment>.from(_recurringPayments)) {
+      if (!payment.active || payment.nextDueAt.isAfter(current)) continue;
+      try {
+        ensurePeriodOpen(payment.nextDueAt);
+      } catch (_) {
+        continue;
+      }
+      final account = payment.accountId ?? storeDefaultAccountId();
+      await addTransaction(
+        accountId: account,
+        kind: 'recurring',
+        direction: payment.direction,
+        amountCents: payment.amountCents,
+        category: payment.category.isEmpty ? payment.name : payment.category,
+        note: payment.note,
+      );
+      var next = payment.nextDueAt;
+      while (!next.isAfter(current)) {
+        next = next.add(Duration(days: payment.intervalDays < 1 ? 1 : payment.intervalDays));
+      }
+      await updateRecurringPayment(payment.copyWith(nextDueAt: next, updatedAt: current));
+      count++;
+    }
+    return count;
+  }
+
+  String storeDefaultAccountId() {
+    final account = _accounts.firstWhere((a) => !a.archived, orElse: () => _accounts.isNotEmpty ? _accounts.first : throw StateError('Нет счёта.'));
+    return account.id;
+  }
+
+  List<PayrollPeriod> get payrollPeriods => List.unmodifiable(_payrollPeriods);
+
+  Future<PayrollPeriod> createPayrollPeriod({
+    required String name,
+    required DateTime startAt,
+    required DateTime endAt,
+    String? note,
+  }) async {
+    final now = DateTime.now();
+    final period = PayrollPeriod(
+      id: newId(),
+      name: name.trim(),
+      startAt: startAt,
+      endAt: endAt,
+      note: note?.trim().isEmpty == true ? null : note?.trim(),
+      createdAt: now,
+      updatedAt: now,
+    );
+    await _payrollRepo.save(period);
+    _payrollPeriods = [period, ..._payrollPeriods];
+    await auditAction(action: 'payroll_period.create', entity: 'payroll_period', entityId: period.id, after: period.toMap());
+    notifyListeners();
+    return period;
+  }
+
+  Future<void> reopenPayrollPeriod(String id) async {
+    final period = _payrollPeriods.firstWhere((p) => p.id == id);
+    final now = DateTime.now();
+    final updated = PayrollPeriod(
+      id: period.id,
+      name: period.name,
+      startAt: period.startAt,
+      endAt: period.endAt,
+      note: period.note,
+      closedAt: null,
+      createdAt: period.createdAt,
+      updatedAt: now,
+    );
+    await _payrollRepo.save(updated);
+    final idx = _payrollPeriods.indexWhere((p) => p.id == id);
+    if (idx != -1) _payrollPeriods[idx] = updated;
+    await auditAction(action: 'payroll_period.reopen', entity: 'payroll_period', entityId: id);
+    notifyListeners();
+  }
+
+  Future<void> closePayrollPeriod(String id, {DateTime? at}) async {
+    final period = _payrollPeriods.firstWhere((p) => p.id == id);
+    final now = at ?? DateTime.now();
+    final updated = PayrollPeriod(
+      id: period.id,
+      name: period.name,
+      startAt: period.startAt,
+      endAt: period.endAt,
+      note: period.note,
+      closedAt: now,
+      createdAt: period.createdAt,
+      updatedAt: now,
+    );
+    await _payrollRepo.save(updated);
+    final idx = _payrollPeriods.indexWhere((p) => p.id == id);
+    if (idx != -1) _payrollPeriods[idx] = updated;
+    await auditAction(action: 'payroll_period.close', entity: 'payroll_period', entityId: id);
+    notifyListeners();
+  }
+
+  Future<void> deletePayrollPeriod(String id) async {
+    await _payrollRepo.delete(id);
+    _payrollPeriods = _payrollPeriods.where((p) => p.id != id).toList();
+    await auditAction(action: 'payroll_period.delete', entity: 'payroll_period', entityId: id);
+    notifyListeners();
+  }
+
+  int earnedCentsForPeriod(String employeeId, DateTime start, DateTime end) {
+    final emp = employeeById(employeeId);
+    if (emp == null) return 0;
+    int earned = 0;
+    if (emp.payType == 'hourly' || emp.payType == 'mixed' || emp.payType == 'salary') {
+      final mins = _timeEntries
+          .where((t) => t.employeeId == employeeId && !t.startedAt.isBefore(start) && !t.startedAt.isAfter(end))
+          .fold(0, (s, t) => s + (t.minutes > 0 ? t.minutes : _durationMinutes(t.startedAt, t.endedAt)));
+      earned += (mins * emp.rateCents / 60).round();
+    }
+    if (emp.payType == 'piece' || emp.payType == 'mixed') {
+      final doneJobs = _jobs.where((j) =>
+          j.assigneeId == employeeId &&
+          (j.status == JobStatus.done || j.status == JobStatus.closed) &&
+          !j.archived &&
+          (j.finishedAt ?? j.updatedAt).isAfter(start.subtract(const Duration(seconds: 1))) &&
+          !(j.finishedAt ?? j.updatedAt).isAfter(end));
+      if (emp.payType == 'piece') earned += doneJobs.length * emp.rateCents;
+    }
+    if (emp.payType == 'percent' || emp.payType == 'mixed') {
+      final doneJobs = _jobs.where((j) =>
+          j.assigneeId == employeeId &&
+          (j.status == JobStatus.done || j.status == JobStatus.closed) &&
+          !j.archived &&
+          (j.finishedAt ?? j.updatedAt).isAfter(start.subtract(const Duration(seconds: 1))) &&
+          !(j.finishedAt ?? j.updatedAt).isAfter(end));
+      final price = doneJobs.fold(0, (s, j) => s + j.priceCents);
+      earned += (price * emp.percent / 100).round();
+    }
+    return earned;
+  }
+
+  int _durationMinutes(DateTime start, DateTime? end) {
+    if (end == null) return 0;
+    return end.difference(start).inMinutes;
+  }
+
+  Map<String, int> paymentTotalsForPeriod(String employeeId, DateTime start, DateTime end) {
+    int bonuses = 0;
+    int penalties = 0;
+    int advances = 0;
+    int payouts = 0;
+    for (final p in paymentsForEmployee(employeeId)) {
+      if (p.createdAt.isBefore(start) || p.createdAt.isAfter(end)) continue;
+      if (p.type == 'bonus') bonuses += p.amountCents;
+      if (p.type == 'penalty') penalties += p.amountCents;
+      if (p.type == 'advance') advances += p.amountCents;
+      if (p.type == 'payout') payouts += p.amountCents;
+    }
+    return {
+      'bonus': bonuses,
+      'penalty': penalties,
+      'advance': advances,
+      'payout': payouts,
+    };
+  }
+
+  List<Map<String, Object?>> payrollSummary(DateTime start, DateTime end) {
+    final rows = _employees
+        .where((e) => !e.archived)
+        .map((employee) {
+      final earned = earnedCentsForPeriod(employee.id, start, end);
+      final totals = paymentTotalsForPeriod(employee.id, start, end);
+      final advances = totals['advance'] ?? 0;
+      final payouts = totals['payout'] ?? 0;
+      final net = earned + (totals['bonus'] ?? 0) - (totals['penalty'] ?? 0) - advances - payouts;
+      return <String, Object?>{
+        'employee': employee,
+        'earned': earned,
+        'bonus': totals['bonus'],
+        'penalty': totals['penalty'],
+        'advance': advances,
+        'payout': payouts,
+        'net': net,
+      };
+    })
+        .toList();
+    return rows;
+  }
+
 
   Future<void> clearAll() async {
     try { await _appDatabase.audit(action:'data.clearAll'); } catch (_) {}
