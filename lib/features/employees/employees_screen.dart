@@ -135,6 +135,26 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
     }
   }
 
+  Future<void> _closeCurrentPayrollPeriod() async {
+    final store = context.read<MastersStore>();
+    final now = DateTime.now();
+    final start = DateTime(now.year, now.month, 1);
+    final end = DateTime(now.year, now.month + 1, 0, 23, 59, 59, 999);
+    setState(() => _busy = true);
+    try {
+      final period = await store.createPayrollPeriod(name: 'Месяц ${now.month}/${now.year}', startAt: start, endAt: end);
+      await store.closePayrollPeriod(period.id, at: now);
+      if (!mounted) return;
+      await showAppAlert(
+        context,
+        title: 'Период закрыт',
+        message: 'Расчётный период ${DateFormat('MMMM yyyy', 'ru').format(now)} закрыт. Для экспорта используйте кнопку PDF.',
+      );
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
   Future<void> _delete(Employee e) async {
     final ok = await showAppConfirm(context, title: 'Удалить сотрудника?', message: e.name, destructive: true, confirmLabel: 'Удалить');
     if (!ok) return;
@@ -191,6 +211,7 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
                                     SecondaryButton(label: 'Бонус', icon: CupertinoIcons.plus, onPressed: () => _addPayment(e.id, 'bonus', 'Бонус')),
                                     SecondaryButton(label: 'Штраф', icon: CupertinoIcons.minus, onPressed: () => _addPayment(e.id, 'penalty', 'Штраф')),
                                     SecondaryButton(label: 'Выплата', icon: CupertinoIcons.arrow_right, onPressed: () => _addPayment(e.id, 'payout', 'Выплата')),
+                                    SecondaryButton(label: 'Закрыть месяц', icon: CupertinoIcons.lock, onPressed: () => _closeCurrentPayrollPeriod(),),
                                     CupertinoButton(padding: EdgeInsets.zero, onPressed: () => _delete(e), child: Text('Удалить', style: TextStyle(color: colors.red))),
                                     SecondaryButton(label: 'PDF', icon: CupertinoIcons.doc_text, onPressed: _exportPayroll),
                                   ],
