@@ -292,6 +292,7 @@ class ClientDetailScreen extends StatelessWidget {
     if (context.mounted) Navigator.of(context).pop();
   }
 
+
   Future<void> _addObject(BuildContext context, MastersStore store) async {
     final title = await _promptText(context, 'Новый объект', 'Квартира / адрес');
     if (title == null || title.trim().isEmpty) return;
