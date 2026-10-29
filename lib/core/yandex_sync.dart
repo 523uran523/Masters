@@ -10,6 +10,8 @@ class YandexSyncResult {
       YandexSyncResult._('uploaded', 'Бэкап загружен на Яндекс Диск.');
   static const restored =
       YandexSyncResult._('restored', 'Данные восстановлены из Яндекс Диска.');
+  static const merged =
+      YandexSyncResult._('merged', 'Cloud copy merged with local data.');
   static const failed =
       YandexSyncResult._('failed', 'Синхронизация не выполнена.');
   static const notConnected =
@@ -40,9 +42,9 @@ class YandexSyncService {
       if (last == null || remote.modified.isAfter(last)) {
         final data = await YandexDiskService.downloadBackup(token);
         if (data == null) return YandexSyncResult.failed;
-        await store.restoreFromBackup(data);
+        await store.mergeFromBackup(data);
         await settings.setYandexLastCloudModified(remote.modified);
-        return YandexSyncResult.restored;
+        return YandexSyncResult.merged;
       }
 
       final ok = await YandexDiskService.uploadBackup(token, store.backupData());

@@ -519,5 +519,120 @@ class AppDatabase {
 
   Future<void> deletePeriodClosure(String id) => database.delete('period_closures', where: 'id = ?', whereArgs: [id]);
 
+  int _mergeEpoch(Map<String, Object?> row, String column) {
+    final value = row[column];
+    if (value is int) return value;
+    if (value is num) return value.toInt();
+    if (value is String) {
+      return DateTime.tryParse(value)?.millisecondsSinceEpoch ??
+          int.tryParse(value) ??
+          0;
+    }
+    if (value is DateTime) return value.millisecondsSinceEpoch;
+    return 0;
+  }
+
+  Future<int> mergeSnapshot(Map<String, dynamic> data) async {
+    if (data['format'] != 'masters-backup') {
+      throw const FormatException('Неверный формат файла Masters.');
+    }
+
+    const mappings = <String, String>{
+      'clients': 'clients',
+      'objects': 'objects',
+      'jobs': 'jobs',
+      'stages': 'job_stages',
+      'materials': 'materials',
+      'sessions': 'work_sessions',
+      'accounts': 'accounts',
+      'shifts': 'cash_shifts',
+      'money_transactions': 'money_transactions',
+      'inventory_items': 'inventory_items',
+      'stock_movements': 'stock_movements',
+      'appointments': 'appointments',
+      'booking_resources': 'booking_resources',
+      'client_reminders': 'client_reminders',
+      'employees': 'employees',
+      'time_entries': 'time_entries',
+      'employee_payments': 'employee_payments',
+      'period_closures': 'period_closures',
+    };
+
+    int affected = 0;
+
+    await database.transaction((txn) async {
+      for (final mapping in mappings.entries) {
+        final rows = data[mapping.key];
+        if (rows is! List) continue;
+        final table = mapping.value;
+        final pragma = await txn.rawQuery('PRAGMA table_info($table)');
+        final columns = pragma
+            .map((row) => row['name']?.toString())
+            .whereType<String>()
+            .toList();
+        if (columns.isEmpty) continue;
+
+        for (final raw in rows) {
+          if (raw is! Map) continue;
+          final incoming = Map<String, Object?>.from(raw);
+          final id = incoming['id']?.toString();
+          if (id == null || id.isEmpty) continue;
+          incoming['id'] = id;
+
+          final existing = await txn.query(
+            table,
+            where: 'id = ?',
+            whereArgs: [id],
+            limit: 1,
+          );
+          final local = existing.isEmpty ? null : existing.first;
+
+          final incomingUpdated = _mergeEpoch(incoming, 'updated_at');
+          final incomingCreated = _mergeEpoch(incoming, 'created_at');
+          final remoteTime =
+              incomingUpdated > 0 ? incomingUpdated : incomingCreated;
+          final localTime = local == null ? 0 : _mergeEpoch(local, 'updated_at');
+
+          if (local != null && localTime > remoteTime && remoteTime > 0) {
+            continue;
+          }
+
+          final merged = <String, Object?>{};
+          for (final column in columns) {
+            if (incoming.containsKey(column)) {
+              merged[column] = incoming[column];
+            } else if (local != null && local.containsKey(column)) {
+              merged[column] = local[column];
+            } else {
+              merged[column] = null;
+            }
+          }
+
+          final remoteUpdated = remoteTime > 0
+              ? remoteTime
+              : DateTime.now().millisecondsSinceEpoch;
+          final mergedUpdated = local == null
+              ? remoteUpdated
+              : (localTime > remoteUpdated ? localTime : remoteUpdated);
+          merged['updated_at'] = mergedUpdated;
+          if (local != null &&
+              merged['deleted_at'] == null &&
+              local['deleted_at'] != null) {
+            merged['deleted_at'] = local['deleted_at'];
+          }
+
+          await txn.insert(
+            table,
+            merged,
+            conflictAlgorithm: ConflictAlgorithm.replace,
+          );
+          affected++;
+        }
+      }
+    });
+
+    return affected;
+  }
+
   Future<void> close() => database.close();
 }
