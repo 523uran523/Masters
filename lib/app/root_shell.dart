@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:provider/provider.dart';
 
 import '../core/single_tab_coordinator.dart';
+import '../features/more/more_screen.dart';
 import '../features/today/today_screen.dart';
 import '../features/jobs/jobs_screen.dart';
 import '../features/clients/clients_screen.dart';
@@ -113,9 +114,6 @@ class _TabDef {
 const List<_TabDef> _tabDefs = [
   _TabDef(CupertinoIcons.house, 'Сегодня', TodayScreen()),
   _TabDef(CupertinoIcons.doc_text, 'Заказы', JobsScreen()),
-  _TabDef(CupertinoIcons.person_2, 'Клиенты', ClientsScreen()),
   _TabDef(CupertinoIcons.money_dollar, 'Деньги', MoneyScreen()),
-  _TabDef(CupertinoIcons.cube, 'Склад', InventoryScreen()),
-  _TabDef(CupertinoIcons.calendar, 'Бронь', BookingScreen()),
-  _TabDef(CupertinoIcons.gear, 'Настройки', SettingsScreen()),
+  _TabDef(CupertinoIcons.ellipsis_circle, 'Ещё', const MoreScreen()),
 ];
