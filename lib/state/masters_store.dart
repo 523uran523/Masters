@@ -1381,7 +1381,7 @@ class MastersStore extends ChangeNotifier {
   Map<String, dynamic> backupData() {
     return {
       'format': 'masters-backup',
-      'version': 6,
+      'version': 7,
       'exported_at': DateTime.now().toIso8601String(),
       'clients': _clients.map((c) => c.toMap()).toList(),
       'objects': _objects.map((o) => o.toMap()).toList(),
@@ -1400,6 +1400,7 @@ class MastersStore extends ChangeNotifier {
       'employees': _employees.map((e) => e.toMap()).toList(),
       'time_entries': _timeEntries.map((t) => t.toMap()).toList(),
       'employee_payments': _employeePayments.map((p) => p.toMap()).toList(),
+      'period_closures': _closedPeriods.map((p) => p.toMap()).toList(),
     };
   }
 
@@ -1408,7 +1409,7 @@ class MastersStore extends ChangeNotifier {
       throw const FormatException('Это не резервная копия «Masters».');
     }
     final version = data['version'];
-    if (version is! int || version > 6) {
+    if (version is! int || version > 7) {
       throw const FormatException('Неподдерживаемая версия копии.');
     }
 
@@ -1515,9 +1516,16 @@ class MastersStore extends ChangeNotifier {
       }
     }
     final employeePayments = <EmployeePayment>[];
+    final closedPeriods = <ClosedPeriod>[];
     if (data['employee_payments'] is List) {
       for (final item in data['employee_payments'] as List) {
         if (item is Map) employeePayments.add(EmployeePayment.fromMap(Map<String, Object?>.from(item)));
+      }
+    }
+
+    if (data['period_closures'] is List) {
+      for (final item in data['period_closures'] as List) {
+        if (item is Map) closedPeriods.add(ClosedPeriod.fromMap(Map<String, Object?>.from(item)));
       }
     }
 
@@ -1569,6 +1577,7 @@ class MastersStore extends ChangeNotifier {
       for (final e in employees) { batch.insert('employees', e.toMap()); }
       for (final t in timeEntries) { batch.insert('time_entries', t.toMap()); }
       for (final p in employeePayments) { batch.insert('employee_payments', p.toMap()); }
+      for (final p in closedPeriods) { batch.insert('period_closures', p.toMap()); }
       await batch.commit(noResult: true);
     });
 
