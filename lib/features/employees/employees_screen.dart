@@ -6,6 +6,7 @@ import '../../app/theme/app_theme.dart';
 import '../../app/ui.dart';
 import '../../core/document_service.dart';
 import '../../data/models/employee.dart';
+import '../../data/models/recurring_payment.dart';
 import '../../state/masters_store.dart';
 
 class EmployeesScreen extends StatefulWidget {
@@ -155,6 +156,68 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
     }
   }
 
+  Future<void> _pickPayrollPeriod() async {
+    final store = context.read<MastersStore>();
+    final periods = store.payrollPeriods.take(6).toList();
+    if (periods.isEmpty) {
+      await _exportPayroll();
+      return;
+    }
+    final selected = await showCupertinoModalPopup<String>(
+      context: context,
+      builder: (dialogContext) => CupertinoActionSheet(
+        title: const Text('Выберите расчётный период'),
+        actions: [
+          CupertinoActionSheetAction(
+            isDefaultAction: true,
+            onPressed: () => Navigator.of(dialogContext).pop('current'),
+            child: const Text('Текущий месяц'),
+          ),
+          for (final period in periods)
+            CupertinoActionSheetAction(
+              onPressed: () => Navigator.of(dialogContext).pop(period.id),
+              child: Text(period.name),
+            ),
+        ],
+        cancelButton: CupertinoActionSheetAction(
+          child: const Text('Отмена'),
+          onPressed: () => Navigator.of(dialogContext).pop(),
+        ),
+      ),
+    );
+    if (!mounted) return;
+    if (selected == null) return;
+    if (selected == 'current') {
+      _exportPayroll();
+    } else {
+      final period = store.payrollPeriods.firstWhere((p) => p.id == selected, orElse: () => store.payrollPeriods.first);
+      await _exportPayrollPeriod(period);
+    }
+  }
+
+  Future<void> _exportPayrollPeriod(PayrollPeriod period) async {
+    final store = context.read<MastersStore>();
+    setState(() => _busy = true);
+    try {
+      final summary = store.payrollSummary(period.startAt, period.endAt);
+      final rows = summary.map((r) => <String, Object?>{
+            'employeeName': (r['employee'] as dynamic)?.name?.toString() ?? 'Сотрудник',
+            'earned': r['earned'],
+            'bonus': r['bonus'],
+            'penalty': r['penalty'],
+            'advance': r['advance'],
+            'payout': r['payout'],
+            'net': r['net'],
+          }).toList();
+      final bytes = await DocumentService.buildPayrollPdf(title: 'Ведомость: ${period.name}', summary: rows);
+      final suggested = 'payroll-${period.id.substring(0, 6)}.pdf';
+      final ok = await DocumentService.savePdf(bytes, suggested);
+      if (mounted && ok) await showAppAlert(context, title: 'Готово', message: 'Ведомость сохранена.');
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
   Future<void> _delete(Employee e) async {
     final ok = await showAppConfirm(context, title: 'Удалить сотрудника?', message: e.name, destructive: true, confirmLabel: 'Удалить');
     if (!ok) return;
@@ -172,7 +235,7 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
         trailing: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            CupertinoButton(padding: EdgeInsets.zero, onPressed: _exportPayroll, child: const Icon(CupertinoIcons.doc_text)),
+            CupertinoButton(padding: EdgeInsets.zero, onPressed: _pickPayrollPeriod, child: const Icon(CupertinoIcons.doc_text)),
             CupertinoButton(padding: EdgeInsets.zero, onPressed: _closeCurrentPayrollPeriod, child: const Icon(CupertinoIcons.lock)),
             CupertinoButton(padding: EdgeInsets.zero, onPressed: _newEmployee, child: const Icon(CupertinoIcons.plus)),
           ],
