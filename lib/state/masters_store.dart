@@ -35,6 +35,43 @@ import '../data/repositories/session_repository.dart';
 import '../data/repositories/stage_repository.dart';
 import 'settings_controller.dart';
 
+class ClosedPeriod {
+  const ClosedPeriod({
+    required this.id,
+    required this.start,
+    required this.end,
+    required this.closedAt,
+    this.note,
+  });
+
+  final String id;
+  final DateTime start;
+  final DateTime end;
+  final DateTime closedAt;
+  final String? note;
+
+  factory ClosedPeriod.fromMap(Map<String, Object?> map) {
+    return ClosedPeriod(
+      id: (map['id'] as String?) ?? '',
+      start: DateTime.fromMillisecondsSinceEpoch((map['start_at'] as num?)?.toInt() ?? 0),
+      end: DateTime.fromMillisecondsSinceEpoch((map['end_at'] as num?)?.toInt() ?? 0),
+      closedAt: DateTime.fromMillisecondsSinceEpoch((map['closed_at'] as num?)?.toInt() ?? 0),
+      note: map['note'] as String?,
+    );
+  }
+
+  Map<String, Object?> toMap() => {
+        'id': id,
+        'start_at': start.millisecondsSinceEpoch,
+        'end_at': end.millisecondsSinceEpoch,
+        'closed_at': closedAt.millisecondsSinceEpoch,
+        'note': note,
+      };
+
+  bool contains(DateTime date) =>
+      !date.isBefore(start) && !date.isAfter(end);
+}
+
 class MastersStore extends ChangeNotifier {
   MastersStore(this._appDatabase, this.settings) {
     _clientRepo = ClientRepository(_appDatabase.database);
@@ -118,6 +155,7 @@ class MastersStore extends ChangeNotifier {
   List<EmployeePayment>? _employeePaymentsView;
 
   final Map<String, int> _intCache = {};
+  List<ClosedPeriod> _closedPeriods = [];
 
   @override
   void notifyListeners() {
@@ -265,6 +303,7 @@ class MastersStore extends ChangeNotifier {
     _timeEntries = rest[8] as List<TimeEntry>;
     _employeePayments = rest[9] as List<EmployeePayment>;
 
+    _closedPeriods = (await _appDatabase.periodClosures()).map((m) => ClosedPeriod.fromMap(Map<String, Object?>.from(m))).toList();
     await _reconcileEmployeePayments();
 
     if (_bookingResources.isEmpty) {
@@ -686,6 +725,7 @@ class MastersStore extends ChangeNotifier {
     String? relatedTransactionId,
   }) async {
     if (amountCents <= 0) throw ArgumentError('Сумма должна быть больше 0.');
+    ensurePeriodOpen();
     final tx = MoneyTransaction(
       id: newId(),
       accountId: accountId,
@@ -721,6 +761,7 @@ class MastersStore extends ChangeNotifier {
     String? note,
   }) async {
     if (amountCents <= 0) throw ArgumentError('Сумма должна быть больше 0.');
+    ensurePeriodOpen();
     if (fromAccountId == toAccountId) throw ArgumentError('Счета должны различаться.');
     final from = await addTransaction(
       accountId: fromAccountId,
@@ -1593,6 +1634,58 @@ class MastersStore extends ChangeNotifier {
       after: after,
       deviceId: deviceId,
     );
+  }
+
+  List<ClosedPeriod> get closedPeriods => List.unmodifiable(_closedPeriods);
+
+  bool isPeriodClosed([DateTime? at]) {
+    final date = at ?? DateTime.now();
+    return _closedPeriods.any((period) => period.contains(date));
+  }
+
+  void ensurePeriodOpen([DateTime? at]) {
+    if (isPeriodClosed(at ?? DateTime.now())) {
+      throw StateError('Указанный период закрыт. Измените дату или переоткройте период.');
+    }
+  }
+
+  Future<ClosedPeriod> closePeriod({
+    DateTime? start,
+    DateTime? end,
+    String? note,
+  }) async {
+    final now = DateTime.now();
+    final periodStart = start ?? DateTime(now.year, now.month, 1);
+    final periodEnd = end ?? DateTime(now.year, now.month + 1, 0, 23, 59, 59, 999);
+    for (final existing in _closedPeriods) {
+      if (periodStart.isBefore(existing.end) && periodEnd.isAfter(existing.start)) {
+        throw ArgumentError('Новый период пересекается с уже закрытым.');
+      }
+    }
+    final closure = ClosedPeriod(
+      id: newId(),
+      start: periodStart,
+      end: periodEnd,
+      closedAt: now,
+      note: note?.trim().isEmpty == true ? null : note?.trim(),
+    );
+    await _appDatabase.insertPeriodClosure(closure.toMap());
+    _closedPeriods = [closure, ..._closedPeriods];
+    try {
+      await auditAction(action: 'period.close', entity: 'period', entityId: closure.id, after: closure.toMap());
+    } catch (_) {}
+    notifyListeners();
+    return closure;
+  }
+
+  Future<void> reopenPeriod(String id) async {
+    final was = _closedPeriods.firstWhere((p) => p.id == id);
+    await _appDatabase.deletePeriodClosure(id);
+    _closedPeriods = _closedPeriods.where((p) => p.id != id).toList();
+    try {
+      await auditAction(action: 'period.reopen', entity: 'period', entityId: id, before: was.toMap());
+    } catch (_) {}
+    notifyListeners();
   }
 
   Future<void> clearAll() async {

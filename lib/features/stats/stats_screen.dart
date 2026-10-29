@@ -81,6 +81,17 @@ class _StatsScreenState extends State<StatsScreen> {
     }
     final sortedStaff = staffRevenue.entries.toList()
       ..sort((a, b) => b.value.compareTo(a.value));
+    final weekdayRevenue = List<int>.filled(7, 0);
+    final weekdayExpense = List<int>.filled(7, 0);
+    for (final t in tx) {
+      final idx = t.createdAt.weekday - 1;
+      if (t.direction == 'in') {
+        weekdayRevenue[idx] += t.amountCents;
+      } else if (t.direction == 'out') {
+        weekdayExpense[idx] += t.amountCents;
+      }
+    }
+    final weekdayProfit = List.generate(7, (i) => weekdayRevenue[i] - weekdayExpense[i]);
 
     return CupertinoPageScaffold(
       navigationBar: const CupertinoNavigationBar(middle: Text('Итоги')),
@@ -181,6 +192,52 @@ class _StatsScreenState extends State<StatsScreen> {
                       }).toList(),
                     ),
             ),
+            const SizedBox(height: 16),
+            SectionLabel('По дням недели'),
+            AppCard(
+              child: Column(
+                children: List.generate(7, (i) {
+                  final label = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'][i];
+                  final profit = weekdayProfit[i];
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 4),
+                    child: Row(
+                      children: [
+                        Text(label, style: const TextStyle(fontWeight: FontWeight.w600)),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Container(
+                            height: 6,
+                            decoration: BoxDecoration(
+                              color: colors.secondaryLabel.withOpacity(0.14),
+                              borderRadius: BorderRadius.circular(3),
+                            ),
+                            child: Align(
+                              alignment: Alignment.centerLeft,
+                              child: FractionallySizedBox(
+                                widthFactor: weekdayProfit.reduce((a, b) => a.abs() > b.abs() ? a.abs() : b.abs()) == 0
+                                    ? 0.0
+                                    : (profit.abs() / weekdayProfit.reduce((a, b) => a.abs() > b.abs() ? a.abs() : b.abs())).clamp(0.0, 1.0),
+                                child: Container(
+                                  height: 6,
+                                  decoration: BoxDecoration(
+                                    color: profit >= 0 ? colors.green : colors.red,
+                                    borderRadius: BorderRadius.circular(3),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Text(_money(profit)),
+                      ],
+                    ),
+                  );
+                }),
+              ),
+            ),
+            const SizedBox(height: 16),
           ],
         ),
       ),

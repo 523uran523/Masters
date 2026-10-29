@@ -163,6 +163,49 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
+  Future<void> _closeCurrentPeriod() async {
+    final now = DateTime.now();
+    final store = context.read<MastersStore>();
+    try {
+      await store.closePeriod(
+        start: DateTime(now.year, now.month, 1),
+        end: DateTime(now.year, now.month + 1, 0, 23, 59, 59, 999),
+        note: 'Закрытие текущего месяца из настроек',
+      );
+      if (!mounted) return;
+      await showAppAlert(
+        context,
+        title: 'Период закрыт',
+        message: 'Текущий месяц закрыт для редактирования. Записи за этот период сохраняются и могут быть переоткрыты.',
+      );
+    } catch (e) {
+      if (!mounted) return;
+      await showAppAlert(context, title: 'Не удалось закрыть период', message: '$e');
+    }
+  }
+
+  Future<void> _reopenLastClosedPeriod() async {
+    final store = context.read<MastersStore>();
+    if (store.closedPeriods.isEmpty) {
+      if (!mounted) return;
+      await showAppAlert(context, title: 'Закрытых периодов нет', message: 'Сначала закройте период.');
+      return;
+    }
+    final period = store.closedPeriods.first;
+    try {
+      await store.reopenPeriod(period.id);
+      if (!mounted) return;
+      await showAppAlert(
+        context,
+        title: 'Период открыт',
+        message: 'Последний закрытый период снова доступен для редактирования.',
+      );
+    } catch (e) {
+      if (!mounted) return;
+      await showAppAlert(context, title: 'Не удалось открыть период', message: '$e');
+    }
+  }
+
   Future<void> _showAuditLog() async {
     final entries = await context.read<MastersStore>().auditEntries(limit: 50);
     if (!mounted) return;
@@ -549,6 +592,18 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         icon: CupertinoIcons.shield_fill,
                         label: 'Проверить целостность данных',
                         onTap: _checkDataIntegrity,
+                      ),
+                      Hairline(indent: 0),
+                      _ActionTile(
+                        icon: CupertinoIcons.lock_shield,
+                        label: 'Закрыть текущий месяц',
+                        onTap: _closeCurrentPeriod,
+                      ),
+                      Hairline(indent: 0),
+                      _ActionTile(
+                        icon: CupertinoIcons.lock_open,
+                        label: 'Переоткрыть последний период',
+                        onTap: _reopenLastClosedPeriod,
                       ),
                     ],
                   ),

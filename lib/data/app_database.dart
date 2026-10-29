@@ -25,7 +25,7 @@ class AppDatabase {
 
     final database = await openDatabase(
       resolved,
-      version: 8,
+      version: 9,
       onConfigure: (db) async {
         if (!kIsWeb) await db.execute('PRAGMA foreign_keys = ON');
       },
@@ -131,6 +131,7 @@ class AppDatabase {
     await _createTeamSchema(db);
     await _ensureSyncColumns(db);
     await _createAuditLogSchema(db);
+    await _createPeriodClosureSchema(db);
   }
 
   static Future<void> _createAuditLogSchema(Database db) async {
@@ -149,6 +150,20 @@ class AppDatabase {
     ''');
     await db.execute('CREATE INDEX idx_audit_log_entity ON audit_log(entity, entity_id)');
     await db.execute('CREATE INDEX idx_audit_log_at ON audit_log(at)');
+  }
+
+
+  static Future<void> _createPeriodClosureSchema(Database db) async {
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS period_closures (
+        id TEXT PRIMARY KEY,
+        start_at INTEGER NOT NULL,
+        end_at INTEGER NOT NULL,
+        closed_at INTEGER NOT NULL,
+        note TEXT
+      )
+    ''');
+    await db.execute('CREATE INDEX idx_period_closures_start ON period_closures(start_at)');
   }
 
   static Future<void> _ensureSyncColumns(Database db) async {
@@ -431,6 +446,9 @@ class AppDatabase {
     if (oldVersion < 8) {
       await _createAuditLogSchema(db);
     }
+    if (oldVersion < 9) {
+      await _createPeriodClosureSchema(db);
+    }
   }
 
   Future<List<String>> integrityIssues() async {
@@ -488,6 +506,18 @@ class AppDatabase {
       },
     );
   }
+
+  Future<List<Map<String, Object?>>> periodClosures({int limit = 50}) async {
+    return database.query(
+      'period_closures',
+      orderBy: 'start_at DESC',
+      limit: limit < 1 ? 1 : limit,
+    );
+  }
+
+  Future<void> insertPeriodClosure(Map<String, Object?> row) => database.insert('period_closures', row);
+
+  Future<void> deletePeriodClosure(String id) => database.delete('period_closures', where: 'id = ?', whereArgs: [id]);
 
   Future<void> close() => database.close();
 }
