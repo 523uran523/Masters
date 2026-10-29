@@ -93,6 +93,12 @@ class ClientDetailScreen extends StatelessWidget {
                     icon: CupertinoIcons.bell,
                     onPressed: () => _addReminder(context, store, client),
                   ),
+                  const SizedBox(height: 8),
+                  SecondaryButton(
+                    label: 'Записать на приём',
+                    icon: CupertinoIcons.calendar,
+                    onPressed: () => _bookAppointment(context, store, client),
+                  ),
                   ...store.remindersForClient(clientId).map((r) => Padding(
                         padding: const EdgeInsets.only(top: 8),
                         child: Row(
@@ -349,6 +355,71 @@ class ClientDetailScreen extends StatelessWidget {
       return;
     }
     if (template == 'telegram') await DeepLinkService.openTelegram(text: text);
+  }
+
+  Future<void> _bookAppointment(BuildContext context, MastersStore store, Client client) async {
+    final titleController = TextEditingController(text: 'Визит: ${client.name}');
+    final noteController = TextEditingController();
+    DateTime selected = DateTime.now().add(const Duration(hours: 1));
+    selected = DateTime(selected.year, selected.month, selected.day, selected.hour, 0);
+    await showCupertinoModalPopup<void>(
+      context: context,
+      builder: (modalContext) => StatefulBuilder(
+        builder: (builderContext, setModalState) => Container(
+          height: MediaQuery.of(context).size.height * 0.72,
+          color: context.colors.card,
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+          child: SafeArea(
+            top: false,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                const Text('Быстрая запись на приём', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
+                const SizedBox(height: 12),
+                CupertinoTextField(controller: titleController, placeholder: 'Название визита'),
+                const SizedBox(height: 10),
+                CupertinoTextField(controller: noteController, placeholder: 'Комментарий', maxLines: 2),
+                const SizedBox(height: 12),
+                Expanded(
+                  child: CupertinoDatePicker(
+                    mode: CupertinoDatePickerMode.dateAndTime,
+                    initialDateTime: selected,
+                    minuteInterval: 5,
+                    onDateTimeChanged: (dt) => setModalState(() => selected = dt),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                SecondaryButton(
+                  label: 'Создать запись',
+                  icon: CupertinoIcons.calendar,
+                  onPressed: () async {
+                    final title = titleController.text.trim().isEmpty ? 'Визит: ${client.name}' : titleController.text.trim();
+                    final appt = await store.createAppointment(
+                      title: title,
+                      clientId: client.id,
+                      startAt: selected,
+                      endAt: selected.add(const Duration(hours: 1)),
+                      note: noteController.text.trim().isEmpty ? null : noteController.text.trim(),
+                    );
+                    await store.createReminder(
+                      clientId: client.id,
+                      type: 'appointment',
+                      title: 'Визит: ${client.name}',
+                      body: noteController.text.trim().isEmpty ? title : noteController.text.trim(),
+                      dueAt: selected,
+                    );
+                    if (modalContext.mounted) Navigator.of(modalContext).pop();
+                    if (context.mounted) {
+                      await showAppAlert(context, title: 'Запись создана', message: 'Визит: ${appt.title}');
+                    }
+                  },
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
   }
 
   Future<void> _addObject(BuildContext context, MastersStore store) async {
