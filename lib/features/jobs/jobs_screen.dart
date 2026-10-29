@@ -54,6 +54,36 @@ class _JobsScreenState extends State<JobsScreen> {
     );
   }
 
+
+  String _statusLabel() => _statusIndex == 0 ? 'Все' : JobStatus.values[_statusIndex - 1].label;
+
+  Future<void> _showStatusPicker() async {
+    final result = await showCupertinoModalPopup<int>(
+      context: context,
+      builder: (dialogContext) => CupertinoActionSheet(
+        title: const Text('Фильтр по статусу'),
+        actions: [
+          CupertinoActionSheetAction(
+            isDefaultAction: _statusIndex == 0,
+            onPressed: () => Navigator.of(dialogContext).pop(0),
+            child: const Text('Все'),
+          ),
+          for (var i = 0; i < JobStatus.values.length; i++)
+            CupertinoActionSheetAction(
+              isDefaultAction: _statusIndex == i + 1,
+              onPressed: () => Navigator.of(dialogContext).pop(i + 1),
+              child: Text(JobStatus.values[i].label),
+            ),
+        ],
+        cancelButton: CupertinoActionSheetAction(
+          onPressed: () => Navigator.of(dialogContext).pop(),
+          child: const Text('Отмена'),
+        ),
+      ),
+    );
+    if (result != null && mounted) setState(() => _statusIndex = result);
+  }
+
   Future<void> _quickAdd() async {
     final store = context.read<MastersStore>();
     if (store.clients.isEmpty) {
@@ -143,20 +173,27 @@ class _JobsScreenState extends State<JobsScreen> {
       children: [
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-          child: CupertinoSlidingSegmentedControl<int>(
-            groupValue: _statusIndex,
-            onValueChanged: (v) => setState(() => _statusIndex = v ?? 0),
-            children: {
-              0: const Padding(
-                padding: EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-                child: Text('Все'),
-              ),
-              for (var i = 0; i < JobStatus.values.length; i++)
-                i + 1: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-                  child: Text(JobStatus.values[i].label),
+          child: Row(
+            children: [
+              Expanded(
+                child: Text(
+                  'Статус: ${_statusLabel()}',
+                  style: TextStyle(color: colors.secondaryLabel, fontSize: 13),
                 ),
-            },
+              ),
+              CupertinoButton(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                onPressed: _showStatusPicker,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(CupertinoIcons.line_horizontal_3_decrease, size: 18),
+                    const SizedBox(width: 6),
+                    Text(_statusLabel()),
+                  ],
+                ),
+              ),
+            ],
           ),
         ),
         Expanded(

@@ -16,6 +16,24 @@ class StatsScreen extends StatefulWidget {
 }
 
 class _StatsScreenState extends State<StatsScreen> {
+  String _periodLabel() => switch (_period) { 0 => 'Неделя', 1 => 'Месяц', 2 => 'Квартал', _ => 'Месяц' };
+
+  Future<void> _showPeriodPicker() async {
+    final result = await showCupertinoModalPopup<int>(
+      context: context,
+      builder: (dialogContext) => CupertinoActionSheet(
+        title: const Text('Период аналитики'),
+        actions: [
+          CupertinoActionSheetAction(onPressed: () => Navigator.of(dialogContext).pop(0), isDefaultAction: _period == 0, child: const Text('Неделя')),
+          CupertinoActionSheetAction(onPressed: () => Navigator.of(dialogContext).pop(1), isDefaultAction: _period == 1, child: const Text('Месяц')),
+          CupertinoActionSheetAction(onPressed: () => Navigator.of(dialogContext).pop(2), isDefaultAction: _period == 2, child: const Text('Квартал')),
+        ],
+        cancelButton: CupertinoActionSheetAction(onPressed: () => Navigator.of(dialogContext).pop(), child: const Text('Отмена')),
+      ),
+    );
+    if (result != null && mounted) setState(() => _period = result);
+  }
+
   int _period = 1; // 0 week, 1 month, 2 quarter
 
   DateTime _start(DateTime now) {
@@ -112,23 +130,23 @@ class _StatsScreenState extends State<StatsScreen> {
         child: ListView(
           padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
           children: [
-            CupertinoSlidingSegmentedControl<int>(
-              groupValue: _period,
-              onValueChanged: (v) => setState(() => _period = v ?? 1),
-              children: const {
-                0: Padding(padding: EdgeInsets.symmetric(horizontal: 10, vertical: 6), child: Text('Неделя')),
-                1: Padding(padding: EdgeInsets.symmetric(horizontal: 10, vertical: 6), child: Text('Месяц')),
-                2: Padding(padding: EdgeInsets.symmetric(horizontal: 10, vertical: 6), child: Text('Квартал')),
-              },
-            ),
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                Expanded(child: StatTile(label: 'Выручка', value: _money(revenue), icon: CupertinoIcons.money_dollar, tint: colors.green)),
-                const SizedBox(width: 8),
-                Expanded(child: StatTile(label: 'Расходы', value: _money(expense), icon: CupertinoIcons.minus_circle, tint: colors.red)),
-              ],
-            ),
+    Row(
+      children: [
+        Expanded(child: Text('Период', style: TextStyle(color: colors.secondaryLabel, fontSize: 13))),
+        CupertinoButton(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          onPressed: _showPeriodPicker,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(CupertinoIcons.calendar, size: 18),
+              const SizedBox(width: 6),
+              Text(_periodLabel()),
+            ],
+          ),
+        ),
+      ],
+    ),
             const SizedBox(height: 8),
             Row(
               children: [
