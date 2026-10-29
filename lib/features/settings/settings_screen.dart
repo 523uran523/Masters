@@ -8,6 +8,7 @@ import '../../app/ui.dart';
 import '../../core/backup_service.dart';
 import '../../core/reminder_service.dart';
 import '../../core/app_biometric.dart';
+import '../../core/update_service.dart';
 import '../../core/yandex_disk_service.dart';
 import '../../core/yandex_oauth.dart';
 import '../../core/yandex_sync.dart';
@@ -24,6 +25,9 @@ class SettingsScreen extends StatefulWidget {
 
 class _SettingsScreenState extends State<SettingsScreen> {
   bool _busy = false;
+  bool _updateBusy = false;
+  UpdateInfo? _updateInfo;
+  String _updateStatus = '';
 
   static const List<String> _tabLabels = [
     'Сегодня',
@@ -36,6 +40,54 @@ class _SettingsScreenState extends State<SettingsScreen> {
   ];
   bool _awaitingCode = false;
   final _yandexCodeController = TextEditingController();
+
+  Future<void> _checkForUpdates() async {
+    setState(() { _updateBusy = true; _updateStatus = 'Проверка обновлений...'; });
+    try {
+      final update = await UpdateService().checkForUpdate();
+      if (!mounted) return;
+      setState(() {
+        _updateInfo = update;
+        _updateStatus = update.updateAvailable
+            ? 'Доступно обновление: ${update.latestVersionName} (код ${update.latestVersionCode})'
+            : 'У вас актуальная версия.';
+      });
+      if (update.updateAvailable) {
+        final proceed = await showAppConfirm(
+          context,
+          title: 'Доступно обновление',
+          message: '${update.changelog}\n\nУстановить сейчас?',
+          confirmLabel: 'Скачать и установить',
+        );
+        if (proceed && mounted) await _downloadAndInstallUpdate(update);
+      }
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _updateStatus = 'Ошибка обновления: $e');
+    } finally {
+      if (mounted) setState(() => _updateBusy = false);
+    }
+  }
+
+  Future<void> _downloadAndInstallUpdate(UpdateInfo update) async {
+    setState(() { _updateBusy = true; _updateStatus = 'Скачивание APK...'; });
+    try {
+      final file = await UpdateService().downloadVerifiedApk(update, onProgress: (received, total) {
+        if (!mounted) return;
+        final mb = (received / (1024 * 1024)).toStringAsFixed(1);
+        setState(() => _updateStatus = 'Скачивание APK: $mb МБ');
+      });
+      if (!mounted) return;
+      setState(() => _updateStatus = 'Проверка и запуск установщика...');
+      await UpdateService().installApk(file);
+      if (mounted) setState(() => _updateStatus = 'Установщик запущен. Подтвердите установку Android.');
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _updateStatus = 'Ошибка установки: $e');
+    } finally {
+      if (mounted) setState(() => _updateBusy = false);
+    }
+  }
 
   @override
   void dispose() {
@@ -803,6 +855,33 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ),
                 ),
                 const SizedBox(height: 16),
+                SectionLabel('Обновления приложения'),
+                AppCard(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('Текущая версия: ${_updateInfo?.currentVersionCode ?? '...'}'),
+                      if (_updateStatus.isNotEmpty) ...[
+                        const SizedBox(height: 4),
+                        Text(_updateStatus, style: TextStyle(color: context.colors.secondaryLabel, fontSize: 12)),
+                      ],
+                      const SizedBox(height: 8),
+                      SecondaryButton(
+                        label: _updateBusy ? 'Проверка...' : 'Проверить обновления',
+                        icon: CupertinoIcons.cloud_download,
+                        onPressed: _updateBusy ? () {} : _checkForUpdates,
+                      ),
+                      if (_updateInfo != null && _updateInfo!.updateAvailable) ...[
+                        const SizedBox(height: 8),
+                        SecondaryButton(
+                          label: 'Скачать и установить ${_updateInfo!.latestVersionName}',
+                          icon: CupertinoIcons.arrow_down_circle,
+                          onPressed: _updateBusy ? () {} : () => _downloadAndInstallUpdate(_updateInfo!),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
                 SectionLabel('О приложении'),
                 AppCard(
                   child: Column(
