@@ -283,7 +283,7 @@ class ClientDetailScreen extends StatelessWidget {
     final ok = await showAppConfirm(
       context,
       title: 'Удалить контакт?',
-      message: 'Контакт и объекты будут скрыты, заказы сохранятся в истории.',
+      message: 'Контакт станет скрытым, заказы и операции сохранятся в истории.',
       destructive: true,
       confirmLabel: 'Удалить',
     );
