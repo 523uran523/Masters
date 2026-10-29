@@ -93,4 +93,72 @@ void main() {
       await appDb.close();
     }
   });
+
+  test('recurring payment is posted and advanced when due', () async {
+    final appDb = await AppDatabase.open(path: inMemoryDatabasePath);
+    try {
+      final settings = await SettingsController.load();
+      final store = MastersStore(appDb, settings);
+      await store.load();
+
+      final account = await store.createAccount(name: 'Cash', type: 'cash');
+      final payment = await store.createRecurringPayment(
+        name: 'Rent',
+        amountCents: 1000,
+        intervalDays: 30,
+        accountId: account.id,
+        nextDueAt: DateTime.now().subtract(const Duration(seconds: 1)),
+      );
+
+      final posted = await store.runDueRecurringPayments();
+      expect(posted, 1);
+      expect(store.totalBalanceCents(), -1000);
+      final updated = store.recurringPayments.firstWhere((p) => p.id == payment.id);
+      expect(updated.nextDueAt.isAfter(DateTime.now()), isTrue);
+    } finally {
+      await appDb.close();
+    }
+  });
+
+  test('payroll summary filters period and computes net', () async {
+    final appDb = await AppDatabase.open(path: inMemoryDatabasePath);
+    try {
+      final settings = await SettingsController.load();
+      final store = MastersStore(appDb, settings);
+      await store.load();
+
+      final employee = await store.createEmployee(
+        name: 'Worker',
+        payType: 'hourly',
+        rateCents: 1000,
+      );
+      final now = DateTime.now();
+      await store.addTimeEntry(
+        employeeId: employee.id,
+        startedAt: now,
+        minutes: 90,
+      );
+      await store.addEmployeePayment(
+        employeeId: employee.id,
+        type: 'bonus',
+        amountCents: 200,
+      );
+      await store.addEmployeePayment(
+        employeeId: employee.id,
+        type: 'advance',
+        amountCents: 300,
+      );
+
+      final start = DateTime(now.year, now.month, 1);
+      final end = DateTime(now.year, now.month, 30);
+      final rows = store.payrollSummary(start, end);
+      final row = rows.firstWhere((r) => (r['employee'] as dynamic).id == employee.id);
+      expect(row['earned'], 1500);
+      expect(row['bonus'], 200);
+      expect(row['advance'], 300);
+      expect(row['net'], 1400);
+    } finally {
+      await appDb.close();
+    }
+  });
 }

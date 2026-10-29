@@ -185,6 +185,7 @@ class AppDatabase {
       CREATE TABLE IF NOT EXISTS recurring_payments (
         id TEXT PRIMARY KEY,
         name TEXT NOT NULL,
+        type TEXT NOT NULL DEFAULT 'expense',
         direction TEXT NOT NULL DEFAULT 'out',
         amount_cents INTEGER NOT NULL,
         category TEXT NOT NULL DEFAULT '',
