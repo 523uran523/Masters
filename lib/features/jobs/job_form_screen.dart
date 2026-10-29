@@ -35,6 +35,9 @@ class _JobFormScreenState extends State<JobFormScreen> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
+    if (!_isEdit && _assigneeId == null) {
+      _assigneeId = context.read<MastersStore>().selfEmployee?.id;
+    }
     if (_isEdit && _titleController.text.isEmpty) {
       final store = context.read<MastersStore>();
       final job = store.jobById(widget.jobId!);

@@ -25,7 +25,8 @@ void main() {
       await store.load();
       expect(store.isLoaded, isTrue);
       expect(store.clients, isEmpty);
-      expect(store.employees, isEmpty);
+      expect(store.employees.length, 1);
+      expect(store.selfEmployee?.name, 'Я');
     } finally {
       await appDb.close();
     }
@@ -39,8 +40,8 @@ void main() {
       await store.load();
 
       await store.createEmployee(name: 'Test', payType: 'hourly', rateCents: 1000);
-      expect(store.employees.length, 1);
-      final employee = store.employees.first;
+      expect(store.employees.length, 2);
+      final employee = store.employees.firstWhere((e) => e.name == 'Test');
       expect(store.earnedCents(employee.id), 0);
       expect(store.employeeBalanceOwed(employee.id), 0);
     } finally {

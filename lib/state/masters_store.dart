@@ -283,6 +283,7 @@ class MastersStore extends ChangeNotifier {
   List<BookingResource> get bookingResources { _ensureViews(); return _bookingResourcesView!; }
   List<ClientReminder> get reminders { _ensureViews(); return _remindersView!; }
   List<Employee> get employees { _ensureViews(); return _employeesView!; }
+  Employee? get selfEmployee => _employees.where((e) => e.role == 'owner' && e.name == 'Я' && !e.archived).cast<Employee?>().firstOrNull ?? (_employees.isNotEmpty ? _employees.first : null);
   List<TimeEntry> get timeEntries { _ensureViews(); return _timeEntriesView!; }
   List<EmployeePayment> get employeePayments { _ensureViews(); return _employeePaymentsView!; }
 
@@ -361,6 +362,11 @@ class MastersStore extends ChangeNotifier {
     _suppliers = rest[7] as List<Supplier>;
     _purchases = rest[8] as List<Purchase>;
     _employees = rest[9] as List<Employee>;
+    if (!_employees.any((e) => e.role == 'owner' && e.name == 'Я' && !e.archived)) {
+      final self = Employee(id: newId(), name: 'Я', role: 'owner', payType: 'salary', rateCents: 0, percent: 0, createdAt: DateTime.now());
+      await _employeeRepo.save(self);
+      _employees = [self, ..._employees];
+    }
     _timeEntries = rest[10] as List<TimeEntry>;
     _employeePayments = rest[11] as List<EmployeePayment>;
     _purchaseLines = [];

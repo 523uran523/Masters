@@ -312,6 +312,10 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
   }
 
   Future<void> _delete(Employee e) async {
+    if (e.role == 'owner' && e.name == 'Я') {
+      await showAppAlert(context, title: 'Нельзя удалить профиль «Я»', message: 'Это исполнитель по умолчанию для заказов.');
+      return;
+    }
     final ok = await showAppConfirm(context, title: 'Удалить сотрудника?', message: e.name, destructive: true, confirmLabel: 'Удалить');
     if (!ok) return;
     if (!mounted) return;
