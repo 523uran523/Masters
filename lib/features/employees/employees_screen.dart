@@ -169,7 +169,14 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
     return CupertinoPageScaffold(
       navigationBar: CupertinoNavigationBar(
         middle: const Text('Команда'),
-        trailing: CupertinoButton(padding: EdgeInsets.zero, onPressed: _newEmployee, child: const Icon(CupertinoIcons.plus)),
+        trailing: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            CupertinoButton(padding: EdgeInsets.zero, onPressed: _exportPayroll, child: const Icon(CupertinoIcons.doc_text)),
+            CupertinoButton(padding: EdgeInsets.zero, onPressed: _closeCurrentPayrollPeriod, child: const Icon(CupertinoIcons.lock)),
+            CupertinoButton(padding: EdgeInsets.zero, onPressed: _newEmployee, child: const Icon(CupertinoIcons.plus)),
+          ],
+        ),
       ),
       child: _busy
           ? const Center(child: CupertinoActivityIndicator())
