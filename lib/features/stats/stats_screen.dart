@@ -70,6 +70,8 @@ class _StatsScreenState extends State<StatsScreen> {
     }
 
     final topClients = <String, int>{};
+    final topServices = <String, int>{};
+    final expenseByAccount = <String, int>{};
     for (final j in completedJobs) {
       topClients[j.clientId] = (topClients[j.clientId] ?? 0) + j.priceCents;
     }
@@ -91,6 +93,16 @@ class _StatsScreenState extends State<StatsScreen> {
         weekdayExpense[idx] += t.amountCents;
       }
     }
+    for (final j in completedJobs) {
+      topServices[j.title] = (topServices[j.title] ?? 0) + (j.priceCents - j.costCents - store.totalMaterialCents(j.id));
+    }
+    final topServicesList = topServices.entries.toList()..sort((a, b) => b.value.compareTo(a.value));
+    for (final t in tx.where((t) => t.direction == 'out')) {
+      final acc = store.accountById(t.accountId);
+      final label = acc?.name ?? (t.accountId.isEmpty ? 'Счёт' : t.accountId);
+      expenseByAccount[label] = (expenseByAccount[label] ?? 0) + t.amountCents;
+    }
+    final expenseByAccountList = expenseByAccount.entries.toList()..sort((a, b) => b.value.compareTo(a.value));
     final weekdayProfit = List.generate(7, (i) => weekdayRevenue[i] - weekdayExpense[i]);
 
     return CupertinoPageScaffold(
@@ -188,6 +200,40 @@ class _StatsScreenState extends State<StatsScreen> {
                                 ),
                               ))
                           .toList(),
+                    ),
+            ),
+            const SizedBox(height: 16),
+            SectionLabel('Маржа по заказам'),
+            AppCard(
+              child: topServicesList.isEmpty
+                  ? EmptyState(title: 'Нет завершённых заказов', message: 'Маржа появится после закрытия заказа.', art: Icon(CupertinoIcons.doc_text, size: 36, color: colors.tertiaryLabel))
+                  : Column(
+                      children: topServicesList.take(5).map((e) => Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 6),
+                        child: Row(
+                          children: [
+                            Expanded(child: Text(e.key, style: const TextStyle(fontWeight: FontWeight.w500))),
+                            Text(_money(e.value), style: const TextStyle(fontWeight: FontWeight.w600)),
+                          ],
+                        ),
+                      )).toList(),
+                    ),
+            ),
+            const SizedBox(height: 16),
+            SectionLabel('Расходы по счетам'),
+            AppCard(
+              child: expenseByAccountList.isEmpty
+                  ? EmptyState(title: 'Нет расходов', message: 'Расходы за выбранный период появятся здесь.', art: Icon(CupertinoIcons.minus_circle, size: 36, color: colors.tertiaryLabel))
+                  : Column(
+                      children: expenseByAccountList.take(5).map((e) => Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 6),
+                        child: Row(
+                          children: [
+                            Expanded(child: Text(e.key, style: const TextStyle(fontWeight: FontWeight.w500))),
+                            Text(_money(e.value), style: const TextStyle(fontWeight: FontWeight.w600)),
+                          ],
+                        ),
+                      )).toList(),
                     ),
             ),
             const SizedBox(height: 16),
