@@ -816,6 +816,8 @@ class MastersStore extends ChangeNotifier {
   }
 
   Future<void> voidTransaction(String id) async {
+    final existing = _moneyTransactions.where((t) => t.id == id).toList();
+    if (existing.isNotEmpty) ensurePeriodOpen(existing.first.createdAt);
     await _moneyTxRepo.voidTransaction(id);
     final idx = _moneyTransactions.indexWhere((t) => t.id == id);
     if (idx != -1) {
