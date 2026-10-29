@@ -488,6 +488,7 @@ class MastersStore extends ChangeNotifier {
   }
 
   Future<void> updateJob(Job job) async {
+    ensurePeriodOpen();
     final updated = job.copyWith(updatedAt: DateTime.now());
     await _jobRepo.save(updated);
     final index = _jobs.indexWhere((j) => j.id == updated.id);
@@ -500,6 +501,7 @@ class MastersStore extends ChangeNotifier {
   }
 
   Future<void> setJobStatus(String jobId, JobStatus status) async {
+    ensurePeriodOpen();
     final job = jobById(jobId);
     if (job == null) return;
     final now = DateTime.now();
@@ -740,6 +742,7 @@ class MastersStore extends ChangeNotifier {
       });
 
   Future<void> closeCashShift(CashShift shift, int closingCents, {String? note}) async {
+    ensurePeriodOpen();
     final expected = expectedForShift(shift);
     final updated = shift.copyWith(
       closedAt: DateTime.now(),
@@ -1178,6 +1181,7 @@ class MastersStore extends ChangeNotifier {
     required int amountCents,
     String? note,
   }) async {
+    ensurePeriodOpen();
     final p = EmployeePayment(id: newId(), employeeId: employeeId, type: type, amountCents: amountCents < 0 ? 0 : amountCents, note: note?.trim().isEmpty == true ? null : note?.trim(), createdAt: DateTime.now());
     await _paymentRepo.save(p);
     _employeePayments = [p, ..._employeePayments];
