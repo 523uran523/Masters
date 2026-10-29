@@ -150,7 +150,7 @@ void main() {
       );
 
       final start = DateTime(now.year, now.month, 1);
-      final end = DateTime(now.year, now.month, 30);
+      final end = DateTime(now.year, now.month + 1, 0, 23, 59, 59, 999);
       final rows = store.payrollSummary(start, end);
       final row = rows.firstWhere((r) => (r['employee'] as dynamic).id == employee.id);
       expect(row['earned'], 1500);
@@ -186,6 +186,71 @@ void main() {
         ),
         throwsA(isA<StateError>()),
       );
+    } finally {
+      await appDb.close();
+    }
+  });
+
+
+
+  test('recurring payment in direction increases balance', () async {
+    final appDb = await AppDatabase.open(path: inMemoryDatabasePath);
+    try {
+      final settings = await SettingsController.load();
+      final store = MastersStore(appDb, settings);
+      await store.load();
+
+      final account = await store.createAccount(name: 'Cash', type: 'cash');
+      final payment = await store.createRecurringPayment(
+        name: 'Client invoice',
+        direction: 'in',
+        amountCents: 1000,
+        intervalDays: 30,
+        accountId: account.id,
+        nextDueAt: DateTime.now().subtract(const Duration(seconds: 1)),
+      );
+
+      final posted = await store.runDueRecurringPayments();
+      expect(posted, 1);
+      expect(store.totalBalanceCents(), 1000);
+      final updated = store.recurringPayments.firstWhere((p) => p.id == payment.id);
+      expect(updated.nextDueAt.isAfter(DateTime.now()), isTrue);
+    } finally {
+      await appDb.close();
+    }
+  });
+
+  test('supplier pay reduces debt and balance', () async {
+    final appDb = await AppDatabase.open(path: inMemoryDatabasePath);
+    try {
+      final settings = await SettingsController.load();
+      final store = MastersStore(appDb, settings);
+      await store.load();
+
+      final supplier = await store.createSupplier(name: 'Supplier');
+      final item = await store.createInventoryItem(
+        name: 'Part',
+        kind: 'good',
+        unit: 'шт',
+        sellPriceCents: 0,
+        costCents: 100,
+        trackStock: true,
+        minQty: 0,
+      );
+      final account = await store.createAccount(name: 'Cash', type: 'cash');
+      final purchase = await store.createPurchase(
+        supplierId: supplier.id,
+        accountId: null,
+        paidCents: 0,
+        lines: [
+          {'itemId': item.id, 'qty': 1.0, 'unitPriceCents': 500},
+        ],
+      );
+
+      expect(store.supplierDebtCents(supplier.id), 500);
+      await store.paySupplier(supplierId: supplier.id, amountCents: 200, accountId: account.id, purchaseId: purchase.id);
+      expect(store.supplierDebtCents(supplier.id), 300);
+      expect(store.totalBalanceCents(), -200);
     } finally {
       await appDb.close();
     }

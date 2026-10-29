@@ -260,17 +260,47 @@ class ClientDetailScreen extends StatelessWidget {
   }
 
   Future<void> _editClient(BuildContext context, MastersStore store, Client client) async {
-    final name = await _promptText(context, 'Имя', client.name);
-    if (name == null || name.trim().isEmpty) return;
-    if (!context.mounted) return;
-    final phone = await _promptText(context, 'Телефон', client.phone);
-    if (!context.mounted) return;
-    final note = await _promptText(context, 'Заметка', client.note ?? '');
-    await store.updateClient(client.copyWith(
-      name: name.trim(),
-      phone: (phone ?? '').trim(),
-      note: (note ?? '').trim().isEmpty ? null : (note ?? '').trim(),
-    ));
+    final nameController = TextEditingController(text: client.name);
+    final phoneController = TextEditingController(text: client.phone);
+    final noteController = TextEditingController(text: client.note ?? '');
+    await showCupertinoModalPopup<void>(
+      context: context,
+      builder: (sheetContext) => Container(
+        height: MediaQuery.of(context).size.height * 0.75,
+        color: context.colors.card,
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+        child: SafeArea(
+          top: false,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              const Text('Редактирование клиента', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
+              const SizedBox(height: 12),
+              CupertinoTextField(controller: nameController, placeholder: 'Имя'),
+              const SizedBox(height: 10),
+              CupertinoTextField(controller: phoneController, placeholder: 'Телефон', keyboardType: TextInputType.phone),
+              const SizedBox(height: 10),
+              CupertinoTextField(controller: noteController, placeholder: 'Заметка', maxLines: 3),
+              const SizedBox(height: 16),
+              SecondaryButton(
+                label: 'Сохранить',
+                icon: CupertinoIcons.checkmark,
+                onPressed: () async {
+                  final name = nameController.text.trim();
+                  if (name.isEmpty) return;
+                  await store.updateClient(client.copyWith(
+                    name: name,
+                    phone: phoneController.text.trim(),
+                    note: noteController.text.trim().isEmpty ? null : noteController.text.trim(),
+                  ));
+                  if (sheetContext.mounted) Navigator.of(sheetContext).pop();
+                },
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   Future<void> _deleteClient(BuildContext context, MastersStore store, Client client) async {

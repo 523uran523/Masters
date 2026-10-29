@@ -190,7 +190,9 @@ class _InventoryScreenState extends State<InventoryScreen> {
     if (!mounted) return;
     setState(() => _busy = true);
     try {
-      await store.paySupplier(supplierId: supplier.id, amountCents: amount, accountId: accountId, note: note.trim().isEmpty ? null : note.trim());
+      final supplierPurchases = store.purchasesForSupplier(supplier.id);
+      final purchaseId = supplierPurchases.isEmpty ? null : supplierPurchases.first.id;
+      await store.paySupplier(supplierId: supplier.id, amountCents: amount, accountId: accountId, purchaseId: purchaseId, note: note.trim().isEmpty ? null : note.trim());
       if (mounted) await showAppAlert(context, title: 'Готово', message: 'Оплата поставщику проведена.');
     } finally {
       if (mounted) setState(() => _busy = false);
