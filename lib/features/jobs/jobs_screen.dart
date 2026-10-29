@@ -1,5 +1,4 @@
 import 'package:flutter/cupertino.dart';
-import 'package:flutter/material.dart' show Material;
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
@@ -258,106 +257,134 @@ class _JobsScreenState extends State<JobsScreen> {
 
   Widget _buildProcessView(MastersStore store) {
     final colors = context.colors;
+    final groups = <_ProcessGroup>[
+      _ProcessGroup(label: 'Новые', jobs: store.jobs.where((j) => !j.archived && j.status == JobStatus.nuevo).toList()),
+      _ProcessGroup(label: 'В работе', jobs: store.jobs.where((j) => !j.archived && (j.status == JobStatus.inProgress || j.status == JobStatus.waitingParts)).toList()),
+      _ProcessGroup(label: 'Закрытые', jobs: store.jobs.where((j) => !j.archived && (j.status == JobStatus.done || j.status == JobStatus.closed)).toList()),
+    ];
+
     final size = MediaQuery.of(context).size;
-    final columnWidth = size.width > size.height
+    final isLandscape = size.width > size.height;
+    final columnWidth = isLandscape
         ? (size.width / 4.2).clamp(260.0, 400.0)
         : (size.width * 0.78).clamp(260.0, 320.0);
-    return ListView(
-      scrollDirection: Axis.horizontal,
-      padding: const EdgeInsets.fromLTRB(12, 4, 12, 24),
-      children: JobStatus.values.map((status) {
-        final jobs = store.jobsByStatus(status);
-        return Container(
-          width: columnWidth,
-          margin: const EdgeInsets.only(right: 10),
-          child: DragTarget<Job>(
-            onWillAcceptWithDetails: (_) => true,
-            onAcceptWithDetails: (details) {
-              store.setJobStatus(details.data.id, status);
-            },
-            builder: (context, candidateData, rejectedData) {
-              final highlight = candidateData.isNotEmpty;
-              return Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                    decoration: BoxDecoration(
-                      color: highlight
-                          ? colors.accent.withValues(alpha: 0.12)
-                          : colors.cardElevated,
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Row(
-                      children: [
-                        Text(status.label,
-                            style: const TextStyle(fontWeight: FontWeight.w600)),
-                        const SizedBox(width: 6),
-                        Text('${jobs.length}',
-                            style: TextStyle(color: colors.secondaryLabel, fontSize: 12)),
-                      ],
-                    ),
+
+    if (isLandscape) {
+      return ListView(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.fromLTRB(12, 4, 12, 24),
+        children: groups.map((group) {
+          return Container(
+            width: columnWidth,
+            margin: const EdgeInsets.only(right: 10),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: colors.cardElevated,
+                    borderRadius: BorderRadius.circular(12),
                   ),
-                  const SizedBox(height: 8),
-                  Expanded(
-                    child: jobs.isEmpty
-                        ? Center(
-                            child: Text('Нет заказов',
-                                style: TextStyle(color: colors.tertiaryLabel)),
-                          )
-                        : ListView.builder(
-                            physics: const ClampingScrollPhysics(),
-                            itemCount: jobs.length,
-                            itemBuilder: (context, i) {
-                              final job = jobs[i];
-                              final client = store.clientById(job.clientId);
-                              return Padding(
-                                padding: const EdgeInsets.only(bottom: 8),
-                                child: LongPressDraggable<Job>(
-                                  data: job,
-                                  feedback: Material(
-                                    elevation: 4,
-                                    borderRadius: BorderRadius.circular(12),
-                                    child: SizedBox(
-                                      width: 270,
-                                      child: _JobCard(
-                                        job: job,
-                                        store: store,
-                                        clientName: client?.name ?? '—',
-                                      ),
-                                    ),
-                                  ),
-                                  childWhenDragging: Opacity(
-                                    opacity: 0.35,
-                                    child: _JobCard(
-                                      job: job,
-                                      store: store,
-                                      clientName: client?.name ?? '—',
-                                    ),
-                                  ),
-                                  child: _JobCard(
-                                    job: job,
-                                    store: store,
-                                    clientName: client?.name ?? '—',
-                                    onTap: () => Navigator.of(context).push(
-                                      CupertinoPageRoute(
-                                          builder: (_) =>
-                                              JobDetailScreen(jobId: job.id)),
-                                    ),
-                                  ),
+                  child: Row(
+                    children: [
+                      Text(group.label, style: const TextStyle(fontWeight: FontWeight.w600)),
+                      const SizedBox(width: 6),
+                      Text('${group.jobs.length}',
+                          style: TextStyle(color: colors.secondaryLabel, fontSize: 12)),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Expanded(
+                  child: group.jobs.isEmpty
+                      ? Center(child: Text('Нет задач', style: TextStyle(color: colors.tertiaryLabel)))
+                      : ListView.builder(
+                          physics: const ClampingScrollPhysics(),
+                          itemCount: group.jobs.length,
+                          itemBuilder: (context, i) {
+                            final job = group.jobs[i];
+                            final client = store.clientById(job.clientId);
+                            return Padding(
+                              padding: const EdgeInsets.only(bottom: 8),
+                              child: _JobCard(
+                                job: job,
+                                store: store,
+                                clientName: client?.name ?? '—',
+                                onTap: () => Navigator.of(context).push(
+                                  CupertinoPageRoute(builder: (_) => JobDetailScreen(jobId: job.id)),
                                 ),
-                              );
-                            },
-                          ),
-                  ),
-                ],
-              );
-            },
+                              ),
+                            );
+                          },
+                        ),
+                ),
+              ],
+            ),
+          );
+        }).toList(),
+      );
+    }
+
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+      children: [
+        for (final group in groups) ...[
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            decoration: BoxDecoration(
+              color: colors.cardElevated,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Row(
+              children: [
+                Text(group.label, style: const TextStyle(fontWeight: FontWeight.w600)),
+                const SizedBox(width: 8),
+                Text('${group.jobs.length}', style: TextStyle(color: colors.secondaryLabel, fontSize: 12)),
+              ],
+            ),
           ),
-        );
-      }).toList(),
+          const SizedBox(height: 8),
+          SizedBox(
+            height: 124,
+            child: group.jobs.isEmpty
+                ? Center(child: Text('Нет задач', style: TextStyle(color: colors.tertiaryLabel)))
+                : ListView.separated(
+                    key: ValueKey('jobs-horizontal-${group.label}'),
+                    scrollDirection: Axis.horizontal,
+                    physics: const ClampingScrollPhysics(),
+                    itemCount: group.jobs.length,
+                    separatorBuilder: (context, index) => const SizedBox(width: 8),
+                    itemBuilder: (context, index) {
+                      final job = group.jobs[index];
+                      final client = store.clientById(job.clientId);
+                      return SizedBox(
+                        width: MediaQuery.of(context).size.width * 0.74,
+                        child: _JobCard(
+                          job: job,
+                          store: store,
+                          clientName: client?.name ?? '—',
+                          onTap: () => Navigator.of(context).push(
+                            CupertinoPageRoute(builder: (_) => JobDetailScreen(jobId: job.id)),
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+          ),
+          const SizedBox(height: 16),
+        ],
+      ],
     );
   }
+}
+
+class _ProcessGroup {
+  const _ProcessGroup({required this.label, required this.jobs});
+
+  final String label;
+  final List<Job> jobs;
 }
 
 class _JobRow extends StatelessWidget {
