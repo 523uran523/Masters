@@ -218,6 +218,99 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
     }
   }
 
+  Future<void> _managePayrollPeriods() async {
+    final store = context.read<MastersStore>();
+    if (store.payrollPeriods.isEmpty) {
+      final ok = await showAppConfirm(
+        context,
+        title: 'Закрыть текущий месяц?',
+        message: 'Будет создан и закрыт расчётный период текущего месяца.',
+        confirmLabel: 'Закрыть',
+      );
+      if (!ok) return;
+      await _closeCurrentPayrollPeriod();
+      return;
+    }
+    await showCupertinoModalPopup<void>(
+      context: context,
+      builder: (sheetContext) => Container(
+        height: 400,
+        color: context.colors.card,
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+        child: SafeArea(
+          top: false,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              const Text('Расчётные периоды', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 17)),
+              const SizedBox(height: 10),
+              Expanded(
+                child: ListView(
+                  children: [
+                    for (final period in store.payrollPeriods)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 8),
+                        child: AppCard(
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  period.name,
+                                  style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+                                ),
+                              ),
+                              if (!period.isClosed)
+                                CupertinoButton(
+                                  padding: EdgeInsets.zero,
+                                  onPressed: () async {
+                                    Navigator.of(sheetContext).pop();
+                                    await store.closePayrollPeriod(period.id);
+                                  },
+                                  child: const Icon(CupertinoIcons.lock, size: 18),
+                                ),
+                              if (period.isClosed)
+                                CupertinoButton(
+                                  padding: EdgeInsets.zero,
+                                  onPressed: () async {
+                                    Navigator.of(sheetContext).pop();
+                                    await store.reopenPayrollPeriod(period.id);
+                                  },
+                                  child: const Icon(CupertinoIcons.lock_open, size: 18),
+                                ),
+                              CupertinoButton(
+                                padding: EdgeInsets.zero,
+                                onPressed: () async {
+                                  Navigator.of(sheetContext).pop();
+                                  await _exportPayrollPeriod(period);
+                                },
+                                child: const Icon(CupertinoIcons.doc_text, size: 18),
+                              ),
+                              CupertinoButton(
+                                padding: EdgeInsets.zero,
+                                onPressed: () async {
+                                  Navigator.of(sheetContext).pop();
+                                  await store.deletePayrollPeriod(period.id);
+                                },
+                                child: Icon(CupertinoIcons.trash, size: 18, color: context.colors.red),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+              CupertinoButton(
+                child: const Text('Готово'),
+                onPressed: () => Navigator.of(sheetContext).pop(),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   Future<void> _delete(Employee e) async {
     final ok = await showAppConfirm(context, title: 'Удалить сотрудника?', message: e.name, destructive: true, confirmLabel: 'Удалить');
     if (!ok) return;
@@ -235,7 +328,7 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
         trailing: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            CupertinoButton(padding: EdgeInsets.zero, onPressed: _pickPayrollPeriod, child: const Icon(CupertinoIcons.doc_text)),
+            CupertinoButton(padding: EdgeInsets.zero, onPressed: _managePayrollPeriods, child: const Icon(CupertinoIcons.doc_text)),
             CupertinoButton(padding: EdgeInsets.zero, onPressed: _closeCurrentPayrollPeriod, child: const Icon(CupertinoIcons.lock)),
             CupertinoButton(padding: EdgeInsets.zero, onPressed: _newEmployee, child: const Icon(CupertinoIcons.plus)),
           ],
