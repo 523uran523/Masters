@@ -75,25 +75,24 @@ class ClientDetailScreen extends StatelessWidget {
             AppCard(
               child: Column(
                 children: [
-                  if (client.phone.isNotEmpty) ...[
+                  if (client.phone.isNotEmpty)
                     SecondaryButton(
-                      label: 'WhatsApp',
+                      label: 'Написать клиенту',
                       icon: CupertinoIcons.chat_bubble,
-                      onPressed: () => DeepLinkService.openWhatsApp(
-                        phone: client.phone,
-                        text: 'Здравствуйте, ${client.name}!',
-                      ),
+                      onPressed: () => _sendMessage(context, client),
                     ),
-                    const SizedBox(height: 8),
-                    SecondaryButton(
-                      label: 'Telegram',
-                      icon: CupertinoIcons.paperplane,
-                      onPressed: () => DeepLinkService.openTelegram(
-                        text: 'Здравствуйте, ${client.name}!',
-                      ),
+                  if (!client.phone.isNotEmpty)
+                    EmptyState(
+                      title: 'Телефон не указан',
+                      message: 'Добавьте телефон, чтобы быстро написать клиенту.',
+                      art: Icon(CupertinoIcons.phone, size: 32, color: context.colors.tertiaryLabel),
                     ),
-                    const SizedBox(height: 8),
-                  ],
+                  const SizedBox(height: 8),
+                  SecondaryButton(
+                    label: 'Создать напоминание',
+                    icon: CupertinoIcons.bell,
+                    onPressed: () => _addReminder(context, store, client),
+                  ),
                   SecondaryButton(
                     label: 'Добавить напоминание',
                     icon: CupertinoIcons.bell,
@@ -292,6 +291,40 @@ class ClientDetailScreen extends StatelessWidget {
     if (context.mounted) Navigator.of(context).pop();
   }
 
+
+  Future<void> _sendMessage(BuildContext context, Client client) async {
+    final template = await showCupertinoModalPopup<String>(
+      context: context,
+      builder: (dialogContext) => CupertinoActionSheet(
+        title: Text(client.name),
+        message: const Text('Выберите шаблон или канал'),
+        actions: [
+          CupertinoActionSheetAction(onPressed: () => Navigator.of(dialogContext).pop('ready'), child: const Text('Заказ готов')),
+          CupertinoActionSheetAction(onPressed: () => Navigator.of(dialogContext).pop('pickup'), child: const Text('Можно забрать')),
+          CupertinoActionSheetAction(onPressed: () => Navigator.of(dialogContext).pop('service'), child: const Text('Напоминание о сервисе')),
+          if (client.phone.isNotEmpty)
+            CupertinoActionSheetAction(onPressed: () => Navigator.of(dialogContext).pop('whatsapp'), child: const Text('Написать в WhatsApp')),
+          if (client.phone.isNotEmpty)
+            CupertinoActionSheetAction(onPressed: () => Navigator.of(dialogContext).pop('telegram'), child: const Text('Написать в Telegram')),
+        ],
+        cancelButton: CupertinoActionSheetAction(onPressed: () => Navigator.of(dialogContext).pop(), child: const Text('Отмена')),
+      ),
+    );
+    if (template == null || !context.mounted) return;
+    final text = switch (template) {
+      'ready' => 'Здравствуйте, ${client.name}! Ваш заказ готов к выдаче.',
+      'pickup' => 'Здравствуйте, ${client.name}! Вы можете забрать работу.',
+      'service' => 'Здравствуйте, ${client.name}! Напоминаем о сервисе и ТО.',
+      'whatsapp' => 'Здравствуйте, ${client.name}!',
+      'telegram' => 'Здравствуйте, ${client.name}!',
+      _ => '',
+    };
+    if (template == 'whatsapp' && client.phone.isNotEmpty) {
+      await DeepLinkService.openWhatsApp(phone: client.phone, text: text);
+      return;
+    }
+    if (template == 'telegram') await DeepLinkService.openTelegram(text: text);
+  }
 
   Future<void> _addObject(BuildContext context, MastersStore store) async {
     final title = await _promptText(context, 'Новый объект', 'Квартира / адрес');
