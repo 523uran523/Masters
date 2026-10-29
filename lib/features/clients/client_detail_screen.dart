@@ -32,10 +32,20 @@ class ClientDetailScreen extends StatelessWidget {
     return CupertinoPageScaffold(
       navigationBar: CupertinoNavigationBar(
         middle: Text(client.name),
-        trailing: CupertinoButton(
-          padding: EdgeInsets.zero,
-          onPressed: () => _editClient(context, store, client),
-          child: const Icon(CupertinoIcons.pencil),
+        trailing: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            CupertinoButton(
+              padding: EdgeInsets.zero,
+              onPressed: () => _editClient(context, store, client),
+              child: const Icon(CupertinoIcons.pencil),
+            ),
+            CupertinoButton(
+              padding: EdgeInsets.zero,
+              onPressed: () => _deleteClient(context, store, client),
+              child: Icon(CupertinoIcons.trash, color: context.colors.red),
+            ),
+          ],
         ),
       ),
       child: SafeArea(
@@ -267,6 +277,19 @@ class ClientDetailScreen extends StatelessWidget {
       phone: (phone ?? '').trim(),
       note: (note ?? '').trim().isEmpty ? null : (note ?? '').trim(),
     ));
+  }
+
+  Future<void> _deleteClient(BuildContext context, MastersStore store, Client client) async {
+    final ok = await showAppConfirm(
+      context,
+      title: 'Удалить контакт?',
+      message: 'Контакт и объекты будут скрыты, заказы сохранятся в истории.',
+      destructive: true,
+      confirmLabel: 'Удалить',
+    );
+    if (!ok || !context.mounted) return;
+    await store.deleteClient(client.id);
+    if (context.mounted) Navigator.of(context).pop();
   }
 
   Future<void> _addObject(BuildContext context, MastersStore store) async {
