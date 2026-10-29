@@ -93,11 +93,6 @@ class ClientDetailScreen extends StatelessWidget {
                     icon: CupertinoIcons.bell,
                     onPressed: () => _addReminder(context, store, client),
                   ),
-                  SecondaryButton(
-                    label: 'Добавить напоминание',
-                    icon: CupertinoIcons.bell,
-                    onPressed: () => _addReminder(context, store, client),
-                  ),
                   ...store.remindersForClient(clientId).map((r) => Padding(
                         padding: const EdgeInsets.only(top: 8),
                         child: Row(

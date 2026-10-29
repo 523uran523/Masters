@@ -34,6 +34,9 @@ class TodayScreen extends StatelessWidget {
         .where((j) => !j.archived && j.status == JobStatus.nuevo)
         .toList();
     final dueRems = store.dueReminders();
+    final lowStock = store.lowStockItems();
+    final recurringDue = store.recurringPayments.where((p) => p.active && !p.nextDueAt.isAfter(DateTime.now())).toList();
+    final unpaid = store.jobs.where((j) => !j.archived && j.status != JobStatus.closed && store.paidForJob(j.id) < j.priceCents).toList();
 
     return CupertinoPageScaffold(
       navigationBar: CupertinoNavigationBar(
@@ -58,7 +61,7 @@ class TodayScreen extends StatelessWidget {
         child: OrientationBuilder(
           builder: (context, orientation) {
             final isLandscape = orientation == Orientation.landscape;
-            if (active.isEmpty && dueToday.isEmpty && newJobs.isEmpty && dueRems.isEmpty) {
+            if (active.isEmpty && dueToday.isEmpty && newJobs.isEmpty && dueRems.isEmpty && lowStock.isEmpty && recurringDue.isEmpty && unpaid.isEmpty) {
               return EmptyState(
                 title: 'Всё спокойно',
                 message: 'Нет активных заказов. Нажмите +, чтобы создать новый.',
@@ -85,6 +88,38 @@ class TodayScreen extends StatelessWidget {
                   const SizedBox(height: 12),
                    _buildSummaryCards(store, colors),
                    const SizedBox(height: 12),
+                  if (unpaid.isNotEmpty) buildSection('К оплате', unpaid),
+                  if (lowStock.isNotEmpty) ...[
+                    SectionLabel('Низкий остаток (${lowStock.length})'),
+                    ...lowStock.map((i) => Padding(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: AppCard(
+                        child: Row(
+                          children: [
+                            Expanded(child: Text(i.name, style: const TextStyle(fontWeight: FontWeight.w500))),
+                            Text('${i.stockQty.toStringAsFixed(i.stockQty % 1 == 0 ? 0 : 2)} ${i.unit}',
+                                style: TextStyle(color: colors.red, fontSize: 12, fontWeight: FontWeight.w600)),
+                          ],
+                        ),
+                      ),
+                    )),
+                    const SizedBox(height: 12),
+                  ],
+                  if (recurringDue.isNotEmpty) ...[
+                    SectionLabel('Регулярные к оплате (${recurringDue.length})'),
+                    ...recurringDue.map((p) => Padding(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: AppCard(
+                        child: Row(
+                          children: [
+                            Expanded(child: Text(p.name, style: const TextStyle(fontWeight: FontWeight.w600))),
+                            Text('${(p.amountCents / 100).toStringAsFixed(0)} ₽', style: TextStyle(color: colors.red, fontWeight: FontWeight.w600)),
+                          ],
+                        ),
+                      ),
+                    )),
+                    const SizedBox(height: 12),
+                  ],
                   buildSection('В работе', active),
                   buildSection('Срок сегодня', dueToday),
                   buildSection('Новые', newJobs),

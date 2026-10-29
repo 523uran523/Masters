@@ -251,6 +251,18 @@ class _MoneyScreenState extends State<MoneyScreen> {
       if (parsed == null || parsed <= 0 || !mounted) return;
       step = parsed;
     }
+    final direction = await showCupertinoModalPopup<String>(
+      context: context,
+      builder: (dialogContext) => CupertinoActionSheet(
+        title: const Text('Тип регулярного платежа'),
+        actions: [
+          CupertinoActionSheetAction(onPressed: () => Navigator.of(dialogContext).pop('in'), child: const Text('Плановый приход')), 
+          CupertinoActionSheetAction(onPressed: () => Navigator.of(dialogContext).pop('out'), child: const Text('Плановый расход')), 
+        ],
+        cancelButton: CupertinoActionSheetAction(onPressed: () => Navigator.of(dialogContext).pop(), child: const Text('Отмена')), 
+      ),
+    );
+    if (direction == null || !mounted) return;
     final name = await _prompt('Название платежа', 'Аренда');
     if (name == null || name.trim().isEmpty || !mounted) return;
     final amountStr = await _prompt('Сумма', '0');
@@ -263,7 +275,7 @@ class _MoneyScreenState extends State<MoneyScreen> {
     final now = DateTime.now();
     await store.createRecurringPayment(
       name: name.trim(),
-      direction: 'out',
+      direction: direction,
       amountCents: amount,
       category: category.trim(),
       accountId: accountId,

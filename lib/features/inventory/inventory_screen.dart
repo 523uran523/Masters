@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../../app/theme/app_theme.dart';
 import '../../app/ui.dart';
 import '../../data/models/inventory_item.dart';
+import '../../data/models/supplier.dart';
 import '../../state/masters_store.dart';
 
 class InventoryScreen extends StatefulWidget {
@@ -174,6 +175,39 @@ class _InventoryScreenState extends State<InventoryScreen> {
     }
   }
 
+  Future<void> _paySupplier(Supplier supplier) async {
+    final store = context.read<MastersStore>();
+    if (store.accounts.isEmpty) {
+      await showAppAlert(context, title: 'Нет счёта', message: 'Сначала создайте счёт в разделе Деньги.');
+      return;
+    }
+    final amountStr = await _prompt('Сумма оплаты', '0');
+    final amount = ((double.tryParse((amountStr ?? '').replaceAll(',', '.')) ?? 0) * 100).round();
+    if (amount <= 0 || !mounted) return;
+    final accountId = await _pickAccount(store);
+    if (accountId == null || !mounted) return;
+    final note = await _prompt('Комментарий', '') ?? '';
+    if (!mounted) return;
+    setState(() => _busy = true);
+    try {
+      await store.paySupplier(supplierId: supplier.id, amountCents: amount, accountId: accountId, note: note.trim().isEmpty ? null : note.trim());
+      if (mounted) await showAppAlert(context, title: 'Готово', message: 'Оплата поставщику проведена.');
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _deleteSupplier(Supplier supplier) async {
+    final ok = await showAppConfirm(context, title: 'Удалить поставщика?', message: supplier.name, destructive: true, confirmLabel: 'Удалить');
+    if (!ok || !mounted) return;
+    setState(() => _busy = true);
+    try {
+      await context.read<MastersStore>().deleteSupplier(supplier.id);
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
   Future<String?> _pickSupplier(MastersStore store) async {
     final suppliers = store.suppliers;
     if (suppliers.isEmpty) return null;
@@ -308,11 +342,16 @@ class _InventoryScreenState extends State<InventoryScreen> {
                        child: Column(
                          children: [
                            for (final supplier in store.suppliers)
-                             Row(
-                               children: [
-                                 Expanded(child: Text(supplier.name, style: const TextStyle(fontWeight: FontWeight.w600))),
-                                 Text('Долг: ${_money(store.supplierDebtCents(supplier.id))}', style: TextStyle(color: colors.secondaryLabel, fontSize: 12)),
-                               ],
+                             Padding(
+                               padding: const EdgeInsets.symmetric(vertical: 4),
+                               child: Row(
+                                 children: [
+                                   Expanded(child: Text(supplier.name, style: const TextStyle(fontWeight: FontWeight.w600))),
+                                   Text('Долг: ${_money(store.supplierDebtCents(supplier.id))}', style: TextStyle(color: colors.secondaryLabel, fontSize: 12)),
+                                   CupertinoButton(padding: EdgeInsets.zero, onPressed: () => _paySupplier(supplier), child: const Icon(CupertinoIcons.money_dollar, size: 18)),
+                                   CupertinoButton(padding: EdgeInsets.zero, onPressed: () => _deleteSupplier(supplier), child: Icon(CupertinoIcons.xmark, size: 16, color: colors.tertiaryLabel)),
+                                 ],
+                               ),
                              ),
                          ],
                        ),

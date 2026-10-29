@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 import '../../app/theme/app_theme.dart';
 import '../../app/ui.dart';
 import '../../core/document_service.dart';
+import '../../core/deep_link_service.dart';
 import '../../core/utils/app_utils.dart';
 import '../../data/models/job.dart';
 import 'job_form_screen.dart';
@@ -128,6 +129,49 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
       clientId: job.clientId,
       jobId: job.id,
     );
+  }
+
+  Future<void> _sendMessage(MastersStore store, Job job) async {
+    final client = store.clientById(job.clientId);
+    if (client == null || client.phone.isEmpty) {
+      await showAppAlert(context, title: 'Нет телефона', message: 'Добавьте телефон клиента для сообщения.');
+      return;
+    }
+    final template = await showCupertinoModalPopup<String>(
+      context: context,
+      builder: (dialogContext) => CupertinoActionSheet(
+        title: Text(client.name),
+        message: const Text('Выберите шаблон и канал'),
+        actions: [
+          CupertinoActionSheetAction(onPressed: () => Navigator.of(dialogContext).pop('ready'), child: const Text('Заказ готов')),
+          CupertinoActionSheetAction(onPressed: () => Navigator.of(dialogContext).pop('pickup'), child: const Text('Можно забрать')),
+          CupertinoActionSheetAction(onPressed: () => Navigator.of(dialogContext).pop('progress'), child: const Text('Заказ в работе')),
+          if (store.paidForJob(job.id) < job.priceCents)
+            CupertinoActionSheetAction(onPressed: () => Navigator.of(dialogContext).pop('pay'), child: const Text('Напоминание об оплате')),
+          CupertinoActionSheetAction(onPressed: () => Navigator.of(dialogContext).pop('whatsapp'), child: const Text('Написать в WhatsApp')),
+          CupertinoActionSheetAction(onPressed: () => Navigator.of(dialogContext).pop('telegram'), child: const Text('Написать в Telegram')),
+        ],
+        cancelButton: CupertinoActionSheetAction(onPressed: () => Navigator.of(dialogContext).pop(), child: const Text('Отмена')),
+      ),
+    );
+    if (template == null || !context.mounted) return;
+    final debt = job.priceCents - store.paidForJob(job.id);
+    final text = switch (template) {
+      'ready' => 'Здравствуйте, ${client.name}! Ваш заказ "${job.title}" готов к выдаче.',
+      'pickup' => 'Здравствуйте, ${client.name}! Вы можете забрать работу "${job.title}".',
+      'progress' => 'Здравствуйте, ${client.name}! Работа "${job.title}" в процессе.',
+      'pay' => 'Здравствуйте, ${client.name}! Осталось оплатить ${(debt / 100).toStringAsFixed(0)} ₽ по заказу "${job.title}".',
+      'whatsapp' => 'Здравствуйте, ${client.name}! По заказу "${job.title}".',
+      'telegram' => 'Здравствуйте, ${client.name}! По заказу "${job.title}".',
+      _ => '',
+    };
+    if (template == 'whatsapp') {
+      await DeepLinkService.openWhatsApp(phone: client.phone, text: text);
+      return;
+    }
+    if (template == 'telegram') {
+      await DeepLinkService.openTelegram(text: text);
+    }
   }
 
   Future<String?> _pickAccount(MastersStore store) async {
@@ -500,6 +544,12 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
                     label: 'Создать документ (PDF)',
                     icon: CupertinoIcons.doc_text,
                     onPressed: () => _createDocument(store, job),
+                  ),
+                  Hairline(indent: 0),
+                  SecondaryButton(
+                    label: 'Написать клиенту',
+                    icon: CupertinoIcons.chat_bubble,
+                    onPressed: () => _sendMessage(store, job),
                   ),
                   Hairline(indent: 0),
                   _ActionTile(
