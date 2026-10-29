@@ -1,5 +1,6 @@
 import 'package:flutter/cupertino.dart';
 import 'package:provider/provider.dart';
+import 'package:intl/intl.dart';
 
 import '../../app/theme/app_theme.dart';
 import '../../app/ui.dart';
@@ -103,6 +104,7 @@ class _StatsScreenState extends State<StatsScreen> {
       expenseByAccount[label] = (expenseByAccount[label] ?? 0) + t.amountCents;
     }
     final expenseByAccountList = expenseByAccount.entries.toList()..sort((a, b) => b.value.compareTo(a.value));
+    final periodTrend = _buildPeriodTrend(start, now, tx);
     final weekdayProfit = List.generate(7, (i) => weekdayRevenue[i] - weekdayExpense[i]);
 
     return CupertinoPageScaffold(
@@ -234,6 +236,28 @@ class _StatsScreenState extends State<StatsScreen> {
                           ],
                         ),
                       )).toList(),
+                    ),
+            ),
+            const SizedBox(height: 16),
+            SectionLabel('Динамика периода'),
+            AppCard(
+              child: periodTrend.isEmpty
+                  ? EmptyState(title: 'Нет данных', message: 'Данные за период появятся здесь.', art: Icon(CupertinoIcons.chart_bar, size: 36, color: colors.tertiaryLabel))
+                  : Column(
+                      children: [
+                        for (final bucket in periodTrend)
+                          Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 4),
+                            child: Row(
+                              children: [
+                                Expanded(child: Text(bucket.label, style: const TextStyle(fontWeight: FontWeight.w500))),
+                                SizedBox(width: 78, child: Text(_money(bucket.revenue), style: TextStyle(color: colors.green, fontSize: 11), textAlign: TextAlign.right)),
+                                SizedBox(width: 78, child: Text(_money(bucket.expense), style: TextStyle(color: colors.red, fontSize: 11), textAlign: TextAlign.right)),
+                                SizedBox(width: 86, child: Text(_money(bucket.profit), style: TextStyle(fontWeight: FontWeight.w600, fontSize: 11), textAlign: TextAlign.right)),
+                              ],
+                            ),
+                          ),
+                      ],
                     ),
             ),
             const SizedBox(height: 16),
@@ -373,4 +397,66 @@ class _KV extends StatelessWidget {
       ),
     );
   }
+}
+class _PeriodTrend {
+  const _PeriodTrend({required this.label, required this.revenue, required this.expense})
+      : profit = revenue - expense;
+
+  final String label;
+  final int revenue;
+  final int expense;
+  final int profit;
+}
+
+List<_PeriodTrend> _buildPeriodTrend(DateTime start, DateTime now, List<MoneyTransaction> tx) {
+  if (now.difference(start).inDays <= 7) {
+    const labels = ['пн', 'вт', 'ср', 'чт', 'пт', 'сб', 'вс'];
+    return List.generate(7, (i) {
+      final day = start.add(Duration(days: i));
+      final expected = DateTime(day.year, day.month, day.day);
+      final revenue = tx
+          .where((t) => t.direction == 'in' && DateTime(t.createdAt.year, t.createdAt.month, t.createdAt.day) == expected)
+          .fold(0, (s, t) => s + t.amountCents);
+      final expense = tx
+          .where((t) => t.direction == 'out' && DateTime(t.createdAt.year, t.createdAt.month, t.createdAt.day) == expected)
+          .fold(0, (s, t) => s + t.amountCents);
+      return _PeriodTrend(label: labels[(day.weekday - 1)].toUpperCase(), revenue: revenue, expense: expense);
+    });
+  }
+
+  if (now.difference(start).inDays <= 45) {
+    final buckets = <_PeriodTrend>[];
+    DateTime cursor = start;
+    int index = 1;
+    while (!cursor.isAfter(now)) {
+      final next = cursor.add(const Duration(days: 7));
+      final end = next.isAfter(now) ? now : next.subtract(const Duration(milliseconds: 1));
+      final revenue = tx
+          .where((t) => t.direction == 'in' && !t.createdAt.isBefore(cursor) && !t.createdAt.isAfter(end))
+          .fold(0, (s, t) => s + t.amountCents);
+      final expense = tx
+          .where((t) => t.direction == 'out' && !t.createdAt.isBefore(cursor) && !t.createdAt.isAfter(end))
+          .fold(0, (s, t) => s + t.amountCents);
+      buckets.add(_PeriodTrend(label: 'Нед. $index', revenue: revenue, expense: expense));
+      cursor = next;
+      index++;
+      if (cursor.isAfter(now)) break;
+    }
+    return buckets;
+  }
+
+  const monthNames = ['янв', 'фев', 'мар', 'апр', 'май', 'июн', 'июл', 'авг', 'сен', 'окт', 'ноя', 'дек'];
+  final months = <int>[];
+  for (int m = start.month; m <= now.month; m++) months.add(m);
+  return months.map((month) {
+    final bucketStart = DateTime(start.year, month, 1);
+    final bucketEnd = DateTime(start.year, month + 1, 0, 23, 59, 59, 999);
+    final revenue = tx
+        .where((t) => t.direction == 'in' && !t.createdAt.isBefore(bucketStart) && !t.createdAt.isAfter(bucketEnd))
+        .fold(0, (s, t) => s + t.amountCents);
+    final expense = tx
+        .where((t) => t.direction == 'out' && !t.createdAt.isBefore(bucketStart) && !t.createdAt.isAfter(bucketEnd))
+        .fold(0, (s, t) => s + t.amountCents);
+    return _PeriodTrend(label: monthNames[month - 1], revenue: revenue, expense: expense);
+  }).toList();
 }
