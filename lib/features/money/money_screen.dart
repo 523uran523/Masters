@@ -455,6 +455,7 @@ class _MoneyScreenState extends State<MoneyScreen> {
                         _KV('Расходы', _money(todayExpense)),
                         _KV('Прибыль', _money(todayIncome - todayExpense)),
                         _KV('Всего на счетах', _money(store.totalBalanceCents())),
+                        _KV('Прогноз на конец месяца', _money(store.forecastCashToEndOfMonth())),
                       ],
                     ),
                   ),

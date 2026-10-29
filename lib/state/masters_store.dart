@@ -165,6 +165,39 @@ class MastersStore extends ChangeNotifier {
   List<RecurringPayment> _recurringPayments = [];
   List<PayrollPeriod> _payrollPeriods = [];
 
+  int forecastCashToEndOfMonth() {
+    final now = DateTime.now();
+    final end = DateTime(now.year, now.month + 1, 0, 23, 59, 59, 999);
+    final recentStart = now.subtract(const Duration(days: 30));
+    int income = 0;
+    int expense = 0;
+    for (final transaction in _moneyTransactions) {
+      if (transaction.voided || transaction.createdAt.isBefore(recentStart) || transaction.createdAt.isAfter(now)) continue;
+      if (transaction.direction == 'in') income += transaction.amountCents;
+      if (transaction.direction == 'out') expense += transaction.amountCents;
+    }
+    final daysSeen = now.difference(recentStart).inDays < 1 ? 1 : now.difference(recentStart).inDays;
+    final dailyNet = ((income - expense) / daysSeen).round();
+
+    int scheduledNet = 0;
+    for (final payment in _recurringPayments.where((p) => p.active)) {
+      final step = payment.intervalDays < 1 ? 1 : payment.intervalDays;
+      DateTime cursor = payment.nextDueAt;
+      while (!cursor.isAfter(end)) {
+        if (!cursor.isBefore(now)) {
+          if (payment.direction == 'in') scheduledNet += payment.amountCents;
+          else scheduledNet -= payment.amountCents;
+        }
+        cursor = cursor.add(Duration(days: step));
+        if (cursor.isAtSameMomentAs(payment.nextDueAt)) break;
+      }
+    }
+
+    final daysToGo = end.difference(now).inDays < 1 ? 0 : end.difference(now).inDays;
+    return totalBalanceCents() + dailyNet * daysToGo + scheduledNet;
+  }
+
+
   @override
   void notifyListeners() {
     _viewsDirty = true;
