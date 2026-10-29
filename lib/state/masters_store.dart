@@ -492,6 +492,7 @@ class MastersStore extends ChangeNotifier {
     DateTime? dueDate,
     String? note,
     String? assigneeId,
+    String? tags,
   }) async {
     final now = DateTime.now();
     final job = Job(
@@ -499,6 +500,7 @@ class MastersStore extends ChangeNotifier {
       clientId: clientId,
       objectId: objectId,
       assigneeId: assigneeId,
+      tags: tags?.trim().isEmpty == true ? null : tags?.trim(),
       title: title.trim(),
       status: status,
       priority: priority,

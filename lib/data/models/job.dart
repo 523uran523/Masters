@@ -84,6 +84,7 @@ class Job {
     this.note,
     this.archived = false,
     this.assigneeId,
+    this.tags,
     required this.createdAt,
     required this.updatedAt,
   });
@@ -102,6 +103,7 @@ class Job {
   final String? note;
   final bool archived;
   final String? assigneeId;
+  final String? tags;
   final DateTime createdAt;
   final DateTime updatedAt;
 
@@ -124,6 +126,7 @@ class Job {
     Object? note = _unset,
     Object? archived = _unset,
     Object? assigneeId = _unset,
+    Object? tags = _unset,
     Object? createdAt = _unset,
     Object? updatedAt = _unset,
   }) {
@@ -142,6 +145,7 @@ class Job {
       note: note == _unset ? this.note : note as String?,
       archived: archived == _unset ? this.archived : archived as bool,
       assigneeId: assigneeId == _unset ? this.assigneeId : assigneeId as String?,
+      tags: tags == _unset ? this.tags : tags as String?,
       createdAt: createdAt == _unset ? this.createdAt : createdAt as DateTime,
       updatedAt: updatedAt == _unset ? this.updatedAt : updatedAt as DateTime,
     );
@@ -162,6 +166,7 @@ class Job {
         'note': note,
         'archived': archived ? 1 : 0,
         'assignee_id': assigneeId,
+        'tags': tags,
         'created_at': createdAt.millisecondsSinceEpoch,
         'updated_at': updatedAt.millisecondsSinceEpoch,
       };
@@ -187,6 +192,7 @@ class Job {
         note: m['note'] as String?,
         archived: (m['archived'] as int? ?? 0) == 1,
         assigneeId: m['assignee_id'] as String?,
+        tags: m['tags'] as String?,
         createdAt: DateTime.fromMillisecondsSinceEpoch(
             m['created_at'] as int? ?? 0),
         updatedAt: DateTime.fromMillisecondsSinceEpoch(

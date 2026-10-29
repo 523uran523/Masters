@@ -45,6 +45,7 @@ class SettingsController extends ChangeNotifier {
   static const _reminderMinuteKey = 'reminder_minute';
   static const _dndEnabledKey = 'dnd_enabled';
   static const _hiddenTabsKey = 'hidden_tabs';
+  static const _jobTagsKey = 'job_tags';
   static const _appPinHashKey = 'app_pin_hash';
   static const _appPinUnlockedUntilKey = 'app_pin_unlocked_until';
   static const _appBiometricEnabledKey = 'app_biometric_enabled';
@@ -115,6 +116,7 @@ class SettingsController extends ChangeNotifier {
   List<String> get modules => (_prefs.getString(_modulesKey) ?? '').split(',').where((e) => e.isNotEmpty).toList();
   String get objectTerm => _prefs.getString(_objectTermKey) ?? 'Объект';
   String get clientTerm => _prefs.getString(_clientTermKey) ?? 'Клиент';
+  List<String> get jobTags => (_prefs.getStringList(_jobTagsKey) ?? const []).toList();
 
   Future<void> setBusinessType(String value) async {
     await _prefs.setString(_businessTypeKey, value);
@@ -133,6 +135,20 @@ class SettingsController extends ChangeNotifier {
 
   Future<void> setClientTerm(String value) async {
     await _prefs.setString(_clientTermKey, value);
+    notifyListeners();
+  }
+
+  Future<void> addJobTag(String value) async {
+    final tag = value.trim();
+    if (tag.isEmpty || jobTags.contains(tag)) return;
+    final next = [...jobTags, tag];
+    await _prefs.setStringList(_jobTagsKey, next);
+    notifyListeners();
+  }
+
+  Future<void> removeJobTag(String value) async {
+    final next = jobTags.where((t) => t != value).toList();
+    await _prefs.setStringList(_jobTagsKey, next);
     notifyListeners();
   }
 

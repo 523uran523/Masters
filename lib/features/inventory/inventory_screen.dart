@@ -35,12 +35,39 @@ class _InventoryScreenState extends State<InventoryScreen> {
     );
   }
 
+  Future<String?> _pickUnit() async {
+    final unit = await showCupertinoModalPopup<String>(
+      context: context,
+      builder: (dialogContext) => CupertinoActionSheet(
+        title: const Text('Единица измерения'),
+        actions: [
+          for (final item in ['шт', 'г', 'кг', 'мл', 'л', 'м', 'см', 'упак', 'услуга'])
+            CupertinoActionSheetAction(
+              onPressed: () => Navigator.of(dialogContext).pop(item),
+              child: Text(item),
+            ),
+          CupertinoActionSheetAction(
+            onPressed: () => Navigator.of(dialogContext).pop('__custom__'),
+            child: const Text('Другая...'),
+          ),
+        ],
+        cancelButton: CupertinoActionSheetAction(
+          onPressed: () => Navigator.of(dialogContext).pop(),
+          child: const Text('Отмена'),
+        ),
+      ),
+    );
+    if (unit == null) return null;
+    if (unit == '__custom__') return _prompt('Единица', 'шт');
+    return unit;
+  }
+
   Future<void> _newItem() async {
     final name = await _prompt('Название позиции', 'Масло моторное 5W-30');
     if (name == null || name.trim().isEmpty) return;
     final kind = await _pickKind();
     if (kind == null) return;
-    final unit = await _prompt('Единица', 'шт') ?? 'шт';
+    final unit = await _pickUnit() ?? 'шт';
     final sellStr = await _prompt('Цена продажи (₽)', '0') ?? '0';
     final costStr = await _prompt('Себестоимость (₽)', '0') ?? '0';
     final minStr = await _prompt('Мин. остаток', '0') ?? '0';
@@ -311,7 +338,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
   Future<void> _editItem(InventoryItem item) async {
     final name = await _prompt('Название', item.name, initial: item.name);
     if (name == null || name.trim().isEmpty) return;
-    final unit = await _prompt('Ед. измерения', item.unit, initial: item.unit) ?? item.unit;
+    final unit = await _pickUnit() ?? item.unit;
     final sellStr = await _prompt('Цена продажи (₽)', (item.sellPriceCents / 100).toStringAsFixed(0), initial: (item.sellPriceCents / 100).toStringAsFixed(0)) ?? (item.sellPriceCents / 100).toString();
     final costStr = await _prompt('Себестоимость (₽)', (item.costCents / 100).toStringAsFixed(0), initial: (item.costCents / 100).toStringAsFixed(0)) ?? '0';
     final minStr = await _prompt('Мин. остаток', item.minQty.toString(), initial: item.minQty.toString()) ?? '0';
