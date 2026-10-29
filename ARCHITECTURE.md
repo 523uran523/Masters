@@ -413,3 +413,5 @@ adb shell monkey -p com.mastersapp.masters -c android.intent.category.LAUNCHER 1
 - `web/*`: wasm bootstrap and static assets
 - `web_server/*`: local static server and Yandex proxy
 EOF
+
+## 23. ѕриоритеты\\n\\n- Web верси€ пока отстает от Android и не доводитс€ по фичам синхронно.\\n- “екущий фокус: Android-first (склад, деньги, заказы, аналитика/UI компактность, закрытие периодов).\\n- ”лучшени€/дизайн, выработанные и проверенные на Android, перевод€тс€ во Web после стабилизации Android-релиза.\\n- Web-верси€ остаетс€ технически рабочей (SQLite wasm + IndexedDB) и используетс€ как secondary target или preview, но нова€ UX-переработка туда входит позже.\\n
