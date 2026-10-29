@@ -7,6 +7,7 @@ import '../../app/theme/app_theme.dart';
 import '../../app/ui.dart';
 import '../../core/backup_service.dart';
 import '../../core/reminder_service.dart';
+import '../../core/app_biometric.dart';
 import '../../core/yandex_disk_service.dart';
 import '../../core/yandex_oauth.dart';
 import '../../core/yandex_sync.dart';
@@ -690,6 +691,27 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         label: settings.hasAppPin ? 'Сменить или убрать PIN' : 'Установить PIN',
                         icon: CupertinoIcons.lock,
                         onPressed: _managePin,
+                      ),
+                      const SizedBox(height: 8),
+                      FutureBuilder<bool>(
+                        future: AppBiometricService.isAvailable(),
+                        builder: (context, snapshot) {
+                          final available = snapshot.data ?? false;
+                          if (!available) return const SizedBox.shrink();
+                          return Row(
+                            children: [
+                              const Expanded(child: Text('Биометрия (разблокировка)')),
+                              CupertinoSwitch(
+                                value: settings.biometricEnabled,
+                                onChanged: (v) async {
+                                  await context.read<SettingsController>().setBiometricEnabled(v);
+                                  if (!context.mounted) return;
+                                  setState(() {});
+                                },
+                              ),
+                            ],
+                          );
+                        },
                       ),
                     ],
                   ),
