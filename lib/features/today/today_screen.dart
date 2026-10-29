@@ -83,6 +83,8 @@ class TodayScreen extends StatelessWidget {
                 children: [
                   _buildTodayOverview(store, context),
                   const SizedBox(height: 12),
+                   _buildSummaryCards(store, colors),
+                   const SizedBox(height: 12),
                   buildSection('В работе', active),
                   buildSection('Срок сегодня', dueToday),
                   buildSection('Новые', newJobs),
@@ -174,6 +176,31 @@ class TodayScreen extends StatelessWidget {
     );
   }
 
+  Widget _buildSummaryCards(MastersStore store, AppColors colors) {
+    final debt = store.clients.fold(0, (s, c) => s + store.clientDebtCents(c.id));
+    final lowStock = store.lowStockItems().length;
+    final recurringDue = store.recurringPayments.where((p) => p.active && !p.nextDueAt.isAfter(DateTime.now())).length;
+    return Column(
+      children: [
+        Row(
+          children: [
+            Expanded(child: _SummaryTile(label: 'Свободные деньги', value: _money(store.totalBalanceCents()), color: colors.green)),
+            const SizedBox(width: 8),
+            Expanded(child: _SummaryTile(label: 'Должны мне', value: _money(debt), color: colors.orange)),
+          ],
+        ),
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            Expanded(child: _SummaryTile(label: 'Активные заказы', value: store.jobs.where((j) => !j.archived && j.status != JobStatus.closed).length.toString(), color: colors.accent)),
+            const SizedBox(width: 8),
+            Expanded(child: _SummaryTile(label: 'Требует внимания', value: '${lowStock + recurringDue}', color: colors.red)),
+          ],
+        ),
+      ],
+    );
+  }
+
   Widget _jobTile(BuildContext context, MastersStore store, Job job, AppColors colors) {
     final client = store.clientById(job.clientId);
     final totalMin = store.totalMinutesForJob(job.id);
@@ -216,6 +243,8 @@ class TodayScreen extends StatelessWidget {
     );
   }
 }
+
+  String _money(int cents) => '${(cents / 100).toStringAsFixed(0)} ₽';
 
   Widget _buildTodayOverview(MastersStore store, BuildContext context) {
 
@@ -269,4 +298,28 @@ class _IncomeExpensePiePainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant _IncomeExpensePiePainter old) =>
       old.income != income || old.expense != expense;
+}
+
+class _SummaryTile extends StatelessWidget {
+  const _SummaryTile({required this.label, required this.value, required this.color});
+  final String label;
+  final String value;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return AppCard(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(label, style: TextStyle(color: context.colors.secondaryLabel, fontSize: 11)),
+            const SizedBox(height: 4),
+            Text(value, style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15, color: color)),
+          ],
+        ),
+      ),
+    );
+  }
 }
