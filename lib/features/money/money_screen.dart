@@ -56,54 +56,81 @@ class _MoneyScreenState extends State<MoneyScreen> {
     );
   }
 
-  Future<void> _quickSale() async {
-    final amountStr = await _prompt('Сумма продажи', '0');
-    if (amountStr == null) return;
-    final amount = ((double.tryParse(amountStr.replaceAll(',', '.')) ?? 0) * 100).round();
-    if (amount <= 0) return;
-    final accountId = await _pickAccount();
-    if (accountId == null) return;
-    final category = await _prompt('Категория', 'Продажа') ?? 'Продажа';
-    final note = await _prompt('Заметка', '');
-    if (!mounted) return;
-    setState(() => _busy = true);
-    try {
-      await context.read<MastersStore>().addTransaction(
-        accountId: accountId,
-        kind: 'sale',
-        direction: 'in',
-        amountCents: amount,
-        category: category,
-        note: note,
-      );
-    } finally {
-      if (mounted) setState(() => _busy = false);
-    }
-  }
+  Future<void> _quickSale() async => _quickTransactionSheet(isIncome: true);
 
-  Future<void> _addExpense() async {
-    final amountStr = await _prompt('Сумма расхода', '0');
-    if (amountStr == null) return;
-    final amount = ((double.tryParse(amountStr.replaceAll(',', '.')) ?? 0) * 100).round();
-    if (amount <= 0) return;
-    final accountId = await _pickAccount();
-    if (accountId == null) return;
-    final category = await _prompt('Категория', 'Расход') ?? 'Расход';
-    final note = await _prompt('Заметка', '');
-    if (!mounted) return;
-    setState(() => _busy = true);
-    try {
-      await context.read<MastersStore>().addTransaction(
-        accountId: accountId,
-        kind: 'expense',
-        direction: 'out',
-        amountCents: amount,
-        category: category,
-        note: note,
-      );
-    } finally {
-      if (mounted) setState(() => _busy = false);
+  Future<void> _addExpense() async => _quickTransactionSheet(isIncome: false);
+
+  Future<void> _quickTransactionSheet({required bool isIncome}) async {
+    final store = context.read<MastersStore>();
+    if (store.accounts.isEmpty) {
+      await showAppAlert(context, title: 'Нет счёта', message: 'Сначала создайте счёт в разделе Деньги.');
+      return;
     }
+    final accountId = await _pickAccount();
+    if (accountId == null || !mounted) return;
+    final amountController = TextEditingController();
+    final categoryController = TextEditingController(text: isIncome ? 'Продажа' : 'Расход');
+    final noteController = TextEditingController();
+    await showCupertinoModalPopup<void>(
+      context: context,
+      builder: (sheetContext) => Container(
+        height: MediaQuery.of(context).size.height * 0.8,
+        color: context.colors.card,
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+        child: SafeArea(
+          top: false,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(
+                isIncome ? 'Быстрая продажа' : 'Быстрый расход',
+                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+              ),
+              const SizedBox(height: 12),
+              CupertinoTextField(
+                controller: amountController,
+                placeholder: 'Сумма 0.00',
+                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              ),
+              const SizedBox(height: 10),
+              CupertinoTextField(
+                controller: categoryController,
+                placeholder: 'Категория',
+              ),
+              const SizedBox(height: 10),
+              CupertinoTextField(
+                controller: noteController,
+                placeholder: 'Комментарий',
+                maxLines: 2,
+              ),
+              const SizedBox(height: 16),
+              SecondaryButton(
+                label: isIncome ? 'Провести приход' : 'Провести расход',
+                icon: isIncome ? CupertinoIcons.plus : CupertinoIcons.minus,
+                onPressed: () async {
+                  final amount = ((double.tryParse(amountController.text.trim().replaceAll(',', '.')) ?? 0) * 100).round();
+                  if (amount <= 0) return;
+                  final category = categoryController.text.trim().isEmpty
+                      ? (isIncome ? 'Продажа' : 'Расход')
+                      : categoryController.text.trim();
+                  final note = noteController.text.trim().isEmpty ? null : noteController.text.trim();
+                  await store.addTransaction(
+                    accountId: accountId,
+                    kind: isIncome ? 'sale' : 'expense',
+                    direction: isIncome ? 'in' : 'out',
+                    amountCents: amount,
+                    category: category,
+                    note: note,
+                  );
+                  if (!sheetContext.mounted) return;
+                  Navigator.of(sheetContext).pop();
+                },
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   Future<void> _transferBetweenAccounts() async {
