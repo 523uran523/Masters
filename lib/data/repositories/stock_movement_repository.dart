@@ -14,7 +14,7 @@ class StockMovementRepository {
   }
 
   Future<List<StockMovement>> getAll() async {
-    final rows = await _db.query('stock_movements', orderBy: 'created_at DESC', limit: 100);
+    final rows = await _db.query('stock_movements', where: 'deleted_at IS NULL', orderBy: 'created_at DESC', limit: 100);
     return rows.map(StockMovement.fromMap).toList();
   }
 

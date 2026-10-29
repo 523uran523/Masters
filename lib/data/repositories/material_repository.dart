@@ -6,13 +6,13 @@ class MaterialRepository {
   final Database _db;
 
   Future<List<MaterialItem>> getAll() async {
-    final rows = await _db.query('materials', orderBy: 'job_id, created_at ASC');
+    final rows = await _db.query('materials', where: 'deleted_at IS NULL', orderBy: 'job_id, created_at ASC');
     return rows.map(MaterialItem.fromMap).toList();
   }
 
   Future<List<MaterialItem>> forJob(String jobId) async {
     final rows = await _db.query('materials',
-        where: 'job_id = ?', whereArgs: [jobId], orderBy: 'created_at ASC');
+        where: 'job_id = ? AND deleted_at IS NULL', whereArgs: [jobId], orderBy: 'created_at ASC');
     return rows.map(MaterialItem.fromMap).toList();
   }
 
@@ -22,6 +22,7 @@ class MaterialRepository {
   }
 
   Future<void> delete(String id) async {
-    await _db.delete('materials', where: 'id = ?', whereArgs: [id]);
+    final now = DateTime.now().millisecondsSinceEpoch;
+    await _db.update('materials', {'deleted_at': now, 'updated_at': now}, where: 'id = ? AND deleted_at IS NULL', whereArgs: [id]);
   }
 }

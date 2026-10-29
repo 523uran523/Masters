@@ -6,7 +6,7 @@ class CashShiftRepository {
   final Database _db;
 
   Future<List<CashShift>> getAll() async {
-    final rows = await _db.query('cash_shifts', orderBy: 'opened_at DESC');
+    final rows = await _db.query('cash_shifts', where: 'deleted_at IS NULL', orderBy: 'opened_at DESC');
     return rows.map(CashShift.fromMap).toList();
   }
 

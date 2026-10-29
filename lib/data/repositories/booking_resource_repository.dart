@@ -7,7 +7,7 @@ class BookingResourceRepository {
 
   Future<List<BookingResource>> getAll({bool includeArchived = false}) async {
     final rows = await _db.query('booking_resources',
-        where: includeArchived ? null : 'archived = 0',
+        where: includeArchived ? null : 'archived = 0 AND deleted_at IS NULL',
         orderBy: 'name COLLATE NOCASE');
     return rows.map(BookingResource.fromMap).toList();
   }

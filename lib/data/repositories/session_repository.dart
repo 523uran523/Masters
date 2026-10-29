@@ -6,13 +6,13 @@ class SessionRepository {
   final Database _db;
 
   Future<List<WorkSession>> getAll() async {
-    final rows = await _db.query('work_sessions', orderBy: 'started_at DESC');
+    final rows = await _db.query('work_sessions', where: 'deleted_at IS NULL', orderBy: 'started_at DESC');
     return rows.map(WorkSession.fromMap).toList();
   }
 
   Future<List<WorkSession>> forJob(String jobId) async {
     final rows = await _db.query('work_sessions',
-        where: 'job_id = ?', whereArgs: [jobId], orderBy: 'started_at DESC');
+        where: 'job_id = ? AND deleted_at IS NULL', whereArgs: [jobId], orderBy: 'started_at DESC');
     return rows.map(WorkSession.fromMap).toList();
   }
 
@@ -22,6 +22,7 @@ class SessionRepository {
   }
 
   Future<void> delete(String id) async {
-    await _db.delete('work_sessions', where: 'id = ?', whereArgs: [id]);
+    final now = DateTime.now().millisecondsSinceEpoch;
+    await _db.update('work_sessions', {'deleted_at': now, 'updated_at': now}, where: 'id = ? AND deleted_at IS NULL', whereArgs: [id]);
   }
 }

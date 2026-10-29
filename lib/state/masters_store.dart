@@ -1625,7 +1625,7 @@ class MastersStore extends ChangeNotifier {
     }
   }
 
-  Future<int> mergeFromBackup(Map<String, dynamic> data) async {
+  Future<BackupMergeResult> mergeFromBackup(Map<String, dynamic> data) async {
     if (data['format'] != 'masters-backup') {
       throw const FormatException('Это не копия Masters.');
     }
@@ -1633,12 +1633,12 @@ class MastersStore extends ChangeNotifier {
     if (version is! int || version > 7) {
       throw const FormatException('Неподдерживаемая версия копии.');
     }
-    final affected = await _appDatabase.mergeSnapshot(data);
+    final result = await _appDatabase.mergeSnapshot(data);
     await load();
     try {
-      await auditAction(action: 'backup.merge', entity: 'backup', after: {'affected': affected});
+      await auditAction(action: 'backup.merge', entity: 'backup', after: {'affected': result.affected});
     } catch (_) {}
-    return affected;
+    return result;
   }
 
   Future<List<Map<String, Object?>>> auditEntries({int limit = 100}) async {

@@ -6,6 +6,18 @@ import 'package:sqflite/sqflite.dart';
 import '../core/utils/app_utils.dart';
 import 'dart:convert';
 
+class BackupMergeResult {
+  const BackupMergeResult({
+    this.affected = 0,
+    this.keptLocal = 0,
+    this.conflicts = const [],
+  });
+
+  final int affected;
+  final int keptLocal;
+  final List<String> conflicts;
+}
+
 class AppDatabase {
   AppDatabase._(this.database);
 
@@ -532,7 +544,16 @@ class AppDatabase {
     return 0;
   }
 
-  Future<int> mergeSnapshot(Map<String, dynamic> data) async {
+  String _canonicalRow(Map<String, Object?> row) {
+    final keys = row.keys.toList()..sort();
+    final copy = <String, Object?>{};
+    for (final key in keys) {
+      copy[key] = row[key]?.toString();
+    }
+    return copy.toString();
+  }
+
+  Future<BackupMergeResult> mergeSnapshot(Map<String, dynamic> data) async {
     if (data['format'] != 'masters-backup') {
       throw const FormatException('Неверный формат файла Masters.');
     }
@@ -559,6 +580,8 @@ class AppDatabase {
     };
 
     int affected = 0;
+    int keptLocal = 0;
+    final conflicts = <String>[];
 
     await database.transaction((txn) async {
       for (final mapping in mappings.entries) {
@@ -594,7 +617,16 @@ class AppDatabase {
           final localTime = local == null ? 0 : _mergeEpoch(local, 'updated_at');
 
           if (local != null && localTime > remoteTime && remoteTime > 0) {
+            keptLocal++;
             continue;
+          }
+
+          if (local != null &&
+              localTime > 0 &&
+              remoteTime > 0 &&
+              localTime == remoteTime &&
+              _canonicalRow(local) != _canonicalRow(incoming)) {
+            conflicts.add('$table:$id');
           }
 
           final merged = <String, Object?>{};
@@ -631,7 +663,11 @@ class AppDatabase {
       }
     });
 
-    return affected;
+    return BackupMergeResult(
+      affected: affected,
+      keptLocal: keptLocal,
+      conflicts: conflicts,
+    );
   }
 
   Future<void> close() => database.close();

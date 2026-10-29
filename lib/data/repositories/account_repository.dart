@@ -7,13 +7,13 @@ class AccountRepository {
 
   Future<List<Account>> getAll({bool includeArchived = false}) async {
     final rows = await _db.query('accounts',
-        where: includeArchived ? null : 'archived = 0',
+        where: includeArchived ? null : 'archived = 0 AND deleted_at IS NULL',
         orderBy: 'name COLLATE NOCASE');
     return rows.map(Account.fromMap).toList();
   }
 
   Future<Account?> byId(String id) async {
-    final rows = await _db.query('accounts', where: 'id = ?', whereArgs: [id], limit: 1);
+    final rows = await _db.query('accounts', where: 'id = ? AND deleted_at IS NULL', whereArgs: [id], limit: 1);
     if (rows.isEmpty) return null;
     return Account.fromMap(rows.first);
   }
@@ -23,6 +23,7 @@ class AccountRepository {
   }
 
   Future<void> delete(String id) async {
-    await _db.delete('accounts', where: 'id = ?', whereArgs: [id]);
+    final now = DateTime.now().millisecondsSinceEpoch;
+    await _db.update('accounts', {'deleted_at': now, 'updated_at': now}, where: 'id = ? AND deleted_at IS NULL', whereArgs: [id]);
   }
 }

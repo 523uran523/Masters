@@ -101,22 +101,53 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Future<void> _importBackup() async {
-    final store = context.read<MastersStore>();
-    final ok = await showAppConfirm(
-      context,
-      title: 'Восстановить данные?',
-      message: 'Текущие данные будут заменены.',
-      destructive: true,
-      confirmLabel: 'Восстановить',
+    final choice = await showCupertinoDialog<String>(
+      context: context,
+      builder: (dialogContext) => CupertinoAlertDialog(
+        title: const Text('Восстановить резервную копию?'),
+        content: const Text(
+          'Полная замена удалит текущие данные. Объединение сохранит локальные изменения и добавит недостающие записи из файла.',
+        ),
+        actions: [
+          CupertinoDialogAction(
+            onPressed: () => Navigator.of(dialogContext).pop('cancel'),
+            child: const Text('Отмена'),
+          ),
+          CupertinoDialogAction(
+            onPressed: () => Navigator.of(dialogContext).pop('merge'),
+            child: const Text('Объединить'),
+          ),
+          CupertinoDialogAction(
+            isDestructiveAction: true,
+            onPressed: () => Navigator.of(dialogContext).pop('replace'),
+            child: const Text('Заменить всё'),
+          ),
+        ],
+      ),
     );
-    if (!ok) return;
+    if (choice == null || choice == 'cancel') return;
+
+    final store = context.read<MastersStore>();
     setState(() => _busy = true);
     try {
       final data = await BackupService.pickJson();
       if (data == null) return;
-      await store.restoreFromBackup(data);
-      if (mounted) {
-        await showAppAlert(context, title: 'Готово', message: 'Данные восстановлены.');
+      if (choice == 'replace') {
+        await store.restoreFromBackup(data);
+        if (mounted) {
+          await showAppAlert(context, title: 'Готово', message: 'Копия полностью восстановлена.');
+        }
+      } else {
+        final result = await store.mergeFromBackup(data);
+        if (!mounted) return;
+        final conflictText = result.conflicts.isEmpty
+            ? ''
+            : '\nКонфликты (совпали по дате): ${result.conflicts.length}. Оставлены локальные значения.';
+        await showAppAlert(
+          context,
+          title: 'Объединение завершено',
+          message: 'Добавлено/обновлено: ${result.affected}, сохранено локально: ${result.keptLocal}$conflictText',
+        );
       }
     } catch (e) {
       if (mounted) await showAppAlert(context, title: 'Ошибка', message: e.toString());

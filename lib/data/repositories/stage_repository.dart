@@ -6,13 +6,13 @@ class StageRepository {
   final Database _db;
 
   Future<List<JobStage>> getAll() async {
-    final rows = await _db.query('job_stages', orderBy: 'job_id, sort_order ASC');
+    final rows = await _db.query('job_stages', where: 'deleted_at IS NULL', orderBy: 'job_id, sort_order ASC');
     return rows.map(JobStage.fromMap).toList();
   }
 
   Future<List<JobStage>> forJob(String jobId) async {
     final rows = await _db.query('job_stages',
-        where: 'job_id = ?', whereArgs: [jobId], orderBy: 'sort_order ASC');
+        where: 'job_id = ? AND deleted_at IS NULL', whereArgs: [jobId], orderBy: 'sort_order ASC');
     return rows.map(JobStage.fromMap).toList();
   }
 
@@ -22,10 +22,11 @@ class StageRepository {
   }
 
   Future<void> delete(String id) async {
-    await _db.delete('job_stages', where: 'id = ?', whereArgs: [id]);
+    final now = DateTime.now().millisecondsSinceEpoch;
+    await _db.update('job_stages', {'deleted_at': now, 'updated_at': now}, where: 'id = ? AND deleted_at IS NULL', whereArgs: [id]);
   }
 
   Future<void> deleteForJob(String jobId) async {
-    await _db.delete('job_stages', where: 'job_id = ?', whereArgs: [jobId]);
+    await _db.delete('job_stages', where: 'job_id = ? AND deleted_at IS NULL', whereArgs: [jobId]);
   }
 }

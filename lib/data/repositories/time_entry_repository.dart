@@ -6,7 +6,7 @@ class TimeEntryRepository {
   final Database _db;
 
   Future<List<TimeEntry>> getAll() async {
-    final rows = await _db.query('time_entries', orderBy: 'started_at DESC');
+    final rows = await _db.query('time_entries', where: 'deleted_at IS NULL', orderBy: 'started_at DESC');
     return rows.map(TimeEntry.fromMap).toList();
   }
 
@@ -23,7 +23,8 @@ class TimeEntryRepository {
   }
 
   Future<void> delete(String id) async {
-    await _db.delete('time_entries', where: 'id = ?', whereArgs: [id]);
+    final now = DateTime.now().millisecondsSinceEpoch;
+    await _db.update('time_entries', {'deleted_at': now, 'updated_at': now}, where: 'id = ? AND deleted_at IS NULL', whereArgs: [id]);
   }
 }
 
@@ -32,7 +33,7 @@ class EmployeePaymentRepository {
   final Database _db;
 
   Future<List<EmployeePayment>> getAll() async {
-    final rows = await _db.query('employee_payments', orderBy: 'created_at DESC');
+    final rows = await _db.query('employee_payments', where: 'deleted_at IS NULL', orderBy: 'created_at DESC');
     return rows.map(EmployeePayment.fromMap).toList();
   }
 
@@ -49,6 +50,7 @@ class EmployeePaymentRepository {
   }
 
   Future<void> delete(String id) async {
-    await _db.delete('employee_payments', where: 'id = ?', whereArgs: [id]);
+    final now = DateTime.now().millisecondsSinceEpoch;
+    await _db.update('employee_payments', {'deleted_at': now, 'updated_at': now}, where: 'id = ? AND deleted_at IS NULL', whereArgs: [id]);
   }
 }

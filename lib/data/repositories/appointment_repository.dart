@@ -6,7 +6,7 @@ class AppointmentRepository {
   final Database _db;
 
   Future<List<Appointment>> getAll() async {
-    final rows = await _db.query('appointments', orderBy: 'start_at ASC');
+    final rows = await _db.query('appointments', where: 'deleted_at IS NULL', orderBy: 'start_at ASC');
     return rows.map(Appointment.fromMap).toList();
   }
 
@@ -25,6 +25,7 @@ class AppointmentRepository {
   }
 
   Future<void> delete(String id) async {
-    await _db.delete('appointments', where: 'id = ?', whereArgs: [id]);
+    final now = DateTime.now().millisecondsSinceEpoch;
+    await _db.update('appointments', {'deleted_at': now, 'updated_at': now}, where: 'id = ? AND deleted_at IS NULL', whereArgs: [id]);
   }
 }

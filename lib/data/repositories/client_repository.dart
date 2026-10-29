@@ -6,12 +6,12 @@ class ClientRepository {
   final Database _db;
 
   Future<List<Client>> getAll() async {
-    final rows = await _db.query('clients', orderBy: 'name COLLATE NOCASE');
+    final rows = await _db.query('clients', where: 'deleted_at IS NULL', orderBy: 'name COLLATE NOCASE');
     return rows.map(Client.fromMap).toList();
   }
 
   Future<Client?> byId(String id) async {
-    final rows = await _db.query('clients', where: 'id = ?', whereArgs: [id], limit: 1);
+    final rows = await _db.query('clients', where: 'id = ? AND deleted_at IS NULL', whereArgs: [id], limit: 1);
     if (rows.isEmpty) return null;
     return Client.fromMap(rows.first);
   }
@@ -22,6 +22,7 @@ class ClientRepository {
   }
 
   Future<void> delete(String id) async {
-    await _db.delete('clients', where: 'id = ?', whereArgs: [id]);
+    final now = DateTime.now().millisecondsSinceEpoch;
+    await _db.update('clients', {'deleted_at': now, 'updated_at': now}, where: 'id = ? AND deleted_at IS NULL', whereArgs: [id]);
   }
 }

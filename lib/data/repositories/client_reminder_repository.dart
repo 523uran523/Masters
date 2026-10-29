@@ -13,7 +13,7 @@ class ClientReminderRepository {
 
   Future<List<ClientReminder>> forClient(String clientId) async {
     final rows = await _db.query('client_reminders',
-        where: 'client_id = ?', whereArgs: [clientId], orderBy: 'due_at ASC');
+        where: 'client_id = ? AND deleted_at IS NULL', whereArgs: [clientId], orderBy: 'due_at ASC');
     return rows.map(ClientReminder.fromMap).toList();
   }
 
@@ -22,6 +22,7 @@ class ClientReminderRepository {
   }
 
   Future<void> delete(String id) async {
-    await _db.delete('client_reminders', where: 'id = ?', whereArgs: [id]);
+    final now = DateTime.now().millisecondsSinceEpoch;
+    await _db.update('client_reminders', {'deleted_at': now, 'updated_at': now}, where: 'id = ? AND deleted_at IS NULL', whereArgs: [id]);
   }
 }

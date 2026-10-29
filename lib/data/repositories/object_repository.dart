@@ -6,18 +6,18 @@ class ObjectRepository {
   final Database _db;
 
   Future<List<WorkObject>> getAll() async {
-    final rows = await _db.query('objects', orderBy: 'title COLLATE NOCASE');
+    final rows = await _db.query('objects', where: 'deleted_at IS NULL', orderBy: 'title COLLATE NOCASE');
     return rows.map(WorkObject.fromMap).toList();
   }
 
   Future<List<WorkObject>> byClient(String clientId) async {
     final rows = await _db.query('objects',
-        where: 'client_id = ?', whereArgs: [clientId], orderBy: 'title COLLATE NOCASE');
+        where: 'client_id = ? AND deleted_at IS NULL', whereArgs: [clientId], orderBy: 'title COLLATE NOCASE');
     return rows.map(WorkObject.fromMap).toList();
   }
 
   Future<WorkObject?> byId(String id) async {
-    final rows = await _db.query('objects', where: 'id = ?', whereArgs: [id], limit: 1);
+    final rows = await _db.query('objects', where: 'id = ? AND deleted_at IS NULL', whereArgs: [id], limit: 1);
     if (rows.isEmpty) return null;
     return WorkObject.fromMap(rows.first);
   }
@@ -28,6 +28,7 @@ class ObjectRepository {
   }
 
   Future<void> delete(String id) async {
-    await _db.delete('objects', where: 'id = ?', whereArgs: [id]);
+    final now = DateTime.now().millisecondsSinceEpoch;
+    await _db.update('objects', {'deleted_at': now, 'updated_at': now}, where: 'id = ? AND deleted_at IS NULL', whereArgs: [id]);
   }
 }

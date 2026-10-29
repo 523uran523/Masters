@@ -42,6 +42,6 @@ class MoneyTransactionRepository {
   }
 
   Future<void> voidTransaction(String id) async {
-    await _db.update('money_transactions', {'voided': 1}, where: 'id = ?', whereArgs: [id]);
+    await _db.update('money_transactions', {'voided': 1}, where: 'id = ? AND deleted_at IS NULL', whereArgs: [id]);
   }
 }
