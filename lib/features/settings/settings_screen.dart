@@ -25,6 +25,8 @@ class SettingsScreen extends StatefulWidget {
 
 class _SettingsScreenState extends State<SettingsScreen> {
   bool _busy = false;
+  bool _auditBusy = false;
+  List<Map<String, Object?>> _auditEntries = const [];
   bool _updateBusy = false;
   UpdateInfo? _updateInfo;
   String _updateStatus = '';
@@ -40,6 +42,18 @@ class _SettingsScreenState extends State<SettingsScreen> {
   ];
   bool _awaitingCode = false;
   final _yandexCodeController = TextEditingController();
+
+  Future<void> _loadAuditLog() async {
+    setState(() => _auditBusy = true);
+    try {
+      final entries = await context.read<MastersStore>().auditEntries(limit: 50);
+      if (!mounted) return;
+      setState(() => _auditEntries = entries);
+    } finally {
+      if (mounted) setState(() => _auditBusy = false);
+    }
+  }
+
 
   Future<void> _checkForUpdates() async {
     setState(() { _updateBusy = true; _updateStatus = 'Проверка обновлений...'; });
@@ -855,6 +869,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ),
                 ),
                 const SizedBox(height: 16),
+                SectionLabel('Аудит и диагностика'),
+                AppCard(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('Записей: ${_auditEntries.length}'),
+                      const SizedBox(height: 8),
+                      SecondaryButton(label: _auditBusy ? 'Загрузка...' : 'Показать журнал аудита', icon: CupertinoIcons.doc_text_search, onPressed: _auditBusy ? () {} : _showAuditLog),
+                    ],
+                  ),
+                ),
                 SectionLabel('Обновления приложения'),
                 AppCard(
                   child: Column(

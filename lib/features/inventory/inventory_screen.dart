@@ -181,6 +181,32 @@ class _InventoryScreenState extends State<InventoryScreen> {
       await showAppAlert(context, title: 'Нет счёта', message: 'Сначала создайте счёт в разделе Деньги.');
       return;
     }
+    final purchases = store.purchasesForSupplier(supplier.id);
+    String? selectedPurchaseId;
+    if (purchases.length == 1) {
+      selectedPurchaseId = purchases.first.id;
+    } else if (purchases.length > 1) {
+      selectedPurchaseId = await showCupertinoModalPopup<String?>(
+        context: context,
+        builder: (ctx) => Container(
+          height: 260,
+          color: context.colors.card,
+          child: ListView(
+            children: [
+              CupertinoButton(onPressed: () => Navigator.of(ctx).pop(), child: const Text('Общая оплата (без привязки)')),
+              for (final purchase in purchases)
+                CupertinoButton(
+                  onPressed: () => Navigator.of(ctx).pop(purchase.id),
+                  child: Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text('Закупка ${purchase.id.substring(0, 6)} · ${_money(purchase.totalCents)}'),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      );
+    }
     final amountStr = await _prompt('Сумма оплаты', '0');
     final amount = ((double.tryParse((amountStr ?? '').replaceAll(',', '.')) ?? 0) * 100).round();
     if (amount <= 0 || !mounted) return;
@@ -191,7 +217,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
     setState(() => _busy = true);
     try {
       final supplierPurchases = store.purchasesForSupplier(supplier.id);
-      final purchaseId = supplierPurchases.isEmpty ? null : supplierPurchases.first.id;
+      final purchaseId = selectedPurchaseId ?? (supplierPurchases.isEmpty ? null : supplierPurchases.first.id);
       await store.paySupplier(supplierId: supplier.id, amountCents: amount, accountId: accountId, purchaseId: purchaseId, note: note.trim().isEmpty ? null : note.trim());
       if (mounted) await showAppAlert(context, title: 'Готово', message: 'Оплата поставщику проведена.');
     } finally {
