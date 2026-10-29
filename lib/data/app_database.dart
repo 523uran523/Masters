@@ -146,6 +146,7 @@ class AppDatabase {
     await _createPeriodClosureSchema(db);
     await _createRecurringPaymentSchema(db);
     await _createPayrollPeriodSchema(db);
+    await _ensureSyncColumns(db);
     await _createAuditTriggers(db);
   }
 
@@ -175,7 +176,10 @@ class AppDatabase {
         start_at INTEGER NOT NULL,
         end_at INTEGER NOT NULL,
         closed_at INTEGER NOT NULL,
-        note TEXT
+        note TEXT,
+        updated_at INTEGER,
+        deleted_at INTEGER,
+        device_id TEXT
       )
     ''');
     await db.execute('CREATE INDEX idx_period_closures_start ON period_closures(start_at)');
@@ -511,6 +515,7 @@ class AppDatabase {
       await _createPayrollPeriodSchema(db);
     }
     if (oldVersion < 11) {
+      await _ensureSyncColumns(db);
       await _createAuditTriggers(db);
     }
   }

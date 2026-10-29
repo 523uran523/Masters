@@ -8,23 +8,23 @@ void main(List<String> args) async {
   final webDir = p.join(Directory.current.path, 'build', 'web');
 
   if (!Directory(webDir).existsSync()) {
-    print('❌ Папка build/web не найдена!');
-    print('Сначала выполните: flutter build web --release');
+    stdout.writeln('❌ Папка build/web не найдена!');
+    stdout.writeln('Сначала выполните: flutter build web --release');
     exit(1);
   }
 
   final server = await HttpServer.bind(InternetAddress.loopbackIPv4, port);
-  print('🚀 Masters Web Server запущен');
-  print('📍 http://localhost:$port/');
-  print('📁 Корневая папка: $webDir');
-  print('Нажмите Ctrl+C для остановки');
-  print('');
+  stdout.writeln('🚀 Masters Web Server запущен');
+  stdout.writeln('📍 http://localhost:$port/');
+  stdout.writeln('📁 Корневая папка: $webDir');
+  stdout.writeln('Нажмите Ctrl+C для остановки');
+  stdout.writeln('');
 
   await for (HttpRequest request in server) {
     try {
       await _handleRequest(request, webDir);
     } catch (e) {
-      print('❌ Ошибка: $e');
+      stdout.writeln('❌ Ошибка: $e');
       try {
         request.response.statusCode = HttpStatus.internalServerError;
         await request.response.close();
@@ -62,7 +62,7 @@ Future<void> _handleRequest(HttpRequest request, String webDir) async {
       request.response.write('404 Not Found');
     }
     await request.response.close();
-    print('${request.method} ${request.uri.path} - ${request.response.statusCode}');
+    stdout.writeln('${request.method} ${request.uri.path} - ${request.response.statusCode}');
     return;
   }
 
@@ -76,7 +76,7 @@ Future<void> _handleRequest(HttpRequest request, String webDir) async {
   await request.response.addStream(file.openRead());
   await request.response.close();
 
-  print('${request.method} ${request.uri.path} - ${request.response.statusCode}');
+  stdout.writeln('${request.method} ${request.uri.path} - ${request.response.statusCode}');
 }
 
 ContentType? _getContentType(String path) {

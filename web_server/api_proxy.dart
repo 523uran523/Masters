@@ -63,7 +63,7 @@ Future<void> handleApiRequest(HttpRequest request) async {
       await response.close();
     }
   } catch (e) {
-    print('API error: $e');
+    stdout.writeln('API error: $e');
     try {
       response.statusCode = HttpStatus.badGateway;
       await response.close();

@@ -17,8 +17,8 @@ import 'api_proxy.dart';
 void main(List<String> args) async {
   final port = args.isNotEmpty ? int.tryParse(args[0]) ?? 8081 : 8081;
   final server = await HttpServer.bind(InternetAddress.loopbackIPv4, port);
-  print('Yandex API proxy listening on http://localhost:$port');
-  print('Environment: YANDEX_CLIENT_SECRET ${Platform.environment['YANDEX_CLIENT_SECRET'] == null || Platform.environment['YANDEX_CLIENT_SECRET']!.isEmpty ? 'MISSING' : 'set'}');
+  stdout.writeln('Yandex API proxy listening on http://localhost:$port');
+  stdout.writeln('Environment: YANDEX_CLIENT_SECRET ${Platform.environment['YANDEX_CLIENT_SECRET'] == null || Platform.environment['YANDEX_CLIENT_SECRET']!.isEmpty ? 'MISSING' : 'set'}');
   await for (HttpRequest request in server) {
     try {
       if (isApiPath(request.uri.path)) {
@@ -28,7 +28,7 @@ void main(List<String> args) async {
         await request.response.close();
       }
     } catch (e) {
-      print('❌ proxy error: $e');
+      stdout.writeln('❌ proxy error: $e');
       try {
         request.response.statusCode = HttpStatus.internalServerError;
         await request.response.close();

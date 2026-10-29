@@ -161,4 +161,33 @@ void main() {
       await appDb.close();
     }
   });
+
+  test('closed period blocks new transactions', () async {
+    final appDb = await AppDatabase.open(path: inMemoryDatabasePath);
+    try {
+      final settings = await SettingsController.load();
+      final store = MastersStore(appDb, settings);
+      await store.load();
+
+      final now = DateTime.now();
+      await store.closePeriod(
+        start: DateTime(now.year, now.month, 1),
+        end: DateTime(now.year, now.month + 1, 0, 23, 59, 59, 999),
+      );
+      expect(store.isPeriodClosed(DateTime.now()), isTrue);
+
+      final account = await store.createAccount(name: 'Cash', type: 'cash');
+      expect(
+        () => store.addTransaction(
+          accountId: account.id,
+          kind: 'expense',
+          direction: 'out',
+          amountCents: 100,
+        ),
+        throwsA(isA<StateError>()),
+      );
+    } finally {
+      await appDb.close();
+    }
+  });
 }
