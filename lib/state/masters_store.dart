@@ -12,6 +12,7 @@ import '../data/models/employee.dart';
 import '../data/models/time_entry.dart';
 import '../data/models/client_reminder.dart';
 import '../data/models/inventory_item.dart';
+import '../data/models/supplier.dart';
 import '../data/models/stock_movement.dart';
 import '../data/models/job.dart';
 import '../data/models/job_items.dart';
@@ -35,6 +36,7 @@ import '../data/repositories/material_repository.dart';
 import '../data/repositories/object_repository.dart';
 import '../data/repositories/session_repository.dart';
 import '../data/repositories/stage_repository.dart';
+import '../data/repositories/supplier_repository.dart';
 import 'settings_controller.dart';
 
 class ClosedPeriod {
@@ -87,6 +89,8 @@ class MastersStore extends ChangeNotifier {
     _employeeRepo = EmployeeRepository(_appDatabase.database);
     _timeEntryRepo = TimeEntryRepository(_appDatabase.database);
     _paymentRepo = EmployeePaymentRepository(_appDatabase.database);
+    _supplierRepo = SupplierRepository(_appDatabase.database);
+    _purchaseRepo = PurchaseRepository(_appDatabase.database);
     _moneyTxRepo = MoneyTransactionRepository(_appDatabase.database);
     _shiftRepo = CashShiftRepository(_appDatabase.database);
     _inventoryRepo = InventoryItemRepository(_appDatabase.database);
@@ -117,6 +121,8 @@ class MastersStore extends ChangeNotifier {
   late final StockMovementRepository _stockMovementRepo;
   late final AppointmentRepository _appointmentRepo;
   late final BookingResourceRepository _bookingResourceRepo;
+  late final SupplierRepository _supplierRepo;
+  late final PurchaseRepository _purchaseRepo;
   late final RecurringPaymentRepository _recurringRepo;
   late final PayrollPeriodRepository _payrollRepo;
 
@@ -137,6 +143,9 @@ class MastersStore extends ChangeNotifier {
   List<Employee> _employees = [];
   List<TimeEntry> _timeEntries = [];
   List<EmployeePayment> _employeePayments = [];
+  List<Supplier> _suppliers = [];
+  List<Purchase> _purchases = [];
+  List<PurchaseLine> _purchaseLines = [];
   bool _loaded = false;
 
   // Cache invalidation is centralized: notifyListeners() bumps state and
@@ -332,6 +341,8 @@ class MastersStore extends ChangeNotifier {
       _appointmentRepo.getAll(),
       _bookingResourceRepo.getAll(),
       _reminderRepo.getAll(includeDone: true),
+      _supplierRepo.getAll(),
+      _purchaseRepo.getAll(),
       _employeeRepo.getAll(),
       _timeEntryRepo.getAll(),
       _paymentRepo.getAll(),
@@ -343,9 +354,13 @@ class MastersStore extends ChangeNotifier {
     _appointments = rest[4] as List<Appointment>;
     _bookingResources = rest[5] as List<BookingResource>;
     _reminders = rest[6] as List<ClientReminder>;
-    _employees = rest[7] as List<Employee>;
-    _timeEntries = rest[8] as List<TimeEntry>;
-    _employeePayments = rest[9] as List<EmployeePayment>;
+    _suppliers = rest[7] as List<Supplier>;
+    _purchases = rest[8] as List<Purchase>;
+    _employees = rest[9] as List<Employee>;
+    _timeEntries = rest[10] as List<TimeEntry>;
+    _employeePayments = rest[11] as List<EmployeePayment>;
+    _purchaseLines = [];
+    _employeePayments = rest[11] as List<EmployeePayment>;
 
     _closedPeriods = (await _appDatabase.periodClosures()).map((m) => ClosedPeriod.fromMap(Map<String, Object?>.from(m))).toList();
     _recurringPayments = await _recurringRepo.getAll();
@@ -2008,6 +2023,180 @@ class MastersStore extends ChangeNotifier {
     return rows;
   }
 
+
+
+  List<Supplier> get suppliers => List.unmodifiable(_suppliers);
+
+  Future<Supplier> createSupplier({
+    required String name,
+    String phone = '',
+    String? note,
+  }) async {
+    final now = DateTime.now();
+    final supplier = Supplier(
+      id: newId(),
+      name: name.trim(),
+      phone: phone.trim(),
+      note: note?.trim().isEmpty == true ? null : note?.trim(),
+      createdAt: now,
+      updatedAt: now,
+    );
+    await _supplierRepo.save(supplier);
+    _suppliers = [supplier, ..._suppliers];
+    await auditAction(action: 'supplier.create', entity: 'supplier', entityId: supplier.id, after: supplier.toMap());
+    notifyListeners();
+    return supplier;
+  }
+
+  Future<void> deleteSupplier(String id) async {
+    await _supplierRepo.delete(id);
+    _suppliers = _suppliers.where((s) => s.id != id).toList();
+    await auditAction(action: 'supplier.delete', entity: 'supplier', entityId: id);
+    notifyListeners();
+  }
+
+  Future<Purchase> createPurchase({
+    String? supplierId,
+    String? accountId,
+    int paidCents = 0,
+    String? note,
+    required List<Map<String, Object?>> lines,
+  }) async {
+    final now = DateTime.now();
+    final purchaseId = newId();
+    int total = 0;
+    final purchaseLines = <PurchaseLine>[];
+    for (final line in lines) {
+      final itemId = line['itemId'] as String?;
+      final qty = (line['qty'] as num?)?.toDouble() ?? 0;
+      final price = line['unitPriceCents'] as int? ?? 0;
+      if (itemId == null || qty <= 0) continue;
+      total += (qty * price).round();
+      final pl = PurchaseLine(
+        id: newId(),
+        purchaseId: purchaseId,
+        itemId: itemId,
+        qty: qty,
+        unitPriceCents: price,
+      );
+      purchaseLines.add(pl);
+      // add stock without changing item cost for existing prices
+      final idx = _inventoryItems.indexWhere((i) => i.id == itemId);
+      if (idx != -1) {
+        final item = _inventoryItems[idx];
+        final updated = item.copyWith(stockQty: item.stockQty + qty, updatedAt: now);
+        await _inventoryRepo.save(updated);
+        _inventoryItems[idx] = updated;
+        final movement = StockMovement(
+          id: newId(),
+          itemId: itemId,
+          type: 'in',
+          qty: qty,
+          note: note?.trim().isEmpty == true ? 'Закупка' : note?.trim(),
+          createdAt: now,
+        );
+        await _stockMovementRepo.save(movement);
+        _stockMovements = [movement, ..._stockMovements];
+      }
+    }
+
+    if (purchaseLines.isEmpty) throw ArgumentError('Закупка не содержит строк.');
+    if (total <= 0) throw ArgumentError('Сумма закупки должна быть больше 0.');
+    final purchase = Purchase(
+      id: purchaseId,
+      supplierId: supplierId,
+      accountId: accountId,
+      totalCents: total,
+      note: note?.trim().isEmpty == true ? null : note?.trim(),
+      createdAt: now,
+      updatedAt: now,
+    );
+    await _purchaseRepo.save(purchase);
+    for (final line in purchaseLines) {
+      await _purchaseRepo.saveLine(line);
+    }
+    _purchases = [purchase, ..._purchases];
+
+    if (accountId != null && paidCents > 0) {
+      await addTransaction(
+        accountId: accountId,
+        kind: 'purchase_payment',
+        direction: 'out',
+        amountCents: paidCents,
+        category: 'Закупка у поставщика',
+        note: purchase.note,
+        relatedTransactionId: purchase.id,
+      );
+    }
+
+    await auditAction(action: 'purchase.create', entity: 'purchase', entityId: purchase.id, after: purchase.toMap());
+    notifyListeners();
+    return purchase;
+  }
+
+  int supplierDebtCents(String? supplierId) {
+    int total = 0;
+    for (final p in _purchases) {
+      if (supplierId != null && p.supplierId != supplierId) continue;
+      total += p.totalCents;
+    }
+    int paid = 0;
+    for (final transaction in _moneyTransactions) {
+      if (transaction.voided || transaction.kind != 'purchase_payment') continue;
+      if (supplierId != null) {
+        final purchase = _purchases.firstWhere((p) => p.id == transaction.relatedTransactionId, orElse: () => Purchase(
+          id: '',
+          supplierId: null,
+          totalCents: 0,
+          createdAt: DateTime.now(),
+          updatedAt: DateTime.now(),
+        ));
+        if (purchase.supplierId != supplierId) continue;
+      }
+      paid += transaction.amountCents;
+    }
+    final debt = total - paid;
+    return debt < 0 ? 0 : debt;
+  }
+
+  List<Purchase> purchasesForSupplier(String supplierId) =>
+      _purchases.where((p) => p.supplierId == supplierId).toList();
+
+  List<PurchaseLine> linesForPurchase(String purchaseId) =>
+      _purchaseLines.where((l) => l.purchaseId == purchaseId).toList();
+
+  Future<void> paySupplier({
+    required String supplierId,
+    required int amountCents,
+    required String accountId,
+    String? purchaseId,
+    String? note,
+  }) async {
+    if (amountCents <= 0) return;
+    await addTransaction(
+      accountId: accountId,
+      kind: 'purchase_payment',
+      direction: 'out',
+      amountCents: amountCents,
+      category: 'Оплата поставщику',
+      note: note,
+      relatedTransactionId: purchaseId,
+    );
+    await auditAction(action: 'supplier_pay', entity: 'supplier', entityId: supplierId, after: {'amountCents': amountCents});
+    notifyListeners();
+  }
+
+  List<Map<String, Object?>> supplierSummary() {
+    return _suppliers.map((supplier) {
+      final purchases = purchasesForSupplier(supplier.id);
+      return <String, Object?>{
+        'supplier': supplier,
+        'purchases': purchases,
+        'debtCents': supplierDebtCents(supplier.id),
+        'purchaseCount': purchases.length,
+      };
+    }).toList();
+  }
 
   Future<void> clearAll() async {
     try { await _appDatabase.audit(action:'data.clearAll'); } catch (_) {}

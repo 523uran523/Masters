@@ -127,6 +127,118 @@ class _InventoryScreenState extends State<InventoryScreen> {
     }
   }
 
+  Future<void> _newSupplier() async {
+    final name = await _prompt('Имя поставщика', 'ООО Поставщик');
+    if (name == null || name.trim().isEmpty) return;
+    final phone = await _prompt('Телефон', '') ?? '';
+    if (!mounted) return;
+    await context.read<MastersStore>().createSupplier(name: name.trim(), phone: phone.trim());
+  }
+
+  Future<void> _recordPurchase() async {
+    final store = context.read<MastersStore>();
+    if (store.suppliers.isEmpty) {
+      await showAppAlert(context, title: 'Нет поставщиков', message: 'Сначала добавьте поставщика.');
+      return;
+    }
+    final supplierId = await _pickSupplier(store);
+    if (supplierId == null || !mounted) return;
+    final itemId = await _pickInventoryItem(store);
+    if (itemId == null || !mounted) return;
+    final qtyStr = await _prompt('Количество', '1');
+    final qty = double.tryParse((qtyStr ?? '').trim().replaceAll(',', '.'));
+    if (qty == null || qty <= 0 || !mounted) return;
+    final priceStr = await _prompt('Цена за ед.', '0');
+    final price = ((double.tryParse((priceStr ?? '0').replaceAll(',', '.')) ?? 0) * 100).round();
+    if (price <= 0 || !mounted) return;
+    final note = await _prompt('Комментарий', '');
+    if (!mounted) return;
+    final accountId = await _pickAccount(store);
+    if (accountId == null || !mounted) return;
+    final paidStr = await _prompt('Оплачено сейчас (0 = долг)', '0');
+    final paid = ((double.tryParse((paidStr ?? '0').replaceAll(',', '.')) ?? 0) * 100).round();
+    if (!mounted) return;
+    setState(() => _busy = true);
+    try {
+      await store.createPurchase(
+        supplierId: supplierId,
+        accountId: paid > 0 ? accountId : null,
+        paidCents: paid,
+        note: note,
+        lines: [
+          {'itemId': itemId, 'qty': qty, 'unitPriceCents': price},
+        ],
+      );
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<String?> _pickSupplier(MastersStore store) async {
+    final suppliers = store.suppliers;
+    if (suppliers.isEmpty) return null;
+    return showCupertinoModalPopup<String?>(
+      context: context,
+      builder: (ctx) => Container(
+        height: 220,
+        color: context.colors.card,
+        child: ListView(
+          children: [
+            for (final supplier in suppliers)
+              CupertinoButton(
+                onPressed: () => Navigator.of(ctx).pop(supplier.id),
+                child: Align(alignment: Alignment.centerLeft, child: Text(supplier.name)),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<String?> _pickInventoryItem(MastersStore store) async {
+    final items = store.inventoryItems.where((i) => !i.archived).toList();
+    if (items.isEmpty) return null;
+    return showCupertinoModalPopup<String?>(
+      context: context,
+      builder: (ctx) => Container(
+        height: 220,
+        color: context.colors.card,
+        child: ListView(
+          children: [
+            for (final item in items)
+              CupertinoButton(
+                onPressed: () => Navigator.of(ctx).pop(item.id),
+                child: Align(alignment: Alignment.centerLeft, child: Text(item.name)),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<String?> _pickAccount(MastersStore store) async {
+    final accounts = store.accounts.where((a) => !a.archived).toList();
+    if (accounts.isEmpty) return null;
+    return showCupertinoModalPopup<String?>(
+      context: context,
+      builder: (ctx) => Container(
+        height: 220,
+        color: context.colors.card,
+        child: ListView(
+          children: [
+            for (final account in accounts)
+              CupertinoButton(
+                onPressed: () => Navigator.of(ctx).pop(account.id),
+                child: Align(alignment: Alignment.centerLeft, child: Text(account.name)),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  String _money(int cents) => '${(cents / 100).toStringAsFixed(0)} ₽';
+
   Future<void> _delete(InventoryItem item) async {
     final ok = await showAppConfirm(context, title: 'Удалить позицию?', message: item.name, destructive: true, confirmLabel: 'Удалить');
     if (!ok) return;
@@ -181,7 +293,32 @@ class _InventoryScreenState extends State<InventoryScreen> {
               child: ListView(
                 padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
                 children: [
-                  if (low.isNotEmpty) ...[
+                                     if (store.suppliers.isNotEmpty || true) ...[
+                     const SizedBox(height: 0),
+                   ],
+                   SectionLabel('Поставщики и закупки (${store.suppliers.length})'),
+                   PrimaryButton(label: 'Новый поставщик', icon: CupertinoIcons.person_badge_plus, onPressed: _newSupplier),
+                   const SizedBox(height: 8),
+                   SecondaryButton(label: 'Записать закупку', icon: CupertinoIcons.doc_on_clipboard, onPressed: _recordPurchase),
+                   const SizedBox(height: 8),
+                   if (store.suppliers.isEmpty)
+                     EmptyState(title: 'Нет поставщиков', message: 'Добавьте поставщика, чтобы учитывать закупки и долги.', art: Icon(CupertinoIcons.person_2, size: 36, color: colors.tertiaryLabel))
+                   else
+                     AppCard(
+                       child: Column(
+                         children: [
+                           for (final supplier in store.suppliers)
+                             Row(
+                               children: [
+                                 Expanded(child: Text(supplier.name, style: const TextStyle(fontWeight: FontWeight.w600))),
+                                 Text('Долг: ${_money(store.supplierDebtCents(supplier.id))}', style: TextStyle(color: colors.secondaryLabel, fontSize: 12)),
+                               ],
+                             ),
+                         ],
+                       ),
+                     ),
+                   const SizedBox(height: 16),
+if (low.isNotEmpty) ...[
                     SectionLabel('Низкий остаток (${low.length})'),
                     AppCard(
                       child: Column(
