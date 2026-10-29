@@ -37,7 +37,7 @@ class AppDatabase {
 
     final database = await openDatabase(
       resolved,
-      version: 11,
+      version: 12,
       onConfigure: (db) async {
         if (!kIsWeb) await db.execute('PRAGMA foreign_keys = ON');
       },
@@ -147,6 +147,7 @@ class AppDatabase {
     await _createRecurringPaymentSchema(db);
     await _createPayrollPeriodSchema(db);
     await _ensureSyncColumns(db);
+    await _createAttachmentSchema(db);
     await _createAuditTriggers(db);
   }
 
@@ -476,6 +477,22 @@ class AppDatabase {
     await db.execute('CREATE INDEX idx_money_tx_kind ON money_transactions(kind)');
   }
 
+  static Future<void> _createAttachmentSchema(Database db) async {
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS job_attachments (
+        id TEXT PRIMARY KEY,
+        job_id TEXT NOT NULL REFERENCES jobs(id) ON DELETE CASCADE,
+        file_name TEXT NOT NULL,
+        file_path TEXT NOT NULL,
+        mime_type TEXT NOT NULL DEFAULT '',
+        created_at INTEGER NOT NULL,
+        updated_at INTEGER NOT NULL,
+        deleted_at INTEGER
+      )
+    ''');
+    await db.execute('CREATE INDEX IF NOT EXISTS idx_job_attachments_job ON job_attachments(job_id)');
+  }
+
   static Future<void> _upgradeSchema(
     Database db,
     int oldVersion,
@@ -517,6 +534,9 @@ class AppDatabase {
     if (oldVersion < 11) {
       await _ensureSyncColumns(db);
       await _createAuditTriggers(db);
+    }
+    if (oldVersion < 12) {
+      await _createAttachmentSchema(db);
     }
   }
 

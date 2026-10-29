@@ -1,14 +1,17 @@
 import 'dart:async';
 import 'package:flutter/cupertino.dart';
+import 'package:file_picker/file_picker.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
 import '../../app/theme/app_theme.dart';
 import '../../app/ui.dart';
 import '../../core/document_service.dart';
+import 'package:open_filex/open_filex.dart';
 import '../../core/deep_link_service.dart';
 import '../../core/utils/app_utils.dart';
 import '../../data/models/job.dart';
+import '../../data/models/job_attachment.dart';
 import 'job_form_screen.dart';
 import 'cost_calculator_screen.dart';
 import '../../state/masters_store.dart';
@@ -25,6 +28,21 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
   DateTime? _timerStart;
   Timer? _timer;
   int _elapsedSeconds = 0;
+  List<JobAttachment> _attachments = const [];
+  bool _busyAttachment = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadAttachments();
+  }
+
+  Future<void> _loadAttachments() async {
+    if (!mounted) return;
+    final store = context.read<MastersStore>();
+    final list = await store.attachmentsForJob(widget.jobId);
+    if (mounted) setState(() => _attachments = list);
+  }
 
   @override
   void dispose() {
@@ -86,6 +104,26 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
     _timerStart = null;
     _elapsedSeconds = 0;
     setState(() {});
+  }
+
+  Future<void> _addAttachment() async {
+    final files = await FilePicker.pickFiles();
+    if (files == null || files.isEmpty || files.single.path == null) return;
+    final store = context.read<MastersStore>();
+    setState(() => _busyAttachment = true);
+    try {
+      await store.addJobAttachment(jobId: widget.jobId, sourcePath: files.single.path!);
+      await _loadAttachments();
+    } finally {
+      if (mounted) setState(() => _busyAttachment = false);
+    }
+  }
+
+  Future<void> _removeAttachment(JobAttachment a) async {
+    final ok = await showAppConfirm(context, title: 'Удалить вложение?', message: a.fileName, destructive: true, confirmLabel: 'Удалить');
+    if (!ok) return;
+    await context.read<MastersStore>().deleteJobAttachment(a.id);
+    await _loadAttachments();
   }
 
   Future<void> _addStage(MastersStore store) async {
@@ -530,7 +568,30 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
               ),
               const SizedBox(height: 16),
             ],
-            SectionLabel('Действия'),
+            SectionLabel('Вложения (${_attachments.length})'),
+            AppCard(
+              child: Column(
+                children: [
+                  if (_attachments.isEmpty)
+                    EmptyState(title: 'Нет вложений', message: 'Добавьте фото, смету или документ.'),
+                  ..._attachments.map((a) => Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 4),
+                        child: Row(
+                          children: [
+                            Icon(CupertinoIcons.doc, color: context.colors.secondaryLabel),
+                            const SizedBox(width: 8),
+                            Expanded(child: Text(a.fileName, style: const TextStyle(fontWeight: FontWeight.w500))),
+                            CupertinoButton(padding: EdgeInsets.zero, onPressed: () => OpenFilex.open(a.filePath), child: const Icon(CupertinoIcons.eye, size: 18)),
+                            CupertinoButton(padding: EdgeInsets.zero, onPressed: () => _removeAttachment(a), child: Icon(CupertinoIcons.xmark, size: 16, color: context.colors.tertiaryLabel)),
+                          ],
+                        ),
+                      )),
+                  SecondaryButton(label: _busyAttachment ? 'Добавление...' : 'Добавить файл', icon: CupertinoIcons.plus, onPressed: _busyAttachment ? () {} : _addAttachment),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+                        SectionLabel('Действия'),
             AppCard(
               child: Column(
                 children: [

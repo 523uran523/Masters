@@ -1,3 +1,6 @@
+import 'dart:io';
+import 'package:sqflite/sqflite.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:flutter/foundation.dart';
 
 import '../core/backup_service.dart';
@@ -12,6 +15,7 @@ import '../data/models/employee.dart';
 import '../data/models/time_entry.dart';
 import '../data/models/client_reminder.dart';
 import '../data/models/inventory_item.dart';
+import '../data/models/job_attachment.dart';
 import '../data/models/supplier.dart';
 import '../data/models/stock_movement.dart';
 import '../data/models/job.dart';
@@ -2196,6 +2200,49 @@ class MastersStore extends ChangeNotifier {
         'purchaseCount': purchases.length,
       };
     }).toList();
+  }
+
+  Future<List<JobAttachment>> attachmentsForJob(String jobId) async {
+    final rows = await _appDatabase.database.query(
+      'job_attachments',
+      where: 'job_id = ? AND deleted_at IS NULL',
+      whereArgs: [jobId],
+      orderBy: 'created_at DESC',
+    );
+    return rows.map(JobAttachment.fromMap).toList();
+  }
+
+  Future<JobAttachment> addJobAttachment({required String jobId, required String sourcePath}) async {
+    ensurePeriodOpen();
+    final source = File(sourcePath);
+    final dir = await getApplicationDocumentsDirectory();
+    final attachDir = Directory('${dir.path}/job_attachments');
+    await attachDir.create(recursive: true);
+    final base = source.uri.pathSegments.isEmpty ? 'file' : source.uri.pathSegments.last;
+    final name = base.isEmpty ? 'attachment' : base;
+    final unique = '${newId()}_$name';
+    final dest = File('${attachDir.path}/$unique');
+    await source.copy(dest.path);
+    final now = DateTime.now();
+    final attachment = JobAttachment(
+      id: newId(),
+      jobId: jobId,
+      fileName: name,
+      filePath: dest.path,
+      createdAt: now,
+    );
+    await _appDatabase.database.insert('job_attachments', attachment.toMap(), conflictAlgorithm: ConflictAlgorithm.replace);
+    await auditAction(action: 'job_attachment.create', entity: 'job_attachment', entityId: attachment.id, after: attachment.toMap());
+    notifyListeners();
+    return attachment;
+  }
+
+  Future<void> deleteJobAttachment(String id) async {
+    ensurePeriodOpen();
+    final now = DateTime.now().millisecondsSinceEpoch;
+    await _appDatabase.database.update('job_attachments', {'deleted_at': now, 'updated_at': now}, where: 'id = ?', whereArgs: [id]);
+    await auditAction(action: 'job_attachment.delete', entity: 'job_attachment', entityId: id);
+    notifyListeners();
   }
 
   Future<void> clearAll() async {
