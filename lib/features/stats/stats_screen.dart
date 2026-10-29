@@ -1,6 +1,5 @@
 import 'package:flutter/cupertino.dart';
 import 'package:provider/provider.dart';
-import 'package:intl/intl.dart';
 
 import '../../app/theme/app_theme.dart';
 import '../../app/ui.dart';
@@ -300,7 +299,7 @@ SectionLabel('По сотрудникам'),
                           child: Container(
                             height: 6,
                             decoration: BoxDecoration(
-                              color: colors.secondaryLabel.withOpacity(0.14),
+                              color: colors.secondaryLabel.withValues(alpha: 0.14),
                               borderRadius: BorderRadius.circular(3),
                             ),
                             child: Align(
@@ -447,7 +446,7 @@ List<_PeriodTrend> _buildPeriodTrend(DateTime start, DateTime now, List<MoneyTra
 
   const monthNames = ['янв', 'фев', 'мар', 'апр', 'май', 'июн', 'июл', 'авг', 'сен', 'окт', 'ноя', 'дек'];
   final months = <int>[];
-  for (int m = start.month; m <= now.month; m++) months.add(m);
+  for (int m = start.month; m <= now.month; m++) { months.add(m); }
   return months.map((month) {
     final bucketStart = DateTime(start.year, month, 1);
     final bucketEnd = DateTime(start.year, month + 1, 0, 23, 59, 59, 999);

@@ -185,8 +185,11 @@ class MastersStore extends ChangeNotifier {
       DateTime cursor = payment.nextDueAt;
       while (!cursor.isAfter(end)) {
         if (!cursor.isBefore(now)) {
-          if (payment.direction == 'in') scheduledNet += payment.amountCents;
-          else scheduledNet -= payment.amountCents;
+          if (payment.direction == 'in') {
+            scheduledNet += payment.amountCents;
+          } else {
+            scheduledNet -= payment.amountCents;
+          }
         }
         cursor = cursor.add(Duration(days: step));
         if (cursor.isAtSameMomentAs(payment.nextDueAt)) break;
@@ -1801,8 +1804,11 @@ class MastersStore extends ChangeNotifier {
     final updated = payment.copyWith(updatedAt: DateTime.now());
     await _recurringRepo.save(updated);
     final idx = _recurringPayments.indexWhere((r) => r.id == updated.id);
-    if (idx == -1) _recurringPayments = [updated, ..._recurringPayments];
-    else _recurringPayments[idx] = updated;
+    if (idx == -1) {
+      _recurringPayments = [updated, ..._recurringPayments];
+    } else {
+      _recurringPayments[idx] = updated;
+    }
     await auditAction(action: 'recurring_payment.update', entity: 'recurring_payment', entityId: updated.id, after: updated.toMap());
     notifyListeners();
   }

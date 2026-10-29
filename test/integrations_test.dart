@@ -2,7 +2,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
-import 'package:masters/core/utils/app_utils.dart';
 import 'package:masters/data/app_database.dart';
 import 'package:masters/state/masters_store.dart';
 import 'package:masters/state/settings_controller.dart';

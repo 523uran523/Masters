@@ -2,7 +2,6 @@ import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:timezone/data/latest.dart' as tzdata;
 
-import '../core/app_biometric.dart';
 import '../core/app_pin_service.dart';
 import '../core/yandex_oauth.dart';
 

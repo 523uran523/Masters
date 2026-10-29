@@ -10,7 +10,6 @@ class BrowserTabCoordinator extends ChangeNotifier {
 
   static final BrowserTabCoordinator instance = BrowserTabCoordinator._();
 
-  BrowserTabCoordinator? get _self => this;
   web.BroadcastChannel? _channel;
   final String _tabId =
       '${DateTime.now().microsecondsSinceEpoch}-'
@@ -51,7 +50,7 @@ class BrowserTabCoordinator extends ChangeNotifier {
     try {
       final data = event.data;
       if (data is! JSObject) return;
-      final dataMap = data as JSObject;
+      final dataMap = data;
       final otherId = dataMap.getProperty('tabId'.toJS)?.toString();
       final type = dataMap.getProperty('type'.toJS)?.toString();
       if (otherId == null || otherId == _tabId) return;

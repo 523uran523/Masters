@@ -300,7 +300,7 @@ class _MoneyScreenState extends State<MoneyScreen> {
                           height: 8,
                           width: double.infinity,
                           decoration: BoxDecoration(
-                            color: colors.tertiaryLabel.withOpacity(0.18),
+                            color: colors.tertiaryLabel.withValues(alpha: 0.18),
                             borderRadius: BorderRadius.circular(4),
                           ),
                         ),
@@ -317,7 +317,7 @@ class _MoneyScreenState extends State<MoneyScreen> {
                             height: 8,
                             width: (constraints.maxWidth * factor.clamp(0.0, 1.0)) * paidFactor.clamp(0.0, 1.0),
                             decoration: BoxDecoration(
-                              color: colors.accent.withOpacity(0.45),
+                              color: colors.accent.withValues(alpha: 0.45),
                               borderRadius: BorderRadius.circular(4),
                             ),
                           ),
