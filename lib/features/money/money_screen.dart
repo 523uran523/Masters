@@ -226,35 +226,51 @@ class _MoneyScreenState extends State<MoneyScreen> {
   Future<void> _addRecurringPayment() async {
     final store = context.read<MastersStore>();
     if (store.accounts.isEmpty) {
-      await showAppAlert(context, title: 'Нет счёта', message: 'Сначала создайте счёт в разделе Money.');
+      await showAppAlert(context, title: 'Нет счёта', message: 'Сначала создайте счёт в разделе Деньги.');
       return;
     }
-    final name = await _prompt('Название платежа', 'Аренда');
-    if (name == null || name.trim().isEmpty) return;
-    final amountStr = await _prompt('Сумма', '0');
-    if (amountStr == null) return;
-    final amount = ((double.tryParse((amountStr).replaceAll(',', '.')) ?? 0) * 100).round();
-    if (amount <= 0) return;
-    final intervalStr = await _prompt('Интервал, дней', '30');
-    final interval = int.tryParse(intervalStr ?? '30') ?? 30;
-    final accountId = await _pickAccount();
-    if (accountId == null) return;
-    final category = await _prompt('Категория', 'Регулярно') ?? 'Регулярно';
-    final dtNow = DateTime.now();
-    setState(() => _busy = true);
-    try {
-      await store.createRecurringPayment(
-        name: name,
-        direction: 'out',
-        amountCents: amount,
-        category: category,
-        accountId: accountId,
-        intervalDays: interval < 1 ? 1 : interval,
-        nextDueAt: dtNow.add(Duration(days: interval < 1 ? 1 : interval)),
-      );
-    } finally {
-      if (mounted) setState(() => _busy = false);
+    final interval = await showCupertinoModalPopup<int>(
+      context: context,
+      builder: (dialogContext) => CupertinoActionSheet(
+        title: const Text('Как часто платёж'),
+        actions: [
+          CupertinoActionSheetAction(onPressed: () => Navigator.of(dialogContext).pop(7), child: const Text('Каждую неделю')),
+          CupertinoActionSheetAction(onPressed: () => Navigator.of(dialogContext).pop(14), child: const Text('Раз в 2 недели')),
+          CupertinoActionSheetAction(onPressed: () => Navigator.of(dialogContext).pop(30), child: const Text('Ежемесячно')),
+          CupertinoActionSheetAction(onPressed: () => Navigator.of(dialogContext).pop(90), child: const Text('Раз в квартал')),
+          CupertinoActionSheetAction(onPressed: () => Navigator.of(dialogContext).pop(-1), child: const Text('Свой интервал')),
+        ],
+        cancelButton: CupertinoActionSheetAction(onPressed: () => Navigator.of(dialogContext).pop(), child: const Text('Отмена')),
+      ),
+    );
+    if (interval == null || !mounted) return;
+    int step = interval == -1 ? 30 : interval;
+    if (interval == -1) {
+      final custom = await _prompt('Интервал, дней', '30');
+      final parsed = int.tryParse((custom ?? '').trim());
+      if (parsed == null || parsed <= 0 || !mounted) return;
+      step = parsed;
     }
+    final name = await _prompt('Название платежа', 'Аренда');
+    if (name == null || name.trim().isEmpty || !mounted) return;
+    final amountStr = await _prompt('Сумма', '0');
+    if (amountStr == null || !mounted) return;
+    final amount = ((double.tryParse(amountStr.replaceAll(',', '.')) ?? 0) * 100).round();
+    if (amount <= 0) return;
+    final category = await _prompt('Категория', 'Регулярно') ?? 'Регулярно';
+    final accountId = await _pickAccount();
+    if (accountId == null || !mounted) return;
+    final now = DateTime.now();
+    await store.createRecurringPayment(
+      name: name.trim(),
+      direction: 'out',
+      amountCents: amount,
+      category: category.trim(),
+      accountId: accountId,
+      intervalDays: step,
+      nextDueAt: now.add(Duration(days: step)),
+      note: null,
+    );
   }
 
   Future<void> _runDueRecurring() async {
