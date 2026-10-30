@@ -170,6 +170,9 @@ class _BookingScreenState extends State<BookingScreen> {
         resourceId: resourceId,
         note: note,
       );
+    } on StateError catch (e) {
+      if (mounted) await showAppAlert(context, title: 'Конфликт', message: e.message);
+      return;
     } finally {
       if (mounted) setState(() => _busy = false);
     }
