@@ -1,5 +1,7 @@
+import 'dart:io';
 import 'package:flutter/cupertino.dart';
 import 'package:provider/provider.dart';
+import 'package:excel/excel.dart';
 
 import '../../app/theme/app_theme.dart';
 import '../../app/ui.dart';
@@ -7,6 +9,8 @@ import '../../core/utils/app_utils.dart';
 import '../../data/models/job.dart';
 import '../../data/models/money_transaction.dart';
 import '../../state/masters_store.dart';
+import 'package:share_plus/share_plus.dart';
+import 'package:path_provider/path_provider.dart';
 
 class StatsScreen extends StatefulWidget {
   const StatsScreen({super.key});
@@ -42,6 +46,25 @@ class _StatsScreenState extends State<StatsScreen> {
     // quarter
     final qMonth = ((now.month - 1) ~/ 3) * 3 + 1;
     return DateTime(now.year, qMonth, 1);
+  }
+
+  Future<void> _exportXlsx(int revenue, int expense, int profit, int jobRevenue, int jobCost, int jobMargin, int completedCount) async {
+    final excel = Excel.createExcel();
+    final sheet = excel['P&L'];
+    sheet.appendRow([TextCellValue('Показатель'), TextCellValue('Значение')]);
+    sheet.appendRow([TextCellValue('Выручка'), DoubleCellValue(revenue / 100.0)]);
+    sheet.appendRow([TextCellValue('Расходы'), DoubleCellValue(expense / 100.0)]);
+    sheet.appendRow([TextCellValue('Прибыль'), DoubleCellValue(profit / 100.0)]);
+    sheet.appendRow([TextCellValue('Выручка заказов'), DoubleCellValue(jobRevenue / 100.0)]);
+    sheet.appendRow([TextCellValue('Расход заказов'), DoubleCellValue(jobCost / 100.0)]);
+    sheet.appendRow([TextCellValue('Маржа заказов'), DoubleCellValue(jobMargin / 100.0)]);
+    sheet.appendRow([TextCellValue('Завершённых заказов'), IntCellValue(completedCount)]);
+    final bytes = excel.save();
+    if (bytes == null) return;
+    final dir = await getTemporaryDirectory();
+    final file = File('${dir.path}/masters-pnl.xlsx');
+    await file.writeAsBytes(bytes, flush: true);
+    await Share.shareXFiles([XFile(file.path)], text: 'P&L отчёт Masters');
   }
 
   Duration _duration(DateTime start, DateTime end) => end.difference(start);
@@ -171,6 +194,8 @@ class _StatsScreenState extends State<StatsScreen> {
                   _KV('Изменение', '${profit - profitPrev >= 0 ? '+' : ''}${_money(profit - profitPrev)} (${_pct(profit, profitPrev)})'),
                   _KV('Выручка заказов (цена)', _money(jobRevenue)),
                   _KV('Себестоимость заказов', _money(jobCost)),
+                   const SizedBox(height: 8),
+                   SecondaryButton(label: 'Экспорт P&L в Excel', icon: CupertinoIcons.doc_on_doc, onPressed: () => _exportXlsx(revenue, expense, profit, jobRevenue, jobCost, jobMargin, completedJobs.length)),
                 ],
               ),
             ),
