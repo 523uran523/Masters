@@ -1331,8 +1331,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                 : 'Счёт-карман: ${store.accountById(taxPocketId)?.name ?? 'неизвестный счёт'}',
                             icon: CupertinoIcons.money_dollar_circle,
                             onPressed: () async {
-                              final settingsCtrl = context
-                                  .read<SettingsController>();
                               final choice =
                                   await showCupertinoModalPopup<String?>(
                                     context: context,
@@ -1366,9 +1364,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                         ),
                                   );
                               if (choice == '__none__') {
-                                await settingsCtrl.setTaxAccount(null);
+                                await context
+                                    .read<SettingsController>()
+                                    .setTaxAccount(null);
                               } else if (choice != null) {
-                                await settingsCtrl.setTaxAccount(choice);
+                                await context
+                                    .read<SettingsController>()
+                                    .setTaxAccount(choice);
                               }
                               if (mounted) setState(() {});
                             },
