@@ -975,8 +975,14 @@ class _JobRow extends StatelessWidget {
                     if (job.dueDate != null)
                       Pill(
                         job.dueDate!.year == DateTime.now().year
-                            ? DateFormat('d MMM HH:mm', 'ru').format(job.dueDate!)
-                            : DateFormat('d MMM yyyy HH:mm', 'ru').format(job.dueDate!),
+                            ? DateFormat(
+                                'd MMM HH:mm',
+                                'ru',
+                              ).format(job.dueDate!)
+                            : DateFormat(
+                                'd MMM yyyy HH:mm',
+                                'ru',
+                              ).format(job.dueDate!),
                         color: _dueColor(context, job),
                       ),
                     if (totalMin > 0)
@@ -1059,12 +1065,12 @@ class _JobCard extends StatelessWidget {
             children: [
               if (job.dueDate != null)
                 Pill(
-                  DateFormat(
-                    job.dueDate!.year == DateTime.now().year
-                        ? 'd MMM HH:mm'
-                        : 'd MMM yyyy HH:mm',
-                    'ru',
-                  ).format(job.dueDate!),
+                  job.dueDate!.year == DateTime.now().year
+                      ? DateFormat('d MMM HH:mm', 'ru').format(job.dueDate!)
+                      : DateFormat(
+                          'd MMM yyyy HH:mm',
+                          'ru',
+                        ).format(job.dueDate!),
                   color: _dueColor(context, job),
                 ),
               if (totalMin > 0)
@@ -1106,7 +1112,9 @@ class _JobCard extends StatelessWidget {
 
 Color _dueColor(BuildContext context, Job job) {
   final colors = context.colors;
-  if (job.status == JobStatus.done || job.status == JobStatus.closed) {
+  if (job.dueDate == null ||
+      job.status == JobStatus.done ||
+      job.status == JobStatus.closed) {
     return colors.tertiaryLabel;
   }
   final due = job.dueDate;
