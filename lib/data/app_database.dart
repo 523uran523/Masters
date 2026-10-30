@@ -38,7 +38,7 @@ class AppDatabase {
 
     final database = await openDatabase(
       resolved,
-      version: 12,
+      version: 13,
       onConfigure: (db) async {
         if (!kIsWeb) await db.execute('PRAGMA foreign_keys = ON');
       },
@@ -529,7 +529,8 @@ class AppDatabase {
         shift_id TEXT REFERENCES cash_shifts(id) ON DELETE SET NULL,
         related_transaction_id TEXT,
         created_at INTEGER NOT NULL,
-        voided INTEGER NOT NULL DEFAULT 0
+        voided INTEGER NOT NULL DEFAULT 0,
+        receipt_path TEXT
       )
     ''');
     await db.execute(
@@ -568,6 +569,33 @@ class AppDatabase {
     await db.execute(
       'CREATE INDEX IF NOT EXISTS idx_job_attachments_job ON job_attachments(job_id)',
     );
+  }
+
+  static Future<void> _createMoneyAuditTriggers(Database db) async {
+    await db.execute('DROP TRIGGER IF EXISTS audit_money_transactions_insert');
+    await db.execute('DROP TRIGGER IF EXISTS audit_money_transactions_update');
+    await db.execute('DROP TRIGGER IF EXISTS audit_money_transactions_delete');
+    await db.execute('''
+      CREATE TRIGGER IF NOT EXISTS audit_money_transactions_insert AFTER INSERT ON money_transactions
+      BEGIN
+        INSERT INTO audit_log (id, actor, action, entity, entity_id, after_json, at, device_id)
+        VALUES (lower(hex(randomblob(16))), 'local-trigger', 'money_transactions.insert', 'money_transactions', NEW.id, json_object('id', NEW.id, 'account_id', NEW.account_id, 'kind', NEW.kind, 'direction', NEW.direction, 'amount_cents', NEW.amount_cents, 'category', NEW.category, 'note', NEW.note, 'client_id', NEW.client_id, 'job_id', NEW.job_id, 'shift_id', NEW.shift_id, 'related_transaction_id', NEW.related_transaction_id, 'created_at', NEW.created_at, 'voided', NEW.voided, 'receipt_path', NEW.receipt_path, 'updated_at', NEW.updated_at, 'deleted_at', NEW.deleted_at, 'device_id', NEW.device_id), (strftime('%s','now') * 1000), NEW.device_id);
+      END
+    ''');
+    await db.execute('''
+      CREATE TRIGGER IF NOT EXISTS audit_money_transactions_update AFTER UPDATE ON money_transactions
+      BEGIN
+        INSERT INTO audit_log (id, actor, action, entity, entity_id, before_json, after_json, at, device_id)
+        VALUES (lower(hex(randomblob(16))), 'local-trigger', 'money_transactions.update', 'money_transactions', NEW.id, json_object('id', OLD.id, 'account_id', OLD.account_id, 'kind', OLD.kind, 'direction', OLD.direction, 'amount_cents', OLD.amount_cents, 'category', OLD.category, 'note', OLD.note, 'client_id', OLD.client_id, 'job_id', OLD.job_id, 'shift_id', OLD.shift_id, 'related_transaction_id', OLD.related_transaction_id, 'created_at', OLD.created_at, 'voided', OLD.voided, 'receipt_path', OLD.receipt_path, 'updated_at', OLD.updated_at, 'deleted_at', OLD.deleted_at, 'device_id', OLD.device_id), json_object('id', NEW.id, 'account_id', NEW.account_id, 'kind', NEW.kind, 'direction', NEW.direction, 'amount_cents', NEW.amount_cents, 'category', NEW.category, 'note', NEW.note, 'client_id', NEW.client_id, 'job_id', NEW.job_id, 'shift_id', NEW.shift_id, 'related_transaction_id', NEW.related_transaction_id, 'created_at', NEW.created_at, 'voided', NEW.voided, 'receipt_path', NEW.receipt_path, 'updated_at', NEW.updated_at, 'deleted_at', NEW.deleted_at, 'device_id', NEW.device_id), (strftime('%s','now') * 1000), NEW.device_id);
+      END
+    ''');
+    await db.execute('''
+      CREATE TRIGGER IF NOT EXISTS audit_money_transactions_delete AFTER DELETE ON money_transactions
+      BEGIN
+        INSERT INTO audit_log (id, actor, action, entity, entity_id, before_json, at, device_id)
+        VALUES (lower(hex(randomblob(16))), 'local-trigger', 'money_transactions.delete', 'money_transactions', OLD.id, json_object('id', OLD.id, 'account_id', OLD.account_id, 'kind', OLD.kind, 'direction', OLD.direction, 'amount_cents', OLD.amount_cents, 'category', OLD.category, 'note', OLD.note, 'client_id', OLD.client_id, 'job_id', OLD.job_id, 'shift_id', OLD.shift_id, 'related_transaction_id', OLD.related_transaction_id, 'created_at', OLD.created_at, 'voided', OLD.voided, 'receipt_path', OLD.receipt_path, 'updated_at', OLD.updated_at, 'deleted_at', OLD.deleted_at, 'device_id', OLD.device_id), (strftime('%s','now') * 1000), OLD.device_id);
+      END
+    ''');
   }
 
   static Future<void> _upgradeSchema(
@@ -616,6 +644,16 @@ class AppDatabase {
     }
     if (oldVersion < 12) {
       await _createAttachmentSchema(db);
+    }
+    if (oldVersion < 13) {
+      try {
+        await db.execute(
+          'ALTER TABLE money_transactions ADD COLUMN receipt_path TEXT',
+        );
+      } catch (_) {
+        // Column may already exist.
+      }
+      await _createMoneyAuditTriggers(db);
     }
   }
 
@@ -1038,27 +1076,7 @@ class AppDatabase {
         VALUES (lower(hex(randomblob(16))), 'local-trigger', 'cash_shifts.delete', 'cash_shifts', OLD.id, json_object('id', OLD.id, 'account_id', OLD.account_id, 'opened_at', OLD.opened_at, 'closed_at', OLD.closed_at, 'opening_cents', OLD.opening_cents, 'closing_cents', OLD.closing_cents, 'expected_cents', OLD.expected_cents, 'discrepancy_cents', OLD.discrepancy_cents, 'note', OLD.note, 'status', OLD.status, 'updated_at', OLD.updated_at, 'deleted_at', OLD.deleted_at, 'device_id', OLD.device_id), (strftime('%s','now') * 1000), OLD.device_id);
       END
     ''');
-    await db.execute('''
-      CREATE TRIGGER IF NOT EXISTS audit_money_transactions_insert AFTER INSERT ON money_transactions
-      BEGIN
-        INSERT INTO audit_log (id, actor, action, entity, entity_id, after_json, at, device_id)
-        VALUES (lower(hex(randomblob(16))), 'local-trigger', 'money_transactions.insert', 'money_transactions', NEW.id, json_object('id', NEW.id, 'account_id', NEW.account_id, 'kind', NEW.kind, 'direction', NEW.direction, 'amount_cents', NEW.amount_cents, 'category', NEW.category, 'note', NEW.note, 'client_id', NEW.client_id, 'job_id', NEW.job_id, 'shift_id', NEW.shift_id, 'related_transaction_id', NEW.related_transaction_id, 'created_at', NEW.created_at, 'voided', NEW.voided, 'updated_at', NEW.updated_at, 'deleted_at', NEW.deleted_at, 'device_id', NEW.device_id), (strftime('%s','now') * 1000), NEW.device_id);
-      END
-    ''');
-    await db.execute('''
-      CREATE TRIGGER IF NOT EXISTS audit_money_transactions_update AFTER UPDATE ON money_transactions
-      BEGIN
-        INSERT INTO audit_log (id, actor, action, entity, entity_id, before_json, after_json, at, device_id)
-        VALUES (lower(hex(randomblob(16))), 'local-trigger', 'money_transactions.update', 'money_transactions', NEW.id, json_object('id', OLD.id, 'account_id', OLD.account_id, 'kind', OLD.kind, 'direction', OLD.direction, 'amount_cents', OLD.amount_cents, 'category', OLD.category, 'note', OLD.note, 'client_id', OLD.client_id, 'job_id', OLD.job_id, 'shift_id', OLD.shift_id, 'related_transaction_id', OLD.related_transaction_id, 'created_at', OLD.created_at, 'voided', OLD.voided, 'updated_at', OLD.updated_at, 'deleted_at', OLD.deleted_at, 'device_id', OLD.device_id), json_object('id', NEW.id, 'account_id', NEW.account_id, 'kind', NEW.kind, 'direction', NEW.direction, 'amount_cents', NEW.amount_cents, 'category', NEW.category, 'note', NEW.note, 'client_id', NEW.client_id, 'job_id', NEW.job_id, 'shift_id', NEW.shift_id, 'related_transaction_id', NEW.related_transaction_id, 'created_at', NEW.created_at, 'voided', NEW.voided, 'updated_at', NEW.updated_at, 'deleted_at', NEW.deleted_at, 'device_id', NEW.device_id), (strftime('%s','now') * 1000), NEW.device_id);
-      END
-    ''');
-    await db.execute('''
-      CREATE TRIGGER IF NOT EXISTS audit_money_transactions_delete AFTER DELETE ON money_transactions
-      BEGIN
-        INSERT INTO audit_log (id, actor, action, entity, entity_id, before_json, at, device_id)
-        VALUES (lower(hex(randomblob(16))), 'local-trigger', 'money_transactions.delete', 'money_transactions', OLD.id, json_object('id', OLD.id, 'account_id', OLD.account_id, 'kind', OLD.kind, 'direction', OLD.direction, 'amount_cents', OLD.amount_cents, 'category', OLD.category, 'note', OLD.note, 'client_id', OLD.client_id, 'job_id', OLD.job_id, 'shift_id', OLD.shift_id, 'related_transaction_id', OLD.related_transaction_id, 'created_at', OLD.created_at, 'voided', OLD.voided, 'updated_at', OLD.updated_at, 'deleted_at', OLD.deleted_at, 'device_id', OLD.device_id), (strftime('%s','now') * 1000), OLD.device_id);
-      END
-    ''');
+    await _createMoneyAuditTriggers(db);
     await db.execute('''
       CREATE TRIGGER IF NOT EXISTS audit_inventory_items_insert AFTER INSERT ON inventory_items
       BEGIN

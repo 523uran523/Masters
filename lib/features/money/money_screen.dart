@@ -1,5 +1,9 @@
+import 'dart:io';
+
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:intl/intl.dart';
+import 'package:open_filex/open_filex.dart';
 import 'package:provider/provider.dart';
 
 import '../../app/theme/app_theme.dart';
@@ -613,58 +617,156 @@ class _MoneyScreenState extends State<MoneyScreen> {
 
   Future<void> _showTransactionDetail(MoneyTransaction t) async {
     final store = context.read<MastersStore>();
+    MoneyTransaction current = t;
     final acc = store.accountById(t.accountId);
     await showCupertinoModalPopup<void>(
       context: context,
-      builder: (modalContext) => Container(
-        height: MediaQuery.of(context).size.height * 0.55,
-        color: context.colors.card,
-        padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
-        child: SafeArea(
-          top: false,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Text(
-                t.category.isEmpty ? t.kind : t.category,
-                style: const TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w700,
-                ),
+      builder: (modalContext) => StatefulBuilder(
+        builder: (sbContext, setModalState) {
+          final currentAcc = store.accountById(current.accountId) ?? acc;
+          bool isImage(String path) {
+            final lower = path.toLowerCase();
+            return lower.endsWith('.jpg') ||
+                lower.endsWith('.jpeg') ||
+                lower.endsWith('.png') ||
+                lower.endsWith('.gif') ||
+                lower.endsWith('.webp') ||
+                lower.endsWith('.heic');
+          }
+
+          return Container(
+            height: MediaQuery.of(context).size.height * 0.72,
+            color: context.colors.card,
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+            child: SafeArea(
+              top: false,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Text(
+                    current.category.isEmpty ? current.kind : current.category,
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  _KV('Счёт', currentAcc?.name ?? '—'),
+                  _KV(
+                    'Сумма',
+                    '${current.direction == 'in' ? '+' : '-'}${_money(current.amountCents)}',
+                  ),
+                  _KV('Тип', current.kind),
+                  _KV(
+                    'Дата',
+                    DateFormat('d MMM yyyy, HH:mm', 'ru').format(current.createdAt),
+                  ),
+                  if (current.note != null && current.note!.isNotEmpty)
+                    _KV('Комментарий', current.note!),
+                  const SizedBox(height: 12),
+                  if (current.receiptPath != null &&
+                      current.receiptPath!.isNotEmpty) ...[
+                    if (isImage(current.receiptPath!))
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(8),
+                        child: Image.file(
+                          File(current.receiptPath!),
+                          height: 140,
+                          width: double.infinity,
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+                        ),
+                      ),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: SecondaryButton(
+                            label: 'Открыть чек',
+                            icon: CupertinoIcons.doc,
+                            onPressed: () async {
+                              await OpenFilex.open(current.receiptPath!);
+                            },
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: SecondaryButton(
+                            label: 'Удалить чек',
+                            icon: CupertinoIcons.trash,
+                            onPressed: () async {
+                              final ok = await showAppConfirm(
+                                context,
+                                title: 'Удалить чек?',
+                                message: 'Файл останется на устройстве.',
+                                destructive: true,
+                                confirmLabel: 'Удалить',
+                              );
+                              if (!ok || !mounted) return;
+                              await store.removeReceipt(current.id);
+                              final updated = store.moneyTransactions.firstWhere(
+                                (x) => x.id == current.id,
+                                orElse: () => current,
+                              );
+                              setModalState(() => current = updated);
+                            },
+                          ),
+                        ),
+                      ],
+                    ),
+                  ] else
+                    SecondaryButton(
+                      label: 'Прикрепить чек',
+                      icon: CupertinoIcons.paperclip,
+                      onPressed: () async {
+                        final files = await FilePicker.pickFiles(
+                          type: FileType.custom,
+                          allowedExtensions: const [
+                            'jpg',
+                            'jpeg',
+                            'png',
+                            'gif',
+                            'webp',
+                            'heic',
+                            'pdf',
+                          ],
+                        );
+                        if (files.isEmpty) return;
+                        final selectedPath = files.single.path;
+                        if (selectedPath == null) return;
+                        await store.attachReceipt(
+                          current.id,
+                          selectedPath,
+                        );
+                        final updated = store.moneyTransactions.firstWhere(
+                          (x) => x.id == current.id,
+                          orElse: () => current,
+                        );
+                        setModalState(() => current = updated);
+                      },
+                    ),
+                  const SizedBox(height: 16),
+                  SecondaryButton(
+                    label: 'Отменить операцию',
+                    icon: CupertinoIcons.xmark,
+                    onPressed: () async {
+                      final ok = await showAppConfirm(
+                        context,
+                        title: 'Отменить операцию?',
+                        message: 'Сумма вернётся в историю как отменённая.',
+                        destructive: true,
+                        confirmLabel: 'Отменить',
+                      );
+                      if (!ok || !mounted) return;
+                      store.voidTransaction(current.id);
+                      if (modalContext.mounted) Navigator.of(modalContext).pop();
+                    },
+                  ),
+                ],
               ),
-              const SizedBox(height: 12),
-              _KV('Счёт', acc?.name ?? '—'),
-              _KV(
-                'Сумма',
-                '${t.direction == 'in' ? '+' : '-'}${_money(t.amountCents)}',
-              ),
-              _KV('Тип', t.kind),
-              _KV(
-                'Дата',
-                DateFormat('d MMM yyyy, HH:mm', 'ru').format(t.createdAt),
-              ),
-              if (t.note != null && t.note!.isNotEmpty)
-                _KV('Комментарий', t.note!),
-              const SizedBox(height: 16),
-              SecondaryButton(
-                label: 'Отменить операцию',
-                icon: CupertinoIcons.xmark,
-                onPressed: () async {
-                  final ok = await showAppConfirm(
-                    context,
-                    title: 'Отменить операцию?',
-                    message: 'Сумма вернётся в историю как отменённая.',
-                    destructive: true,
-                    confirmLabel: 'Отменить',
-                  );
-                  if (!ok || !mounted) return;
-                  store.voidTransaction(t.id);
-                  if (modalContext.mounted) Navigator.of(modalContext).pop();
-                },
-              ),
-            ],
-          ),
-        ),
+            ),
+          );
+        },
       ),
     );
   }

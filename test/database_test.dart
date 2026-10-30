@@ -30,7 +30,7 @@ void main() {
       expect(store.employees.length, 1);
       expect(store.selfEmployee?.name, 'Я');
       final ver = (await appDb.database.rawQuery('PRAGMA user_version'))[0]['user_version'];
-      expect(ver, 12);
+      expect(ver, 13);
     } finally {
       await appDb.close();
     }
@@ -45,7 +45,7 @@ void main() {
         expect(tables.contains(t), isTrue, reason: 'missing table $t');
       }
       final version = (await db.rawQuery('PRAGMA user_version'))[0]['user_version'];
-      expect(version, 12);
+      expect(version, 13);
     } finally {
       await appDb.close();
     }
@@ -85,7 +85,7 @@ void main() {
       final tables = (await db12.database.rawQuery("SELECT name FROM sqlite_master WHERE type='table'")).map((r) => r['name'] as String).toSet();
       expect(tables.contains('job_attachments'), isTrue);
       final ver = (await db12.database.rawQuery('PRAGMA user_version'))[0]['user_version'];
-      expect(ver, 12);
+      expect(ver, 13);
     } finally {
       await db12.close();
       try { await File(dbPath).delete(); } catch (_) {}

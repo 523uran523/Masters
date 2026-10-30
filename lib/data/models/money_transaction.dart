@@ -1,3 +1,5 @@
+// receiptPath stores a device-local file path; only the string is exchanged in
+// backups, the file itself is not synced across devices.
 class MoneyTransaction {
   const MoneyTransaction({
     required this.id,
@@ -13,6 +15,7 @@ class MoneyTransaction {
     this.relatedTransactionId,
     required this.createdAt,
     this.voided = false,
+    this.receiptPath,
   });
 
   final String id;
@@ -28,6 +31,7 @@ class MoneyTransaction {
   final String? relatedTransactionId;
   final DateTime createdAt;
   final bool voided;
+  final String? receiptPath;
 
   int get signedAmount => direction == 'in' ? amountCents : -amountCents;
 
@@ -45,6 +49,7 @@ class MoneyTransaction {
         'related_transaction_id': relatedTransactionId,
         'created_at': createdAt.millisecondsSinceEpoch,
         'voided': voided ? 1 : 0,
+    'receipt_path': receiptPath,
       };
 
   factory MoneyTransaction.fromMap(Map<String, Object?> m) => MoneyTransaction(
@@ -61,5 +66,6 @@ class MoneyTransaction {
         relatedTransactionId: m['related_transaction_id'] as String?,
         createdAt: DateTime.fromMillisecondsSinceEpoch(m['created_at'] as int? ?? 0),
         voided: (m['voided'] as int? ?? 0) == 1,
+        receiptPath: m['receipt_path'] as String?,
       );
 }

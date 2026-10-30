@@ -21,7 +21,7 @@ void main() {
   Map<String, dynamic> backupWithClient(String name, String note) =>
       <String, dynamic>{
         'format': 'masters-backup',
-        'version': 7,
+        'version': 8,
         'clients': <Map<String, Object?>>[
           <String, Object?>{
             'id': 'c1',

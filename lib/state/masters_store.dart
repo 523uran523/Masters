@@ -922,6 +922,7 @@ class MastersStore extends ChangeNotifier {
     String? jobId,
     String? shiftId,
     String? relatedTransactionId,
+    String? receiptPath,
   }) async {
     if (amountCents <= 0) throw ArgumentError('Сумма должна быть больше 0.');
     ensurePeriodOpen();
@@ -937,6 +938,7 @@ class MastersStore extends ChangeNotifier {
       jobId: jobId,
       shiftId: shiftId ?? openShift()?.id,
       relatedTransactionId: relatedTransactionId,
+      receiptPath: receiptPath?.trim().isEmpty == true ? null : receiptPath?.trim(),
       createdAt: DateTime.now(),
     );
     await _moneyTxRepo.save(tx);
@@ -951,6 +953,85 @@ class MastersStore extends ChangeNotifier {
     } catch (_) {}
     notifyListeners();
     return tx;
+  }
+
+  Future<void> attachReceipt(String transactionId, String sourcePath) async {
+    // Path points to a file copied into this device's app documents; only the
+    // path string is stored, so it stays device-local in backups/sync.
+    ensurePeriodOpen();
+    final source = File(sourcePath);
+    final dir = await getApplicationDocumentsDirectory();
+    final attachDir = Directory('${dir.path}/money_receipts');
+    await attachDir.create(recursive: true);
+    final base = source.uri.pathSegments.isEmpty
+        ? 'file'
+        : source.uri.pathSegments.last;
+    final name = base.isEmpty ? 'receipt' : base;
+    final unique = '${newId()}_$name';
+    final dest = File('${attachDir.path}/$unique');
+    await source.copy(dest.path);
+    final now = DateTime.now().millisecondsSinceEpoch;
+    final existing = _moneyTransactions.firstWhere(
+      (t) => t.id == transactionId,
+      orElse: () => MoneyTransaction(
+        id: transactionId,
+        accountId: '',
+        kind: '',
+        direction: '',
+        amountCents: 0,
+        createdAt: DateTime.now(),
+      ),
+    );
+    await _appDatabase.database.update(
+      'money_transactions',
+      {'receipt_path': dest.path, 'updated_at': now},
+      where: 'id = ?',
+      whereArgs: [transactionId],
+    );
+    _moneyTransactions = await _moneyTxRepo.getAll();
+    try {
+      await auditAction(
+        action: 'money.transaction.receipt.attach',
+        entity: 'money_transaction',
+        entityId: transactionId,
+        before: {'receipt_path': existing.receiptPath},
+        after: {'receipt_path': dest.path},
+      );
+    } catch (_) {}
+    notifyListeners();
+  }
+
+  Future<void> removeReceipt(String transactionId) async {
+    ensurePeriodOpen();
+    final existing = _moneyTransactions.firstWhere(
+      (t) => t.id == transactionId,
+      orElse: () => MoneyTransaction(
+        id: transactionId,
+        accountId: '',
+        kind: '',
+        direction: '',
+        amountCents: 0,
+        createdAt: DateTime.now(),
+      ),
+    );
+    final now = DateTime.now().millisecondsSinceEpoch;
+    await _appDatabase.database.update(
+      'money_transactions',
+      {'receipt_path': null, 'updated_at': now},
+      where: 'id = ?',
+      whereArgs: [transactionId],
+    );
+    _moneyTransactions = await _moneyTxRepo.getAll();
+    try {
+      await auditAction(
+        action: 'money.transaction.receipt.remove',
+        entity: 'money_transaction',
+        entityId: transactionId,
+        before: {'receipt_path': existing.receiptPath},
+        after: {'receipt_path': null},
+      );
+    } catch (_) {}
+    notifyListeners();
   }
 
   Future<void> transferBetweenAccounts(
@@ -1693,7 +1774,7 @@ class MastersStore extends ChangeNotifier {
   Map<String, dynamic> backupData() {
     return {
       'format': 'masters-backup',
-      'version': 7,
+      'version': 8,
       'exported_at': DateTime.now().toIso8601String(),
       'clients': _clients.map((c) => c.toMap()).toList(),
       'objects': _objects.map((o) => o.toMap()).toList(),
@@ -1721,7 +1802,7 @@ class MastersStore extends ChangeNotifier {
       throw const FormatException('Это не резервная копия «Masters».');
     }
     final version = data['version'];
-    if (version is! int || version > 7) {
+    if (version is! int || version > 8) {
       throw const FormatException('Неподдерживаемая версия копии.');
     }
 
@@ -2013,7 +2094,7 @@ class MastersStore extends ChangeNotifier {
       throw const FormatException('Это не копия Masters.');
     }
     final version = data['version'];
-    if (version is! int || version > 7) {
+    if (version is! int || version > 8) {
       throw const FormatException('Неподдерживаемая версия копии.');
     }
     final result = await _appDatabase.mergeSnapshot(
