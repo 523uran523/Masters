@@ -1119,7 +1119,7 @@ class _MoneyScreenState extends State<MoneyScreen> {
 
     final recurringFiltered = store.recurringPayments.where((p) {
       if (_recurringStatusFilter == 'active') return p.active;
-      if (_recurringStatusFilter == 'inactive') return !p.active;
+      if (_recurringStatusFilter == 'disabled') return !p.active;
       return true;
     }).toList()..sort((a, b) => a.nextDueAt.compareTo(b.nextDueAt));
     final recurringGroups = <DateTime, List<RecurringPayment>>{};
