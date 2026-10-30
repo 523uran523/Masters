@@ -17,6 +17,10 @@ class MoneyScreen extends StatefulWidget {
 
 class _MoneyScreenState extends State<MoneyScreen> {
   bool _busy = false;
+  final _txSearchController = TextEditingController();
+  String _directionFilter = 'all';
+  String? _accountFilter;
+  String _txQuery = '';
 
   String _money(int cents) => '${(cents / 100).toStringAsFixed(0)} ₽';
 
@@ -465,6 +469,12 @@ class _MoneyScreenState extends State<MoneyScreen> {
   }
 
   @override
+  void dispose() {
+    _txSearchController.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     final store = context.watch<MastersStore>();
     final colors = context.colors;
@@ -653,6 +663,73 @@ SectionLabel('Команда'),
                     ),
                   ),
                   const SizedBox(height: 16),
+                   const SizedBox(height: 8),
+                   CupertinoTextField(
+                     controller: _txSearchController,
+                     placeholder: 'Поиск по категории/комментарию',
+                     onChanged: (v) => setState(() => _txQuery = v),
+                   ),
+                   const SizedBox(height: 8),
+                   Row(
+                     children: [
+                       Expanded(
+                         child: SecondaryButton(
+                           label: _directionFilter == 'all' ? 'Направление: все' : (_directionFilter == 'in' ? 'Приходы' : 'Расходы'),
+                           icon: CupertinoIcons.line_horizontal_3_decrease,
+                           onPressed: () async {
+                             final v = await showCupertinoModalPopup<String>(
+                               context: context,
+                               builder: (dialogContext) => CupertinoActionSheet(
+                                 title: const Text('Направление'),
+                                 actions: [
+                                   CupertinoActionSheetAction(onPressed: () => Navigator.of(dialogContext).pop('all'), child: const Text('Все')),
+                                   CupertinoActionSheetAction(onPressed: () => Navigator.of(dialogContext).pop('in'), child: const Text('Приходы')),
+                                   CupertinoActionSheetAction(onPressed: () => Navigator.of(dialogContext).pop('out'), child: const Text('Расходы')),
+                                 ],
+                                 cancelButton: CupertinoActionSheetAction(onPressed: () => Navigator.of(dialogContext).pop(), child: const Text('Отмена')),
+                               ),
+                             );
+                             if (v != null) setState(() => _directionFilter = v);
+                           },
+                         ),
+                       ),
+                       const SizedBox(width: 8),
+                       Expanded(
+                         child: SecondaryButton(
+                           label: _accountFilter == null ? 'Счёт: все' : (store.accountById(_accountFilter!)?.name ?? 'Счёт'),
+                           icon: CupertinoIcons.money_dollar,
+                           onPressed: () async {
+                             final v = await showCupertinoModalPopup<String?>(
+                               context: context,
+                               builder: (dialogContext) => Container(
+                                 height: 280,
+                                 color: context.colors.card,
+                                 child: Column(
+                                   children: [
+                                     CupertinoButton(child: const Text('Все счета'), onPressed: () => Navigator.of(dialogContext).pop('__all__')),
+                                     Expanded(
+                                       child: ListView(
+                                         children: [
+                                           for (final a in store.accounts.where((x) => !x.archived))
+                                             CupertinoButton(
+                                               onPressed: () => Navigator.of(dialogContext).pop(a.id),
+                                               child: Align(alignment: Alignment.centerLeft, child: Text(a.name)),
+                                             ),
+                                         ],
+                                       ),
+                                     ),
+                                   ],
+                                 ),
+                               ),
+                             );
+                             if (v == '__all__') setState(() => _accountFilter = null);
+                             else if (v != null) setState(() => _accountFilter = v);
+                           },
+                         ),
+                       ),
+                     ],
+                   ),
+                   const SizedBox(height: 16),
                   SectionLabel('Журнал (${store.moneyTransactions.length})'),
                   store.moneyTransactions.isEmpty
                       ? EmptyState(
@@ -661,7 +738,14 @@ SectionLabel('Команда'),
                           art: Icon(CupertinoIcons.doc_text, size: 36, color: colors.tertiaryLabel),
                         )
                       : Column(
-                          children: store.moneyTransactions.take(50).map((t) {
+                          children: store.moneyTransactions.where((t) {
+                            if (t.voided) return false;
+                            if (_directionFilter != 'all' && t.direction != _directionFilter) return false;
+                            if (_accountFilter != null && t.accountId != _accountFilter) return false;
+                            final q = _txQuery.trim().toLowerCase();
+                            if (q.isNotEmpty && !(t.category.toLowerCase().contains(q) || (t.note ?? '').toLowerCase().contains(q))) return false;
+                            return true;
+                          }).take(50).map((t) {
                             final acc = store.accountById(t.accountId);
                             return Padding(
                               padding: const EdgeInsets.only(bottom: 8),
