@@ -341,6 +341,7 @@ class _JobsScreenState extends State<JobsScreen> {
               child: Icon(
                 CupertinoIcons.line_horizontal_3_decrease,
                 color: _hasActiveFilters ? colors.accent : null,
+                semanticLabel: 'Фильтр',
               ),
             ),
             CupertinoButton(
@@ -348,6 +349,7 @@ class _JobsScreenState extends State<JobsScreen> {
               onPressed: () => setState(() => _searchVisible = !_searchVisible),
               child: Icon(
                 _searchVisible ? CupertinoIcons.xmark : CupertinoIcons.search,
+                semanticLabel: _searchVisible ? 'Закрыть' : 'Поиск',
               ),
             ),
             CupertinoButton(
@@ -396,6 +398,7 @@ class _JobsScreenState extends State<JobsScreen> {
                           child: const Icon(
                             CupertinoIcons.xmark_circle_fill,
                             size: 18,
+                            semanticLabel: 'Очистить',
                           ),
                         ),
                 ),

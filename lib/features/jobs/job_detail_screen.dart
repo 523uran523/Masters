@@ -1,4 +1,5 @@
 import 'dart:async';
+
 import 'package:flutter/cupertino.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:intl/intl.dart';
@@ -7,7 +8,9 @@ import 'package:provider/provider.dart';
 import '../../app/theme/app_theme.dart';
 import '../../app/ui.dart';
 import '../../core/document_service.dart';
+
 import 'package:open_filex/open_filex.dart';
+
 import '../../core/deep_link_service.dart';
 import '../../core/utils/app_utils.dart';
 import '../../data/models/job.dart';
@@ -58,19 +61,37 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
         color: context.colors.card,
         child: Column(
           children: [
-            CupertinoButton(child: const Text('Квитанция'), onPressed: () => Navigator.of(ctx).pop('Квитанция')),
-            CupertinoButton(child: const Text('Акт выполненных работ'), onPressed: () => Navigator.of(ctx).pop('Акт выполненных работ')),
-            CupertinoButton(child: const Text('Счёт'), onPressed: () => Navigator.of(ctx).pop('Счёт')),
+            CupertinoButton(
+              child: const Text('Квитанция'),
+              onPressed: () => Navigator.of(ctx).pop('Квитанция'),
+            ),
+            CupertinoButton(
+              child: const Text('Акт выполненных работ'),
+              onPressed: () => Navigator.of(ctx).pop('Акт выполненных работ'),
+            ),
+            CupertinoButton(
+              child: const Text('Счёт'),
+              onPressed: () => Navigator.of(ctx).pop('Счёт'),
+            ),
           ],
         ),
       ),
     );
     if (type == null) return;
-    final bytes = await DocumentService.buildJobPdf(store: store, job: job, type: type);
-    final name = 'document-${job.id.substring(0, 6)}-${DateTime.now().millisecondsSinceEpoch}.pdf';
+    final bytes = await DocumentService.buildJobPdf(
+      store: store,
+      job: job,
+      type: type,
+    );
+    final name =
+        'document-${job.id.substring(0, 6)}-${DateTime.now().millisecondsSinceEpoch}.pdf';
     final ok = await DocumentService.savePdf(bytes, name);
     if (mounted && ok) {
-      await showAppAlert(context, title: 'Готово', message: 'Документ сохранён.');
+      await showAppAlert(
+        context,
+        title: 'Готово',
+        message: 'Документ сохранён.',
+      );
     }
   }
 
@@ -112,7 +133,10 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
     final store = context.read<MastersStore>();
     setState(() => _busyAttachment = true);
     try {
-      await store.addJobAttachment(jobId: widget.jobId, sourcePath: files.single.path!);
+      await store.addJobAttachment(
+        jobId: widget.jobId,
+        sourcePath: files.single.path!,
+      );
       await _loadAttachments();
     } finally {
       if (mounted) setState(() => _busyAttachment = false);
@@ -120,7 +144,13 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
   }
 
   Future<void> _removeAttachment(JobAttachment a) async {
-    final ok = await showAppConfirm(context, title: 'Удалить вложение?', message: a.fileName, destructive: true, confirmLabel: 'Удалить');
+    final ok = await showAppConfirm(
+      context,
+      title: 'Удалить вложение?',
+      message: a.fileName,
+      destructive: true,
+      confirmLabel: 'Удалить',
+    );
     if (!ok) return;
     await context.read<MastersStore>().deleteJobAttachment(a.id);
     await _loadAttachments();
@@ -139,7 +169,9 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
     final qty = double.tryParse((qtyStr ?? '1').replaceAll(',', '.')) ?? 1;
     final unit = await _promptText('Единица', 'м') ?? 'шт';
     final priceStr = await _promptText('Цена за единицу (₽)', '0');
-    final priceCents = ((double.tryParse((priceStr ?? '0').replaceAll(',', '.')) ?? 0) * 100).round();
+    final priceCents =
+        ((double.tryParse((priceStr ?? '0').replaceAll(',', '.')) ?? 0) * 100)
+            .round();
     await store.addMaterial(
       jobId: widget.jobId,
       name: name.trim(),
@@ -152,8 +184,12 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
   Future<void> _acceptPayment(MastersStore store, Job job) async {
     final remaining = job.priceCents - store.paidForJob(job.id);
     final amountStr = await _promptText(
-        'Сумма оплаты', remaining > 0 ? (remaining / 100).toStringAsFixed(0) : '0');
-    final amount = ((double.tryParse((amountStr ?? '0').replaceAll(',', '.')) ?? 0) * 100).round();
+      'Сумма оплаты',
+      remaining > 0 ? (remaining / 100).toStringAsFixed(0) : '0',
+    );
+    final amount =
+        ((double.tryParse((amountStr ?? '0').replaceAll(',', '.')) ?? 0) * 100)
+            .round();
     if (amount <= 0) return;
     final accountId = await _pickAccount(store);
     if (accountId == null) return;
@@ -172,7 +208,11 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
   Future<void> _sendMessage(MastersStore store, Job job) async {
     final client = store.clientById(job.clientId);
     if (client == null || client.phone.isEmpty) {
-      await showAppAlert(context, title: 'Нет телефона', message: 'Добавьте телефон клиента для сообщения.');
+      await showAppAlert(
+        context,
+        title: 'Нет телефона',
+        message: 'Добавьте телефон клиента для сообщения.',
+      );
       return;
     }
     final template = await showCupertinoModalPopup<String>(
@@ -181,24 +221,49 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
         title: Text(client.name),
         message: const Text('Выберите шаблон и канал'),
         actions: [
-          CupertinoActionSheetAction(onPressed: () => Navigator.of(dialogContext).pop('ready'), child: const Text('Заказ готов')),
-          CupertinoActionSheetAction(onPressed: () => Navigator.of(dialogContext).pop('pickup'), child: const Text('Можно забрать')),
-          CupertinoActionSheetAction(onPressed: () => Navigator.of(dialogContext).pop('progress'), child: const Text('Заказ в работе')),
+          CupertinoActionSheetAction(
+            onPressed: () => Navigator.of(dialogContext).pop('ready'),
+            child: const Text('Заказ готов'),
+          ),
+          CupertinoActionSheetAction(
+            onPressed: () => Navigator.of(dialogContext).pop('pickup'),
+            child: const Text('Можно забрать'),
+          ),
+          CupertinoActionSheetAction(
+            onPressed: () => Navigator.of(dialogContext).pop('progress'),
+            child: const Text('Заказ в работе'),
+          ),
           if (store.paidForJob(job.id) < job.priceCents)
-            CupertinoActionSheetAction(onPressed: () => Navigator.of(dialogContext).pop('pay'), child: const Text('Напоминание об оплате')),
-          CupertinoActionSheetAction(onPressed: () => Navigator.of(dialogContext).pop('whatsapp'), child: const Text('Написать в WhatsApp')),
-          CupertinoActionSheetAction(onPressed: () => Navigator.of(dialogContext).pop('telegram'), child: const Text('Написать в Telegram')),
+            CupertinoActionSheetAction(
+              onPressed: () => Navigator.of(dialogContext).pop('pay'),
+              child: const Text('Напоминание об оплате'),
+            ),
+          CupertinoActionSheetAction(
+            onPressed: () => Navigator.of(dialogContext).pop('whatsapp'),
+            child: const Text('Написать в WhatsApp'),
+          ),
+          CupertinoActionSheetAction(
+            onPressed: () => Navigator.of(dialogContext).pop('telegram'),
+            child: const Text('Написать в Telegram'),
+          ),
         ],
-        cancelButton: CupertinoActionSheetAction(onPressed: () => Navigator.of(dialogContext).pop(), child: const Text('Отмена')),
+        cancelButton: CupertinoActionSheetAction(
+          onPressed: () => Navigator.of(dialogContext).pop(),
+          child: const Text('Отмена'),
+        ),
       ),
     );
     if (template == null || !context.mounted) return;
     final debt = job.priceCents - store.paidForJob(job.id);
     final text = switch (template) {
-      'ready' => 'Здравствуйте, ${client.name}! Ваш заказ "${job.title}" готов к выдаче.',
-      'pickup' => 'Здравствуйте, ${client.name}! Вы можете забрать работу "${job.title}".',
-      'progress' => 'Здравствуйте, ${client.name}! Работа "${job.title}" в процессе.',
-      'pay' => 'Здравствуйте, ${client.name}! Осталось оплатить ${(debt / 100).toStringAsFixed(0)} ₽ по заказу "${job.title}".',
+      'ready' =>
+        'Здравствуйте, ${client.name}! Ваш заказ "${job.title}" готов к выдаче.',
+      'pickup' =>
+        'Здравствуйте, ${client.name}! Вы можете забрать работу "${job.title}".',
+      'progress' =>
+        'Здравствуйте, ${client.name}! Работа "${job.title}" в процессе.',
+      'pay' =>
+        'Здравствуйте, ${client.name}! Осталось оплатить ${(debt / 100).toStringAsFixed(0)} ₽ по заказу "${job.title}".',
       'whatsapp' => 'Здравствуйте, ${client.name}! По заказу "${job.title}".',
       'telegram' => 'Здравствуйте, ${client.name}! По заказу "${job.title}".',
       _ => '',
@@ -224,7 +289,10 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                CupertinoButton(child: const Text('Отмена'), onPressed: () => Navigator.of(ctx).pop()),
+                CupertinoButton(
+                  child: const Text('Отмена'),
+                  onPressed: () => Navigator.of(ctx).pop(),
+                ),
               ],
             ),
             Expanded(
@@ -318,7 +386,10 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
           onPressed: () => Navigator.of(context).push(
             CupertinoPageRoute(builder: (_) => JobFormScreen(jobId: job.id)),
           ),
-          child: const Icon(CupertinoIcons.pencil, semanticLabel: 'Редактировать'),
+          child: const Icon(
+            CupertinoIcons.pencil,
+            semanticLabel: 'Редактировать',
+          ),
         ),
       ),
       child: SafeArea(
@@ -330,30 +401,55 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(client?.name ?? 'Без клиента',
-                      style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 17)),
+                  Text(
+                    client?.name ?? 'Без клиента',
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w600,
+                      fontSize: 17,
+                    ),
+                  ),
                   if (client?.phone.isNotEmpty == true)
                     Padding(
                       padding: const EdgeInsets.only(top: 2),
-                      child: Text(client!.phone,
-                          style: TextStyle(color: colors.secondaryLabel, fontSize: 13)),
+                      child: Text(
+                        client!.phone,
+                        style: TextStyle(
+                          color: colors.secondaryLabel,
+                          fontSize: 13,
+                        ),
+                      ),
                     ),
                   if (obj != null) ...[
                     const SizedBox(height: 6),
-                    Text(obj.title,
-                        style: const TextStyle(fontWeight: FontWeight.w500)),
+                    Text(
+                      obj.title,
+                      style: const TextStyle(fontWeight: FontWeight.w500),
+                    ),
                     if (obj.address.isNotEmpty)
-                      Text(obj.address,
-                          style: TextStyle(color: colors.secondaryLabel, fontSize: 12)),
+                      Text(
+                        obj.address,
+                        style: TextStyle(
+                          color: colors.secondaryLabel,
+                          fontSize: 12,
+                        ),
+                      ),
                   ],
                   if (job.note != null) ...[
                     const SizedBox(height: 8),
-                    Text(job.note!,
-                        style: TextStyle(color: colors.secondaryLabel, fontSize: 14)),
+                    Text(
+                      job.note!,
+                      style: TextStyle(
+                        color: colors.secondaryLabel,
+                        fontSize: 14,
+                      ),
+                    ),
                   ],
                   if (job.tags != null && job.tags!.trim().isNotEmpty) ...[
                     const SizedBox(height: 8),
-                    Text('Теги: ${job.tags}', style: TextStyle(color: colors.accent, fontSize: 12)),
+                    Text(
+                      'Теги: ${job.tags}',
+                      style: TextStyle(color: colors.accent, fontSize: 12),
+                    ),
                   ],
                 ],
               ),
@@ -367,10 +463,18 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
                 children: JobStatus.values.map((s) {
                   final selected = job.status == s;
                   return CupertinoButton(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                    onPressed: selected ? null : () => store.setJobStatus(job.id, s),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 8,
+                    ),
+                    onPressed: selected
+                        ? null
+                        : () => store.setJobStatus(job.id, s),
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 6,
+                      ),
                       decoration: BoxDecoration(
                         color: selected ? colors.accent : colors.cardElevated,
                         borderRadius: BorderRadius.circular(99),
@@ -378,7 +482,9 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
                       child: Text(
                         s.label,
                         style: TextStyle(
-                          color: selected ? const Color(0xFFFFFFFF) : colors.label,
+                          color: selected
+                              ? const Color(0xFFFFFFFF)
+                              : colors.label,
                           fontWeight: FontWeight.w500,
                           fontSize: 13,
                         ),
@@ -394,15 +500,30 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
               child: Column(
                 children: [
                   _KV('Цена', '${(job.priceCents / 100).toStringAsFixed(0)} ₽'),
-                  _KV('Расход (введённый)', '${(job.costCents / 100).toStringAsFixed(0)} ₽'),
-                  _KV('Материалы', '${(materialTotal / 100).toStringAsFixed(0)} ₽'),
-                  _KV('Итого расход', '${(totalCost / 100).toStringAsFixed(0)} ₽'),
-                  _KV('Маржа', '${((job.priceCents - totalCost) / 100).toStringAsFixed(0)} ₽'),
+                  _KV(
+                    'Расход (введённый)',
+                    '${(job.costCents / 100).toStringAsFixed(0)} ₽',
+                  ),
+                  _KV(
+                    'Материалы',
+                    '${(materialTotal / 100).toStringAsFixed(0)} ₽',
+                  ),
+                  _KV(
+                    'Итого расход',
+                    '${(totalCost / 100).toStringAsFixed(0)} ₽',
+                  ),
+                  _KV(
+                    'Маржа',
+                    '${((job.priceCents - totalCost) / 100).toStringAsFixed(0)} ₽',
+                  ),
                   _KV('Время', formatMinutes(totalMin)),
                   if (job.dueDate != null)
                     _KV('Срок', formatFullDate(job.dueDate!)),
-                   if (job.assigneeId != null)
-                     _KV('Исполнитель', store.employeeById(job.assigneeId!)?.name ?? '—'),
+                  if (job.assigneeId != null)
+                    _KV(
+                      'Исполнитель',
+                      store.employeeById(job.assigneeId!)?.name ?? '—',
+                    ),
                 ],
               ),
             ),
@@ -411,50 +532,67 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
               label: 'Калькулятор цены',
               icon: CupertinoIcons.money_dollar,
               onPressed: () async {
-                final result = await Navigator.of(context).push<Map<String, int>>(
-                  CupertinoPageRoute(
-                    builder: (_) => CostCalculatorScreen(initialMaterialsCents: materialTotal),
+                final result = await Navigator.of(context)
+                    .push<Map<String, int>>(
+                      CupertinoPageRoute(
+                        builder: (_) => CostCalculatorScreen(
+                          initialMaterialsCents: materialTotal,
+                        ),
+                      ),
+                    );
+                if (result == null || !mounted) return;
+                await store.updateJob(
+                  job.copyWith(
+                    priceCents: result['priceCents'] as int,
+                    costCents: result['costCents'] as int,
                   ),
                 );
-                if (result == null || !mounted) return;
-                await store.updateJob(job.copyWith(
-                  priceCents: result['priceCents'] as int,
-                  costCents: result['costCents'] as int,
-                ));
               },
             ),
             const SizedBox(height: 16),
-            SectionLabel('Этапы (${stages.where((s) => s.done).length}/${stages.length})'),
+            SectionLabel(
+              'Этапы (${stages.where((s) => s.done).length}/${stages.length})',
+            ),
             AppCard(
               child: Column(
                 children: [
-                  ...stages.map((s) => Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 4),
-                        child: Row(
-                          children: [
-                            CupertinoCheckbox(
-                              value: s.done,
-                              onChanged: (_) => store.toggleStage(s.id),
-                            ),
-                            const SizedBox(width: 6),
-                            Expanded(
-                              child: Text(
-                                s.title,
-                                style: TextStyle(
-                                  color: s.done ? colors.secondaryLabel : colors.label,
-                                  decoration: s.done ? TextDecoration.lineThrough : null,
-                                ),
+                  ...stages.map(
+                    (s) => Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 4),
+                      child: Row(
+                        children: [
+                          CupertinoCheckbox(
+                            value: s.done,
+                            onChanged: (_) => store.toggleStage(s.id),
+                          ),
+                          const SizedBox(width: 6),
+                          Expanded(
+                            child: Text(
+                              s.title,
+                              style: TextStyle(
+                                color: s.done
+                                    ? colors.secondaryLabel
+                                    : colors.label,
+                                decoration: s.done
+                                    ? TextDecoration.lineThrough
+                                    : null,
                               ),
                             ),
-                            CupertinoButton(
-                              padding: EdgeInsets.zero,
-                              onPressed: () => store.deleteStage(s.id),
-                              child: Icon(CupertinoIcons.xmark,
-                                  size: 14, color: colors.tertiaryLabel),
+                          ),
+                          CupertinoButton(
+                            padding: EdgeInsets.zero,
+                            onPressed: () => store.deleteStage(s.id),
+                            child: Icon(
+                              CupertinoIcons.xmark,
+                              size: 14,
+                              color: colors.tertiaryLabel,
+                              semanticLabel: 'Удалить',
                             ),
-                          ],
-                        ),
-                      )),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
                   SecondaryButton(
                     label: 'Добавить этап',
                     icon: CupertinoIcons.plus,
@@ -468,29 +606,45 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
             AppCard(
               child: Column(
                 children: [
-                  ...materials.map((m) => Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 4),
-                        child: Row(
-                          children: [
-                            Expanded(
-                              child: Text(m.name, style: const TextStyle(fontWeight: FontWeight.w500)),
+                  ...materials.map(
+                    (m) => Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 4),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              m.name,
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w500,
+                              ),
                             ),
-                            Text(
-                              '${m.quantity.toStringAsFixed(m.quantity % 1 == 0 ? 0 : 2)} ${m.unit} × ${(m.priceCents / 100).toStringAsFixed(0)}',
-                              style: TextStyle(color: colors.secondaryLabel, fontSize: 12),
+                          ),
+                          Text(
+                            '${m.quantity.toStringAsFixed(m.quantity % 1 == 0 ? 0 : 2)} ${m.unit} × ${(m.priceCents / 100).toStringAsFixed(0)}',
+                            style: TextStyle(
+                              color: colors.secondaryLabel,
+                              fontSize: 12,
                             ),
-                            const SizedBox(width: 8),
-                            Text('${(m.totalCents / 100).toStringAsFixed(0)} ₽',
-                                style: const TextStyle(fontWeight: FontWeight.w600)),
-                            CupertinoButton(
-                              padding: EdgeInsets.zero,
-                              onPressed: () => store.deleteMaterial(m.id),
-                              child: Icon(CupertinoIcons.xmark,
-                                  size: 14, color: colors.tertiaryLabel),
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            '${(m.totalCents / 100).toStringAsFixed(0)} ₽',
+                            style: const TextStyle(fontWeight: FontWeight.w600),
+                          ),
+                          CupertinoButton(
+                            padding: EdgeInsets.zero,
+                            onPressed: () => store.deleteMaterial(m.id),
+                            child: Icon(
+                              CupertinoIcons.xmark,
+                              size: 14,
+                              color: colors.tertiaryLabel,
+                              semanticLabel: 'Удалить',
                             ),
-                          ],
-                        ),
-                      )),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
                   SecondaryButton(
                     label: 'Добавить материал',
                     icon: CupertinoIcons.plus,
@@ -507,7 +661,10 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
                   if (_timerStart != null) ...[
                     Text(
                       _formatElapsed(_elapsedSeconds),
-                      style: const TextStyle(fontSize: 28, fontWeight: FontWeight.w700),
+                      style: const TextStyle(
+                        fontSize: 28,
+                        fontWeight: FontWeight.w700,
+                      ),
                     ),
                     const SizedBox(height: 8),
                     PrimaryButton(
@@ -530,28 +687,39 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
                   ),
                   if (sessions.isNotEmpty) ...[
                     const SizedBox(height: 12),
-                    ...sessions.map((s) => Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 4),
-                          child: Row(
-                            children: [
-                              Expanded(
-                                child: Text(
-                                  '${DateFormat('d MMM', 'ru').format(s.startedAt)} • ${formatMinutes(s.minutes)}',
-                                  style: TextStyle(color: colors.label),
+                    ...sessions.map(
+                      (s) => Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 4),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                '${DateFormat('d MMM', 'ru').format(s.startedAt)} • ${formatMinutes(s.minutes)}',
+                                style: TextStyle(color: colors.label),
+                              ),
+                            ),
+                            if (s.note != null && s.note!.isNotEmpty)
+                              Text(
+                                s.note!,
+                                style: TextStyle(
+                                  color: colors.secondaryLabel,
+                                  fontSize: 12,
                                 ),
                               ),
-                              if (s.note != null && s.note!.isNotEmpty)
-                                Text(s.note!,
-                                    style: TextStyle(color: colors.secondaryLabel, fontSize: 12)),
-                              CupertinoButton(
-                                padding: EdgeInsets.zero,
-                                onPressed: () => store.deleteSession(s.id),
-                                child: Icon(CupertinoIcons.xmark,
-                                    size: 14, color: colors.tertiaryLabel),
+                            CupertinoButton(
+                              padding: EdgeInsets.zero,
+                              onPressed: () => store.deleteSession(s.id),
+                              child: Icon(
+                                CupertinoIcons.xmark,
+                                size: 14,
+                                color: colors.tertiaryLabel,
+                                semanticLabel: 'Удалить',
                               ),
-                            ],
-                          ),
-                        )),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
                   ],
                 ],
               ),
@@ -562,8 +730,14 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
               AppCard(
                 child: Column(
                   children: [
-                    _KV('Оплачено', '${(store.paidForJob(job.id) / 100).toStringAsFixed(0)} ₽'),
-                    _KV('Остаток', '${((job.priceCents - store.paidForJob(job.id)) / 100).toStringAsFixed(0)} ₽'),
+                    _KV(
+                      'Оплачено',
+                      '${(store.paidForJob(job.id) / 100).toStringAsFixed(0)} ₽',
+                    ),
+                    _KV(
+                      'Остаток',
+                      '${((job.priceCents - store.paidForJob(job.id)) / 100).toStringAsFixed(0)} ₽',
+                    ),
                     SecondaryButton(
                       label: 'Принять оплату',
                       icon: CupertinoIcons.money_dollar,
@@ -579,30 +753,68 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
               child: Column(
                 children: [
                   if (_attachments.isEmpty)
-                    EmptyState(title: 'Нет вложений', message: 'Добавьте фото, смету или документ.'),
-                  ..._attachments.map((a) => Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 4),
-                        child: Row(
-                          children: [
-                            Icon(CupertinoIcons.doc, color: context.colors.secondaryLabel),
-                            const SizedBox(width: 8),
-                            Expanded(child: Text(a.fileName, style: const TextStyle(fontWeight: FontWeight.w500))),
-                            CupertinoButton(padding: EdgeInsets.zero, onPressed: () => OpenFilex.open(a.filePath), child: const Icon(CupertinoIcons.eye, size: 18)),
-                            CupertinoButton(padding: EdgeInsets.zero, onPressed: () => _removeAttachment(a), child: Icon(CupertinoIcons.xmark, size: 16, color: context.colors.tertiaryLabel)),
-                          ],
-                        ),
-                      )),
-                  SecondaryButton(label: _busyAttachment ? 'Добавление...' : 'Добавить файл', icon: CupertinoIcons.plus, onPressed: _busyAttachment ? () {} : _addAttachment),
+                    EmptyState(
+                      title: 'Нет вложений',
+                      message: 'Добавьте фото, смету или документ.',
+                    ),
+                  ..._attachments.map(
+                    (a) => Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 4),
+                      child: Row(
+                        children: [
+                          Icon(
+                            CupertinoIcons.doc,
+                            color: context.colors.secondaryLabel,
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              a.fileName,
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ),
+                          CupertinoButton(
+                            padding: EdgeInsets.zero,
+                            onPressed: () => OpenFilex.open(a.filePath),
+                            child: const Icon(
+                              CupertinoIcons.eye,
+                              size: 18,
+                              semanticLabel: 'Открыть',
+                            ),
+                          ),
+                          CupertinoButton(
+                            padding: EdgeInsets.zero,
+                            onPressed: () => _removeAttachment(a),
+                            child: Icon(
+                              CupertinoIcons.xmark,
+                              size: 16,
+                              color: context.colors.tertiaryLabel,
+                              semanticLabel: 'Удалить',
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  SecondaryButton(
+                    label: _busyAttachment ? 'Добавление...' : 'Добавить файл',
+                    icon: CupertinoIcons.plus,
+                    onPressed: _busyAttachment ? () {} : _addAttachment,
+                  ),
                 ],
               ),
             ),
             const SizedBox(height: 16),
-                        SectionLabel('Действия'),
+            SectionLabel('Действия'),
             AppCard(
               child: Column(
                 children: [
                   _ActionTile(
-                    icon: job.archived ? CupertinoIcons.tray_full : CupertinoIcons.archivebox,
+                    icon: job.archived
+                        ? CupertinoIcons.tray_full
+                        : CupertinoIcons.archivebox,
                     label: job.archived ? 'Восстановить' : 'В архив',
                     onTap: () => store.setArchived(job.id, !job.archived),
                   ),
@@ -624,11 +836,13 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
                     label: 'Удалить заказ',
                     destructive: true,
                     onTap: () async {
-                      final ok = await showAppConfirm(context,
-                          title: 'Удалить заказ?',
-                          message: 'Этапы, материалы и время тоже удалятся.',
-                          destructive: true,
-                          confirmLabel: 'Удалить');
+                      final ok = await showAppConfirm(
+                        context,
+                        title: 'Удалить заказ?',
+                        message: 'Этапы, материалы и время тоже удалятся.',
+                        destructive: true,
+                        confirmLabel: 'Удалить',
+                      );
                       if (!ok) return;
                       await store.deleteJob(job.id);
                       if (!context.mounted) return;
@@ -701,12 +915,19 @@ class _ActionTile extends StatelessWidget {
         children: [
           Icon(icon, color: color, size: 20),
           const SizedBox(width: 10),
-          Text(label,
-              style: TextStyle(
-                  color: destructive ? colors.red : colors.label, fontSize: 16)),
+          Text(
+            label,
+            style: TextStyle(
+              color: destructive ? colors.red : colors.label,
+              fontSize: 16,
+            ),
+          ),
           const Spacer(),
-          Icon(CupertinoIcons.chevron_forward,
-              size: 16, color: colors.tertiaryLabel),
+          Icon(
+            CupertinoIcons.chevron_forward,
+            size: 16,
+            color: colors.tertiaryLabel,
+          ),
         ],
       ),
     );

@@ -11,12 +11,12 @@ class _ResourceLine {
     String qtyUnit = 'г',
     String price = '0',
     String priceUnit = '100 г',
-  })  : nameController = TextEditingController(text: name),
-        qtyController = TextEditingController(text: qty),
-        qtyUnitValue = qtyUnit,
-        weightValue = weight,
-        priceController = TextEditingController(text: price),
-        priceUnitValue = priceUnit;
+  }) : nameController = TextEditingController(text: name),
+       qtyController = TextEditingController(text: qty),
+       qtyUnitValue = qtyUnit,
+       weightValue = weight,
+       priceController = TextEditingController(text: price),
+       priceUnitValue = priceUnit;
 
   final TextEditingController nameController;
   final TextEditingController qtyController;
@@ -25,10 +25,12 @@ class _ResourceLine {
   final TextEditingController priceController;
   String priceUnitValue;
 
-  double get qty => double.tryParse(qtyController.text.trim().replaceAll(',', '.')) ?? 0;
+  double get qty =>
+      double.tryParse(qtyController.text.trim().replaceAll(',', '.')) ?? 0;
 
   int get totalCents {
-    final price = double.tryParse(priceController.text.trim().replaceAll(',', '.')) ?? 0;
+    final price =
+        double.tryParse(priceController.text.trim().replaceAll(',', '.')) ?? 0;
     if (!weightValue) {
       return (qty * price * 100).round();
     }
@@ -53,10 +55,7 @@ class _ResourceLine {
 }
 
 class CostCalculatorScreen extends StatefulWidget {
-  const CostCalculatorScreen({
-    super.key,
-    this.initialMaterialsCents = 0,
-  });
+  const CostCalculatorScreen({super.key, this.initialMaterialsCents = 0});
 
   final int initialMaterialsCents;
 
@@ -76,12 +75,14 @@ class _CostCalculatorScreenState extends State<CostCalculatorScreen> {
   void initState() {
     super.initState();
     if (widget.initialMaterialsCents > 0) {
-      _resources.add(_ResourceLine(
-        name: 'Материалы',
-        qty: '1',
-        weight: false,
-        price: (widget.initialMaterialsCents / 100).toStringAsFixed(2),
-      ));
+      _resources.add(
+        _ResourceLine(
+          name: 'Материалы',
+          qty: '1',
+          weight: false,
+          price: (widget.initialMaterialsCents / 100).toStringAsFixed(2),
+        ),
+      );
     }
   }
 
@@ -135,10 +136,8 @@ class _CostCalculatorScreenState extends State<CostCalculatorScreen> {
   }
 
   void _apply() {
-    Navigator.of(context).pop({
-      'costCents': _costCents,
-      'priceCents': _priceCents,
-    });
+    Navigator.of(context)
+        .pop({'costCents': _costCents, 'priceCents': _priceCents});
   }
 
   Widget _segmented<T extends Object>({
@@ -208,12 +207,24 @@ class _CostCalculatorScreenState extends State<CostCalculatorScreen> {
                                   },
                                   children: const {
                                     false: Padding(
-                                      padding: EdgeInsets.symmetric(horizontal: 4, vertical: 4),
-                                      child: Text('шт', style: TextStyle(fontSize: 11)),
+                                      padding: EdgeInsets.symmetric(
+                                        horizontal: 4,
+                                        vertical: 4,
+                                      ),
+                                      child: Text(
+                                        'шт',
+                                        style: TextStyle(fontSize: 11),
+                                      ),
                                     ),
                                     true: Padding(
-                                      padding: EdgeInsets.symmetric(horizontal: 4, vertical: 4),
-                                      child: Text('вес', style: TextStyle(fontSize: 11)),
+                                      padding: EdgeInsets.symmetric(
+                                        horizontal: 4,
+                                        vertical: 4,
+                                      ),
+                                      child: Text(
+                                        'вес',
+                                        style: TextStyle(fontSize: 11),
+                                      ),
                                     ),
                                   },
                                 ),
@@ -228,7 +239,10 @@ class _CostCalculatorScreenState extends State<CostCalculatorScreen> {
                                   child: CupertinoTextField(
                                     controller: r.qtyController,
                                     placeholder: 'Кол-во (шт)',
-                                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                                    keyboardType:
+                                        const TextInputType.numberWithOptions(
+                                          decimal: true,
+                                        ),
                                     onChanged: (_) => setState(() {}),
                                   ),
                                 ),
@@ -237,7 +251,10 @@ class _CostCalculatorScreenState extends State<CostCalculatorScreen> {
                                   child: CupertinoTextField(
                                     controller: r.priceController,
                                     placeholder: 'Цена за шт',
-                                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                                    keyboardType:
+                                        const TextInputType.numberWithOptions(
+                                          decimal: true,
+                                        ),
                                     prefix: const Padding(
                                       padding: EdgeInsets.only(left: 8),
                                       child: Text('₽'),
@@ -246,12 +263,21 @@ class _CostCalculatorScreenState extends State<CostCalculatorScreen> {
                                   ),
                                 ),
                                 const SizedBox(width: 8),
-                                Text('${(r.totalCents / 100).toStringAsFixed(0)} ₽',
-                                    style: const TextStyle(fontWeight: FontWeight.w600)),
+                                Text(
+                                  '${(r.totalCents / 100).toStringAsFixed(0)} ₽',
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
                                 CupertinoButton(
                                   padding: EdgeInsets.zero,
                                   onPressed: () => _removeResource(i),
-                                  child: Icon(CupertinoIcons.xmark, size: 16, color: colors.tertiaryLabel),
+                                  child: Icon(
+                                    CupertinoIcons.xmark,
+                                    size: 16,
+                                    color: colors.tertiaryLabel,
+                                    semanticLabel: 'Удалить',
+                                  ),
                                 ),
                               ],
                             ),
@@ -262,7 +288,10 @@ class _CostCalculatorScreenState extends State<CostCalculatorScreen> {
                                   child: CupertinoTextField(
                                     controller: r.qtyController,
                                     placeholder: 'Количество',
-                                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                                    keyboardType:
+                                        const TextInputType.numberWithOptions(
+                                          decimal: true,
+                                        ),
                                     onChanged: (_) => setState(() {}),
                                   ),
                                 ),
@@ -274,7 +303,8 @@ class _CostCalculatorScreenState extends State<CostCalculatorScreen> {
                                     values: const ['г', 'кг'],
                                     labels: const ['г', 'кг'],
                                     onChanged: (v) {
-                                      if (v != null) setState(() => r.qtyUnitValue = v);
+                                      if (v != null)
+                                        setState(() => r.qtyUnitValue = v);
                                     },
                                   ),
                                 ),
@@ -287,7 +317,10 @@ class _CostCalculatorScreenState extends State<CostCalculatorScreen> {
                                   child: CupertinoTextField(
                                     controller: r.priceController,
                                     placeholder: 'Цена',
-                                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                                    keyboardType:
+                                        const TextInputType.numberWithOptions(
+                                          decimal: true,
+                                        ),
                                     prefix: const Padding(
                                       padding: EdgeInsets.only(left: 8),
                                       child: Text('₽'),
@@ -303,22 +336,33 @@ class _CostCalculatorScreenState extends State<CostCalculatorScreen> {
                                     values: const ['г', '100 г', '1 кг'],
                                     labels: const ['за г', 'за 100г', 'за кг'],
                                     onChanged: (v) {
-                                      if (v != null) setState(() => r.priceUnitValue = v);
+                                      if (v != null)
+                                        setState(() => r.priceUnitValue = v);
                                     },
                                   ),
                                 ),
                                 const SizedBox(width: 8),
-                                Text('${(r.totalCents / 100).toStringAsFixed(0)} ₽',
-                                    style: const TextStyle(fontWeight: FontWeight.w600)),
+                                Text(
+                                  '${(r.totalCents / 100).toStringAsFixed(0)} ₽',
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
                                 CupertinoButton(
                                   padding: EdgeInsets.zero,
                                   onPressed: () => _removeResource(i),
-                                  child: Icon(CupertinoIcons.xmark, size: 16, color: colors.tertiaryLabel),
+                                  child: Icon(
+                                    CupertinoIcons.xmark,
+                                    size: 16,
+                                    color: colors.tertiaryLabel,
+                                    semanticLabel: 'Удалить',
+                                  ),
                                 ),
                               ],
                             ),
                           ],
-                          if (i < _resources.length - 1) const SizedBox(height: 4),
+                          if (i < _resources.length - 1)
+                            const SizedBox(height: 4),
                         ],
                       ),
                     );
@@ -331,10 +375,15 @@ class _CostCalculatorScreenState extends State<CostCalculatorScreen> {
                   const SizedBox(height: 6),
                   Row(
                     children: [
-                      Text('Итого материалы', style: TextStyle(color: colors.secondaryLabel)),
+                      Text(
+                        'Итого материалы',
+                        style: TextStyle(color: colors.secondaryLabel),
+                      ),
                       const Spacer(),
-                      Text('${(_materialsCents / 100).toStringAsFixed(0)} ₽',
-                          style: const TextStyle(fontWeight: FontWeight.w600)),
+                      Text(
+                        '${(_materialsCents / 100).toStringAsFixed(0)} ₽',
+                        style: const TextStyle(fontWeight: FontWeight.w600),
+                      ),
                     ],
                   ),
                 ],
@@ -349,10 +398,18 @@ class _CostCalculatorScreenState extends State<CostCalculatorScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text('Часы', style: TextStyle(color: colors.secondaryLabel, fontSize: 12)),
+                        Text(
+                          'Часы',
+                          style: TextStyle(
+                            color: colors.secondaryLabel,
+                            fontSize: 12,
+                          ),
+                        ),
                         CupertinoTextField(
                           controller: _laborHoursController,
-                          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                          keyboardType: const TextInputType.numberWithOptions(
+                            decimal: true,
+                          ),
                           onChanged: (_) => setState(() {}),
                         ),
                       ],
@@ -363,10 +420,18 @@ class _CostCalculatorScreenState extends State<CostCalculatorScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text('Ставка (₽/ч)', style: TextStyle(color: colors.secondaryLabel, fontSize: 12)),
+                        Text(
+                          'Ставка (₽/ч)',
+                          style: TextStyle(
+                            color: colors.secondaryLabel,
+                            fontSize: 12,
+                          ),
+                        ),
                         CupertinoTextField(
                           controller: _laborRateController,
-                          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                          keyboardType: const TextInputType.numberWithOptions(
+                            decimal: true,
+                          ),
                           onChanged: (_) => setState(() {}),
                         ),
                       ],
@@ -376,9 +441,17 @@ class _CostCalculatorScreenState extends State<CostCalculatorScreen> {
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.end,
                     children: [
-                      Text('Итого', style: TextStyle(color: colors.secondaryLabel, fontSize: 12)),
-                      Text('${(_laborCents / 100).toStringAsFixed(0)} ₽',
-                          style: const TextStyle(fontWeight: FontWeight.w600)),
+                      Text(
+                        'Итого',
+                        style: TextStyle(
+                          color: colors.secondaryLabel,
+                          fontSize: 12,
+                        ),
+                      ),
+                      Text(
+                        '${(_laborCents / 100).toStringAsFixed(0)} ₽',
+                        style: const TextStyle(fontWeight: FontWeight.w600),
+                      ),
                     ],
                   ),
                 ],
@@ -391,12 +464,19 @@ class _CostCalculatorScreenState extends State<CostCalculatorScreen> {
                 children: [
                   Row(
                     children: [
-                      Expanded(child: Text('Прочие расходы (₽)', style: TextStyle(color: colors.secondaryLabel))),
+                      Expanded(
+                        child: Text(
+                          'Прочие расходы (₽)',
+                          style: TextStyle(color: colors.secondaryLabel),
+                        ),
+                      ),
                       SizedBox(
                         width: 100,
                         child: CupertinoTextField(
                           controller: _otherController,
-                          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                          keyboardType: const TextInputType.numberWithOptions(
+                            decimal: true,
+                          ),
                           onChanged: (_) => setState(() {}),
                         ),
                       ),
@@ -405,12 +485,19 @@ class _CostCalculatorScreenState extends State<CostCalculatorScreen> {
                   const SizedBox(height: 10),
                   Row(
                     children: [
-                      Expanded(child: Text('Накладные (%)', style: TextStyle(color: colors.secondaryLabel))),
+                      Expanded(
+                        child: Text(
+                          'Накладные (%)',
+                          style: TextStyle(color: colors.secondaryLabel),
+                        ),
+                      ),
                       SizedBox(
                         width: 100,
                         child: CupertinoTextField(
                           controller: _overheadController,
-                          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                          keyboardType: const TextInputType.numberWithOptions(
+                            decimal: true,
+                          ),
                           onChanged: (_) => setState(() {}),
                         ),
                       ),
@@ -419,12 +506,19 @@ class _CostCalculatorScreenState extends State<CostCalculatorScreen> {
                   const SizedBox(height: 10),
                   Row(
                     children: [
-                      Expanded(child: Text('Маржа (%)', style: TextStyle(color: colors.secondaryLabel))),
+                      Expanded(
+                        child: Text(
+                          'Маржа (%)',
+                          style: TextStyle(color: colors.secondaryLabel),
+                        ),
+                      ),
                       SizedBox(
                         width: 100,
                         child: CupertinoTextField(
                           controller: _marginController,
-                          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                          keyboardType: const TextInputType.numberWithOptions(
+                            decimal: true,
+                          ),
                           onChanged: (_) => setState(() {}),
                         ),
                       ),
@@ -438,15 +532,31 @@ class _CostCalculatorScreenState extends State<CostCalculatorScreen> {
             AppCard(
               child: Column(
                 children: [
-                  _KV('База расходов', '${(_baseCents / 100).toStringAsFixed(0)} ₽'),
-                  _KV('Накладные', '${(_overheadCents / 100).toStringAsFixed(0)} ₽'),
-                  _KV('Итого расход', '${(_costCents / 100).toStringAsFixed(0)} ₽'),
-                  _KV('Цена (с маржой)', '${(_priceCents / 100).toStringAsFixed(0)} ₽'),
+                  _KV(
+                    'База расходов',
+                    '${(_baseCents / 100).toStringAsFixed(0)} ₽',
+                  ),
+                  _KV(
+                    'Накладные',
+                    '${(_overheadCents / 100).toStringAsFixed(0)} ₽',
+                  ),
+                  _KV(
+                    'Итого расход',
+                    '${(_costCents / 100).toStringAsFixed(0)} ₽',
+                  ),
+                  _KV(
+                    'Цена (с маржой)',
+                    '${(_priceCents / 100).toStringAsFixed(0)} ₽',
+                  ),
                 ],
               ),
             ),
             const SizedBox(height: 16),
-            PrimaryButton(label: 'Применить', icon: CupertinoIcons.checkmark, onPressed: _apply),
+            PrimaryButton(
+              label: 'Применить',
+              icon: CupertinoIcons.checkmark,
+              onPressed: _apply,
+            ),
           ],
         ),
       ),

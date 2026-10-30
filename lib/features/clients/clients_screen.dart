@@ -74,9 +74,11 @@ class _ClientsScreenState extends State<ClientsScreen> {
     final q = _query.trim().toLowerCase();
     if (q.isNotEmpty) {
       clients = clients
-          .where((c) =>
-              c.name.toLowerCase().contains(q) ||
-              c.phone.toLowerCase().contains(q))
+          .where(
+            (c) =>
+                c.name.toLowerCase().contains(q) ||
+                c.phone.toLowerCase().contains(q),
+          )
           .toList();
     }
     if (_clientFilter == 'debt') {
@@ -98,7 +100,9 @@ class _ClientsScreenState extends State<ClientsScreen> {
       itemBuilder: (context, index) {
         final c = clients[index];
         final jobsCount = store.jobsForClient(c.id).length;
-        final objectsCount = store.objects.where((o) => o.clientId == c.id).length;
+        final objectsCount = store.objects
+            .where((o) => o.clientId == c.id)
+            .length;
         final selected = _selectedClientId == c.id;
         return Padding(
           padding: const EdgeInsets.only(bottom: 8),
@@ -129,7 +133,8 @@ class _ClientsScreenState extends State<ClientsScreen> {
                 } else {
                   Navigator.of(context).push(
                     CupertinoPageRoute(
-                        builder: (_) => ClientDetailScreen(clientId: c.id)),
+                      builder: (_) => ClientDetailScreen(clientId: c.id),
+                    ),
                   );
                 }
               },
@@ -141,21 +146,29 @@ class _ClientsScreenState extends State<ClientsScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(c.name,
-                            style: const TextStyle(fontWeight: FontWeight.w600)),
+                        Text(
+                          c.name,
+                          style: const TextStyle(fontWeight: FontWeight.w600),
+                        ),
                         Text(
                           [
                             if (c.phone.isNotEmpty) c.phone,
                             '$objectsCount объектов',
                             '$jobsCount заказов',
                           ].join(' • '),
-                          style: TextStyle(color: colors.secondaryLabel, fontSize: 12),
+                          style: TextStyle(
+                            color: colors.secondaryLabel,
+                            fontSize: 12,
+                          ),
                         ),
                       ],
                     ),
                   ),
                   if (selected && wide)
-                    Icon(CupertinoIcons.checkmark_circle_fill, color: colors.accent),
+                    Icon(
+                      CupertinoIcons.checkmark_circle_fill,
+                      color: colors.accent,
+                    ),
                 ],
               ),
             ),
@@ -185,21 +198,41 @@ class _ClientsScreenState extends State<ClientsScreen> {
                   builder: (dialogContext) => CupertinoActionSheet(
                     title: const Text('Фильтр клиентов'),
                     actions: [
-                      CupertinoActionSheetAction(onPressed: () => Navigator.of(dialogContext).pop('all'), child: const Text('Все')),
-                      CupertinoActionSheetAction(onPressed: () => Navigator.of(dialogContext).pop('debt'), child: const Text('С долгом')),
-                      CupertinoActionSheetAction(onPressed: () => Navigator.of(dialogContext).pop('paid'), child: const Text('Без долга')),
+                      CupertinoActionSheetAction(
+                        onPressed: () => Navigator.of(dialogContext).pop('all'),
+                        child: const Text('Все'),
+                      ),
+                      CupertinoActionSheetAction(
+                        onPressed: () =>
+                            Navigator.of(dialogContext).pop('debt'),
+                        child: const Text('С долгом'),
+                      ),
+                      CupertinoActionSheetAction(
+                        onPressed: () =>
+                            Navigator.of(dialogContext).pop('paid'),
+                        child: const Text('Без долга'),
+                      ),
                     ],
-                    cancelButton: CupertinoActionSheetAction(onPressed: () => Navigator.of(dialogContext).pop(), child: const Text('Отмена')),
+                    cancelButton: CupertinoActionSheetAction(
+                      onPressed: () => Navigator.of(dialogContext).pop(),
+                      child: const Text('Отмена'),
+                    ),
                   ),
                 );
                 if (v != null) setState(() => _clientFilter = v);
               },
-              child: const Icon(CupertinoIcons.line_horizontal_3_decrease),
+              child: const Icon(
+                CupertinoIcons.line_horizontal_3_decrease,
+                semanticLabel: 'Фильтр',
+              ),
             ),
             CupertinoButton(
               padding: EdgeInsets.zero,
               onPressed: () => setState(() => _searchVisible = !_searchVisible),
-              child: Icon(_searchVisible ? CupertinoIcons.xmark : CupertinoIcons.search),
+              child: Icon(
+                _searchVisible ? CupertinoIcons.xmark : CupertinoIcons.search,
+                semanticLabel: _searchVisible ? 'Закрыть' : 'Поиск',
+              ),
             ),
             CupertinoButton(
               padding: EdgeInsets.zero,
@@ -232,9 +265,15 @@ class _ClientsScreenState extends State<ClientsScreen> {
                               ? EmptyState(
                                   title: 'Выберите клиента',
                                   message: 'Слева список клиентов; справа — карточка.',
-                                  art: Icon(CupertinoIcons.person_2, size: 48, color: colors.tertiaryLabel),
+                                  art: Icon(
+                                    CupertinoIcons.person_2,
+                                    size: 48,
+                                    color: colors.tertiaryLabel,
+                                  ),
                                 )
-                              : ClientDetailScreen(clientId: _selectedClientId!),
+                              : ClientDetailScreen(
+                                  clientId: _selectedClientId!,
+                                ),
                         ),
                       ],
                     )

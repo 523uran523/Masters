@@ -20,12 +20,21 @@ class BookingScreen extends StatefulWidget {
 
 class _BookingScreenState extends State<BookingScreen> {
   DateTime _selectedDay = DateTime.now();
-  DateTime _calendarMonth = DateTime(DateTime.now().year, DateTime.now().month, 1);
+  DateTime _calendarMonth = DateTime(
+    DateTime.now().year,
+    DateTime.now().month,
+    1,
+  );
   bool _busy = false;
 
-  DateTime _monthStart() => DateTime(_calendarMonth.year, _calendarMonth.month, 1);
+  DateTime _monthStart() =>
+      DateTime(_calendarMonth.year, _calendarMonth.month, 1);
 
-  Future<String?> _prompt(String title, String placeholder, {String initial = ''}) async {
+  Future<String?> _prompt(
+    String title,
+    String placeholder, {
+    String initial = '',
+  }) async {
     final controller = TextEditingController(text: initial);
     return showCupertinoDialog<String?>(
       context: context,
@@ -33,11 +42,22 @@ class _BookingScreenState extends State<BookingScreen> {
         title: Text(title),
         content: Padding(
           padding: const EdgeInsets.only(top: 12),
-          child: CupertinoTextField(controller: controller, placeholder: placeholder, autofocus: true),
+          child: CupertinoTextField(
+            controller: controller,
+            placeholder: placeholder,
+            autofocus: true,
+          ),
         ),
         actions: [
-          CupertinoDialogAction(onPressed: () => Navigator.of(dc).pop(), child: const Text('Отмена')),
-          CupertinoDialogAction(isDefaultAction: true, onPressed: () => Navigator.of(dc).pop(controller.text.trim()), child: const Text('ОК')),
+          CupertinoDialogAction(
+            onPressed: () => Navigator.of(dc).pop(),
+            child: const Text('Отмена'),
+          ),
+          CupertinoDialogAction(
+            isDefaultAction: true,
+            onPressed: () => Navigator.of(dc).pop(controller.text.trim()),
+            child: const Text('ОК'),
+          ),
         ],
       ),
     );
@@ -56,8 +76,14 @@ class _BookingScreenState extends State<BookingScreen> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                CupertinoButton(child: const Text('Отмена'), onPressed: () => Navigator.of(ctx).pop()),
-                CupertinoButton(child: const Text('Без клиента'), onPressed: () => Navigator.of(ctx).pop(null)),
+                CupertinoButton(
+                  child: const Text('Отмена'),
+                  onPressed: () => Navigator.of(ctx).pop(),
+                ),
+                CupertinoButton(
+                  child: const Text('Без клиента'),
+                  onPressed: () => Navigator.of(ctx).pop(null),
+                ),
               ],
             ),
             Expanded(
@@ -66,7 +92,10 @@ class _BookingScreenState extends State<BookingScreen> {
                   for (final c in clients)
                     CupertinoButton(
                       onPressed: () => Navigator.of(ctx).pop(c.id),
-                      child: Align(alignment: Alignment.centerLeft, child: Text(c.name)),
+                      child: Align(
+                        alignment: Alignment.centerLeft,
+                        child: Text(c.name),
+                      ),
                     ),
                 ],
               ),
@@ -90,7 +119,10 @@ class _BookingScreenState extends State<BookingScreen> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                CupertinoButton(child: const Text('Отмена'), onPressed: () => Navigator.of(ctx).pop()),
+                CupertinoButton(
+                  child: const Text('Отмена'),
+                  onPressed: () => Navigator.of(ctx).pop(),
+                ),
               ],
             ),
             Expanded(
@@ -99,7 +131,10 @@ class _BookingScreenState extends State<BookingScreen> {
                   for (final r in resources)
                     CupertinoButton(
                       onPressed: () => Navigator.of(ctx).pop(r.id),
-                      child: Align(alignment: Alignment.centerLeft, child: Text(r.name)),
+                      child: Align(
+                        alignment: Alignment.centerLeft,
+                        child: Text(r.name),
+                      ),
                     ),
                 ],
               ),
@@ -122,8 +157,14 @@ class _BookingScreenState extends State<BookingScreen> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                CupertinoButton(child: const Text('Отмена'), onPressed: () => Navigator.of(modalContext).pop()),
-                CupertinoButton(child: const Text('Готово'), onPressed: () => Navigator.of(modalContext).pop()),
+                CupertinoButton(
+                  child: const Text('Отмена'),
+                  onPressed: () => Navigator.of(modalContext).pop(),
+                ),
+                CupertinoButton(
+                  child: const Text('Готово'),
+                  onPressed: () => Navigator.of(modalContext).pop(),
+                ),
               ],
             ),
             Expanded(
@@ -153,10 +194,18 @@ class _BookingScreenState extends State<BookingScreen> {
       final objs = store.objects.where((o) => o.clientId == clientId).toList();
       if (objs.isNotEmpty) object = objs.first;
     }
-    DateTime start = DateTime(_selectedDay.year, _selectedDay.month, _selectedDay.day, 10, 0);
+    DateTime start = DateTime(
+      _selectedDay.year,
+      _selectedDay.month,
+      _selectedDay.day,
+      10,
+      0,
+    );
     final startPicked = await _pickDateTime(start);
     if (startPicked == null) return;
-    final endPicked = await _pickDateTime(startPicked.add(const Duration(hours: 1)));
+    final endPicked = await _pickDateTime(
+      startPicked.add(const Duration(hours: 1)),
+    );
     if (endPicked == null) return;
     final note = await _prompt('Заметка', '');
     setState(() => _busy = true);
@@ -171,7 +220,8 @@ class _BookingScreenState extends State<BookingScreen> {
         note: note,
       );
     } on StateError catch (e) {
-      if (mounted) await showAppAlert(context, title: 'Конфликт', message: e.message);
+      if (mounted)
+        await showAppAlert(context, title: 'Конфликт', message: e.message);
       return;
     } finally {
       if (mounted) setState(() => _busy = false);
@@ -183,18 +233,36 @@ class _BookingScreenState extends State<BookingScreen> {
     final store = context.watch<MastersStore>();
     final colors = context.colors;
     final dayAppts = store.appointmentsForDay(_selectedDay);
-    final dayJobs = store.jobs.where((j) => !j.archived && j.dueDate != null && dayKey(j.dueDate!) == dayKey(_selectedDay)).toList();
+    final dayJobs = store.jobs
+        .where(
+          (j) =>
+              !j.archived &&
+              j.dueDate != null &&
+              dayKey(j.dueDate!) == dayKey(_selectedDay),
+        )
+        .toList();
     final dayEntries = <_BookingDayEntry>[
       for (final a in dayAppts) _BookingDayEntry('appointment', a, a.startAt),
-      for (final j in dayJobs) _BookingDayEntry('job', j, DateTime(j.dueDate!.year, j.dueDate!.month, j.dueDate!.day, 23, 59)),
+      for (final j in dayJobs)
+        _BookingDayEntry(
+          'job',
+          j,
+          DateTime(j.dueDate!.year, j.dueDate!.month, j.dueDate!.day, 23, 59),
+        ),
     ]..sort((a, b) => a.time.compareTo(b.time));
     final month = _monthStart();
     final firstWeekday = month.weekday;
     final daysInMonth = DateTime(month.year, month.month + 1, 0).day;
     final cells = <DateTime?>[];
-    for (var i = 1; i < firstWeekday; i++) { cells.add(null); }
-    for (var d = 1; d <= daysInMonth; d++) { cells.add(DateTime(month.year, month.month, d)); }
-    while (cells.length % 7 != 0) { cells.add(null); }
+    for (var i = 1; i < firstWeekday; i++) {
+      cells.add(null);
+    }
+    for (var d = 1; d <= daysInMonth; d++) {
+      cells.add(DateTime(month.year, month.month, d));
+    }
+    while (cells.length % 7 != 0) {
+      cells.add(null);
+    }
 
     return CupertinoPageScaffold(
       navigationBar: CupertinoNavigationBar(
@@ -202,17 +270,43 @@ class _BookingScreenState extends State<BookingScreen> {
         trailing: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            CupertinoButton(padding: EdgeInsets.zero, onPressed: () {
-              setState(() {
-                _calendarMonth = DateTime(_calendarMonth.year, _calendarMonth.month - 1, 1);
-              });
-            }, child: const Icon(CupertinoIcons.chevron_left)),
-            CupertinoButton(padding: EdgeInsets.zero, onPressed: () {
-              setState(() {
-                _calendarMonth = DateTime(_calendarMonth.year, _calendarMonth.month + 1, 1);
-              });
-            }, child: const Icon(CupertinoIcons.chevron_right)),
-            CupertinoButton(padding: EdgeInsets.zero, onPressed: _newAppointment, child: const Icon(CupertinoIcons.plus, semanticLabel: 'Добавить')),
+            CupertinoButton(
+              padding: EdgeInsets.zero,
+              onPressed: () {
+                setState(() {
+                  _calendarMonth = DateTime(
+                    _calendarMonth.year,
+                    _calendarMonth.month - 1,
+                    1,
+                  );
+                });
+              },
+              child: const Icon(
+                CupertinoIcons.chevron_left,
+                semanticLabel: 'Предыдущий месяц',
+              ),
+            ),
+            CupertinoButton(
+              padding: EdgeInsets.zero,
+              onPressed: () {
+                setState(() {
+                  _calendarMonth = DateTime(
+                    _calendarMonth.year,
+                    _calendarMonth.month + 1,
+                    1,
+                  );
+                });
+              },
+              child: const Icon(
+                CupertinoIcons.chevron_right,
+                semanticLabel: 'Следующий месяц',
+              ),
+            ),
+            CupertinoButton(
+              padding: EdgeInsets.zero,
+              onPressed: _newAppointment,
+              child: const Icon(CupertinoIcons.plus, semanticLabel: 'Добавить'),
+            ),
           ],
         ),
       ),
@@ -224,7 +318,13 @@ class _BookingScreenState extends State<BookingScreen> {
                   Padding(
                     padding: const EdgeInsets.fromLTRB(8, 8, 8, 4),
                     child: Center(
-                      child: Text(DateFormat('LLLL yyyy', 'ru').format(month), style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 16)),
+                      child: Text(
+                        DateFormat('LLLL yyyy', 'ru').format(month),
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w600,
+                          fontSize: 16,
+                        ),
+                      ),
                     ),
                   ),
                   Padding(
@@ -232,33 +332,66 @@ class _BookingScreenState extends State<BookingScreen> {
                     child: GridView.builder(
                       shrinkWrap: true,
                       physics: const NeverScrollableScrollPhysics(),
-                      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 7, childAspectRatio: 0.9),
+                      gridDelegate:
+                          const SliverGridDelegateWithFixedCrossAxisCount(
+                            crossAxisCount: 7,
+                            childAspectRatio: 0.9,
+                          ),
                       itemCount: cells.length,
                       itemBuilder: (context, index) {
                         final day = cells[index];
                         if (day == null) return const SizedBox.shrink();
                         final dayAppts = store.appointmentsForDay(day);
-                        final isToday = day.year == DateTime.now().year && day.month == DateTime.now().month && day.day == DateTime.now().day;
-                        final isSelected = day.year == _selectedDay.year && day.month == _selectedDay.month && day.day == _selectedDay.day;
+                        final isToday =
+                            day.year == DateTime.now().year &&
+                            day.month == DateTime.now().month &&
+                            day.day == DateTime.now().day;
+                        final isSelected =
+                            day.year == _selectedDay.year &&
+                            day.month == _selectedDay.month &&
+                            day.day == _selectedDay.day;
                         return GestureDetector(
                           onTap: () => setState(() => _selectedDay = day),
                           child: Container(
                             margin: const EdgeInsets.all(2),
                             decoration: BoxDecoration(
-                              color: isSelected ? colors.accent.withValues(alpha: 0.12) : (isToday ? colors.accent.withValues(alpha: 0.06) : null),
+                              color: isSelected
+                                  ? colors.accent.withValues(alpha: 0.12)
+                                  : (isToday
+                                        ? colors.accent.withValues(alpha: 0.06)
+                                        : null),
                               borderRadius: BorderRadius.circular(8),
-                              border: Border.all(color: isSelected ? colors.accent : colors.separator, width: isSelected ? 1.2 : 0.5),
+                              border: Border.all(
+                                color: isSelected
+                                    ? colors.accent
+                                    : colors.separator,
+                                width: isSelected ? 1.2 : 0.5,
+                              ),
                             ),
                             child: Column(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
-                                Text('${day.day}', style: TextStyle(fontWeight: isToday ? FontWeight.w700 : FontWeight.w500, color: isToday ? colors.accent : colors.label, fontSize: 12)),
+                                Text(
+                                  '${day.day}',
+                                  style: TextStyle(
+                                    fontWeight: isToday
+                                        ? FontWeight.w700
+                                        : FontWeight.w500,
+                                    color: isToday
+                                        ? colors.accent
+                                        : colors.label,
+                                    fontSize: 12,
+                                  ),
+                                ),
                                 if (dayAppts.isNotEmpty)
                                   Container(
                                     margin: const EdgeInsets.only(top: 2),
                                     width: 6,
                                     height: 6,
-                                    decoration: BoxDecoration(color: colors.accent, shape: BoxShape.circle),
+                                    decoration: BoxDecoration(
+                                      color: colors.accent,
+                                      shape: BoxShape.circle,
+                                    ),
                                   ),
                               ],
                             ),
@@ -271,9 +404,18 @@ class _BookingScreenState extends State<BookingScreen> {
                     padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
                     child: Row(
                       children: [
-                        Text(DateFormat('d MMMM yyyy', 'ru').format(_selectedDay), style: const TextStyle(fontWeight: FontWeight.w600)),
+                        Text(
+                          DateFormat('d MMMM yyyy', 'ru').format(_selectedDay),
+                          style: const TextStyle(fontWeight: FontWeight.w600),
+                        ),
                         const Spacer(),
-                        Text('${dayEntries.length} записей', style: TextStyle(color: colors.secondaryLabel, fontSize: 12)),
+                        Text(
+                          '${dayEntries.length} записей',
+                          style: TextStyle(
+                            color: colors.secondaryLabel,
+                            fontSize: 12,
+                          ),
+                        ),
                       ],
                     ),
                   ),
@@ -282,7 +424,11 @@ class _BookingScreenState extends State<BookingScreen> {
                         ? EmptyState(
                             title: 'Нет записей',
                             message: 'Нет записей на этот день.',
-                            art: Icon(CupertinoIcons.calendar, size: 36, color: colors.tertiaryLabel),
+                            art: Icon(
+                              CupertinoIcons.calendar,
+                              size: 36,
+                              color: colors.tertiaryLabel,
+                            ),
                           )
                         : ListView.builder(
                             padding: const EdgeInsets.fromLTRB(16, 0, 16, 72),
@@ -291,7 +437,9 @@ class _BookingScreenState extends State<BookingScreen> {
                               final entry = dayEntries[index];
                               if (entry.kind == 'appointment') {
                                 final a = entry.item as Appointment;
-                                final client = a.clientId == null ? null : store.clientById(a.clientId!);
+                                final client = a.clientId == null
+                                    ? null
+                                    : store.clientById(a.clientId!);
                                 return Padding(
                                   padding: const EdgeInsets.only(bottom: 8),
                                   child: Dismissible(
@@ -300,38 +448,94 @@ class _BookingScreenState extends State<BookingScreen> {
                                     background: Container(
                                       alignment: Alignment.centerRight,
                                       padding: const EdgeInsets.only(right: 16),
-                                      decoration: BoxDecoration(color: colors.red.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(16)),
-                                      child: Icon(CupertinoIcons.delete, color: colors.red),
+                                      decoration: BoxDecoration(
+                                        color: colors.red.withValues(
+                                          alpha: 0.12,
+                                        ),
+                                        borderRadius: BorderRadius.circular(16),
+                                      ),
+                                      child: Icon(
+                                        CupertinoIcons.delete,
+                                        color: colors.red,
+                                      ),
                                     ),
-                                    confirmDismiss: (_) => showAppConfirm(context, title: 'Удалить запись?', message: a.title, destructive: true, confirmLabel: 'Удалить'),
-                                    onDismissed: (_) => store.deleteAppointment(a.id),
+                                    confirmDismiss: (_) => showAppConfirm(
+                                      context,
+                                      title: 'Удалить запись?',
+                                      message: a.title,
+                                      destructive: true,
+                                      confirmLabel: 'Удалить',
+                                    ),
+                                    onDismissed: (_) =>
+                                        store.deleteAppointment(a.id),
                                     child: AppCard(
                                       child: Row(
                                         children: [
                                           Container(
                                             width: 4,
                                             height: 36,
-                                            margin: const EdgeInsets.only(right: 10),
-                                            decoration: BoxDecoration(color: colors.accent, borderRadius: BorderRadius.circular(4)),
+                                            margin: const EdgeInsets.only(
+                                              right: 10,
+                                            ),
+                                            decoration: BoxDecoration(
+                                              color: colors.accent,
+                                              borderRadius:
+                                                  BorderRadius.circular(4),
+                                            ),
                                           ),
                                           Expanded(
                                             child: Column(
-                                              crossAxisAlignment: CrossAxisAlignment.start,
+                                              crossAxisAlignment:
+                                                  CrossAxisAlignment.start,
                                               children: [
-                                                Text(a.title, style: const TextStyle(fontWeight: FontWeight.w600)),
+                                                Text(
+                                                  a.title,
+                                                  style: const TextStyle(
+                                                    fontWeight: FontWeight.w600,
+                                                  ),
+                                                ),
                                                 Text(
                                                   '${DateFormat('HH:mm', 'ru').format(a.startAt)}–${DateFormat('HH:mm', 'ru').format(a.endAt)}${client != null ? ' • ${client.name}' : ''}',
-                                                  style: TextStyle(color: colors.secondaryLabel, fontSize: 12),
+                                                  style: TextStyle(
+                                                    color:
+                                                        colors.secondaryLabel,
+                                                    fontSize: 12,
+                                                  ),
                                                 ),
-                                                if (a.note != null && a.note!.isNotEmpty)
-                                                  Text(a.note!, style: TextStyle(color: colors.tertiaryLabel, fontSize: 12)),
+                                                if (a.note != null &&
+                                                    a.note!.isNotEmpty)
+                                                  Text(
+                                                    a.note!,
+                                                    style: TextStyle(
+                                                      color:
+                                                          colors.tertiaryLabel,
+                                                      fontSize: 12,
+                                                    ),
+                                                  ),
                                               ],
                                             ),
                                           ),
                                           CupertinoButton(
                                             padding: EdgeInsets.zero,
-                                            onPressed: () => store.updateAppointment(a.copyWith(status: a.status == AppointmentStatus.done ? AppointmentStatus.scheduled : AppointmentStatus.done)),
-                                            child: Icon(CupertinoIcons.checkmark_circle, size: 20, color: colors.green),
+                                            onPressed: () =>
+                                                store.updateAppointment(
+                                                  a.copyWith(
+                                                    status:
+                                                        a.status ==
+                                                            AppointmentStatus
+                                                                .done
+                                                        ? AppointmentStatus
+                                                              .scheduled
+                                                        : AppointmentStatus
+                                                              .done,
+                                                  ),
+                                                ),
+                                            child: Icon(
+                                              CupertinoIcons.checkmark_circle,
+                                              size: 20,
+                                              color: colors.green,
+                                              semanticLabel: 'Выполнено',
+                                            ),
                                           ),
                                         ],
                                       ),
@@ -345,30 +549,59 @@ class _BookingScreenState extends State<BookingScreen> {
                                 padding: const EdgeInsets.only(bottom: 8),
                                 child: AppCard(
                                   onTap: () => Navigator.of(context).push(
-                                    CupertinoPageRoute(builder: (_) => JobDetailScreen(jobId: j.id)),
+                                    CupertinoPageRoute(
+                                      builder: (_) =>
+                                          JobDetailScreen(jobId: j.id),
+                                    ),
                                   ),
                                   child: Row(
                                     children: [
                                       Container(
                                         width: 4,
                                         height: 36,
-                                        margin: const EdgeInsets.only(right: 10),
-                                        decoration: BoxDecoration(color: colors.orange, borderRadius: BorderRadius.circular(4)),
+                                        margin: const EdgeInsets.only(
+                                          right: 10,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          color: colors.orange,
+                                          borderRadius: BorderRadius.circular(
+                                            4,
+                                          ),
+                                        ),
                                       ),
                                       Expanded(
                                         child: Column(
-                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
                                           children: [
-                                            Text(j.title, style: const TextStyle(fontWeight: FontWeight.w600)),
+                                            Text(
+                                              j.title,
+                                              style: const TextStyle(
+                                                fontWeight: FontWeight.w600,
+                                              ),
+                                            ),
                                             Text(
                                               'Срок: ${DateFormat('d MMM HH:mm', 'ru').format(j.dueDate!)}${client != null ? ' • ${client.name}' : ''}',
-                                              style: TextStyle(color: colors.secondaryLabel, fontSize: 12),
+                                              style: TextStyle(
+                                                color: colors.secondaryLabel,
+                                                fontSize: 12,
+                                              ),
                                             ),
-                                            Text('Заказ', style: TextStyle(color: colors.tertiaryLabel, fontSize: 11)),
+                                            Text(
+                                              'Заказ',
+                                              style: TextStyle(
+                                                color: colors.tertiaryLabel,
+                                                fontSize: 11,
+                                              ),
+                                            ),
                                           ],
                                         ),
                                       ),
-                                      Icon(CupertinoIcons.chevron_forward, size: 16, color: colors.tertiaryLabel),
+                                      Icon(
+                                        CupertinoIcons.chevron_forward,
+                                        size: 16,
+                                        color: colors.tertiaryLabel,
+                                      ),
                                     ],
                                   ),
                                 ),

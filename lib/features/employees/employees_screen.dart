@@ -386,6 +386,7 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
                                   child: const Icon(
                                     CupertinoIcons.lock,
                                     size: 18,
+                                    semanticLabel: 'Закрыть период',
                                   ),
                                 ),
                               if (period.isClosed)
@@ -398,6 +399,7 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
                                   child: const Icon(
                                     CupertinoIcons.lock_open,
                                     size: 18,
+                                    semanticLabel: 'Открыть период',
                                   ),
                                 ),
                               CupertinoButton(
@@ -409,6 +411,7 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
                                 child: const Icon(
                                   CupertinoIcons.doc_text,
                                   size: 18,
+                                  semanticLabel: 'Экспорт',
                                 ),
                               ),
                               CupertinoButton(
@@ -421,6 +424,7 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
                                   CupertinoIcons.trash,
                                   size: 18,
                                   color: context.colors.red,
+                                  semanticLabel: 'Удалить период',
                                 ),
                               ),
                             ],
@@ -802,12 +806,18 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
             CupertinoButton(
               padding: EdgeInsets.zero,
               onPressed: _managePayrollPeriods,
-              child: const Icon(CupertinoIcons.doc_text),
+              child: const Icon(
+                CupertinoIcons.doc_text,
+                semanticLabel: 'Периоды',
+              ),
             ),
             CupertinoButton(
               padding: EdgeInsets.zero,
               onPressed: _closeCurrentPayrollPeriod,
-              child: const Icon(CupertinoIcons.lock),
+              child: const Icon(
+                CupertinoIcons.lock,
+                semanticLabel: 'Закрыть период',
+              ),
             ),
             CupertinoButton(
               padding: EdgeInsets.zero,

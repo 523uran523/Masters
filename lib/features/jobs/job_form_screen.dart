@@ -50,12 +50,14 @@ class _JobFormScreenState extends State<JobFormScreen> {
         _assigneeId = job.assigneeId;
         _status = job.status;
         _priority = job.priority;
-        _priceController.text =
-            (job.priceCents / 100).toStringAsFixed(2).replaceAll('.00', '');
-        _costController.text =
-            (job.costCents / 100).toStringAsFixed(2).replaceAll('.00', '');
+        _priceController.text = (job.priceCents / 100)
+            .toStringAsFixed(2)
+            .replaceAll('.00', '');
+        _costController.text = (job.costCents / 100)
+            .toStringAsFixed(2)
+            .replaceAll('.00', '');
         _noteController.text = job.note ?? '';
-      _tagsController.text = job.tags ?? '';
+        _tagsController.text = job.tags ?? '';
         _dueDate = job.dueDate;
       }
     }
@@ -170,11 +172,16 @@ class _JobFormScreenState extends State<JobFormScreen> {
   Future<void> _pickObject() async {
     if (_clientId == null) return;
     final store = context.read<MastersStore>();
-    final objects = store.objects.where((o) => o.clientId == _clientId).toList();
+    final objects = store.objects
+        .where((o) => o.clientId == _clientId)
+        .toList();
     if (objects.isEmpty) {
       final title = await _promptText('Новый объект', 'Квартира / адрес');
       if (title == null || title.trim().isEmpty) return;
-      final obj = await store.createObject(clientId: _clientId!, title: title.trim());
+      final obj = await store.createObject(
+        clientId: _clientId!,
+        title: title.trim(),
+      );
       if (!mounted) return;
       setState(() => _objectId = obj.id);
       return;
@@ -227,7 +234,10 @@ class _JobFormScreenState extends State<JobFormScreen> {
     if (selected == '__new__') {
       final title = await _promptText('Новый объект', 'Квартира / адрес');
       if (title == null || title.trim().isEmpty) return;
-      final obj = await store.createObject(clientId: _clientId!, title: title.trim());
+      final obj = await store.createObject(
+        clientId: _clientId!,
+        title: title.trim(),
+      );
       if (!mounted) return;
       setState(() => _objectId = obj.id);
       return;
@@ -249,8 +259,14 @@ class _JobFormScreenState extends State<JobFormScreen> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                CupertinoButton(child: const Text('Отмена'), onPressed: () => Navigator.of(ctx).pop()),
-                CupertinoButton(child: const Text('Без'), onPressed: () => Navigator.of(ctx).pop('__none__')),
+                CupertinoButton(
+                  child: const Text('Отмена'),
+                  onPressed: () => Navigator.of(ctx).pop(),
+                ),
+                CupertinoButton(
+                  child: const Text('Без'),
+                  onPressed: () => Navigator.of(ctx).pop('__none__'),
+                ),
               ],
             ),
             Expanded(
@@ -259,7 +275,10 @@ class _JobFormScreenState extends State<JobFormScreen> {
                   for (final e in emps)
                     CupertinoButton(
                       onPressed: () => Navigator.of(ctx).pop(e.id),
-                      child: Align(alignment: Alignment.centerLeft, child: Text(e.name)),
+                      child: Align(
+                        alignment: Alignment.centerLeft,
+                        child: Text(e.name),
+                      ),
                     ),
                 ],
               ),
@@ -289,14 +308,16 @@ class _JobFormScreenState extends State<JobFormScreen> {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 CupertinoButton(
-                    child: const Text('Отмена'),
-                    onPressed: () => Navigator.of(modalContext).pop()),
+                  child: const Text('Отмена'),
+                  onPressed: () => Navigator.of(modalContext).pop(),
+                ),
                 CupertinoButton(
-                    child: const Text('Готово'),
-                    onPressed: () {
-                      setState(() => _dueDate = selected);
-                      Navigator.of(modalContext).pop();
-                    }),
+                  child: const Text('Готово'),
+                  onPressed: () {
+                    setState(() => _dueDate = selected);
+                    Navigator.of(modalContext).pop();
+                  },
+                ),
               ],
             ),
             Expanded(
@@ -315,11 +336,19 @@ class _JobFormScreenState extends State<JobFormScreen> {
   Future<void> _save() async {
     final title = _titleController.text.trim();
     if (title.isEmpty) {
-      await showAppAlert(context, title: 'Название', message: 'Введите название заказа.');
+      await showAppAlert(
+        context,
+        title: 'Название',
+        message: 'Введите название заказа.',
+      );
       return;
     }
     if (_clientId == null) {
-      await showAppAlert(context, title: 'Клиент', message: 'Выберите клиента.');
+      await showAppAlert(
+        context,
+        title: 'Клиент',
+        message: 'Выберите клиента.',
+      );
       return;
     }
     setState(() => _saving = true);
@@ -327,19 +356,25 @@ class _JobFormScreenState extends State<JobFormScreen> {
       final store = context.read<MastersStore>();
       if (_isEdit) {
         final job = store.jobById(widget.jobId!)!;
-        await store.updateJob(job.copyWith(
-          title: title,
-          clientId: _clientId!,
-          objectId: _objectId,
-          assigneeId: _assigneeId,
-          status: _status,
-          priority: _priority,
-          priceCents: _parseCents(_priceController.text),
-          costCents: _parseCents(_costController.text),
-          dueDate: _dueDate,
-          note: _noteController.text.trim().isEmpty ? null : _noteController.text.trim(),
-          tags: _tagsController.text.trim().isEmpty ? null : _tagsController.text.trim(),
-        ));
+        await store.updateJob(
+          job.copyWith(
+            title: title,
+            clientId: _clientId!,
+            objectId: _objectId,
+            assigneeId: _assigneeId,
+            status: _status,
+            priority: _priority,
+            priceCents: _parseCents(_priceController.text),
+            costCents: _parseCents(_costController.text),
+            dueDate: _dueDate,
+            note: _noteController.text.trim().isEmpty
+                ? null
+                : _noteController.text.trim(),
+            tags: _tagsController.text.trim().isEmpty
+                ? null
+                : _tagsController.text.trim(),
+          ),
+        );
       } else {
         await store.createJob(
           clientId: _clientId!,
@@ -351,8 +386,12 @@ class _JobFormScreenState extends State<JobFormScreen> {
           priceCents: _parseCents(_priceController.text),
           costCents: _parseCents(_costController.text),
           dueDate: _dueDate,
-          note: _noteController.text.trim().isEmpty ? null : _noteController.text.trim(),
-          tags: _tagsController.text.trim().isEmpty ? null : _tagsController.text.trim(),
+          note: _noteController.text.trim().isEmpty
+              ? null
+              : _noteController.text.trim(),
+          tags: _tagsController.text.trim().isEmpty
+              ? null
+              : _tagsController.text.trim(),
         );
       }
       if (mounted) Navigator.of(context).pop();
@@ -394,11 +433,14 @@ class _JobFormScreenState extends State<JobFormScreen> {
                   Row(
                     children: [
                       Expanded(
-                        child: Text(client?.name ?? 'Клиент не выбран',
-                            style: TextStyle(
-                                color: client == null
-                                    ? colors.secondaryLabel
-                                    : colors.label)),
+                        child: Text(
+                          client?.name ?? 'Клиент не выбран',
+                          style: TextStyle(
+                            color: client == null
+                                ? colors.secondaryLabel
+                                : colors.label,
+                          ),
+                        ),
                       ),
                       CupertinoButton(
                         padding: EdgeInsets.zero,
@@ -411,8 +453,10 @@ class _JobFormScreenState extends State<JobFormScreen> {
                   Row(
                     children: [
                       Expanded(
-                        child: Text(obj?.title ?? 'Без объекта',
-                            style: TextStyle(color: colors.secondaryLabel)),
+                        child: Text(
+                          obj?.title ?? 'Без объекта',
+                          style: TextStyle(color: colors.secondaryLabel),
+                        ),
                       ),
                       CupertinoButton(
                         padding: EdgeInsets.zero,
@@ -428,7 +472,11 @@ class _JobFormScreenState extends State<JobFormScreen> {
                         child: Text(
                           _assigneeId == null
                               ? 'Исполнитель не выбран'
-                              : (context.read<MastersStore>().employeeById(_assigneeId!)?.name ?? 'Исполнитель'),
+                              : (context
+                                        .read<MastersStore>()
+                                        .employeeById(_assigneeId!)
+                                        ?.name ??
+                                    'Исполнитель'),
                           style: TextStyle(color: colors.secondaryLabel),
                         ),
                       ),
@@ -462,9 +510,14 @@ class _JobFormScreenState extends State<JobFormScreen> {
                           children: {
                             for (final s in JobStatus.values)
                               s.dbValue: Padding(
-                                padding:
-                                    const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
-                                child: Text(s.label, style: const TextStyle(fontSize: 11)),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 4,
+                                  vertical: 6,
+                                ),
+                                child: Text(
+                                  s.label,
+                                  style: const TextStyle(fontSize: 11),
+                                ),
                               ),
                           },
                         ),
@@ -482,7 +535,10 @@ class _JobFormScreenState extends State<JobFormScreen> {
                         children: {
                           for (final p in JobPriority.values)
                             p: Padding(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 6,
+                              ),
                               child: Text(p.label),
                             ),
                         },
@@ -501,8 +557,9 @@ class _JobFormScreenState extends State<JobFormScreen> {
                     child: CupertinoTextField(
                       controller: _priceController,
                       placeholder: 'Цена',
-                      keyboardType:
-                          const TextInputType.numberWithOptions(decimal: true),
+                      keyboardType: const TextInputType.numberWithOptions(
+                        decimal: true,
+                      ),
                       prefix: const Padding(
                         padding: EdgeInsets.only(left: 8),
                         child: Text('₽'),
@@ -514,8 +571,9 @@ class _JobFormScreenState extends State<JobFormScreen> {
                     child: CupertinoTextField(
                       controller: _costController,
                       placeholder: 'Расход',
-                      keyboardType:
-                          const TextInputType.numberWithOptions(decimal: true),
+                      keyboardType: const TextInputType.numberWithOptions(
+                        decimal: true,
+                      ),
                       prefix: const Padding(
                         padding: EdgeInsets.only(left: 8),
                         child: Text('₽'),
@@ -530,15 +588,17 @@ class _JobFormScreenState extends State<JobFormScreen> {
               label: 'Калькулятор расходов',
               icon: CupertinoIcons.money_dollar,
               onPressed: () async {
-                final result = await Navigator.of(context).push<Map<String, int>>(
-                  CupertinoPageRoute(
-                      builder: (_) => const CostCalculatorScreen()),
-                );
+                final result = await Navigator.of(context)
+                    .push<Map<String, int>>(
+                      CupertinoPageRoute(
+                        builder: (_) => const CostCalculatorScreen(),
+                      ),
+                    );
                 if (result == null || !mounted) return;
-                _costController.text =
-                    ((result['costCents'] as int) / 100).toStringAsFixed(2);
-                _priceController.text =
-                    ((result['priceCents'] as int) / 100).toStringAsFixed(2);
+                _costController.text = ((result['costCents'] as int) / 100)
+                    .toStringAsFixed(2);
+                _priceController.text = ((result['priceCents'] as int) / 100)
+                    .toStringAsFixed(2);
               },
             ),
             const SizedBox(height: 16),
@@ -548,14 +608,18 @@ class _JobFormScreenState extends State<JobFormScreen> {
                 children: [
                   Row(
                     children: [
-                      Text('Дедлайн',
-                          style: TextStyle(color: colors.secondaryLabel)),
+                      Text(
+                        'Дедлайн',
+                        style: TextStyle(color: colors.secondaryLabel),
+                      ),
                       const Spacer(),
                       CupertinoButton(
                         padding: EdgeInsets.zero,
                         onPressed: _pickDueDate,
                         child: Text(
-                          _dueDate == null ? 'Не задан' : formatFullDate(_dueDate!),
+                          _dueDate == null
+                              ? 'Не задан'
+                              : formatFullDate(_dueDate!),
                           style: const TextStyle(fontWeight: FontWeight.w600),
                         ),
                       ),
@@ -563,7 +627,11 @@ class _JobFormScreenState extends State<JobFormScreen> {
                         CupertinoButton(
                           padding: EdgeInsets.zero,
                           onPressed: () => setState(() => _dueDate = null),
-                          child: const Icon(CupertinoIcons.xmark, size: 16),
+                          child: const Icon(
+                            CupertinoIcons.xmark,
+                            size: 16,
+                            semanticLabel: 'Очистить',
+                          ),
                         ),
                     ],
                   ),
@@ -584,20 +652,37 @@ class _JobFormScreenState extends State<JobFormScreen> {
                     spacing: 6,
                     runSpacing: 6,
                     children: [
-                      for (final tag in context.read<SettingsController>().jobTags)
+                      for (final tag
+                          in context.read<SettingsController>().jobTags)
                         GestureDetector(
                           onTap: () {
                             final current = _tagsController.text.trim();
-                            final existing = current.isEmpty ? <String>[] : current.split(',').map((e) => e.trim()).toList();
+                            final existing = current.isEmpty
+                                ? <String>[]
+                                : current
+                                      .split(',')
+                                      .map((e) => e.trim())
+                                      .toList();
                             if (!existing.contains(tag)) {
-                              _tagsController.text = existing.isEmpty ? tag : '$current, $tag';
+                              _tagsController.text = existing.isEmpty
+                                  ? tag
+                                  : '$current, $tag';
                               setState(() {});
                             }
                           },
                           child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                            decoration: BoxDecoration(color: context.colors.cardElevated, borderRadius: BorderRadius.circular(99)),
-                            child: Text(tag, style: const TextStyle(fontSize: 11)),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 4,
+                            ),
+                            decoration: BoxDecoration(
+                              color: context.colors.cardElevated,
+                              borderRadius: BorderRadius.circular(99),
+                            ),
+                            child: Text(
+                              tag,
+                              style: const TextStyle(fontSize: 11),
+                            ),
                           ),
                         ),
                     ],
