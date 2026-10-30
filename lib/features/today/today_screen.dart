@@ -12,6 +12,7 @@ import '../../data/models/job.dart';
 import '../../state/masters_store.dart';
 import '../jobs/job_detail_screen.dart';
 import '../jobs/job_form_screen.dart';
+import '../stats/stats_screen.dart';
 
 class TodayScreen extends StatefulWidget {
   const TodayScreen({super.key});
@@ -129,6 +130,8 @@ class _TodayScreenState extends State<TodayScreen> {
                 padding: const EdgeInsets.fromLTRB(16, 12, 16, 72),
                 children: [
                   _buildTodayOverview(store, context),
+                  const SizedBox(height: 12),
+                  _buildSevenDayCashSummary(store, context),
                   const SizedBox(height: 12),
                   _buildSummaryCards(store, colors),
                   const SizedBox(height: 12),
@@ -386,6 +389,67 @@ class _TodayScreenState extends State<TodayScreen> {
               ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildSevenDayCashSummary(MastersStore store, BuildContext context) {
+    final colors = context.colors;
+    final now = DateTime.now();
+    final start = DateTime(
+      now.year,
+      now.month,
+      now.day,
+    ).subtract(const Duration(days: 6));
+    final tx = store.moneyTransactions.where((t) {
+      if (t.voided) return false;
+      if (t.createdAt.isAfter(now)) return false;
+      return !t.createdAt.isBefore(start);
+    }).toList();
+    final income = tx
+        .where((t) => t.direction == 'in')
+        .fold(0, (s, t) => s + t.amountCents);
+    final expense = tx
+        .where((t) => t.direction == 'out')
+        .fold(0, (s, t) => s + t.amountCents);
+    final profit = income - expense;
+    final balance = store.totalBalanceCents();
+    return AppCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'За 7 дней',
+            style: const TextStyle(fontWeight: FontWeight.w600),
+          ),
+          const SizedBox(height: 8),
+          _cashRow('Выручка', _money(income), colors.green),
+          _cashRow('Расходы', _money(expense), colors.red),
+          _cashRow('Прибыль', _money(profit), colors.accent),
+          _cashRow('Свободные деньги', _money(balance), colors.green),
+          const SizedBox(height: 8),
+          SecondaryButton(
+            label: 'Подробнее в аналитике',
+            icon: CupertinoIcons.chart_bar,
+            onPressed: () => Navigator.of(context)
+                .push(CupertinoPageRoute(builder: (_) => const StatsScreen())),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _cashRow(String label, String value, Color color) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 2),
+      child: Row(
+        children: [
+          Expanded(child: Text(label)),
+          Text(
+            value,
+            style: TextStyle(color: color, fontWeight: FontWeight.w600),
+          ),
+        ],
       ),
     );
   }
