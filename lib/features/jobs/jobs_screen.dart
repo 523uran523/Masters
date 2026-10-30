@@ -945,7 +945,14 @@ class _JobRow extends StatelessWidget {
                   job.title,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(fontWeight: FontWeight.w600),
+                  style: TextStyle(
+                    fontWeight: FontWeight.w600,
+                    decoration:
+                        job.status == JobStatus.done ||
+                            job.status == JobStatus.closed
+                        ? TextDecoration.lineThrough
+                        : null,
+                  ),
                 ),
                 const SizedBox(height: 2),
                 Text(
@@ -1002,7 +1009,13 @@ class _JobCard extends StatelessWidget {
             job.title,
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
-            style: const TextStyle(fontWeight: FontWeight.w600),
+            style: TextStyle(
+              fontWeight: FontWeight.w600,
+              decoration:
+                  job.status == JobStatus.done || job.status == JobStatus.closed
+                  ? TextDecoration.lineThrough
+                  : null,
+            ),
           ),
           const SizedBox(height: 4),
           Text(
@@ -1044,11 +1057,11 @@ class _JobCard extends StatelessWidget {
               padding: const EdgeInsets.only(top: 4),
               child: Text(
                 '${(job.priceCents / 100).toStringAsFixed(0)} ₽',
-                style: TextStyle(
-                  color: colors.accent,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                ),
+                 style: TextStyle(
+                   color: colors.accent,
+                   fontSize: 12,
+                   fontWeight: FontWeight.w600,
+                 ),
               ),
             ),
         ],

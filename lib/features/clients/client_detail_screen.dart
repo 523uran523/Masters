@@ -45,6 +45,7 @@ class ClientDetailScreen extends StatelessWidget {
           line:
               '${job.status.label} • ${(job.priceCents / 100).toStringAsFixed(0)} ₽',
           date: job.updatedAt,
+          jobStatus: job.status,
         ),
       ),
       ...reminders.map(
@@ -280,14 +281,36 @@ class ClientDetailScreen extends StatelessWidget {
                                       children: [
                                         Text(
                                           item.title,
-                                          style: const TextStyle(
+                                          style: TextStyle(
                                             fontWeight: FontWeight.w500,
+                                            decoration:
+                                                item.jobStatus ==
+                                                        JobStatus.done ||
+                                                    item.jobStatus ==
+                                                        JobStatus.closed
+                                                ? TextDecoration.lineThrough
+                                                : null,
+                                            color:
+                                                item.jobStatus ==
+                                                        JobStatus.done ||
+                                                    item.jobStatus ==
+                                                        JobStatus.closed
+                                                ? context.colors.secondaryLabel
+                                                : null,
                                           ),
                                         ),
                                         if (item.line.isNotEmpty)
                                           Text(
                                             item.line,
                                             style: TextStyle(
+                                              decoration:
+                                                  item.jobStatus ==
+                                                              JobStatus.done ||
+                                                          item.jobStatus ==
+                                                              JobStatus.closed
+                                                      ? TextDecoration
+                                                          .lineThrough
+                                                      : null,
                                               color:
                                                   context.colors.secondaryLabel,
                                               fontSize: 12,
@@ -816,6 +839,7 @@ class _HistoryItem {
     required this.title,
     required this.line,
     required this.date,
+    this.jobStatus,
   });
 
   final IconData icon;
@@ -823,4 +847,5 @@ class _HistoryItem {
   final String title;
   final String line;
   final DateTime date;
+  final JobStatus? jobStatus;
 }
