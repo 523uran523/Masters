@@ -351,6 +351,10 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
                     Text(job.note!,
                         style: TextStyle(color: colors.secondaryLabel, fontSize: 14)),
                   ],
+                  if (job.tags != null && job.tags!.trim().isNotEmpty) ...[
+                    const SizedBox(height: 8),
+                    Text('Теги: ${job.tags}', style: TextStyle(color: colors.accent, fontSize: 12)),
+                  ],
                 ],
               ),
             ),
