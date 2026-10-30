@@ -42,6 +42,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   ];
   bool _awaitingCode = false;
   final _yandexCodeController = TextEditingController();
+  final _tagController = TextEditingController();
 
   Future<void> _loadAuditLog() async {
     setState(() => _auditBusy = true);
@@ -106,6 +107,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   @override
   void dispose() {
     _yandexCodeController.dispose();
+    _tagController.dispose();
     super.dispose();
   }
 
@@ -907,6 +909,57 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     ],
                   ),
                 ),
+                const SizedBox(height: 16),
+                SectionLabel('Теги заказов'),
+                AppCard(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Expanded(
+                            child: CupertinoTextField(
+                              controller: _tagController,
+                              placeholder: 'Новый тег',
+                            ),
+                          ),
+                          CupertinoButton(
+                            padding: EdgeInsets.zero,
+                            child: const Icon(CupertinoIcons.plus),
+                            onPressed: () async {
+                              await context.read<SettingsController>().addJobTag(_tagController.text);
+                              _tagController.clear();
+                              if (mounted) setState(() {});
+                            },
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: [
+                          for (final tag in context.watch<SettingsController>().jobTags)
+                            GestureDetector(
+                              onTap: () async {
+                                await context.read<SettingsController>().removeJobTag(tag);
+                                if (mounted) setState(() {});
+                              },
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                decoration: BoxDecoration(
+                                  color: context.colors.cardElevated,
+                                  borderRadius: BorderRadius.circular(99),
+                                ),
+                                child: Text(tag),
+                              ),
+                            ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 16),
                 SectionLabel('О приложении'),
                 AppCard(
                   child: Column(
