@@ -30,6 +30,7 @@ class _MoneyScreenState extends State<MoneyScreen> {
   String _txQuery = '';
   DateTime? _dateFrom;
   DateTime? _dateTo;
+  String _recurringStatusFilter = 'all';
 
   String _money(int cents) => '${(cents / 100).toStringAsFixed(0)} в‚Ѕ';
 
@@ -1116,6 +1117,18 @@ class _MoneyScreenState extends State<MoneyScreen> {
         : (monthIncome * taxRate / 100).round();
     final shift = store.openShift();
 
+    final recurringFiltered = store.recurringPayments.where((p) {
+      if (_recurringStatusFilter == 'active') return p.active;
+      if (_recurringStatusFilter == 'inactive') return !p.active;
+      return true;
+    }).toList()..sort((a, b) => a.nextDueAt.compareTo(b.nextDueAt));
+    final recurringGroups = <DateTime, List<RecurringPayment>>{};
+    for (final p in recurringFiltered) {
+      final key = DateTime(p.nextDueAt.year, p.nextDueAt.month);
+      recurringGroups.putIfAbsent(key, () => []).add(p);
+    }
+    final recurringMonthKeys = recurringGroups.keys.toList()..sort();
+
     // debts
     int totalDebt = 0;
     final debtClients = <Map<String, dynamic>>[];
@@ -1307,9 +1320,59 @@ class _MoneyScreenState extends State<MoneyScreen> {
                   const SizedBox(height: 16),
                   const SizedBox(height: 8),
                   SectionLabel(
-                    'Р РµРіСѓР»СЏСЂРЅС‹Рµ РїР»Р°С‚РµР¶Рё (${store.recurringPayments.length})',
+                    'Р РµРіСѓР»СЏСЂРЅС‹Рµ РїР»Р°С‚РµР¶Рё (${recurringFiltered.length})',
                   ),
-                  if (store.recurringPayments.isEmpty)
+                  const SizedBox(height: 6),
+                  SecondaryButton(
+                    label: _recurringStatusFilter == 'all'
+                        ? '\u0421\u0442\u0430\u0442\u0443\u0441: \u0432\u0441\u0435'
+                        : (_recurringStatusFilter == 'active'
+                              ? '\u0421\u0442\u0430\u0442\u0443\u0441: \u0430\u043a\u0442\u0438\u0432\u043d\u044b\u0435'
+                              : '\u0421\u0442\u0430\u0442\u0443\u0441: \u0432\u044b\u043a\u043b\u044e\u0447\u0435\u043d\u043d\u044b\u0435'),
+                    icon: CupertinoIcons.line_horizontal_3_decrease,
+                    onPressed: () async {
+                      final v = await showCupertinoModalPopup<String>(
+                        context: context,
+                        builder: (dialogContext) => CupertinoActionSheet(
+                          title: const Text(
+                            '\u0421\u0442\u0430\u0442\u0443\u0441',
+                          ),
+                          actions: [
+                            CupertinoActionSheetAction(
+                              onPressed: () =>
+                                  Navigator.of(dialogContext).pop('all'),
+                              child: const Text('\u0412\u0441\u0435'),
+                            ),
+                            CupertinoActionSheetAction(
+                              onPressed: () =>
+                                  Navigator.of(dialogContext).pop('active'),
+                              child: const Text(
+                                '\u0410\u043a\u0442\u0438\u0432\u043d\u044b\u0435',
+                              ),
+                            ),
+                            CupertinoActionSheetAction(
+                              onPressed: () =>
+                                  Navigator.of(dialogContext).pop('inactive'),
+                              child: const Text(
+                                '\u0412\u044b\u043a\u043b\u044e\u0447\u0435\u043d\u043d\u044b\u0435',
+                              ),
+                            ),
+                          ],
+                          cancelButton: CupertinoActionSheetAction(
+                            onPressed: () => Navigator.of(dialogContext).pop(),
+                            child: const Text(
+                              '\u041e\u0442\u043c\u0435\u043d\u0430',
+                            ),
+                          ),
+                        ),
+                      );
+                      if (v != null) {
+                        setState(() => _recurringStatusFilter = v);
+                      }
+                    },
+                  ),
+                  const SizedBox(height: 8),
+                  if (recurringFiltered.isEmpty)
                     EmptyState(
                       title: 'РќРµС‚ СЂРµРіСѓР»СЏСЂРЅС‹С… РїР»Р°С‚РµР¶РµР№',
                       message: 'Р”РѕР±Р°РІСЊС‚Рµ СЂРµРіСѓР»СЏСЂРЅС‹Рµ СЂР°СЃС…РѕРґС‹ РёР»Рё РїРѕСЃС‚СѓРїР»РµРЅРёСЏ.',
@@ -1322,64 +1385,87 @@ class _MoneyScreenState extends State<MoneyScreen> {
                   else
                     AppCard(
                       child: Column(
-                        children: store.recurringPayments.map((p) {
-                          return Padding(
-                            padding: const EdgeInsets.symmetric(vertical: 4),
-                            child: Row(
-                              children: [
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        p.name,
-                                        style: const TextStyle(
-                                          fontWeight: FontWeight.w600,
-                                        ),
-                                      ),
-                                      Text(
-                                        '${p.direction == "in" ? "+" : "-"} ${_money(p.amountCents)} В· РєР°Р¶РґС‹Рµ ${p.intervalDays} РґРЅ В· РґР°С‚Р° ${p.nextDueAt.day}.${p.nextDueAt.month}.${p.nextDueAt.year}',
-                                        style: TextStyle(
-                                          color: colors.secondaryLabel,
-                                          fontSize: 12,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                                CupertinoSwitch(
-                                  value: p.active,
-                                  onChanged: (v) =>
-                                      store.updateRecurringPayment(
-                                        p.copyWith(active: v),
-                                      ),
-                                ),
-                                CupertinoButton(
-                                  padding: EdgeInsets.zero,
-                                  onPressed: () => _editRecurringPayment(p),
-                                  child: Icon(
-                                    CupertinoIcons.pencil,
-                                    size: 18,
-                                    color: colors.accent,
-                                    semanticLabel: 'Р РµРґР°РєС‚РёСЂРѕРІР°С‚СЊ',
-                                  ),
-                                ),
-                                CupertinoButton(
-                                  padding: EdgeInsets.zero,
-                                  onPressed: () =>
-                                      store.deleteRecurringPayment(p.id),
-                                  child: Icon(
-                                    CupertinoIcons.trash,
-                                    size: 18,
-                                    color: colors.red,
-                                    semanticLabel: 'РЈРґР°Р»РёС‚СЊ',
-                                  ),
-                                ),
-                              ],
+                        children: [
+                          for (
+                            int gi = 0;
+                            gi < recurringMonthKeys.length;
+                            gi++
+                          ) ...[
+                            if (gi > 0) const SizedBox(height: 8),
+                            Text(
+                              DateFormat(
+                                'MMMM yyyy',
+                                'ru',
+                              ).format(recurringMonthKeys[gi]),
+                              style: TextStyle(
+                                fontWeight: FontWeight.w700,
+                                fontSize: 13,
+                                color: colors.secondaryLabel,
+                              ),
                             ),
-                          );
-                        }).toList(),
+                            const SizedBox(height: 4),
+                            ...recurringGroups[recurringMonthKeys[gi]]!.map(
+                              (p) => Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 4,
+                                ),
+                                child: Row(
+                                  children: [
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            p.name,
+                                            style: const TextStyle(
+                                              fontWeight: FontWeight.w600,
+                                            ),
+                                          ),
+                                          Text(
+                                            '${p.direction == "in" ? "+" : "-"} ${_money(p.amountCents)} \u00b7 \u043a\u0430\u0436\u0434\u044b\u0435 ${p.intervalDays} \u0434\u043d \u00b7 \u0434\u0430\u0442\u0430 ${p.nextDueAt.day}.${p.nextDueAt.month}.${p.nextDueAt.year}',
+                                            style: TextStyle(
+                                              color: colors.secondaryLabel,
+                                              fontSize: 12,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    CupertinoSwitch(
+                                      value: p.active,
+                                      onChanged: (v) =>
+                                          store.updateRecurringPayment(
+                                            p.copyWith(active: v),
+                                          ),
+                                    ),
+                                    CupertinoButton(
+                                      padding: EdgeInsets.zero,
+                                      onPressed: () => _editRecurringPayment(p),
+                                      child: Icon(
+                                        CupertinoIcons.pencil,
+                                        size: 18,
+                                        color: colors.accent,
+                                        semanticLabel: '\u0420\u0435\u0434\u0430\u043a\u0442\u0438\u0440\u043e\u0432\u0430\u0442\u044c',
+                                      ),
+                                    ),
+                                    CupertinoButton(
+                                      padding: EdgeInsets.zero,
+                                      onPressed: () =>
+                                          store.deleteRecurringPayment(p.id),
+                                      child: Icon(
+                                        CupertinoIcons.trash,
+                                        size: 18,
+                                        color: colors.red,
+                                        semanticLabel: '\u0423\u0434\u0430\u043b\u0438\u0442\u044c',
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ],
+                        ],
                       ),
                     ),
                   const SizedBox(height: 8),
