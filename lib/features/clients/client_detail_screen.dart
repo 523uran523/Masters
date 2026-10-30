@@ -305,12 +305,11 @@ class ClientDetailScreen extends StatelessWidget {
                                             style: TextStyle(
                                               decoration:
                                                   item.jobStatus ==
-                                                              JobStatus.done ||
-                                                          item.jobStatus ==
-                                                              JobStatus.closed
-                                                      ? TextDecoration
-                                                          .lineThrough
-                                                      : null,
+                                                          JobStatus.done ||
+                                                      item.jobStatus ==
+                                                          JobStatus.closed
+                                                  ? TextDecoration.lineThrough
+                                                  : null,
                                               color:
                                                   context.colors.secondaryLabel,
                                               fontSize: 12,

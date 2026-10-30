@@ -1057,11 +1057,11 @@ class _JobCard extends StatelessWidget {
               padding: const EdgeInsets.only(top: 4),
               child: Text(
                 '${(job.priceCents / 100).toStringAsFixed(0)} ₽',
-                 style: TextStyle(
-                   color: colors.accent,
-                   fontSize: 12,
-                   fontWeight: FontWeight.w600,
-                 ),
+                style: TextStyle(
+                  color: colors.accent,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
             ),
         ],
