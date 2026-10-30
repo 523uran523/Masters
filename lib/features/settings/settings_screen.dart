@@ -343,6 +343,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         return Padding(
                           padding: const EdgeInsets.only(bottom: 8),
                           child: AppCard(
+                            onTap: () => _showAuditDetail(e),
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
@@ -366,6 +367,30 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
     filterController.dispose();
   }
+Future<void> _showAuditDetail(Map<String, Object?> e) async {
+    final at = e['at'] is int ? DateTime.fromMillisecondsSinceEpoch(e['at'] as int) : DateTime.now();
+    await showCupertinoDialog<void>(
+      context: context,
+      builder: (context) => CupertinoAlertDialog(
+        title: Text(e['action']?.toString() ?? 'Детали аудита'),
+        content: SingleChildScrollView(
+          child: Text(
+            'entity: ${e['entity']}\n'
+            'entity_id: ${e['entity_id'] ?? '—'}\n'
+            'actor: ${e['actor'] ?? '—'}\n'
+            'device: ${e['device_id'] ?? '—'}\n'
+            'time: ${at.toLocal()}\n\n'
+            'before:\n${e['before_json'] ?? '—'}\n\n'
+            'after:\n${e['after_json'] ?? '—'}',
+          ),
+        ),
+        actions: [
+          CupertinoDialogAction(onPressed: () => Navigator.of(context).pop(), child: const Text('OK')),
+        ],
+      ),
+    );
+  }
+
 Future<void> _managePin() async {
     final settings = context.read<SettingsController>();
     if (settings.hasAppPin) {
