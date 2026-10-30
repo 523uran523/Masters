@@ -1248,37 +1248,39 @@ class _MoneyScreenState extends State<MoneyScreen> {
                     onPressed: _importTransactionsExcel,
                   ),
                   const SizedBox(height: 16),
-                  SectionLabel('РЎРјРµРЅР° РєР°СЃСЃС‹'),
-                  AppCard(
-                    child: shift == null
-                        ? SecondaryButton(
-                            label: 'РћС‚РєСЂС‹С‚СЊ СЃРјРµРЅСѓ',
-                            icon: CupertinoIcons.play,
-                            onPressed: _openShift,
-                          )
-                        : Column(
-                            children: [
-                              _KV('РЎС‚Р°С‚СѓСЃ', 'РћС‚РєСЂС‹С‚Р°'),
-                              _KV(
-                                'РќР°С‡Р°Р»Рѕ',
-                                DateFormat(
-                                  'd MMM, HH:mm',
-                                  'ru',
-                                ).format(shift.openedAt),
-                              ),
-                              _KV(
-                                'РћР¶РёРґР°РµС‚СЃСЏ',
-                                _money(store.expectedForShift(shift)),
-                              ),
-                              SecondaryButton(
-                                label: 'Р—Р°РєСЂС‹С‚СЊ СЃРјРµРЅСѓ',
-                                icon: CupertinoIcons.stop,
-                                onPressed: _closeShift,
-                              ),
-                            ],
-                          ),
-                  ),
-                  const SizedBox(height: 16),
+                  if (settings.cashShiftEnabled) ...[
+                    SectionLabel('РЎРјРµРЅР° РєР°СЃСЃС‹'),
+                    AppCard(
+                      child: shift == null
+                          ? SecondaryButton(
+                              label: 'РћС‚РєСЂС‹С‚СЊ СЃРјРµРЅСѓ',
+                              icon: CupertinoIcons.play,
+                              onPressed: _openShift,
+                            )
+                          : Column(
+                              children: [
+                                _KV('РЎС‚Р°С‚СѓСЃ', 'РћС‚РєСЂС‹С‚Р°'),
+                                _KV(
+                                  'РќР°С‡Р°Р»Рѕ',
+                                  DateFormat(
+                                    'd MMM, HH:mm',
+                                    'ru',
+                                  ).format(shift.openedAt),
+                                ),
+                                _KV(
+                                  'РћР¶РёРґР°РµС‚СЃСЏ',
+                                  _money(store.expectedForShift(shift)),
+                                ),
+                                SecondaryButton(
+                                  label: 'Р—Р°РєСЂС‹С‚СЊ СЃРјРµРЅСѓ',
+                                  icon: CupertinoIcons.stop,
+                                  onPressed: _closeShift,
+                                ),
+                              ],
+                            ),
+                    ),
+                    const SizedBox(height: 16),
+                  ],
                   SectionLabel('РЎС‡РµС‚Р° (${store.accounts.length})'),
                   ...store.accounts.map(
                     (a) => Padding(

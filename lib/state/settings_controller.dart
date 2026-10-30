@@ -52,6 +52,7 @@ class SettingsController extends ChangeNotifier {
   static const _appPinHashKey = 'app_pin_hash';
   static const _appPinUnlockedUntilKey = 'app_pin_unlocked_until';
   static const _appBiometricEnabledKey = 'app_biometric_enabled';
+  static const _cashShiftEnabledKey = 'cash_shift_enabled';
 
   static Future<SettingsController> load() async {
     tzdata.initializeTimeZones();
@@ -134,6 +135,13 @@ class SettingsController extends ChangeNotifier {
 
   Future<void> setJobTagsEnabled(bool value) async {
     await _prefs.setBool(_jobTagsEnabledKey, value);
+    notifyListeners();
+  }
+
+  bool get cashShiftEnabled => _prefs.getBool(_cashShiftEnabledKey) ?? true;
+
+  Future<void> setCashShiftEnabled(bool value) async {
+    await _prefs.setBool(_cashShiftEnabledKey, value);
     notifyListeners();
   }
 

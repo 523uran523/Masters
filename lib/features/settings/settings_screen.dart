@@ -889,6 +889,22 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ),
                 ),
                 const SizedBox(height: 16),
+                SectionLabel('Интерфейс и модули'),
+                AppCard(
+                  child: Row(
+                    children: [
+                      const Expanded(child: Text('Показывать смену кассы')),
+                      CupertinoSwitch(
+                        value: settings.cashShiftEnabled,
+                        onChanged: (v) async {
+                          await settings.setCashShiftEnabled(v);
+                          if (mounted) setState(() {});
+                        },
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 16),
                 SectionLabel('Напоминания'),
                 AppCard(
                   child: Column(
