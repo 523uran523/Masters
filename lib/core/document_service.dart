@@ -125,6 +125,51 @@ class DocumentService {
     return pdf.save();
   }
 
+  static Future<Uint8List> buildPnlPdf({
+    required int revenue,
+    required int expense,
+    required int profit,
+    required int jobRevenue,
+    required int jobCost,
+    required int jobMargin,
+    required int completedCount,
+  }) async {
+    final pdf = pw.Document();
+    pdf.addPage(
+      pw.Page(
+        pageFormat: PdfPageFormat.a4,
+        build: (context) {
+          String money(int cents) => (cents / 100).toStringAsFixed(2);
+          return pw.Column(
+            crossAxisAlignment: pw.CrossAxisAlignment.start,
+            children: [
+              pw.Text(
+                'P&L',
+                style: pw.TextStyle(fontSize: 20, fontWeight: pw.FontWeight.bold),
+              ),
+              pw.SizedBox(height: 10),
+              pw.TableHelper.fromTextArray(
+                headers: const ['Показатель', 'Значение'],
+                data: [
+                  ['Выручка', money(revenue)],
+                  ['Расходы', money(expense)],
+                  ['Прибыль', money(profit)],
+                  ['Выручка заказов', money(jobRevenue)],
+                  ['Расход заказов', money(jobCost)],
+                  ['Маржа заказов', money(jobMargin)],
+                  ['Завершённых заказов', completedCount.toString()],
+                ],
+                cellStyle: const pw.TextStyle(fontSize: 10),
+                headerStyle: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+    return pdf.save();
+  }
+
   static Future<bool> savePdf(Uint8List bytes, String suggestedName) async {
     final uri = await FilePicker.saveFile(
       fileName: suggestedName,

@@ -7,6 +7,7 @@ import 'package:excel/excel.dart';
 import '../../app/theme/app_theme.dart';
 import '../../app/ui.dart';
 import '../../core/utils/app_utils.dart';
+import '../../core/document_service.dart';
 import '../../data/models/job.dart';
 import '../../data/models/money_transaction.dart';
 import '../../state/masters_store.dart';
@@ -126,6 +127,34 @@ class _StatsScreenState extends State<StatsScreen> {
     await SharePlus.instance.share(
       ShareParams(files: [XFile(file.path)], text: 'P&L отчёт Masters'),
     );
+  }
+
+  Future<void> _exportPnlPdf(
+    int revenue,
+    int expense,
+    int profit,
+    int jobRevenue,
+    int jobCost,
+    int jobMargin,
+    int completedCount,
+  ) async {
+    final bytes = await DocumentService.buildPnlPdf(
+      revenue: revenue,
+      expense: expense,
+      profit: profit,
+      jobRevenue: jobRevenue,
+      jobCost: jobCost,
+      jobMargin: jobMargin,
+      completedCount: completedCount,
+    );
+    final ok = await DocumentService.savePdf(bytes, 'masters-pnl.pdf');
+    if (mounted && ok) {
+      await showAppAlert(
+        context,
+        title: 'Готово',
+        message: 'P&L сохранён.',
+      );
+    }
   }
 
   Duration _duration(DateTime start, DateTime end) => end.difference(start);
@@ -354,18 +383,40 @@ class _StatsScreenState extends State<StatsScreen> {
                   _KV('Выручка заказов (цена)', _money(jobRevenue)),
                   _KV('Себестоимость заказов', _money(jobCost)),
                   const SizedBox(height: 8),
-                  SecondaryButton(
-                    label: 'Экспорт P&L в Excel',
-                    icon: CupertinoIcons.doc_on_doc,
-                    onPressed: () => _exportXlsx(
-                      revenue,
-                      expense,
-                      profit,
-                      jobRevenue,
-                      jobCost,
-                      jobMargin,
-                      completedJobs.length,
-                    ),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: SecondaryButton(
+                          label: 'Экспорт P&L в Excel',
+                          icon: CupertinoIcons.doc_on_doc,
+                          onPressed: () => _exportXlsx(
+                            revenue,
+                            expense,
+                            profit,
+                            jobRevenue,
+                            jobCost,
+                            jobMargin,
+                            completedJobs.length,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: SecondaryButton(
+                          label: 'Экспорт P&L в PDF',
+                          icon: CupertinoIcons.doc_text,
+                          onPressed: () => _exportPnlPdf(
+                            revenue,
+                            expense,
+                            profit,
+                            jobRevenue,
+                            jobCost,
+                            jobMargin,
+                            completedJobs.length,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),
