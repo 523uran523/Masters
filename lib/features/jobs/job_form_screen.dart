@@ -10,8 +10,15 @@ import '../../state/masters_store.dart';
 import '../../state/settings_controller.dart';
 
 class JobFormScreen extends StatefulWidget {
-  const JobFormScreen({super.key, this.jobId});
+  const JobFormScreen({
+    super.key,
+    this.jobId,
+    this.initialClientId,
+    this.initialObjectId,
+  });
   final String? jobId;
+  final String? initialClientId;
+  final String? initialObjectId;
 
   @override
   State<JobFormScreen> createState() => _JobFormScreenState();
@@ -39,6 +46,22 @@ class _JobFormScreenState extends State<JobFormScreen> {
     super.didChangeDependencies();
     if (!_isEdit && _assigneeId == null) {
       _assigneeId = context.read<MastersStore>().selfEmployee?.id;
+    }
+    if (!_isEdit) {
+      final store = context.read<MastersStore>();
+      if (_clientId == null &&
+          widget.initialClientId != null &&
+          store.clientById(widget.initialClientId!) != null) {
+        _clientId = widget.initialClientId;
+      }
+      if (_objectId == null && widget.initialObjectId != null) {
+        final obj = store.objectById(widget.initialObjectId);
+        if (obj != null &&
+            (_clientId == null || obj.clientId == _clientId)) {
+          _objectId = widget.initialObjectId;
+          _clientId ??= obj.clientId;
+        }
+      }
     }
     if (_isEdit && _titleController.text.isEmpty) {
       final store = context.read<MastersStore>();
@@ -295,6 +318,29 @@ class _JobFormScreenState extends State<JobFormScreen> {
     setState(() => _assigneeId = selected);
   }
 
+  Future<void> _pickPriority() async {
+    final selected = await showCupertinoModalPopup<JobPriority?>(
+      context: context,
+      builder: (ctx) => CupertinoActionSheet(
+        title: const Text('Приоритет'),
+        actions: [
+          for (final p in JobPriority.values)
+            CupertinoActionSheetAction(
+              onPressed: () => Navigator.of(ctx).pop(p),
+              isDefaultAction: p == _priority,
+              child: Text(p.label),
+            ),
+        ],
+        cancelButton: CupertinoActionSheetAction(
+          onPressed: () => Navigator.of(ctx).pop(),
+          child: const Text('Отмена'),
+        ),
+      ),
+    );
+    if (selected == null || !mounted) return;
+    setState(() => _priority = selected);
+  }
+
   Future<void> _pickDueDate() async {
     DateTime selected = _dueDate ?? DateTime.now();
     await showCupertinoModalPopup<void>(
@@ -491,59 +537,16 @@ class _JobFormScreenState extends State<JobFormScreen> {
               ),
             ),
             const SizedBox(height: 16),
-            SectionLabel('Статус и приоритет'),
+            SectionLabel('Приоритет'),
             AppCard(
-              child: Column(
+              child: Row(
                 children: [
-                  Row(
-                    children: [
-                      const Text('Статус'),
-                      const Spacer(),
-                      SizedBox(
-                        width: 180,
-                        child: CupertinoSlidingSegmentedControl<String>(
-                          groupValue: _status.dbValue,
-                          onValueChanged: (v) {
-                            if (v == null) return;
-                            setState(() => _status = JobStatus.fromDb(v));
-                          },
-                          children: {
-                            for (final s in JobStatus.values)
-                              s.dbValue: Padding(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 4,
-                                  vertical: 6,
-                                ),
-                                child: Text(
-                                  s.label,
-                                  style: const TextStyle(fontSize: 11),
-                                ),
-                              ),
-                          },
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  Row(
-                    children: [
-                      const Text('Приоритет'),
-                      const Spacer(),
-                      CupertinoSegmentedControl<JobPriority>(
-                        groupValue: _priority,
-                        onValueChanged: (v) => setState(() => _priority = v),
-                        children: {
-                          for (final p in JobPriority.values)
-                            p: Padding(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 8,
-                                vertical: 6,
-                              ),
-                              child: Text(p.label),
-                            ),
-                        },
-                      ),
-                    ],
+                  const Text('Приоритет'),
+                  const Spacer(),
+                  CupertinoButton(
+                    padding: EdgeInsets.zero,
+                    onPressed: _pickPriority,
+                    child: Text(_priority.label),
                   ),
                 ],
               ),

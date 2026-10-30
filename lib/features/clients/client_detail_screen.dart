@@ -457,7 +457,8 @@ class ClientDetailScreen extends StatelessWidget {
               onPressed: () => Navigator.of(context).push(
                 CupertinoPageRoute(
                   builder: (_) => JobFormScreen(
-                    // no preselection in form yet; job.clientId set by user manually
+                    initialClientId: clientId,
+                    initialObjectId: objects.length == 1 ? objects.first.id : null,
                   ),
                 ),
               ),
