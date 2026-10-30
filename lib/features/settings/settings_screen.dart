@@ -306,56 +306,67 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Future<void> _showAuditLog() async {
-    final entries = await context.read<MastersStore>().auditEntries(limit: 50);
+    final entries = await context.read<MastersStore>().auditEntries(limit: 100);
     if (!mounted) return;
-    await showCupertinoDialog<void>(
+    final filterController = TextEditingController();
+    await showCupertinoModalPopup<void>(
       context: context,
-      builder: (context) => CupertinoAlertDialog(
-        title: const Text('Журнал действий'),
-        content: SizedBox(
-          height: 300,
-          width: 340,
-          child: entries.isEmpty
-              ? const Padding(
-                  padding: EdgeInsets.only(top: 12),
-                  child: Text('Записей пока нет.'),
-                )
-              : ListView.builder(
-                  itemCount: entries.length,
-                  itemBuilder: (context, i) {
-                    final row = entries[i];
-                    final at = DateTime.fromMillisecondsSinceEpoch((row['at'] as int?) ?? 0);
-                    return Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 4),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            '${row['action']} ? ${row['entity']} ${row['entity_id'] ?? ''}',
-                            style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12),
+      builder: (modalContext) => StatefulBuilder(
+        builder: (context, setModalState) {
+          final filter = filterController.text.trim().toLowerCase();
+          final rows = filter.isEmpty
+              ? entries
+              : entries.where((e) => '${e['action']} ${e['entity']} ${e['entity_id'] ?? ''}'.toLowerCase().contains(filter)).toList();
+          return Container(
+            height: MediaQuery.of(context).size.height * 0.75,
+            color: context.colors.card,
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+            child: SafeArea(
+              top: false,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  const Text('Журнал аудита', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
+                  const SizedBox(height: 12),
+                  CupertinoTextField(
+                    controller: filterController,
+                    placeholder: 'Фильтр по action/entity',
+                    onChanged: (_) => setModalState(() {}),
+                  ),
+                  const SizedBox(height: 12),
+                  Expanded(
+                    child: ListView.builder(
+                      itemCount: rows.length,
+                      itemBuilder: (_, i) {
+                        final e = rows[i];
+                        final at = e['at'] is int ? DateTime.fromMillisecondsSinceEpoch(e['at'] as int) : DateTime.now();
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: 8),
+                          child: AppCard(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(e['action']?.toString() ?? '', style: const TextStyle(fontWeight: FontWeight.w600)),
+                                Text('${e['entity']} ${e['entity_id'] ?? ''}', style: TextStyle(color: context.colors.secondaryLabel, fontSize: 12)),
+                                Text('${at.day}.${at.month}.${at.year} ${at.hour}:${at.minute.toString().padLeft(2, '0')}', style: TextStyle(color: context.colors.tertiaryLabel, fontSize: 11)),
+                              ],
+                            ),
                           ),
-                          Text(
-                            '${at.toLocal()}  '
-                            '${row['before_json'] ?? ''} -> ${row['after_json'] ?? ''}',
-                            style: const TextStyle(fontSize: 10),
-                          ),
-                        ],
-                      ),
-                    );
-                  },
-                ),
-        ),
-        actions: [
-          CupertinoDialogAction(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('OK'),
-          ),
-        ],
+                        );
+                      },
+                    ),
+                  ),
+                  SecondaryButton(label: 'Закрыть', icon: CupertinoIcons.xmark, onPressed: () => Navigator.of(modalContext).pop()),
+                ],
+              ),
+            ),
+          );
+        },
       ),
     );
+    filterController.dispose();
   }
-
-  Future<void> _managePin() async {
+Future<void> _managePin() async {
     final settings = context.read<SettingsController>();
     if (settings.hasAppPin) {
       final current = await _promptPin('Текущий PIN (4-6 цифр)', '****');
