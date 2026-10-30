@@ -331,6 +331,68 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
     );
   }
 
+  Future<void> _editEmployee(Employee e) async {
+    final nameController = TextEditingController(text: e.name);
+    final rateController = TextEditingController(text: (e.rateCents / 100).toStringAsFixed(0));
+    final percentController = TextEditingController(text: e.percent.toString());
+    String payType = e.payType;
+    await showCupertinoModalPopup<void>(
+      context: context,
+      builder: (modalContext) => StatefulBuilder(
+        builder: (_, setModalState) => Container(
+          height: MediaQuery.of(context).size.height * 0.75,
+          color: context.colors.card,
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+          child: SafeArea(
+            top: false,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                const Text('Редактирование сотрудника', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
+                const SizedBox(height: 12),
+                CupertinoTextField(controller: nameController, placeholder: 'Имя'),
+                const SizedBox(height: 10),
+                CupertinoButton(
+                  onPressed: () async {
+                    final selected = await showCupertinoModalPopup<String>(
+                      context: context,
+                      builder: (dialogContext) => CupertinoActionSheet(
+                        title: const Text('Тип оплаты'),
+                        actions: [
+                          for (final t in ['hourly', 'piece', 'percent', 'salary', 'mixed'])
+                            CupertinoActionSheetAction(onPressed: () => Navigator.of(dialogContext).pop(t), child: Text(t)),
+                        ],
+                        cancelButton: CupertinoActionSheetAction(onPressed: () => Navigator.of(dialogContext).pop(), child: const Text('Отмена')),
+                      ),
+                    );
+                    if (selected != null) setModalState(() => payType = selected);
+                  },
+                  child: Text('Тип: $payType'),
+                ),
+                const SizedBox(height: 10),
+                CupertinoTextField(controller: rateController, placeholder: 'Ставка (₽)', keyboardType: const TextInputType.numberWithOptions(decimal: true)),
+                const SizedBox(height: 10),
+                CupertinoTextField(controller: percentController, placeholder: 'Процент', keyboardType: const TextInputType.numberWithOptions(decimal: true)),
+                const SizedBox(height: 16),
+                SecondaryButton(
+                  label: 'Сохранить',
+                  icon: CupertinoIcons.checkmark,
+                  onPressed: () async {
+                    final rate = ((double.tryParse(rateController.text.replaceAll(',', '.')) ?? 0) * 100).round();
+                    final percent = double.tryParse(percentController.text.replaceAll(',', '.')) ?? e.percent;
+                    final name = nameController.text.trim().isEmpty ? e.name : nameController.text.trim();
+                    await context.read<MastersStore>().updateEmployee(e.copyWith(name: name, payType: payType, rateCents: rate, percent: percent));
+                    if (modalContext.mounted) Navigator.of(modalContext).pop();
+                  },
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   Future<void> _delete(Employee e) async {
     if (e.role == 'owner' && e.name == 'Я') {
       await showAppAlert(context, title: 'Нельзя удалить профиль «Я»', message: 'Это исполнитель по умолчанию для заказов.');
@@ -399,6 +461,7 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
                                     SecondaryButton(label: 'Штраф', icon: CupertinoIcons.minus, onPressed: () => _addPayment(e.id, 'penalty', 'Штраф')),
                                     SecondaryButton(label: 'Выплата', icon: CupertinoIcons.arrow_right, onPressed: () => _addPayment(e.id, 'payout', 'Выплата')),
                                     SecondaryButton(label: 'Закрыть месяц', icon: CupertinoIcons.lock, onPressed: () => _closeCurrentPayrollPeriod(),),
+                                    SecondaryButton(label: 'Изменить', icon: CupertinoIcons.pencil, onPressed: () => _editEmployee(e)),
                                     CupertinoButton(padding: EdgeInsets.zero, onPressed: () => _delete(e), child: Text('Удалить', style: TextStyle(color: colors.red))),
                                     SecondaryButton(label: 'PDF', icon: CupertinoIcons.doc_text, onPressed: _exportPayroll),
                                   ],
