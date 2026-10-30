@@ -4,6 +4,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:sqflite/sqflite.dart';
 
 import '../core/utils/app_utils.dart';
+
 import 'dart:convert';
 
 class BackupMergeResult {
@@ -108,7 +109,9 @@ class AppDatabase {
         sort_order REAL NOT NULL DEFAULT 0
       )
     ''');
-    await db.execute('CREATE INDEX idx_stages_job ON job_stages(job_id, sort_order)');
+    await db.execute(
+      'CREATE INDEX idx_stages_job ON job_stages(job_id, sort_order)',
+    );
 
     await db.execute('''
       CREATE TABLE materials (
@@ -134,7 +137,9 @@ class AppDatabase {
       )
     ''');
     await db.execute('CREATE INDEX idx_wsessions_job ON work_sessions(job_id)');
-    await db.execute('CREATE INDEX idx_wsessions_started ON work_sessions(started_at)');
+    await db.execute(
+      'CREATE INDEX idx_wsessions_started ON work_sessions(started_at)',
+    );
 
     await _createMoneySchema(db);
     await _createInventorySchema(db);
@@ -165,10 +170,11 @@ class AppDatabase {
         device_id TEXT
       )
     ''');
-    await db.execute('CREATE INDEX idx_audit_log_entity ON audit_log(entity, entity_id)');
+    await db.execute(
+      'CREATE INDEX idx_audit_log_entity ON audit_log(entity, entity_id)',
+    );
     await db.execute('CREATE INDEX idx_audit_log_at ON audit_log(at)');
   }
-
 
   static Future<void> _createPeriodClosureSchema(Database db) async {
     await db.execute('''
@@ -183,7 +189,9 @@ class AppDatabase {
         device_id TEXT
       )
     ''');
-    await db.execute('CREATE INDEX idx_period_closures_start ON period_closures(start_at)');
+    await db.execute(
+      'CREATE INDEX idx_period_closures_start ON period_closures(start_at)',
+    );
   }
 
   static Future<void> _createRecurringPaymentSchema(Database db) async {
@@ -206,7 +214,9 @@ class AppDatabase {
         device_id TEXT
       )
     ''');
-    await db.execute('CREATE INDEX idx_recurring_next_due ON recurring_payments(next_due_at)');
+    await db.execute(
+      'CREATE INDEX idx_recurring_next_due ON recurring_payments(next_due_at)',
+    );
   }
 
   static Future<void> _createPayrollPeriodSchema(Database db) async {
@@ -224,17 +234,36 @@ class AppDatabase {
         device_id TEXT
       )
     ''');
-    await db.execute('CREATE INDEX idx_payroll_periods_start ON payroll_periods(start_at)');
+    await db.execute(
+      'CREATE INDEX idx_payroll_periods_start ON payroll_periods(start_at)',
+    );
   }
 
   static Future<void> _ensureSyncColumns(Database db) async {
     const tables = <String>[
-      'clients', 'objects', 'jobs', 'job_stages', 'materials', 'work_sessions',
-      'accounts', 'cash_shifts', 'money_transactions', 'inventory_items',
-      'suppliers', 'purchases', 'purchase_lines', 'stock_movements',
-      'recipe_lines', 'booking_resources', 'appointments', 'client_reminders',
-      'employees', 'time_entries', 'employee_payments',
-      'recurring_payments', 'payroll_periods',
+      'clients',
+      'objects',
+      'jobs',
+      'job_stages',
+      'materials',
+      'work_sessions',
+      'accounts',
+      'cash_shifts',
+      'money_transactions',
+      'inventory_items',
+      'suppliers',
+      'purchases',
+      'purchase_lines',
+      'stock_movements',
+      'recipe_lines',
+      'booking_resources',
+      'appointments',
+      'client_reminders',
+      'employees',
+      'time_entries',
+      'employee_payments',
+      'recurring_payments',
+      'payroll_periods',
     ];
 
     Future<void> add(String table, String column, String type) async {
@@ -278,8 +307,12 @@ class AppDatabase {
         created_at INTEGER NOT NULL
       )
     ''');
-    await db.execute('CREATE INDEX idx_time_entries_emp ON time_entries(employee_id)');
-    await db.execute('CREATE INDEX idx_time_entries_job ON time_entries(job_id)');
+    await db.execute(
+      'CREATE INDEX idx_time_entries_emp ON time_entries(employee_id)',
+    );
+    await db.execute(
+      'CREATE INDEX idx_time_entries_job ON time_entries(job_id)',
+    );
 
     await db.execute('''
       CREATE TABLE IF NOT EXISTS employee_payments (
@@ -291,7 +324,9 @@ class AppDatabase {
         created_at INTEGER NOT NULL
       )
     ''');
-    await db.execute('CREATE INDEX idx_emp_payments_emp ON employee_payments(employee_id)');
+    await db.execute(
+      'CREATE INDEX idx_emp_payments_emp ON employee_payments(employee_id)',
+    );
   }
 
   static Future<void> _createReminderSchema(Database db) async {
@@ -308,9 +343,15 @@ class AppDatabase {
         created_at INTEGER NOT NULL
       )
     ''');
-    await db.execute('CREATE INDEX idx_reminders_due ON client_reminders(due_at)');
-    await db.execute('CREATE INDEX idx_reminders_client ON client_reminders(client_id)');
-    await db.execute('CREATE INDEX idx_reminders_status ON client_reminders(status)');
+    await db.execute(
+      'CREATE INDEX idx_reminders_due ON client_reminders(due_at)',
+    );
+    await db.execute(
+      'CREATE INDEX idx_reminders_client ON client_reminders(client_id)',
+    );
+    await db.execute(
+      'CREATE INDEX idx_reminders_status ON client_reminders(status)',
+    );
   }
 
   static Future<void> _createBookingSchema(Database db) async {
@@ -340,8 +381,12 @@ class AppDatabase {
       )
     ''');
     await db.execute('CREATE INDEX idx_appts_start ON appointments(start_at)');
-    await db.execute('CREATE INDEX idx_appts_client ON appointments(client_id)');
-    await db.execute('CREATE INDEX idx_appts_resource ON appointments(resource_id)');
+    await db.execute(
+      'CREATE INDEX idx_appts_client ON appointments(client_id)',
+    );
+    await db.execute(
+      'CREATE INDEX idx_appts_resource ON appointments(resource_id)',
+    );
     await db.execute('CREATE INDEX idx_appts_status ON appointments(status)');
   }
 
@@ -363,8 +408,12 @@ class AppDatabase {
         updated_at INTEGER NOT NULL
       )
     ''');
-    await db.execute('CREATE INDEX idx_inv_items_name ON inventory_items(name COLLATE NOCASE)');
-    await db.execute('CREATE INDEX idx_inv_items_kind ON inventory_items(kind)');
+    await db.execute(
+      'CREATE INDEX idx_inv_items_name ON inventory_items(name COLLATE NOCASE)',
+    );
+    await db.execute(
+      'CREATE INDEX idx_inv_items_kind ON inventory_items(kind)',
+    );
 
     await db.execute('''
       CREATE TABLE IF NOT EXISTS suppliers (
@@ -386,7 +435,9 @@ class AppDatabase {
         created_at INTEGER NOT NULL
       )
     ''');
-    await db.execute('CREATE INDEX idx_purchases_created ON purchases(created_at)');
+    await db.execute(
+      'CREATE INDEX idx_purchases_created ON purchases(created_at)',
+    );
 
     await db.execute('''
       CREATE TABLE IF NOT EXISTS purchase_lines (
@@ -397,7 +448,9 @@ class AppDatabase {
         unit_price_cents INTEGER NOT NULL DEFAULT 0
       )
     ''');
-    await db.execute('CREATE INDEX idx_purch_lines_purchase ON purchase_lines(purchase_id)');
+    await db.execute(
+      'CREATE INDEX idx_purch_lines_purchase ON purchase_lines(purchase_id)',
+    );
 
     await db.execute('''
       CREATE TABLE IF NOT EXISTS stock_movements (
@@ -409,8 +462,12 @@ class AppDatabase {
         created_at INTEGER NOT NULL
       )
     ''');
-    await db.execute('CREATE INDEX idx_stock_moves_item ON stock_movements(item_id)');
-    await db.execute('CREATE INDEX idx_stock_moves_created ON stock_movements(created_at)');
+    await db.execute(
+      'CREATE INDEX idx_stock_moves_item ON stock_movements(item_id)',
+    );
+    await db.execute(
+      'CREATE INDEX idx_stock_moves_created ON stock_movements(created_at)',
+    );
 
     await db.execute('''
       CREATE TABLE IF NOT EXISTS recipe_lines (
@@ -420,7 +477,9 @@ class AppDatabase {
         qty REAL NOT NULL
       )
     ''');
-    await db.execute('CREATE INDEX idx_recipe_product ON recipe_lines(product_item_id)');
+    await db.execute(
+      'CREATE INDEX idx_recipe_product ON recipe_lines(product_item_id)',
+    );
   }
 
   static Future<void> _createMoneySchema(Database db) async {
@@ -449,8 +508,12 @@ class AppDatabase {
         status TEXT NOT NULL DEFAULT 'open'
       )
     ''');
-    await db.execute('CREATE INDEX idx_shifts_account ON cash_shifts(account_id)');
-    await db.execute('CREATE INDEX idx_shifts_opened ON cash_shifts(opened_at)');
+    await db.execute(
+      'CREATE INDEX idx_shifts_account ON cash_shifts(account_id)',
+    );
+    await db.execute(
+      'CREATE INDEX idx_shifts_opened ON cash_shifts(opened_at)',
+    );
 
     await db.execute('''
       CREATE TABLE IF NOT EXISTS money_transactions (
@@ -469,12 +532,24 @@ class AppDatabase {
         voided INTEGER NOT NULL DEFAULT 0
       )
     ''');
-    await db.execute('CREATE INDEX idx_money_tx_account ON money_transactions(account_id)');
-    await db.execute('CREATE INDEX idx_money_tx_created ON money_transactions(created_at)');
-    await db.execute('CREATE INDEX idx_money_tx_job ON money_transactions(job_id)');
-    await db.execute('CREATE INDEX idx_money_tx_client ON money_transactions(client_id)');
-    await db.execute('CREATE INDEX idx_money_tx_shift ON money_transactions(shift_id)');
-    await db.execute('CREATE INDEX idx_money_tx_kind ON money_transactions(kind)');
+    await db.execute(
+      'CREATE INDEX idx_money_tx_account ON money_transactions(account_id)',
+    );
+    await db.execute(
+      'CREATE INDEX idx_money_tx_created ON money_transactions(created_at)',
+    );
+    await db.execute(
+      'CREATE INDEX idx_money_tx_job ON money_transactions(job_id)',
+    );
+    await db.execute(
+      'CREATE INDEX idx_money_tx_client ON money_transactions(client_id)',
+    );
+    await db.execute(
+      'CREATE INDEX idx_money_tx_shift ON money_transactions(shift_id)',
+    );
+    await db.execute(
+      'CREATE INDEX idx_money_tx_kind ON money_transactions(kind)',
+    );
   }
 
   static Future<void> _createAttachmentSchema(Database db) async {
@@ -490,7 +565,9 @@ class AppDatabase {
         deleted_at INTEGER
       )
     ''');
-    await db.execute('CREATE INDEX IF NOT EXISTS idx_job_attachments_job ON job_attachments(job_id)');
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_job_attachments_job ON job_attachments(job_id)',
+    );
   }
 
   static Future<void> _upgradeSchema(
@@ -513,7 +590,9 @@ class AppDatabase {
     if (oldVersion < 6) {
       await _createTeamSchema(db);
       try {
-        await db.execute('ALTER TABLE jobs ADD COLUMN assignee_id TEXT REFERENCES employees(id) ON DELETE SET NULL');
+        await db.execute(
+          'ALTER TABLE jobs ADD COLUMN assignee_id TEXT REFERENCES employees(id) ON DELETE SET NULL',
+        );
       } catch (_) {
         // column may already exist
       }
@@ -581,19 +660,16 @@ class AppDatabase {
     Object? after,
     String? deviceId,
   }) async {
-    await database.insert(
-      'audit_log',
-      {
-        'id': newId(),
-        'action': action,
-        'entity': entity,
-        'entity_id': entityId,
-        'before_json': before == null ? null : jsonEncode(before),
-        'after_json': after == null ? null : jsonEncode(after),
-        'at': DateTime.now().millisecondsSinceEpoch,
-        'device_id': deviceId,
-      },
-    );
+    await database.insert('audit_log', {
+      'id': newId(),
+      'action': action,
+      'entity': entity,
+      'entity_id': entityId,
+      'before_json': before == null ? null : jsonEncode(before),
+      'after_json': after == null ? null : jsonEncode(after),
+      'at': DateTime.now().millisecondsSinceEpoch,
+      'device_id': deviceId,
+    });
   }
 
   Future<List<Map<String, Object?>>> periodClosures({int limit = 50}) async {
@@ -604,9 +680,11 @@ class AppDatabase {
     );
   }
 
-  Future<void> insertPeriodClosure(Map<String, Object?> row) => database.insert('period_closures', row);
+  Future<void> insertPeriodClosure(Map<String, Object?> row) =>
+      database.insert('period_closures', row);
 
-  Future<void> deletePeriodClosure(String id) => database.delete('period_closures', where: 'id = ?', whereArgs: [id]);
+  Future<void> deletePeriodClosure(String id) =>
+      database.delete('period_closures', where: 'id = ?', whereArgs: [id]);
 
   int _mergeEpoch(Map<String, Object?> row, String column) {
     final value = row[column];
@@ -630,7 +708,11 @@ class AppDatabase {
     return copy.toString();
   }
 
-  Future<BackupMergeResult> mergeSnapshot(Map<String, dynamic> data) async {
+  Future<BackupMergeResult> mergeSnapshot(
+    Map<String, dynamic> data, {
+    bool dryRun = false,
+    Set<String>? applyConflictIds,
+  }) async {
     if (data['format'] != 'masters-backup') {
       throw const FormatException('Неверный формат файла Masters.');
     }
@@ -689,9 +771,12 @@ class AppDatabase {
 
           final incomingUpdated = _mergeEpoch(incoming, 'updated_at');
           final incomingCreated = _mergeEpoch(incoming, 'created_at');
-          final remoteTime =
-              incomingUpdated > 0 ? incomingUpdated : incomingCreated;
-          final localTime = local == null ? 0 : _mergeEpoch(local, 'updated_at');
+          final remoteTime = incomingUpdated > 0
+              ? incomingUpdated
+              : incomingCreated;
+          final localTime = local == null
+              ? 0
+              : _mergeEpoch(local, 'updated_at');
 
           if (local != null && localTime > remoteTime && remoteTime > 0) {
             keptLocal++;
@@ -703,7 +788,17 @@ class AppDatabase {
               remoteTime > 0 &&
               localTime == remoteTime &&
               _canonicalRow(local) != _canonicalRow(incoming)) {
-            conflicts.add('$table:$id');
+            final conflictKey = '$table:$id';
+            conflicts.add(conflictKey);
+            if (dryRun || !(applyConflictIds?.contains(conflictKey) ?? true)) {
+              keptLocal++;
+              continue;
+            }
+          }
+
+          if (dryRun) {
+            affected++;
+            continue;
           }
 
           final merged = <String, Object?>{};
@@ -747,18 +842,32 @@ class AppDatabase {
     );
   }
 
-  Future<List<Map<String,Object?>>> recurringPayments() async {
-    return database.query('recurring_payments', orderBy: 'active DESC, next_due_at ASC');
+  Future<List<Map<String, Object?>>> recurringPayments() async {
+    return database.query(
+      'recurring_payments',
+      orderBy: 'active DESC, next_due_at ASC',
+    );
   }
 
-  Future<void> insertRecurringPayment(Map<String,Object?> row) => database.insert('recurring_payments', row);
-  Future<void> updateRecurringPayment(Map<String,Object?> row) => database.update('recurring_payments', row, where: 'id = ?', whereArgs: [row['id']]);
-  Future<void> deleteRecurringPayment(String id) => database.delete('recurring_payments', where: 'id = ?', whereArgs: [id]);
-  Future<List<Map<String,Object?>>> payrollPeriods() async {
+  Future<void> insertRecurringPayment(Map<String, Object?> row) =>
+      database.insert('recurring_payments', row);
+  Future<void> updateRecurringPayment(Map<String, Object?> row) =>
+      database.update(
+        'recurring_payments',
+        row,
+        where: 'id = ?',
+        whereArgs: [row['id']],
+      );
+  Future<void> deleteRecurringPayment(String id) =>
+      database.delete('recurring_payments', where: 'id = ?', whereArgs: [id]);
+  Future<List<Map<String, Object?>>> payrollPeriods() async {
     return database.query('payroll_periods', orderBy: 'start_at DESC');
   }
-  Future<void> insertPayrollPeriod(Map<String,Object?> row) => database.insert('payroll_periods', row);
-  Future<void> deletePayrollPeriod(String id) => database.delete('payroll_periods', where: 'id = ?', whereArgs: [id]);
+
+  Future<void> insertPayrollPeriod(Map<String, Object?> row) =>
+      database.insert('payroll_periods', row);
+  Future<void> deletePayrollPeriod(String id) =>
+      database.delete('payroll_periods', where: 'id = ?', whereArgs: [id]);
 
   static Future<void> _createAuditTriggers(Database db) async {
     await db.execute('''

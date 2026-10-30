@@ -13,6 +13,7 @@ import '../../core/yandex_disk_service.dart';
 import '../../core/yandex_oauth.dart';
 import '../../core/yandex_sync.dart';
 import '../../data/models/job.dart';
+import '../../data/app_database.dart';
 import '../../state/masters_store.dart';
 import '../../state/settings_controller.dart';
 
@@ -47,7 +48,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Future<void> _loadAuditLog() async {
     setState(() => _auditBusy = true);
     try {
-      final entries = await context.read<MastersStore>().auditEntries(limit: 50);
+      final entries = await context.read<MastersStore>().auditEntries(
+        limit: 50,
+      );
       if (!mounted) return;
       setState(() => _auditEntries = entries);
     } finally {
@@ -55,9 +58,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
     }
   }
 
-
   Future<void> _checkForUpdates() async {
-    setState(() { _updateBusy = true; _updateStatus = 'Проверка обновлений...'; });
+    setState(() {
+      _updateBusy = true;
+      _updateStatus = 'Проверка обновлений...';
+    });
     try {
       final update = await UpdateService().checkForUpdate();
       if (!mounted) return;
@@ -85,17 +90,27 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Future<void> _downloadAndInstallUpdate(UpdateInfo update) async {
-    setState(() { _updateBusy = true; _updateStatus = 'Скачивание APK...'; });
+    setState(() {
+      _updateBusy = true;
+      _updateStatus = 'Скачивание APK...';
+    });
     try {
-      final file = await UpdateService().downloadVerifiedApk(update, onProgress: (received, total) {
-        if (!mounted) return;
-        final mb = (received / (1024 * 1024)).toStringAsFixed(1);
-        setState(() => _updateStatus = 'Скачивание APK: $mb МБ');
-      });
+      final file = await UpdateService().downloadVerifiedApk(
+        update,
+        onProgress: (received, total) {
+          if (!mounted) return;
+          final mb = (received / (1024 * 1024)).toStringAsFixed(1);
+          setState(() => _updateStatus = 'Скачивание APK: $mb МБ');
+        },
+      );
       if (!mounted) return;
       setState(() => _updateStatus = 'Проверка и запуск установщика...');
       await UpdateService().installApk(file);
-      if (mounted) setState(() => _updateStatus = 'Установщик запущен. Подтвердите установку Android.');
+      if (mounted)
+        setState(
+          () => _updateStatus =
+              'Установщик запущен. Подтвердите установку Android.',
+        );
     } catch (e) {
       if (!mounted) return;
       setState(() => _updateStatus = 'Ошибка установки: $e');
@@ -112,7 +127,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Future<void> _pickReminderTime(SettingsController settings) async {
-    final initial = DateTime(2024, 1, 1, settings.reminderHour, settings.reminderMinute);
+    final initial = DateTime(
+      2024,
+      1,
+      1,
+      settings.reminderHour,
+      settings.reminderMinute,
+    );
     DateTime selected = initial;
     await showCupertinoModalPopup<void>(
       context: context,
@@ -131,10 +152,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 CupertinoButton(
                   child: const Text('Готово'),
                   onPressed: () async {
-                    await settings.setReminder(true,
-                        hour: selected.hour, minute: selected.minute);
+                    await settings.setReminder(
+                      true,
+                      hour: selected.hour,
+                      minute: selected.minute,
+                    );
                     if (settings.reminderEnabled) {
-                      await ReminderService.scheduleDaily(selected.hour, selected.minute);
+                      await ReminderService.scheduleDaily(
+                        selected.hour,
+                        selected.minute,
+                      );
                     }
                     if (modalContext.mounted) Navigator.of(modalContext).pop();
                     setState(() {});
@@ -161,7 +188,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
       final data = context.read<MastersStore>().backupData();
       final ok = await BackupService.saveJson(data);
       if (mounted && ok) {
-        await showAppAlert(context, title: 'Готово', message: 'Резервная копия сохранена.');
+        await showAppAlert(
+          context,
+          title: 'Готово',
+          message: 'Резервная копия сохранена.',
+        );
       }
     } finally {
       if (mounted) setState(() => _busy = false);
@@ -203,25 +234,131 @@ class _SettingsScreenState extends State<SettingsScreen> {
       if (choice == 'replace') {
         await store.restoreFromBackup(data);
         if (mounted) {
-          await showAppAlert(context, title: 'Готово', message: 'Копия полностью восстановлена.');
+          await showAppAlert(
+            context,
+            title: 'Готово',
+            message: 'Копия полностью восстановлена.',
+          );
         }
       } else {
-        final result = await store.mergeFromBackup(data);
+        setState(() => _busy = true);
+        BackupMergeResult preview;
+        try {
+          preview = await store.mergeFromBackup(
+            data,
+            dryRun: true,
+            applyConflictIds: const <String>{},
+          );
+        } finally {
+          if (mounted) setState(() => _busy = false);
+        }
         if (!mounted) return;
-        final conflictText = result.conflicts.isEmpty
-            ? ''
-            : '\nКонфликты (совпали по дате): ${result.conflicts.length}. Оставлены локальные значения.';
-        await showAppAlert(
-          context,
-          title: 'Объединение завершено',
-          message: 'Добавлено/обновлено: ${result.affected}, сохранено локально: ${result.keptLocal}$conflictText',
-        );
+        if (preview.conflicts.isEmpty) {
+          await showAppAlert(
+            context,
+            title: 'Объединение завершено',
+            message:
+                'Добавлено/обновлено: ${preview.affected}, сохранено локально: ${preview.keptLocal}',
+          );
+        } else {
+          final selected = await _showImportConflictsModal(preview.conflicts);
+          if (selected == null) {
+            if (mounted) {
+              await showAppAlert(
+                context,
+                title: 'Объединение завершено',
+                message: 'Изменения не применены',
+              );
+            }
+          } else {
+            setState(() => _busy = true);
+            try {
+              final applied = await store.mergeFromBackup(
+                data,
+                applyConflictIds: selected,
+              );
+              if (mounted) {
+                await showAppAlert(
+                  context,
+                  title: 'Объединение завершено',
+                  message:
+                      'Добавлено/обновлено: ${applied.affected}, сохранено локально: ${applied.keptLocal}',
+                );
+              }
+            } catch (e) {
+              if (mounted) {
+                await showAppAlert(
+                  context,
+                  title: 'Ошибка',
+                  message: e.toString(),
+                );
+              }
+            } finally {
+              if (mounted) setState(() => _busy = false);
+            }
+          }
+        }
       }
     } catch (e) {
-      if (mounted) await showAppAlert(context, title: 'Ошибка', message: e.toString());
+      if (mounted)
+        await showAppAlert(context, title: 'Ошибка', message: e.toString());
     } finally {
       if (mounted) setState(() => _busy = false);
     }
+  }
+
+  Future<Set<String>?> _showImportConflictsModal(List<String> conflicts) {
+    final selected = <String>{...conflicts};
+    return showCupertinoDialog<Set<String>?>(
+      context: context,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (context, setModalState) => CupertinoAlertDialog(
+          title: const Text('Обнаружены конфликты'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Конфликты (совпали по дате): ${conflicts.length}.'),
+                const SizedBox(height: 8),
+                for (final conflict in conflicts)
+                  Row(
+                    children: [
+                      CupertinoCheckbox(
+                        value: selected.contains(conflict),
+                        onChanged: (value) => setModalState(() {
+                          if (value == true) {
+                            selected.add(conflict);
+                          } else {
+                            selected.remove(conflict);
+                          }
+                        }),
+                      ),
+                      Expanded(child: Text(conflict)),
+                    ],
+                  ),
+              ],
+            ),
+          ),
+          actions: [
+            CupertinoDialogAction(
+              isDefaultAction: true,
+              onPressed: () =>
+                  Navigator.of(dialogContext).pop(Set<String>.from(selected)),
+              child: const Text('Применить выбранные'),
+            ),
+            CupertinoDialogAction(
+              onPressed: () => Navigator.of(dialogContext).pop(<String>{}),
+              child: const Text('Оставить локальные'),
+            ),
+            CupertinoDialogAction(
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              child: const Text('Отмена'),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   Future<void> _exportExcel() async {
@@ -229,7 +366,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
     setState(() => _busy = true);
     try {
       final rows = <List<dynamic>>[
-        ['Заказ', 'Клиент', 'Статус', 'Цена', 'Расход', 'Время (мин)', 'Дедлайн'],
+        [
+          'Заказ',
+          'Клиент',
+          'Статус',
+          'Цена',
+          'Расход',
+          'Время (мин)',
+          'Дедлайн',
+        ],
         for (final job in store.jobs)
           [
             job.title,
@@ -238,12 +383,22 @@ class _SettingsScreenState extends State<SettingsScreen> {
             (job.priceCents / 100).toStringAsFixed(2),
             (job.costCents / 100).toStringAsFixed(2),
             store.totalMinutesForJob(job.id),
-            job.dueDate == null ? '' : job.dueDate!.toIso8601String().substring(0, 10),
+            job.dueDate == null
+                ? ''
+                : job.dueDate!.toIso8601String().substring(0, 10),
           ],
       ];
-      final ok = await BackupService.saveExcel(rows, fileName: 'masters.xlsx', sheetName: 'Orders');
+      final ok = await BackupService.saveExcel(
+        rows,
+        fileName: 'masters.xlsx',
+        sheetName: 'Orders',
+      );
       if (mounted && ok) {
-        await showAppAlert(context, title: 'Готово', message: 'Excel-таблица сохранена.');
+        await showAppAlert(
+          context,
+          title: 'Готово',
+          message: 'Excel-таблица сохранена.',
+        );
       }
     } finally {
       if (mounted) setState(() => _busy = false);
@@ -255,10 +410,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
     if (!mounted) return;
     await showAppAlert(
       context,
-      title: issues.isEmpty ? '\u041fроверка завершена' : 'Нарушения целостности',
-      message: issues.isEmpty
-          ? 'Нарушений не найдено.'
-          : issues.join('\n'),
+      title: issues.isEmpty
+          ? '\u041fроверка завершена'
+          : 'Нарушения целостности',
+      message: issues.isEmpty ? 'Нарушений не найдено.' : issues.join('\n'),
     );
   }
 
@@ -279,7 +434,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
       );
     } catch (e) {
       if (!mounted) return;
-      await showAppAlert(context, title: 'Не удалось закрыть период', message: '$e');
+      await showAppAlert(
+        context,
+        title: 'Не удалось закрыть период',
+        message: '$e',
+      );
     }
   }
 
@@ -287,7 +446,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final store = context.read<MastersStore>();
     if (store.closedPeriods.isEmpty) {
       if (!mounted) return;
-      await showAppAlert(context, title: 'Закрытых периодов нет', message: 'Сначала закройте период.');
+      await showAppAlert(
+        context,
+        title: 'Закрытых периодов нет',
+        message: 'Сначала закройте период.',
+      );
       return;
     }
     final period = store.closedPeriods.first;
@@ -301,7 +464,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
       );
     } catch (e) {
       if (!mounted) return;
-      await showAppAlert(context, title: 'Не удалось открыть период', message: '$e');
+      await showAppAlert(
+        context,
+        title: 'Не удалось открыть период',
+        message: '$e',
+      );
     }
   }
 
@@ -316,7 +483,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
           final filter = filterController.text.trim().toLowerCase();
           final rows = filter.isEmpty
               ? entries
-              : entries.where((e) => '${e['action']} ${e['entity']} ${e['entity_id'] ?? ''}'.toLowerCase().contains(filter)).toList();
+              : entries
+                    .where(
+                      (e) =>
+                          '${e['action']} ${e['entity']} ${e['entity_id'] ?? ''}'
+                              .toLowerCase()
+                              .contains(filter),
+                    )
+                    .toList();
           return Container(
             height: MediaQuery.of(context).size.height * 0.75,
             color: context.colors.card,
@@ -326,7 +500,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  const Text('Журнал аудита', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
+                  const Text(
+                    'Журнал аудита',
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+                  ),
                   const SizedBox(height: 12),
                   CupertinoTextField(
                     controller: filterController,
@@ -339,7 +516,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       itemCount: rows.length,
                       itemBuilder: (_, i) {
                         final e = rows[i];
-                        final at = e['at'] is int ? DateTime.fromMillisecondsSinceEpoch(e['at'] as int) : DateTime.now();
+                        final at = e['at'] is int
+                            ? DateTime.fromMillisecondsSinceEpoch(
+                                e['at'] as int,
+                              )
+                            : DateTime.now();
                         return Padding(
                           padding: const EdgeInsets.only(bottom: 8),
                           child: AppCard(
@@ -347,9 +528,26 @@ class _SettingsScreenState extends State<SettingsScreen> {
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Text(e['action']?.toString() ?? '', style: const TextStyle(fontWeight: FontWeight.w600)),
-                                Text('${e['entity']} ${e['entity_id'] ?? ''}', style: TextStyle(color: context.colors.secondaryLabel, fontSize: 12)),
-                                Text('${at.day}.${at.month}.${at.year} ${at.hour}:${at.minute.toString().padLeft(2, '0')}', style: TextStyle(color: context.colors.tertiaryLabel, fontSize: 11)),
+                                Text(
+                                  e['action']?.toString() ?? '',
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                                Text(
+                                  '${e['entity']} ${e['entity_id'] ?? ''}',
+                                  style: TextStyle(
+                                    color: context.colors.secondaryLabel,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                                Text(
+                                  '${at.day}.${at.month}.${at.year} ${at.hour}:${at.minute.toString().padLeft(2, '0')}',
+                                  style: TextStyle(
+                                    color: context.colors.tertiaryLabel,
+                                    fontSize: 11,
+                                  ),
+                                ),
                               ],
                             ),
                           ),
@@ -357,7 +555,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       },
                     ),
                   ),
-                  SecondaryButton(label: 'Закрыть', icon: CupertinoIcons.xmark, onPressed: () => Navigator.of(modalContext).pop()),
+                  SecondaryButton(
+                    label: 'Закрыть',
+                    icon: CupertinoIcons.xmark,
+                    onPressed: () => Navigator.of(modalContext).pop(),
+                  ),
                 ],
               ),
             ),
@@ -367,8 +569,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
     filterController.dispose();
   }
-Future<void> _showAuditDetail(Map<String, Object?> e) async {
-    final at = e['at'] is int ? DateTime.fromMillisecondsSinceEpoch(e['at'] as int) : DateTime.now();
+
+  Future<void> _showAuditDetail(Map<String, Object?> e) async {
+    final at = e['at'] is int
+        ? DateTime.fromMillisecondsSinceEpoch(e['at'] as int)
+        : DateTime.now();
     await showCupertinoDialog<void>(
       context: context,
       builder: (context) => CupertinoAlertDialog(
@@ -385,13 +590,16 @@ Future<void> _showAuditDetail(Map<String, Object?> e) async {
           ),
         ),
         actions: [
-          CupertinoDialogAction(onPressed: () => Navigator.of(context).pop(), child: const Text('OK')),
+          CupertinoDialogAction(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('OK'),
+          ),
         ],
       ),
     );
   }
 
-Future<void> _managePin() async {
+  Future<void> _managePin() async {
     final settings = context.read<SettingsController>();
     if (settings.hasAppPin) {
       final current = await _promptPin('Текущий PIN (4-6 цифр)', '****');
@@ -437,7 +645,8 @@ Future<void> _managePin() async {
           ),
           CupertinoDialogAction(
             isDefaultAction: true,
-            onPressed: () => Navigator.of(dialogContext).pop(controller.text.trim()),
+            onPressed: () =>
+                Navigator.of(dialogContext).pop(controller.text.trim()),
             child: const Text('OK'),
           ),
         ],
@@ -456,7 +665,8 @@ Future<void> _managePin() async {
     );
     if (!ok) return;
     await store.clearAll();
-    if (mounted) await showAppAlert(context, title: 'Готово', message: 'Данные очищены.');
+    if (mounted)
+      await showAppAlert(context, title: 'Готово', message: 'Данные очищены.');
   }
 
   Future<void> _connectYandex() async {
@@ -464,7 +674,8 @@ Future<void> _managePin() async {
       await showAppAlert(
         context,
         title: 'Вход не настроен',
-        message: 'Приложение не зарегистрировано в Яндекс ID.\n\n'
+        message:
+            'Приложение не зарегистрировано в Яндекс ID.\n\n'
             'Создайте OAuth-приложение на oauth.yandex.ru, добавьте redirect URI '
             '${YandexOAuth.redirectUri} и соберите проект с '
             '--dart-define=YANDEX_CLIENT_ID=<id>.',
@@ -480,7 +691,11 @@ Future<void> _managePin() async {
         webOnlyWindowName: kIsWeb ? '_self' : '_blank',
       );
       if (!opened && mounted) {
-        await showAppAlert(context, title: 'Ошибка', message: 'Не удалось открыть браузер.');
+        await showAppAlert(
+          context,
+          title: 'Ошибка',
+          message: 'Не удалось открыть браузер.',
+        );
       }
       if (!kIsWeb && mounted) setState(() => _awaitingCode = true);
     } finally {
@@ -496,18 +711,26 @@ Future<void> _managePin() async {
       final token = await YandexOAuth.exchangeCode(code);
       if (!mounted) return;
       if (token == null) {
-        await showAppAlert(context, title: 'Ошибка', message: 'Код не принят. Попробуйте войти заново.');
+        await showAppAlert(
+          context,
+          title: 'Ошибка',
+          message: 'Код не принят. Попробуйте войти заново.',
+        );
         return;
       }
       await context.read<SettingsController>().setYandexTokens(
-            accessToken: token['access_token'] as String,
-            refreshToken: token['refresh_token'] as String?,
-            expiresInSeconds: token['expires_in'] as int?,
-          );
+        accessToken: token['access_token'] as String,
+        refreshToken: token['refresh_token'] as String?,
+        expiresInSeconds: token['expires_in'] as int?,
+      );
       _yandexCodeController.clear();
       if (mounted) {
         setState(() => _awaitingCode = false);
-        await showAppAlert(context, title: 'Готово', message: 'Яндекс Диск подключён.');
+        await showAppAlert(
+          context,
+          title: 'Готово',
+          message: 'Яндекс Диск подключён.',
+        );
       }
     } finally {
       if (mounted) setState(() => _busy = false);
@@ -521,7 +744,11 @@ Future<void> _managePin() async {
     try {
       final result = await YandexSyncService.sync(store, settings);
       if (mounted) {
-        await showAppAlert(context, title: 'Синхронизация', message: result.message);
+        await showAppAlert(
+          context,
+          title: 'Синхронизация',
+          message: result.message,
+        );
       }
     } finally {
       if (mounted) setState(() => _busy = false);
@@ -551,7 +778,9 @@ Future<void> _managePin() async {
         await showAppAlert(
           context,
           title: ok ? 'Успешно' : 'Ошибка',
-          message: ok ? 'Подключение работает.' : 'Не удалось получить доступ к Диску. Войдите заново.',
+          message: ok
+              ? 'Подключение работает.'
+              : 'Не удалось получить доступ к Диску. Войдите заново.',
         );
       }
     } finally {
@@ -566,12 +795,17 @@ Future<void> _managePin() async {
     if (token == null || !mounted) return;
     setState(() => _busy = true);
     try {
-      final ok = await YandexDiskService.uploadBackup(token, store.backupData());
+      final ok = await YandexDiskService.uploadBackup(
+        token,
+        store.backupData(),
+      );
       if (mounted) {
         await showAppAlert(
           context,
           title: ok ? 'Готово' : 'Ошибка',
-          message: ok ? 'Бэкап загружен на Яндекс Диск.' : 'Не удалось загрузить бэкап.',
+          message: ok
+              ? 'Бэкап загружен на Яндекс Диск.'
+              : 'Не удалось загрузить бэкап.',
         );
       }
     } finally {
@@ -596,13 +830,24 @@ Future<void> _managePin() async {
     try {
       final data = await YandexDiskService.downloadBackup(token);
       if (data == null) {
-        if (mounted) await showAppAlert(context, title: 'Ошибка', message: 'Не найден бэкап на Яндекс Диске.');
+        if (mounted)
+          await showAppAlert(
+            context,
+            title: 'Ошибка',
+            message: 'Не найден бэкап на Яндекс Диске.',
+          );
         return;
       }
       await store.restoreFromBackup(data);
-      if (mounted) await showAppAlert(context, title: 'Готово', message: 'Данные восстановлены.');
+      if (mounted)
+        await showAppAlert(
+          context,
+          title: 'Готово',
+          message: 'Данные восстановлены.',
+        );
     } catch (e) {
-      if (mounted) await showAppAlert(context, title: 'Ошибка', message: e.toString());
+      if (mounted)
+        await showAppAlert(context, title: 'Ошибка', message: e.toString());
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -633,7 +878,9 @@ Future<void> _managePin() async {
                           for (final m in AppThemeMode.values)
                             m: Padding(
                               padding: const EdgeInsets.symmetric(
-                                  horizontal: 6, vertical: 6),
+                                horizontal: 6,
+                                vertical: 6,
+                              ),
                               child: Text(m.shortLabel),
                             ),
                         },
@@ -656,7 +903,9 @@ Future<void> _managePin() async {
                               if (v) {
                                 await settings.setReminder(true);
                                 await ReminderService.scheduleDaily(
-                                    settings.reminderHour, settings.reminderMinute);
+                                  settings.reminderHour,
+                                  settings.reminderMinute,
+                                );
                               } else {
                                 await settings.setReminder(false);
                                 await ReminderService.cancel();
@@ -670,15 +919,19 @@ Future<void> _managePin() async {
                         const SizedBox(height: 10),
                         Row(
                           children: [
-                            Text('Время',
-                                style: TextStyle(color: colors.secondaryLabel)),
+                            Text(
+                              'Время',
+                              style: TextStyle(color: colors.secondaryLabel),
+                            ),
                             const Spacer(),
                             CupertinoButton(
                               padding: EdgeInsets.zero,
                               onPressed: () => _pickReminderTime(settings),
                               child: Text(
                                 '${settings.reminderHour.toString().padLeft(2, '0')}:${settings.reminderMinute.toString().padLeft(2, '0')}',
-                                style: const TextStyle(fontWeight: FontWeight.w600),
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w600,
+                                ),
                               ),
                             ),
                           ],
@@ -753,7 +1006,10 @@ Future<void> _managePin() async {
                         Text(
                           'Вход выполняется на сайте Яндекса в браузере. '
                           'Приложение не видит ваш пароль и хранит только токен доступа.',
-                          style: TextStyle(color: colors.secondaryLabel, fontSize: 12),
+                          style: TextStyle(
+                            color: colors.secondaryLabel,
+                            fontSize: 12,
+                          ),
                         ),
                         const SizedBox(height: 10),
                         SecondaryButton(
@@ -778,25 +1034,37 @@ Future<void> _managePin() async {
                       ] else ...[
                         Row(
                           children: [
-                            Icon(CupertinoIcons.checkmark_seal_fill,
-                                color: colors.accent, size: 18),
+                            Icon(
+                              CupertinoIcons.checkmark_seal_fill,
+                              color: colors.accent,
+                              size: 18,
+                            ),
                             const SizedBox(width: 8),
-                            const Expanded(child: Text('Яндекс Диск подключён')),
+                            const Expanded(
+                              child: Text('Яндекс Диск подключён'),
+                            ),
                           ],
                         ),
                         const SizedBox(height: 8),
                         if (settings.yandexLastCloudModified != null)
                           Text(
                             'Облако обновлено: ${settings.yandexLastCloudModified!.toLocal()}',
-                            style: TextStyle(color: colors.secondaryLabel, fontSize: 12),
+                            style: TextStyle(
+                              color: colors.secondaryLabel,
+                              fontSize: 12,
+                            ),
                           ),
                         Row(
                           children: [
-                            const Expanded(child: Text('Автобэкап при запуске')),
+                            const Expanded(
+                              child: Text('Автобэкап при запуске'),
+                            ),
                             CupertinoSwitch(
                               value: settings.yandexAutoBackup,
                               onChanged: (v) async {
-                                await context.read<SettingsController>().setYandexAutoBackup(v);
+                                await context
+                                    .read<SettingsController>()
+                                    .setYandexAutoBackup(v);
                                 if (!context.mounted) return;
                                 setState(() {});
                               },
@@ -807,7 +1075,10 @@ Future<void> _managePin() async {
                         Text(
                           'Бэкап хранится в папке «Masters» на Диске в формате JSON. '
                           'Этот же файл использует приложение на Android.',
-                          style: TextStyle(color: colors.secondaryLabel, fontSize: 12),
+                          style: TextStyle(
+                            color: colors.secondaryLabel,
+                            fontSize: 12,
+                          ),
                         ),
                         const SizedBox(height: 10),
                         SecondaryButton(
@@ -849,19 +1120,22 @@ Future<void> _managePin() async {
                   child: Column(
                     children: [
                       for (var i = 0; i < 7; i++) ...[
-                        if (i != 6) Row(
-                          children: [
-                            Expanded(child: Text(_tabLabels[i])),
-                            CupertinoSwitch(
-                              value: settings.isTabVisible(i),
-                              onChanged: (v) async {
-                                await context.read<SettingsController>().toggleTabVisible(i, visible: v);
-                                if (!context.mounted) return;
-                                setState(() {});
-                              },
-                            ),
-                          ],
-                        ),
+                        if (i != 6)
+                          Row(
+                            children: [
+                              Expanded(child: Text(_tabLabels[i])),
+                              CupertinoSwitch(
+                                value: settings.isTabVisible(i),
+                                onChanged: (v) async {
+                                  await context
+                                      .read<SettingsController>()
+                                      .toggleTabVisible(i, visible: v);
+                                  if (!context.mounted) return;
+                                  setState(() {});
+                                },
+                              ),
+                            ],
+                          ),
                         if (i != 6 && i != 5) const SizedBox(height: 8),
                       ],
                     ],
@@ -874,11 +1148,19 @@ Future<void> _managePin() async {
                   child: Column(
                     children: [
                       CupertinoListTile(
-                        title: Text(settings.hasAppPin ? 'PIN-код активен' : 'PIN-код не установлен'),
-                        subtitle: const Text('Экран блокируется при запуске. Биометрия — в плане.'),
+                        title: Text(
+                          settings.hasAppPin
+                              ? 'PIN-код активен'
+                              : 'PIN-код не установлен',
+                        ),
+                        subtitle: const Text(
+                          'Экран блокируется при запуске. Биометрия — в плане.',
+                        ),
                       ),
                       SecondaryButton(
-                        label: settings.hasAppPin ? 'Сменить или убрать PIN' : 'Установить PIN',
+                        label: settings.hasAppPin
+                            ? 'Сменить или убрать PIN'
+                            : 'Установить PIN',
                         icon: CupertinoIcons.lock,
                         onPressed: _managePin,
                       ),
@@ -888,10 +1170,23 @@ Future<void> _managePin() async {
                           label: 'Выключить PIN',
                           icon: CupertinoIcons.lock_open,
                           onPressed: () async {
-                            final ok = await showAppConfirm(context, title: 'Выключить PIN?', message: 'После этого приложение будет открываться без PIN.', destructive: true, confirmLabel: 'Выключить');
+                            final ok = await showAppConfirm(
+                              context,
+                              title: 'Выключить PIN?',
+                              message: 'После этого приложение будет открываться без PIN.',
+                              destructive: true,
+                              confirmLabel: 'Выключить',
+                            );
                             if (!ok || !context.mounted) return;
-                            await context.read<SettingsController>().setAppPin(null);
-                            if (context.mounted) await showAppAlert(context, title: 'Готово', message: 'PIN выключен.');
+                            await context.read<SettingsController>().setAppPin(
+                              null,
+                            );
+                            if (context.mounted)
+                              await showAppAlert(
+                                context,
+                                title: 'Готово',
+                                message: 'PIN выключен.',
+                              );
                             if (mounted) setState(() {});
                           },
                         ),
@@ -904,11 +1199,15 @@ Future<void> _managePin() async {
                           if (!available) return const SizedBox.shrink();
                           return Row(
                             children: [
-                              const Expanded(child: Text('Биометрия (разблокировка)')),
+                              const Expanded(
+                                child: Text('Биометрия (разблокировка)'),
+                              ),
                               CupertinoSwitch(
                                 value: settings.biometricEnabled,
                                 onChanged: (v) async {
-                                  await context.read<SettingsController>().setBiometricEnabled(v);
+                                  await context
+                                      .read<SettingsController>()
+                                      .setBiometricEnabled(v);
                                   if (!context.mounted) return;
                                   setState(() {});
                                 },
@@ -928,7 +1227,13 @@ Future<void> _managePin() async {
                     children: [
                       Text('Записей: ${_auditEntries.length}'),
                       const SizedBox(height: 8),
-                      SecondaryButton(label: _auditBusy ? 'Загрузка...' : 'Показать журнал аудита', icon: CupertinoIcons.doc_text_search, onPressed: _auditBusy ? () {} : _showAuditLog),
+                      SecondaryButton(
+                        label: _auditBusy
+                            ? 'Загрузка...'
+                            : 'Показать журнал аудита',
+                        icon: CupertinoIcons.doc_text_search,
+                        onPressed: _auditBusy ? () {} : _showAuditLog,
+                      ),
                     ],
                   ),
                 ),
@@ -937,23 +1242,37 @@ Future<void> _managePin() async {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('Текущая версия: ${_updateInfo?.currentVersionCode ?? '...'}'),
+                      Text(
+                        'Текущая версия: ${_updateInfo?.currentVersionCode ?? '...'}',
+                      ),
                       if (_updateStatus.isNotEmpty) ...[
                         const SizedBox(height: 4),
-                        Text(_updateStatus, style: TextStyle(color: context.colors.secondaryLabel, fontSize: 12)),
+                        Text(
+                          _updateStatus,
+                          style: TextStyle(
+                            color: context.colors.secondaryLabel,
+                            fontSize: 12,
+                          ),
+                        ),
                       ],
                       const SizedBox(height: 8),
                       SecondaryButton(
-                        label: _updateBusy ? 'Проверка...' : 'Проверить обновления',
+                        label: _updateBusy
+                            ? 'Проверка...'
+                            : 'Проверить обновления',
                         icon: CupertinoIcons.cloud_download,
                         onPressed: _updateBusy ? () {} : _checkForUpdates,
                       ),
-                      if (_updateInfo != null && _updateInfo!.updateAvailable) ...[
+                      if (_updateInfo != null &&
+                          _updateInfo!.updateAvailable) ...[
                         const SizedBox(height: 8),
                         SecondaryButton(
-                          label: 'Скачать и установить ${_updateInfo!.latestVersionName}',
+                          label:
+                              'Скачать и установить ${_updateInfo!.latestVersionName}',
                           icon: CupertinoIcons.arrow_down_circle,
-                          onPressed: _updateBusy ? () {} : () => _downloadAndInstallUpdate(_updateInfo!),
+                          onPressed: _updateBusy
+                              ? () {}
+                              : () => _downloadAndInstallUpdate(_updateInfo!),
                         ),
                       ],
                     ],
@@ -971,7 +1290,10 @@ Future<void> _managePin() async {
                         label: 'Изменить ставку',
                         icon: CupertinoIcons.percent,
                         onPressed: () async {
-                          final v = await _promptPin('Ставка налога, %', settings.taxRate.toString());
+                          final v = await _promptPin(
+                            'Ставка налога, %',
+                            settings.taxRate.toString(),
+                          );
                           final rate = int.tryParse((v ?? '').trim());
                           if (rate == null) return;
                           await settings.setTaxRate(rate);
@@ -1008,9 +1330,14 @@ Future<void> _managePin() async {
                           ),
                           CupertinoButton(
                             padding: EdgeInsets.zero,
-                            child: const Icon(CupertinoIcons.plus, semanticLabel: 'Добавить'),
+                            child: const Icon(
+                              CupertinoIcons.plus,
+                              semanticLabel: 'Добавить',
+                            ),
                             onPressed: () async {
-                              await context.read<SettingsController>().addJobTag(_tagController.text);
+                              await context
+                                  .read<SettingsController>()
+                                  .addJobTag(_tagController.text);
                               _tagController.clear();
                               if (mounted) setState(() {});
                             },
@@ -1022,14 +1349,20 @@ Future<void> _managePin() async {
                         spacing: 8,
                         runSpacing: 8,
                         children: [
-                          for (final tag in context.watch<SettingsController>().jobTags)
+                          for (final tag
+                              in context.watch<SettingsController>().jobTags)
                             GestureDetector(
                               onTap: () async {
-                                await context.read<SettingsController>().removeJobTag(tag);
+                                await context
+                                    .read<SettingsController>()
+                                    .removeJobTag(tag);
                                 if (mounted) setState(() {});
                               },
                               child: Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 10,
+                                  vertical: 6,
+                                ),
                                 decoration: BoxDecoration(
                                   color: context.colors.cardElevated,
                                   borderRadius: BorderRadius.circular(99),
@@ -1048,12 +1381,26 @@ Future<void> _managePin() async {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text('Masters', style: TextStyle(fontWeight: FontWeight.w600)),
+                      const Text(
+                        'Masters',
+                        style: TextStyle(fontWeight: FontWeight.w600),
+                      ),
                       const SizedBox(height: 4),
-                      Text('Локальный трекер мастера/бригады. Все данные хранятся на устройстве.',
-                          style: TextStyle(color: colors.secondaryLabel, fontSize: 13)),
+                      Text(
+                        'Локальный трекер мастера/бригады. Все данные хранятся на устройстве.',
+                        style: TextStyle(
+                          color: colors.secondaryLabel,
+                          fontSize: 13,
+                        ),
+                      ),
                       const SizedBox(height: 4),
-                      Text('Версия 0.1.0', style: TextStyle(color: colors.tertiaryLabel, fontSize: 12)),
+                      Text(
+                        'Версия 0.1.0',
+                        style: TextStyle(
+                          color: colors.tertiaryLabel,
+                          fontSize: 12,
+                        ),
+                      ),
                     ],
                   ),
                 ),
@@ -1087,11 +1434,19 @@ class _ActionTile extends StatelessWidget {
         children: [
           Icon(icon, color: color, size: 20),
           const SizedBox(width: 10),
-          Text(label,
-              style: TextStyle(
-                  color: destructive ? colors.red : colors.label, fontSize: 16)),
+          Text(
+            label,
+            style: TextStyle(
+              color: destructive ? colors.red : colors.label,
+              fontSize: 16,
+            ),
+          ),
           const Spacer(),
-          Icon(CupertinoIcons.chevron_forward, size: 16, color: colors.tertiaryLabel),
+          Icon(
+            CupertinoIcons.chevron_forward,
+            size: 16,
+            color: colors.tertiaryLabel,
+          ),
         ],
       ),
     );

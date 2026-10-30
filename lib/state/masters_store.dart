@@ -2004,7 +2004,11 @@ class MastersStore extends ChangeNotifier {
     }
   }
 
-  Future<BackupMergeResult> mergeFromBackup(Map<String, dynamic> data) async {
+  Future<BackupMergeResult> mergeFromBackup(
+    Map<String, dynamic> data, {
+    bool dryRun = false,
+    Set<String>? applyConflictIds,
+  }) async {
     if (data['format'] != 'masters-backup') {
       throw const FormatException('Это не копия Masters.');
     }
@@ -2012,8 +2016,12 @@ class MastersStore extends ChangeNotifier {
     if (version is! int || version > 7) {
       throw const FormatException('Неподдерживаемая версия копии.');
     }
-    final result = await _appDatabase.mergeSnapshot(data);
-    await load();
+    final result = await _appDatabase.mergeSnapshot(
+      data,
+      dryRun: dryRun,
+      applyConflictIds: applyConflictIds,
+    );
+    if (!dryRun) await load();
     try {
       await auditAction(
         action: 'backup.merge',
