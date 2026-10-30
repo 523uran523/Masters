@@ -1286,6 +1286,26 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     children: [
                       Text('Ставка: ${settings.taxRate}%'),
                       const SizedBox(height: 8),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: [
+                          for (final preset in const [
+                            ('Самозанятый 6%', 6),
+                            ('УСН 6%', 6),
+                            ('УСН 15%', 15),
+                            ('Без налога', 0),
+                          ])
+                            SecondaryButton(
+                              label: preset.$1,
+                              onPressed: () async {
+                                await settings.setTaxRate(preset.$2);
+                                if (mounted) setState(() {});
+                              },
+                            ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
                       SecondaryButton(
                         label: 'Изменить ставку',
                         icon: CupertinoIcons.percent,
