@@ -234,6 +234,60 @@ class _InventoryScreenState extends State<InventoryScreen> {
     }
   }
 
+  Future<void> _showSupplierDetail(Supplier supplier) async {
+    final store = context.read<MastersStore>();
+    await showCupertinoModalPopup<void>(
+      context: context,
+      builder: (modalContext) => Container(
+        height: MediaQuery.of(context).size.height * 0.75,
+        color: context.colors.card,
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+        child: SafeArea(
+          top: false,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(supplier.name, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
+              const SizedBox(height: 4),
+              Text('Долг: ${_money(store.supplierDebtCents(supplier.id))}', style: TextStyle(color: context.colors.secondaryLabel)),
+              const SizedBox(height: 12),
+              Expanded(
+                child: ListView(
+                  children: [
+                    for (final purchase in store.purchasesForSupplier(supplier.id))
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 8),
+                        child: AppCard(
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: Text('#${purchase.id.substring(0, 6)} · ${_money(purchase.totalCents)}', style: const TextStyle(fontWeight: FontWeight.w500)),
+                              ),
+                              CupertinoButton(
+                                padding: EdgeInsets.zero,
+                                onPressed: () async {
+                                  Navigator.of(modalContext).pop();
+                                  await _paySupplier(supplier);
+                                },
+                                child: const Text('Оплатить', style: TextStyle(fontSize: 12)),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    if (store.purchasesForSupplier(supplier.id).isEmpty)
+                      EmptyState(title: 'Нет закупок', message: 'Запишите первую закупку для поставщика.'),
+                  ],
+                ),
+              ),
+              SecondaryButton(label: 'Закрыть', icon: CupertinoIcons.xmark, onPressed: () => Navigator.of(modalContext).pop()),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   Future<void> _paySupplier(Supplier supplier) async {
     final store = context.read<MastersStore>();
     if (store.accounts.isEmpty) {
@@ -439,7 +493,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
                                padding: const EdgeInsets.symmetric(vertical: 4),
                                child: Row(
                                  children: [
-                                   Expanded(child: Text(supplier.name, style: const TextStyle(fontWeight: FontWeight.w600))),
+                                   Expanded(child: GestureDetector(onTap: () => _showSupplierDetail(supplier), child: Text(supplier.name, style: const TextStyle(fontWeight: FontWeight.w600)))),
                                    Text('Долг: ${_money(store.supplierDebtCents(supplier.id))}', style: TextStyle(color: colors.secondaryLabel, fontSize: 12)),
                                    CupertinoButton(padding: EdgeInsets.zero, onPressed: () => _paySupplier(supplier), child: const Icon(CupertinoIcons.money_dollar, size: 18)),
                                    CupertinoButton(padding: EdgeInsets.zero, onPressed: () => _deleteSupplier(supplier), child: Icon(CupertinoIcons.xmark, size: 16, color: colors.tertiaryLabel)),
