@@ -952,6 +952,11 @@ class _JobRow extends StatelessWidget {
                             job.status == JobStatus.closed
                         ? TextDecoration.lineThrough
                         : null,
+                    color:
+                        job.status == JobStatus.done ||
+                            job.status == JobStatus.closed
+                        ? colors.tertiaryLabel
+                        : null,
                   ),
                 ),
                 const SizedBox(height: 2),
@@ -1014,6 +1019,10 @@ class _JobCard extends StatelessWidget {
               decoration:
                   job.status == JobStatus.done || job.status == JobStatus.closed
                   ? TextDecoration.lineThrough
+                  : null,
+              color:
+                  job.status == JobStatus.done || job.status == JobStatus.closed
+                  ? colors.tertiaryLabel
                   : null,
             ),
           ),

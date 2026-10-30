@@ -295,7 +295,7 @@ class ClientDetailScreen extends StatelessWidget {
                                                         JobStatus.done ||
                                                     item.jobStatus ==
                                                         JobStatus.closed
-                                                ? context.colors.secondaryLabel
+                                                ? context.colors.tertiaryLabel
                                                 : null,
                                           ),
                                         ),
