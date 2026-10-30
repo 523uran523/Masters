@@ -515,10 +515,7 @@ class _JobsScreenState extends State<JobsScreen> {
   }
 
   Future<void> _quickAdd() async {
-    final title = await _promptText(
-      'Название заказа',
-      'Заказ',
-    );
+    final title = await _promptText('Название заказа', 'Заказ');
     if (title == null || title.trim().isEmpty || !mounted) return;
 
     final store = context.read<MastersStore>();
@@ -526,10 +523,7 @@ class _JobsScreenState extends State<JobsScreen> {
     String clientId;
     final clients = store.clients;
     if (clients.isEmpty) {
-      final clientName = await _promptText(
-        'Новый клиент',
-        'Имя клиента',
-      );
+      final clientName = await _promptText('Новый клиент', 'Имя клиента');
       if (clientName == null || clientName.trim().isEmpty || !mounted) return;
       final client = await store.createClient(name: clientName.trim());
       if (!mounted) return;
@@ -544,8 +538,9 @@ class _JobsScreenState extends State<JobsScreen> {
               onPressed: () => Navigator.of(dialogContext).pop('__new__'),
               child: const Text('Новый клиент'),
             ),
-            for (final c in [...clients]
-              ..sort((a, b) => a.name.compareTo(b.name)))
+            for (final c in [
+              ...clients,
+            ]..sort((a, b) => a.name.compareTo(b.name)))
               CupertinoActionSheetAction(
                 onPressed: () => Navigator.of(dialogContext).pop(c.id),
                 child: Text(c.name),
@@ -559,10 +554,7 @@ class _JobsScreenState extends State<JobsScreen> {
       );
       if (selected == null || !mounted) return;
       if (selected == '__new__') {
-        final clientName = await _promptText(
-          'Новый клиент',
-          'Имя клиента',
-        );
+        final clientName = await _promptText('Новый клиент', 'Имя клиента');
         if (clientName == null || clientName.trim().isEmpty || !mounted) return;
         final client = await store.createClient(name: clientName.trim());
         if (!mounted) return;
@@ -580,9 +572,9 @@ class _JobsScreenState extends State<JobsScreen> {
       status: JobStatus.nuevo,
     );
     if (!mounted) return;
-    Navigator.of(context).push(
-      CupertinoPageRoute(builder: (_) => JobDetailScreen(jobId: job.id)),
-    );
+    Navigator.of(
+      context,
+    ).push(CupertinoPageRoute(builder: (_) => JobDetailScreen(jobId: job.id)));
   }
 
   Future<String?> _promptText(String title, String placeholder) async {
