@@ -1,4 +1,6 @@
+import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:path/path.dart' as p;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:masters/data/app_database.dart';
@@ -63,6 +65,30 @@ void main() {
       expect(store.employeeBalanceOwed(employee.id), 0);
     } finally {
       await appDb.close();
+    }
+  });
+
+
+  test('migrates v11 database to v12 creating job_attachments', () async {
+    final dbPath = p.join(Directory.systemTemp.path, 'masters_migration_test.db');
+    try {
+      await File(dbPath).delete();
+    } catch (_) {}
+    final db11 = await AppDatabase.open(path: dbPath);
+    final raw = db11.database;
+    await raw.execute('DROP TABLE IF EXISTS job_attachments');
+    await raw.execute('PRAGMA user_version = 11');
+    await db11.close();
+
+    final db12 = await AppDatabase.open(path: dbPath);
+    try {
+      final tables = (await db12.database.rawQuery("SELECT name FROM sqlite_master WHERE type='table'")).map((r) => r['name'] as String).toSet();
+      expect(tables.contains('job_attachments'), isTrue);
+      final ver = (await db12.database.rawQuery('PRAGMA user_version'))[0]['user_version'];
+      expect(ver, 12);
+    } finally {
+      await db12.close();
+      try { await File(dbPath).delete(); } catch (_) {}
     }
   });
 }
