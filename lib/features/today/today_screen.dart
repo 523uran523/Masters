@@ -13,9 +13,14 @@ import '../../state/masters_store.dart';
 import '../jobs/job_detail_screen.dart';
 import '../jobs/job_form_screen.dart';
 
-class TodayScreen extends StatelessWidget {
+class TodayScreen extends StatefulWidget {
   const TodayScreen({super.key});
 
+  @override
+  State<TodayScreen> createState() => _TodayScreenState();
+}
+
+class _TodayScreenState extends State<TodayScreen> {
   @override
   Widget build(BuildContext context) {
     final store = context.watch<MastersStore>();
@@ -66,7 +71,8 @@ class TodayScreen extends StatelessWidget {
               showAppAlert(
                 context,
                 title: 'Нет клиентов',
-                message: 'Сначала создайте клиента на вкладке «Клиенты».',
+                message:
+                    'Нет активных заказов. Нажмите +, чтобы создать новый.',
               );
               return;
             }
@@ -97,6 +103,13 @@ class TodayScreen extends StatelessWidget {
                   size: 48,
                   color: colors.tertiaryLabel,
                 ),
+                actions: [
+                  PrimaryButton(
+                    label: 'Начать: создать первый заказ',
+                    icon: CupertinoIcons.plus,
+                    onPressed: _quickAdd,
+                  ),
+                ],
               );
             }
             Widget buildSection(String title, List<Job> jobs) {
@@ -225,6 +238,20 @@ class TodayScreen extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  Future<void> _quickAdd() async {
+    final store = context.read<MastersStore>();
+    if (store.clients.isEmpty) {
+      showAppAlert(
+        context,
+        title: 'Нет клиентов',
+        message: 'Сначала создайте клиента на вкладке «Клиенты».',
+      );
+      return;
+    }
+    Navigator.of(context)
+        .push(CupertinoPageRoute(builder: (_) => const JobFormScreen()));
   }
 
   Widget _reminderCard(
@@ -606,13 +633,19 @@ class _SummaryTile extends StatelessWidget {
 String _reminderMessage(ClientReminder reminder, String clientName, Job? job) {
   final detail = reminder.body?.trim();
   final jobTitle = job?.title.trim();
-  final subject = (detail != null && detail.isNotEmpty) ? detail : reminder.title;
+  final subject = (detail != null && detail.isNotEmpty)
+      ? detail
+      : reminder.title;
   switch (reminder.type) {
     case 'appointment':
-      final label = (jobTitle != null && jobTitle.isNotEmpty) ? jobTitle : subject;
+      final label = (jobTitle != null && jobTitle.isNotEmpty)
+          ? jobTitle
+          : subject;
       return 'Здравствуйте, $clientName. Запись: $label.';
     case 'warranty':
-      final label = (jobTitle != null && jobTitle.isNotEmpty) ? jobTitle : subject;
+      final label = (jobTitle != null && jobTitle.isNotEmpty)
+          ? jobTitle
+          : subject;
       return 'Здравствуйте, $clientName. Напоминаю о сервисном обслуживании по работе "$label".';
     default:
       return 'Здравствуйте, $clientName. Напоминаю: $subject.';

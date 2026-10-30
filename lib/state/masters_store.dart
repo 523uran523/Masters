@@ -2397,6 +2397,49 @@ class MastersStore extends ChangeNotifier {
     );
   }
 
+  Future<void> seedDemoData(String preset) async {
+    if (!_loaded) {
+      await load();
+    }
+    final hasRealAccounts =
+        _accounts.any((a) => a.name != 'Наличные') || _accounts.length > 1;
+    if (_clients.isNotEmpty || _jobs.isNotEmpty || hasRealAccounts) {
+      return;
+    }
+
+    final ownerId = selfEmployee?.id;
+    await createAccount(name: 'Касса', type: 'cash');
+    final client = await createClient(
+      name: 'Демо: Авто',
+      phone: '',
+      note: null,
+    );
+    final object = await createObject(clientId: client.id, title: 'Автомобиль');
+
+    final now = DateTime.now();
+    final dueToday = DateTime(now.year, now.month, now.day);
+    await createJob(
+      clientId: client.id,
+      objectId: object.id,
+      title: 'Демо: переобувка шин',
+      status: JobStatus.nuevo,
+      priceCents: 500000,
+      dueDate: dueToday,
+      assigneeId: ownerId,
+      tags: null,
+    );
+    await createJob(
+      clientId: client.id,
+      objectId: object.id,
+      title: 'Демо: замена колодок',
+      status: JobStatus.inProgress,
+      priceCents: 1200000,
+      dueDate: dueToday,
+      assigneeId: ownerId,
+      tags: null,
+    );
+  }
+
   List<ClosedPeriod> get closedPeriods => List.unmodifiable(_closedPeriods);
 
   bool isPeriodClosed([DateTime? at]) {

@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../../app/theme/app_theme.dart';
 import '../../app/ui.dart';
+import '../../state/masters_store.dart';
 import '../../state/settings_controller.dart';
 
 class OnboardingScreen extends StatefulWidget {
@@ -20,6 +21,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   String _team = 'solo';
   String _workMode = 'orders';
   bool _sellsGoods = false;
+  bool _addDemoData = false;
 
   @override
   void dispose() {
@@ -29,14 +31,13 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
   Future<void> _finish() async {
     final settings = context.read<SettingsController>();
+    final store = context.read<MastersStore>();
     await settings.setBusinessType(_businessType);
-    // modules
     final modules = <String>['money', 'orders', 'clients'];
     if (_team == 'team') modules.add('employees');
     if (_sellsGoods) modules.add('inventory');
     if (_workMode == 'booking') modules.add('booking');
     await settings.setModules(modules);
-    // terms
     switch (_businessType) {
       case 'auto':
         await settings.setObjectTerm('Автомобиль');
@@ -54,12 +55,25 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         await settings.setObjectTerm('Объект');
         await settings.setClientTerm('Клиент');
     }
+    if (!store.isLoaded) {
+      await store.load();
+    }
     await settings.completeOnboarding();
+    if (_addDemoData) {
+      try {
+        await store.seedDemoData('auto');
+      } catch (_) {
+        // Keep onboarding completion even if demo seeding fails.
+      }
+    }
   }
 
   void _next() {
     if (_page < 3) {
-      _pageController.nextPage(duration: const Duration(milliseconds: 260), curve: Curves.easeOutCubic);
+      _pageController.nextPage(
+        duration: const Duration(milliseconds: 260),
+        curve: Curves.easeOutCubic,
+      );
     } else {
       _finish();
     }
@@ -81,11 +95,36 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                     title: 'Чем занимаетесь?',
                     child: Column(
                       children: [
-                        _choice('Шиномонтаж / автосервис', 'auto', _businessType, (v) => setState(() => _businessType = v)),
-                        _choice('Пекарня / кондитерская', 'bakery', _businessType, (v) => setState(() => _businessType = v)),
-                        _choice('Барбер / салон', 'barber', _businessType, (v) => setState(() => _businessType = v)),
-                        _choice('Мастерская / ремонт', 'repair', _businessType, (v) => setState(() => _businessType = v)),
-                        _choice('Другое', 'other', _businessType, (v) => setState(() => _businessType = v)),
+                        _choice(
+                          'Шиномонтаж / автосервис',
+                          'auto',
+                          _businessType,
+                          (v) => setState(() => _businessType = v),
+                        ),
+                        _choice(
+                          'Пекарня / кондитерская',
+                          'bakery',
+                          _businessType,
+                          (v) => setState(() => _businessType = v),
+                        ),
+                        _choice(
+                          'Барбер / салон',
+                          'barber',
+                          _businessType,
+                          (v) => setState(() => _businessType = v),
+                        ),
+                        _choice(
+                          'Мастерская / ремонт',
+                          'repair',
+                          _businessType,
+                          (v) => setState(() => _businessType = v),
+                        ),
+                        _choice(
+                          'Другое',
+                          'other',
+                          _businessType,
+                          (v) => setState(() => _businessType = v),
+                        ),
                       ],
                     ),
                   ),
@@ -93,8 +132,18 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                     title: 'Работаете одни или с командой?',
                     child: Column(
                       children: [
-                        _choice('Я один', 'solo', _team, (v) => setState(() => _team = v)),
-                        _choice('Есть сотрудники', 'team', _team, (v) => setState(() => _team = v)),
+                        _choice(
+                          'Я один',
+                          'solo',
+                          _team,
+                          (v) => setState(() => _team = v),
+                        ),
+                        _choice(
+                          'Есть сотрудники',
+                          'team',
+                          _team,
+                          (v) => setState(() => _team = v),
+                        ),
                       ],
                     ),
                   ),
@@ -102,9 +151,24 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                     title: 'Как принимаете клиентов?',
                     child: Column(
                       children: [
-                        _choice('По записи (календарь)', 'booking', _workMode, (v) => setState(() => _workMode = v)),
-                        _choice('Заказы со сроком', 'orders', _workMode, (v) => setState(() => _workMode = v)),
-                        _choice('Продаю на месте', 'counter', _workMode, (v) => setState(() => _workMode = v)),
+                        _choice(
+                          'По записи (календарь)',
+                          'booking',
+                          _workMode,
+                          (v) => setState(() => _workMode = v),
+                        ),
+                        _choice(
+                          'Заказы со сроком',
+                          'orders',
+                          _workMode,
+                          (v) => setState(() => _workMode = v),
+                        ),
+                        _choice(
+                          'Продаю на месте',
+                          'counter',
+                          _workMode,
+                          (v) => setState(() => _workMode = v),
+                        ),
                       ],
                     ),
                   ),
@@ -112,8 +176,32 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                     title: 'Продаёте товары?',
                     child: Column(
                       children: [
-                        _choice('Только услуги', 'services', _sellsGoods ? 'goods' : 'services', (v) => setState(() => _sellsGoods = v == 'goods')),
-                        _choice('Услуги и товары', 'goods', _sellsGoods ? 'goods' : 'services', (v) => setState(() => _sellsGoods = v == 'goods')),
+                        _choice(
+                          'Только услуги',
+                          'services',
+                          _sellsGoods ? 'goods' : 'services',
+                          (v) => setState(() => _sellsGoods = v == 'goods'),
+                        ),
+                        _choice(
+                          'Услуги и товары',
+                          'goods',
+                          _sellsGoods ? 'goods' : 'services',
+                          (v) => setState(() => _sellsGoods = v == 'goods'),
+                        ),
+                        const SizedBox(height: 12),
+                        Row(
+                          children: [
+                            CupertinoCheckbox(
+                              value: _addDemoData,
+                              onChanged: (v) =>
+                                  setState(() => _addDemoData = v ?? false),
+                            ),
+                            const SizedBox(width: 8),
+                            const Expanded(
+                              child: Text('Загрузить демо-данные на 1 неделю'),
+                            ),
+                          ],
+                        ),
                       ],
                     ),
                   ),
@@ -124,9 +212,15 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
               padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
               child: Column(
                 children: [
-                  Text('Шаг ${_page + 1} из 4', style: TextStyle(color: colors.secondaryLabel)),
+                  Text(
+                    'Шаг ${_page + 1} из 4',
+                    style: TextStyle(color: colors.secondaryLabel),
+                  ),
                   const SizedBox(height: 8),
-                  PrimaryButton(label: _page < 3 ? 'Далее' : 'Начать работу', onPressed: _next),
+                  PrimaryButton(
+                    label: _page < 3 ? 'Далее' : 'Начать работу',
+                    onPressed: _next,
+                  ),
                 ],
               ),
             ),
@@ -142,7 +236,10 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(title, style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w700)),
+          Text(
+            title,
+            style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w700),
+          ),
           const SizedBox(height: 20),
           child,
         ],
@@ -150,7 +247,12 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     );
   }
 
-  Widget _choice(String label, String value, String current, ValueChanged<String> onSelect) {
+  Widget _choice(
+    String label,
+    String value,
+    String current,
+    ValueChanged<String> onSelect,
+  ) {
     final selected = value == current;
     final colors = context.colors;
     return Padding(
