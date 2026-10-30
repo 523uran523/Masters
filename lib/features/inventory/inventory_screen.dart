@@ -43,7 +43,9 @@ class _InventoryScreenState extends State<InventoryScreen> {
         actions: [
           CupertinoDialogAction(
             onPressed: () => Navigator.of(dc).pop(),
-            child: const Text('Р В РЎвЂєР РЋРІР‚С™Р В РЎВР В Р’ВµР В Р вЂ¦Р В Р’В°'),
+            child: const Text(
+              'Р В РЎвЂєР РЋРІР‚С™Р В РЎВР В Р’ВµР В Р вЂ¦Р В Р’В°',
+            ),
           ),
           CupertinoDialogAction(
             isDefaultAction: true,
@@ -80,18 +82,25 @@ class _InventoryScreenState extends State<InventoryScreen> {
             ),
           CupertinoActionSheetAction(
             onPressed: () => Navigator.of(dialogContext).pop('__custom__'),
-            child: const Text('Р В РІР‚СњР РЋР вЂљР РЋРЎвЂњР В РЎвЂ“Р В Р’В°Р РЋР РЏ...'),
+            child: const Text(
+              'Р В РІР‚СњР РЋР вЂљР РЋРЎвЂњР В РЎвЂ“Р В Р’В°Р РЋР РЏ...',
+            ),
           ),
         ],
         cancelButton: CupertinoActionSheetAction(
           onPressed: () => Navigator.of(dialogContext).pop(),
-          child: const Text('Р В РЎвЂєР РЋРІР‚С™Р В РЎВР В Р’ВµР В Р вЂ¦Р В Р’В°'),
+          child: const Text(
+            'Р В РЎвЂєР РЋРІР‚С™Р В РЎВР В Р’ВµР В Р вЂ¦Р В Р’В°',
+          ),
         ),
       ),
     );
     if (unit == null) return null;
     if (unit == '__custom__') {
-      return _prompt('Р В РІР‚СћР В РўвЂР В РЎвЂР В Р вЂ¦Р В РЎвЂР РЋРІР‚В Р В Р’В°', 'Р РЋРІвЂљВ¬Р РЋРІР‚С™');
+      return _prompt(
+        'Р В РІР‚СћР В РўвЂР В РЎвЂР В Р вЂ¦Р В РЎвЂР РЋРІР‚В Р В Р’В°',
+        'Р РЋРІвЂљВ¬Р РЋРІР‚С™',
+      );
     }
     return unit;
   }
@@ -124,11 +133,15 @@ class _InventoryScreenState extends State<InventoryScreen> {
     final v = await showCupertinoModalPopup<String>(
       context: context,
       builder: (dialogContext) => CupertinoActionSheet(
-        title: const Text('Р В Р’В¤Р В РЎвЂР В Р’В»Р РЋР Р‰Р РЋРІР‚С™Р РЋР вЂљ Р РЋР С“Р В РЎвЂќР В Р’В»Р В Р’В°Р В РўвЂР В Р’В°'),
+        title: const Text(
+          'Р В Р’В¤Р В РЎвЂР В Р’В»Р РЋР Р‰Р РЋРІР‚С™Р РЋР вЂљ Р РЋР С“Р В РЎвЂќР В Р’В»Р В Р’В°Р В РўвЂР В Р’В°',
+        ),
         actions: [
           CupertinoActionSheetAction(
             onPressed: () => Navigator.of(dialogContext).pop('all'),
-            child: const Text('Р В РІР‚в„ўР РЋР С“Р В Р’Вµ Р В РЎвЂ”Р В РЎвЂўР В Р’В·Р В РЎвЂР РЋРІР‚В Р В РЎвЂР В РЎвЂ'),
+            child: const Text(
+              'Р В РІР‚в„ўР РЋР С“Р В Р’Вµ Р В РЎвЂ”Р В РЎвЂўР В Р’В·Р В РЎвЂР РЋРІР‚В Р В РЎвЂР В РЎвЂ',
+            ),
           ),
           CupertinoActionSheetAction(
             onPressed: () => Navigator.of(dialogContext).pop('good'),
@@ -151,7 +164,9 @@ class _InventoryScreenState extends State<InventoryScreen> {
         ],
         cancelButton: CupertinoActionSheetAction(
           onPressed: () => Navigator.of(dialogContext).pop(),
-          child: const Text('Р В РЎвЂєР РЋРІР‚С™Р В РЎВР В Р’ВµР В Р вЂ¦Р В Р’В°'),
+          child: const Text(
+            'Р В РЎвЂєР РЋРІР‚С™Р В РЎВР В Р’ВµР В Р вЂ¦Р В Р’В°',
+          ),
         ),
       ),
     );
@@ -180,7 +195,10 @@ class _InventoryScreenState extends State<InventoryScreen> {
         ) ??
         '0';
     final minStr =
-        await _prompt('Р В РЎС™Р В РЎвЂР В Р вЂ¦. Р В РЎвЂўР РЋР С“Р РЋРІР‚С™Р В Р’В°Р РЋРІР‚С™Р В РЎвЂўР В РЎвЂќ', '0') ??
+        await _prompt(
+          'Р В РЎС™Р В РЎвЂР В Р вЂ¦. Р В РЎвЂўР РЋР С“Р РЋРІР‚С™Р В Р’В°Р РЋРІР‚С™Р В РЎвЂўР В РЎвЂќ',
+          '0',
+        ) ??
         '0';
     if (!mounted) return;
     final track = await showAppConfirm(
@@ -224,7 +242,9 @@ class _InventoryScreenState extends State<InventoryScreen> {
               onPressed: () => Navigator.of(ctx).pop('good'),
             ),
             CupertinoButton(
-              child: const Text('Р В Р в‚¬Р РЋР С“Р В Р’В»Р РЋРЎвЂњР В РЎвЂ“Р В Р’В°'),
+              child: const Text(
+                'Р В Р в‚¬Р РЋР С“Р В Р’В»Р РЋРЎвЂњР В РЎвЂ“Р В Р’В°',
+              ),
               onPressed: () => Navigator.of(ctx).pop('service'),
             ),
           ],
@@ -313,7 +333,12 @@ class _InventoryScreenState extends State<InventoryScreen> {
       'Р В РЎвЂєР В РЎвЂєР В РЎвЂє Р В РЎСџР В РЎвЂўР РЋР С“Р РЋРІР‚С™Р В Р’В°Р В Р вЂ Р РЋРІР‚В°Р В РЎвЂР В РЎвЂќ',
     );
     if (name == null || name.trim().isEmpty) return;
-    final phone = await _prompt('Р В РЎС›Р В Р’ВµР В Р’В»Р В Р’ВµР РЋРІР‚С›Р В РЎвЂўР В Р вЂ¦', '') ?? '';
+    final phone =
+        await _prompt(
+          'Р В РЎС›Р В Р’ВµР В Р’В»Р В Р’ВµР РЋРІР‚С›Р В РЎвЂўР В Р вЂ¦',
+          '',
+        ) ??
+        '';
     if (!mounted) return;
     await context.read<MastersStore>().createSupplier(
       name: name.trim(),
@@ -341,7 +366,10 @@ class _InventoryScreenState extends State<InventoryScreen> {
     );
     final qty = double.tryParse((qtyStr ?? '').trim().replaceAll(',', '.'));
     if (qty == null || qty <= 0 || !mounted) return;
-    final priceStr = await _prompt('Р В Р’В¦Р В Р’ВµР В Р вЂ¦Р В Р’В° Р В Р’В·Р В Р’В° Р В Р’ВµР В РўвЂ.', '0');
+    final priceStr = await _prompt(
+      'Р В Р’В¦Р В Р’ВµР В Р вЂ¦Р В Р’В° Р В Р’В·Р В Р’В° Р В Р’ВµР В РўвЂ.',
+      '0',
+    );
     final price =
         ((double.tryParse((priceStr ?? '0').replaceAll(',', '.')) ?? 0) * 100)
             .round();
@@ -511,7 +539,10 @@ class _InventoryScreenState extends State<InventoryScreen> {
     final accountId = await _pickAccount(store);
     if (accountId == null || !mounted) return;
     final note =
-        await _prompt('Р В РЎв„ўР В РЎвЂўР В РЎВР В РЎВР В Р’ВµР В Р вЂ¦Р РЋРІР‚С™Р В Р’В°Р РЋР вЂљР В РЎвЂР В РІвЂћвЂ“', '') ??
+        await _prompt(
+          'Р В РЎв„ўР В РЎвЂўР В РЎВР В РЎВР В Р’ВµР В Р вЂ¦Р РЋРІР‚С™Р В Р’В°Р РЋР вЂљР В РЎвЂР В РІвЂћвЂ“',
+          '',
+        ) ??
         '';
     if (!mounted) return;
     setState(() => _busy = true);
@@ -545,7 +576,8 @@ class _InventoryScreenState extends State<InventoryScreen> {
       title: 'Р В Р в‚¬Р В РўвЂР В Р’В°Р В Р’В»Р В РЎвЂР РЋРІР‚С™Р РЋР Р‰ Р В РЎвЂ”Р В РЎвЂўР РЋР С“Р РЋРІР‚С™Р В Р’В°Р В Р вЂ Р РЋРІР‚В°Р В РЎвЂР В РЎвЂќР В Р’В°?',
       message: supplier.name,
       destructive: true,
-      confirmLabel: 'Р В Р в‚¬Р В РўвЂР В Р’В°Р В Р’В»Р В РЎвЂР РЋРІР‚С™Р РЋР Р‰',
+      confirmLabel:
+          'Р В Р в‚¬Р В РўвЂР В Р’В°Р В Р’В»Р В РЎвЂР РЋРІР‚С™Р РЋР Р‰',
     );
     if (!ok || !mounted) return;
     setState(() => _busy = true);
@@ -628,7 +660,8 @@ class _InventoryScreenState extends State<InventoryScreen> {
     );
   }
 
-  String _money(int cents) => '${(cents / 100).toStringAsFixed(0)} Р Р†РІР‚С™Р вЂ¦';
+  String _money(int cents) =>
+      '${(cents / 100).toStringAsFixed(0)} Р Р†РІР‚С™Р вЂ¦';
 
   Future<void> _delete(InventoryItem item) async {
     final ok = await showAppConfirm(
@@ -636,7 +669,8 @@ class _InventoryScreenState extends State<InventoryScreen> {
       title: 'Р В Р в‚¬Р В РўвЂР В Р’В°Р В Р’В»Р В РЎвЂР РЋРІР‚С™Р РЋР Р‰ Р В РЎвЂ”Р В РЎвЂўР В Р’В·Р В РЎвЂР РЋРІР‚В Р В РЎвЂР РЋР вЂ№?',
       message: item.name,
       destructive: true,
-      confirmLabel: 'Р В Р в‚¬Р В РўвЂР В Р’В°Р В Р’В»Р В РЎвЂР РЋРІР‚С™Р РЋР Р‰',
+      confirmLabel:
+          'Р В Р в‚¬Р В РўвЂР В Р’В°Р В Р’В»Р В РЎвЂР РЋРІР‚С™Р РЋР Р‰',
     );
     if (!ok) return;
     if (!mounted) return;
@@ -732,17 +766,6 @@ class _InventoryScreenState extends State<InventoryScreen> {
       running -= signedDelta(movement);
     }
 
-    String formatQty(double value) {
-      final abs = value.abs();
-      final decimals = abs % 1 == 0 ? 0 : 2;
-      return abs.toStringAsFixed(decimals);
-    }
-
-    String formatStock(double value) {
-      final prefix = value < 0 ? 'в€’' : '';
-      return '$prefix${formatQty(value)}';
-    }
-
     await showCupertinoModalPopup<void>(
       context: context,
       builder: (modalContext) {
@@ -773,24 +796,22 @@ class _InventoryScreenState extends State<InventoryScreen> {
                   child: movements.isEmpty
                       ? EmptyState(
                           title: 'РќРµС‚ РґРІРёР¶РµРЅРёР№',
-                          message:
-                              'РСЃС‚РѕСЂРёСЏ РїРѕСЃС‚СѓРїР»РµРЅРёР№ Рё СЃРїРёСЃР°РЅРёР№ РїРѕСЏРІРёС‚СЃСЏ Р·РґРµСЃСЊ.',
+                          message: 'РСЃС‚РѕСЂРёСЏ РїРѕСЃС‚СѓРїР»РµРЅРёР№ Рё СЃРїРёСЃР°РЅРёР№ РїРѕСЏРІРёС‚СЃСЏ Р·РґРµСЃСЊ.',
                         )
                       : ListView(
                           children: movements.map((movement) {
                             final delta = movement.qty < 0
                                 ? movement.qty
                                 : (movement.type == 'out' ||
-                                        movement.type == 'writeoff' ||
-                                        movement.type == 'sale')
-                                    ? -movement.qty
-                                    : movement.qty;
+                                      movement.type == 'writeoff' ||
+                                      movement.type == 'sale')
+                                ? -movement.qty
+                                : movement.qty;
                             return Padding(
                               padding: const EdgeInsets.only(bottom: 8),
                               child: AppCard(
                                 child: Column(
-                                  crossAxisAlignment:
-                                      CrossAxisAlignment.start,
+                                  crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     Row(
                                       children: [
@@ -850,8 +871,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
                 SecondaryButton(
                   label: 'Р—Р°РєСЂС‹С‚СЊ',
                   icon: CupertinoIcons.xmark,
-                  onPressed: () =>
-                      Navigator.of(modalContext).pop(),
+                  onPressed: () => Navigator.of(modalContext).pop(),
                 ),
               ],
             ),
@@ -859,7 +879,6 @@ class _InventoryScreenState extends State<InventoryScreen> {
         );
       },
     );
-
   }
 
   @override
@@ -959,8 +978,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
                                     child: const Icon(
                                       CupertinoIcons.money_dollar,
                                       size: 18,
-                                      semanticLabel:
-                                          'Р В РЎвЂєР В РЎвЂ”Р В Р’В»Р В Р’В°Р РЋРІР‚С™Р В РЎвЂР РЋРІР‚С™Р РЋР Р‰',
+                                      semanticLabel: 'Р В РЎвЂєР В РЎвЂ”Р В Р’В»Р В Р’В°Р РЋРІР‚С™Р В РЎвЂР РЋРІР‚С™Р РЋР Р‰',
                                     ),
                                   ),
                                   CupertinoButton(
@@ -970,8 +988,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
                                       CupertinoIcons.xmark,
                                       size: 16,
                                       color: colors.tertiaryLabel,
-                                      semanticLabel:
-                                          'Р В Р в‚¬Р В РўвЂР В Р’В°Р В Р’В»Р В РЎвЂР РЋРІР‚С™Р РЋР Р‰',
+                                      semanticLabel: 'Р В Р в‚¬Р В РўвЂР В Р’В°Р В Р’В»Р В РЎвЂР РЋРІР‚С™Р РЋР Р‰',
                                     ),
                                   ),
                                 ],
@@ -1124,8 +1141,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
                                         child: const Icon(
                                           CupertinoIcons.plus_circle,
                                           size: 20,
-                                          semanticLabel:
-                                              'Р В РЎСџР РЋР вЂљР В РЎвЂР РЋРІР‚ВР В РЎВ',
+                                          semanticLabel: 'Р В РЎСџР РЋР вЂљР В РЎвЂР РЋРІР‚ВР В РЎВ',
                                         ),
                                       ),
                                       CupertinoButton(
@@ -1153,8 +1169,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
                                         CupertinoIcons.xmark,
                                         size: 16,
                                         color: colors.tertiaryLabel,
-                                        semanticLabel:
-                                            'Р В Р в‚¬Р В РўвЂР В Р’В°Р В Р’В»Р В РЎвЂР РЋРІР‚С™Р РЋР Р‰',
+                                        semanticLabel: 'Р В Р в‚¬Р В РўвЂР В Р’В°Р В Р’В»Р В РЎвЂР РЋРІР‚С™Р РЋР Р‰',
                                       ),
                                     ),
                                   ],
