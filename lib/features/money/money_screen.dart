@@ -1110,6 +1110,7 @@ class _MoneyScreenState extends State<MoneyScreen> {
         .where((t) => t.direction == 'in')
         .fold(0, (s, t) => s + t.amountCents);
     final taxRate = settings.taxRate;
+    final taxAccountId = settings.taxAccountId;
     final reservedTax = taxRate <= 0
         ? 0
         : (monthIncome * taxRate / 100).round();
@@ -1180,6 +1181,23 @@ class _MoneyScreenState extends State<MoneyScreen> {
                             'РЎРІРѕР±РѕРґРЅРѕ РїРѕСЃР»Рµ СЂРµР·РµСЂРІР°',
                             _money(monthIncome - reservedTax),
                           ),
+                          if (taxAccountId != null)
+                            Padding(
+                              padding: const EdgeInsets.symmetric(vertical: 3),
+                              child: Row(
+                                children: [
+                                  Expanded(
+                                    child: Text(
+                                      'Счёт кармана: ${store.accountById(taxAccountId)?.name ?? 'неизвестный счёт'}',
+                                      style: TextStyle(
+                                        color: colors.secondaryLabel,
+                                        fontSize: 13,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
                         ],
                       ],
                     ),

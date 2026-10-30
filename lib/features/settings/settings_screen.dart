@@ -1320,6 +1320,63 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           if (mounted) setState(() {});
                         },
                       ),
+                      const SizedBox(height: 8),
+                      Builder(
+                        builder: (context) {
+                          final taxPocketId = settings.taxAccountId;
+                          final store = context.read<MastersStore>();
+                          return SecondaryButton(
+                            label: taxPocketId == null
+                                ? 'Счёт-карман: не выбран'
+                                : 'Счёт-карман: ${store.accountById(taxPocketId)?.name ?? 'неизвестный счёт'}',
+                            icon: CupertinoIcons.money_dollar_circle,
+                            onPressed: () async {
+                              final choice =
+                                  await showCupertinoModalPopup<String?>(
+                                    context: context,
+                                    builder: (dialogContext) =>
+                                        CupertinoActionSheet(
+                                          actions: [
+                                            CupertinoActionSheetAction(
+                                              onPressed: () =>
+                                                  Navigator.of(dialogContext)
+                                                      .pop('__none__'),
+                                              child: const Text('Без кармана'),
+                                            ),
+                                            for (final account
+                                                in store.accounts.where(
+                                                  (a) => !a.archived,
+                                                ))
+                                              CupertinoActionSheetAction(
+                                                onPressed: () =>
+                                                    Navigator.of(dialogContext)
+                                                        .pop(account.id),
+                                                child: Text(account.name),
+                                              ),
+                                          ],
+                                          cancelButton:
+                                              CupertinoActionSheetAction(
+                                                onPressed: () =>
+                                                    Navigator.of(dialogContext)
+                                                        .pop(),
+                                                child: const Text('Отмена'),
+                                              ),
+                                        ),
+                                  );
+                              if (choice == '__none__') {
+                                await context
+                                    .read<SettingsController>()
+                                    .setTaxAccount(null);
+                              } else if (choice != null) {
+                                await context
+                                    .read<SettingsController>()
+                                    .setTaxAccount(choice);
+                              }
+                              if (mounted) setState(() {});
+                            },
+                          );
+                        },
+                      ),
                       if (settings.taxRate > 0) ...[
                         const SizedBox(height: 8),
                         SecondaryButton(
