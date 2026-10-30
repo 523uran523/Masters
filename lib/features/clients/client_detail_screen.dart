@@ -171,6 +171,7 @@ class ClientDetailScreen extends StatelessWidget {
                           '- ${r.title} (${r.dueAt.day}.${r.dueAt.month}.${r.dueAt.year})',
                         );
                       }
+                      // ignore: deprecated_member_use
                       await Share.share(text.toString());
                     },
                   ),
@@ -724,8 +725,9 @@ class ClientDetailScreen extends StatelessWidget {
                             : noteController.text.trim(),
                         dueAt: selected,
                       );
-                      if (modalContext.mounted)
+                      if (modalContext.mounted) {
                         Navigator.of(modalContext).pop();
+                      }
                       if (context.mounted) {
                         await showAppAlert(
                           context,
@@ -734,12 +736,13 @@ class ClientDetailScreen extends StatelessWidget {
                         );
                       }
                     } catch (e) {
-                      if (context.mounted)
+                      if (context.mounted) {
                         await showAppAlert(
                           context,
                           title: 'Конфликт расписания',
                           message: e.toString(),
                         );
+                      }
                     }
                   },
                 ),
@@ -805,7 +808,6 @@ class ClientDetailScreen extends StatelessWidget {
     );
   }
 }
-
 
 class _HistoryItem {
   const _HistoryItem({
