@@ -1465,10 +1465,7 @@ class MastersStore extends ChangeNotifier {
     if (idx == -1 || qty <= 0) return;
     final item = _inventoryItems[idx];
     final newQty = item.stockQty - qty;
-    final updated = item.copyWith(
-      stockQty: newQty < 0 ? 0 : newQty,
-      updatedAt: DateTime.now(),
-    );
+    final updated = item.copyWith(stockQty: newQty, updatedAt: DateTime.now());
     await _inventoryRepo.save(updated);
     _inventoryItems[idx] = updated;
     final movement = StockMovement(
@@ -1485,7 +1482,17 @@ class MastersStore extends ChangeNotifier {
   }
 
   List<StockMovement> movementsForItem(String itemId) =>
-      _stockMovements.where((m) => m.itemId == itemId).toList();
+      stockMovementsByItem(itemId);
+
+  List<StockMovement> stockMovementsByItem(String itemId) {
+    final list = _stockMovements.where((m) => m.itemId == itemId).toList()
+      ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+    return list;
+  }
+
+  List<StockMovement> stockMovementsForItem(String itemId) =>
+      _stockMovements.where((m) => m.itemId == itemId).toList()
+        ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
 
   // Booking
   BookingResource? defaultResource() =>

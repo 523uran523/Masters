@@ -29,7 +29,8 @@ class InventoryItem {
   final DateTime createdAt;
   final DateTime updatedAt;
 
-  bool get lowStock => trackStock && stockQty <= minQty && minQty > 0;
+  bool get lowStock =>
+      trackStock && (stockQty < 0 || (minQty > 0 && stockQty <= minQty));
 
   InventoryItem copyWith({
     Object? id = _unset,
@@ -51,7 +52,9 @@ class InventoryItem {
       name: name == _unset ? this.name : name as String,
       kind: kind == _unset ? this.kind : kind as String,
       unit: unit == _unset ? this.unit : unit as String,
-      sellPriceCents: sellPriceCents == _unset ? this.sellPriceCents : sellPriceCents as int,
+      sellPriceCents: sellPriceCents == _unset
+          ? this.sellPriceCents
+          : sellPriceCents as int,
       costCents: costCents == _unset ? this.costCents : costCents as int,
       category: category == _unset ? this.category : category as String,
       trackStock: trackStock == _unset ? this.trackStock : trackStock as bool,
@@ -64,36 +67,40 @@ class InventoryItem {
   }
 
   Map<String, Object?> toMap() => {
-        'id': id,
-        'name': name,
-        'kind': kind,
-        'unit': unit,
-        'sell_price_cents': sellPriceCents,
-        'cost_cents': costCents,
-        'category': category,
-        'track_stock': trackStock ? 1 : 0,
-        'stock_qty': stockQty,
-        'min_qty': minQty,
-        'archived': archived ? 1 : 0,
-        'created_at': createdAt.millisecondsSinceEpoch,
-        'updated_at': updatedAt.millisecondsSinceEpoch,
-      };
+    'id': id,
+    'name': name,
+    'kind': kind,
+    'unit': unit,
+    'sell_price_cents': sellPriceCents,
+    'cost_cents': costCents,
+    'category': category,
+    'track_stock': trackStock ? 1 : 0,
+    'stock_qty': stockQty,
+    'min_qty': minQty,
+    'archived': archived ? 1 : 0,
+    'created_at': createdAt.millisecondsSinceEpoch,
+    'updated_at': updatedAt.millisecondsSinceEpoch,
+  };
 
   factory InventoryItem.fromMap(Map<String, Object?> m) => InventoryItem(
-        id: m['id'] as String,
-        name: m['name'] as String,
-        kind: m['kind'] as String? ?? 'good',
-        unit: m['unit'] as String? ?? 'шт',
-        sellPriceCents: m['sell_price_cents'] as int? ?? 0,
-        costCents: m['cost_cents'] as int? ?? 0,
-        category: m['category'] as String? ?? '',
-        trackStock: (m['track_stock'] as int? ?? 1) == 1,
-        stockQty: (m['stock_qty'] as num?)?.toDouble() ?? 0,
-        minQty: (m['min_qty'] as num?)?.toDouble() ?? 0,
-        archived: (m['archived'] as int? ?? 0) == 1,
-        createdAt: DateTime.fromMillisecondsSinceEpoch(m['created_at'] as int? ?? 0),
-        updatedAt: DateTime.fromMillisecondsSinceEpoch(m['updated_at'] as int? ?? 0),
-      );
+    id: m['id'] as String,
+    name: m['name'] as String,
+    kind: m['kind'] as String? ?? 'good',
+    unit: m['unit'] as String? ?? 'шт',
+    sellPriceCents: m['sell_price_cents'] as int? ?? 0,
+    costCents: m['cost_cents'] as int? ?? 0,
+    category: m['category'] as String? ?? '',
+    trackStock: (m['track_stock'] as int? ?? 1) == 1,
+    stockQty: (m['stock_qty'] as num?)?.toDouble() ?? 0,
+    minQty: (m['min_qty'] as num?)?.toDouble() ?? 0,
+    archived: (m['archived'] as int? ?? 0) == 1,
+    createdAt: DateTime.fromMillisecondsSinceEpoch(
+      m['created_at'] as int? ?? 0,
+    ),
+    updatedAt: DateTime.fromMillisecondsSinceEpoch(
+      m['updated_at'] as int? ?? 0,
+    ),
+  );
 
   static const Object _unset = Object();
 }
