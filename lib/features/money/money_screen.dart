@@ -901,9 +901,6 @@ class _MoneyScreenState extends State<MoneyScreen> {
         .where((t) => t.direction == 'out')
         .fold(0, (s, t) => s + t.amountCents);
     final taxRate = settings.taxRate;
-    final reservedTax = taxRate <= 0
-        ? 0
-        : (monthIncome * taxRate / 100).round();
     final shift = store.openShift();
 
     // debts
@@ -953,14 +950,14 @@ class _MoneyScreenState extends State<MoneyScreen> {
                           _money(store.forecastCashToEndOfMonth()),
                         ),
                         if (taxRate > 0) ...[
-                          _KV('Налоговый резерв', _money(reservedTax)),
+                          _KV('Налоговый резерв', _money(store.forecastTaxReserveToEndOfMonth())),
                           _KV(
                             'Налоговый резерв (прогноз)',
                             _money(store.forecastTaxReserveToEndOfMonth()),
                           ),
                           _KV(
                             'Свободно после резерва',
-                            _money(monthIncome - reservedTax),
+                            _money(store.totalBalanceCents() - store.forecastTaxReserveToEndOfMonth()),
                           ),
                         ],
                       ],
