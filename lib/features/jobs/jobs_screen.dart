@@ -147,6 +147,19 @@ class _JobsScreenState extends State<JobsScreen> {
   String _statusLabel() =>
       _statusIndex == 0 ? 'Все' : JobStatus.values[_statusIndex - 1].label;
 
+  String datesLabel() {
+    if (_dateFrom == null && _dateTo == null) return 'Все';
+    final from = _dateFrom == null
+        ? ''
+        : DateFormat('d MMM yyyy', 'ru').format(_dateFrom!);
+    final to = _dateTo == null
+        ? ''
+        : DateFormat('d MMM yyyy', 'ru').format(_dateTo!);
+    if (from.isEmpty) return 'По $to';
+    if (to.isEmpty) return 'С $from';
+    return '$from — $to';
+  }
+
   Future<void> _showStatusPicker() async {
     final result = await showCupertinoModalPopup<int>(
       context: context,
@@ -404,16 +417,16 @@ class _JobsScreenState extends State<JobsScreen> {
         actions: [
           CupertinoActionSheetAction(
             onPressed: () => Navigator.of(ctx).pop('from'),
-            child: const Text('С'),
+            child: const Text('С даты'),
           ),
           CupertinoActionSheetAction(
             onPressed: () => Navigator.of(ctx).pop('to'),
-            child: const Text('По'),
+            child: const Text('По дату'),
           ),
           if (_dateFrom != null || _dateTo != null)
             CupertinoActionSheetAction(
               onPressed: () => Navigator.of(ctx).pop('clear'),
-              child: const Text('Сбросить'),
+              child: const Text('Очистить'),
             ),
         ],
         cancelButton: CupertinoActionSheetAction(
