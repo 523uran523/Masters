@@ -128,7 +128,7 @@ class _StatsScreenState extends State<StatsScreen> {
       navigationBar: const CupertinoNavigationBar(middle: Text('Итоги')),
       child: SafeArea(
         child: ListView(
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 72),
           children: [
     Row(
       children: [

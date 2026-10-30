@@ -76,7 +76,7 @@ class _MoneyScreenState extends State<MoneyScreen> {
       builder: (sheetContext) => Container(
         height: MediaQuery.of(context).size.height * 0.8,
         color: context.colors.card,
-        padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 72),
         child: SafeArea(
           top: false,
           child: Column(
@@ -500,7 +500,7 @@ class _MoneyScreenState extends State<MoneyScreen> {
           ? const Center(child: CupertinoActivityIndicator())
           : SafeArea(
               child: ListView(
-                padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 72),
                 children: [
                   SectionLabel('Сегодня'),
                   AppCard(

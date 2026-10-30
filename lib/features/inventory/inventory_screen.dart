@@ -380,7 +380,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
           ? const Center(child: CupertinoActivityIndicator())
           : SafeArea(
               child: ListView(
-                padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 72),
                 children: [
                                      if (store.suppliers.isNotEmpty || true) ...[
                      const SizedBox(height: 0),

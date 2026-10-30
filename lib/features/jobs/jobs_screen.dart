@@ -210,7 +210,7 @@ class _JobsScreenState extends State<JobsScreen> {
               );
             }
             return ListView.builder(
-              padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 72),
               itemCount: jobs.length,
               itemBuilder: (context, index) {
                 final job = jobs[index];
@@ -360,7 +360,7 @@ class _JobsScreenState extends State<JobsScreen> {
       );
     }
     return ListView(
-      padding: const EdgeInsets.fromLTRB(12, 4, 12, 24),
+      padding: const EdgeInsets.fromLTRB(12, 4, 12, 72),
       children: [
         for (final group in groups) ...[
           SizedBox(height: 300, child: buildColumn(group, double.infinity)),

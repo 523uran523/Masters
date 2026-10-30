@@ -236,7 +236,7 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
       builder: (sheetContext) => Container(
         height: 400,
         color: context.colors.card,
-        padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 72),
         child: SafeArea(
           top: false,
           child: Column(
@@ -369,7 +369,7 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
                       actions: [PrimaryButton(label: 'Добавить сотрудника', icon: CupertinoIcons.plus, onPressed: _newEmployee)],
                     )
                   : ListView(
-                      padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+                      padding: const EdgeInsets.fromLTRB(16, 12, 16, 72),
                       children: store.employees.map((e) {
                         final earned = store.earnedCents(e.id);
                         final owed = store.employeeBalanceOwed(e.id);

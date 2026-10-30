@@ -379,7 +379,7 @@ class _JobFormScreenState extends State<JobFormScreen> {
       ),
       child: SafeArea(
         child: ListView(
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 72),
           children: [
             SectionLabel('Основное'),
             AppCard(

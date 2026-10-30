@@ -582,7 +582,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       child: _busy
           ? const Center(child: CupertinoActivityIndicator())
           : ListView(
-              padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 72),
               children: [
                 SectionLabel('Внешний вид'),
                 AppCard(

@@ -282,7 +282,7 @@ class _BookingScreenState extends State<BookingScreen> {
                             art: Icon(CupertinoIcons.calendar, size: 36, color: colors.tertiaryLabel),
                           )
                         : ListView.builder(
-                            padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+                            padding: const EdgeInsets.fromLTRB(16, 0, 16, 72),
                             itemCount: dayEntries.length,
                             itemBuilder: (context, index) {
                               final entry = dayEntries[index];

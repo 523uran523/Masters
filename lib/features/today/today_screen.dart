@@ -82,7 +82,7 @@ class TodayScreen extends StatelessWidget {
 
             if (!isLandscape) {
               return ListView(
-                padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 72),
                 children: [
                   _buildTodayOverview(store, context),
                   const SizedBox(height: 12),
@@ -161,13 +161,13 @@ class TodayScreen extends StatelessWidget {
               children: [
                 Expanded(
                   child: ListView(
-                    padding: const EdgeInsets.fromLTRB(16, 12, 8, 24),
+                    padding: const EdgeInsets.fromLTRB(16, 12, 8, 72),
                     children: [buildSection('В работе', active)],
                   ),
                 ),
                 Expanded(
                   child: ListView(
-                    padding: const EdgeInsets.fromLTRB(8, 12, 16, 24),
+                    padding: const EdgeInsets.fromLTRB(8, 12, 16, 72),
                     children: [
                       buildSection('Срок сегодня', dueToday),
                       buildSection('Новые', newJobs),

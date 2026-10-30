@@ -120,7 +120,7 @@ class _ClientsScreenState extends State<ClientsScreen> {
                       art: Icon(CupertinoIcons.person, size: 48, color: colors.tertiaryLabel),
                     )
                   : ListView.builder(
-                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 72),
                       itemCount: clients.length,
                       itemBuilder: (context, index) {
                         final c = clients[index];

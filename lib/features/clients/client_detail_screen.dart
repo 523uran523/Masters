@@ -50,7 +50,7 @@ class ClientDetailScreen extends StatelessWidget {
       ),
       child: SafeArea(
         child: ListView(
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 72),
           children: [
             AppCard(
               child: Column(
@@ -274,7 +274,7 @@ class ClientDetailScreen extends StatelessWidget {
       builder: (sheetContext) => Container(
         height: MediaQuery.of(context).size.height * 0.75,
         color: context.colors.card,
-        padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 72),
         child: SafeArea(
           top: false,
           child: Column(
@@ -368,7 +368,7 @@ class ClientDetailScreen extends StatelessWidget {
         builder: (builderContext, setModalState) => Container(
           height: MediaQuery.of(context).size.height * 0.72,
           color: context.colors.card,
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 72),
           child: SafeArea(
             top: false,
             child: Column(

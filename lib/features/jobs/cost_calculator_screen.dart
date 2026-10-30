@@ -174,7 +174,7 @@ class _CostCalculatorScreenState extends State<CostCalculatorScreen> {
       ),
       child: SafeArea(
         child: ListView(
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 72),
           children: [
             SectionLabel('Ресурсы и материалы'),
             AppCard(
