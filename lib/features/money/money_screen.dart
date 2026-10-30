@@ -953,14 +953,14 @@ class _MoneyScreenState extends State<MoneyScreen> {
                           _money(store.forecastCashToEndOfMonth()),
                         ),
                         if (taxRate > 0) ...[
-                          _KV('Налоговый резерв', _money(store.forecastTaxReserveToEndOfMonth())),
+                          _KV('Налоговый резерв', _money(reservedTax)),
                           _KV(
                             'Налоговый резерв (прогноз)',
                             _money(store.forecastTaxReserveToEndOfMonth()),
                           ),
                           _KV(
                             'Свободно после резерва',
-                            _money(store.totalBalanceCents() - store.forecastTaxReserveToEndOfMonth()),
+                            _money(monthIncome - reservedTax),
                           ),
                         ],
                       ],
