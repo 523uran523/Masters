@@ -464,7 +464,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
         trailing: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            CupertinoButton(padding: EdgeInsets.zero, onPressed: _newItem, child: const Icon(CupertinoIcons.plus)),
+            CupertinoButton(padding: EdgeInsets.zero, onPressed: _newItem, child: const Icon(CupertinoIcons.plus, semanticLabel: 'Добавить')),
           ],
         ),
       ),

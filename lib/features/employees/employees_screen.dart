@@ -416,7 +416,7 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
           children: [
             CupertinoButton(padding: EdgeInsets.zero, onPressed: _managePayrollPeriods, child: const Icon(CupertinoIcons.doc_text)),
             CupertinoButton(padding: EdgeInsets.zero, onPressed: _closeCurrentPayrollPeriod, child: const Icon(CupertinoIcons.lock)),
-            CupertinoButton(padding: EdgeInsets.zero, onPressed: _newEmployee, child: const Icon(CupertinoIcons.plus)),
+            CupertinoButton(padding: EdgeInsets.zero, onPressed: _newEmployee, child: const Icon(CupertinoIcons.plus, semanticLabel: 'Добавить')),
           ],
         ),
       ),

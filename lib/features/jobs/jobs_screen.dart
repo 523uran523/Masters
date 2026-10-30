@@ -112,7 +112,7 @@ class _JobsScreenState extends State<JobsScreen> {
             CupertinoButton(
               padding: EdgeInsets.zero,
               onPressed: _quickAdd,
-              child: const Icon(CupertinoIcons.plus),
+              child: const Icon(CupertinoIcons.plus, semanticLabel: 'Добавить'),
             ),
           ],
         ),

@@ -543,7 +543,7 @@ class _MoneyScreenState extends State<MoneyScreen> {
         trailing: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            CupertinoButton(padding: EdgeInsets.zero, onPressed: _newAccount, child: const Icon(CupertinoIcons.plus)),
+            CupertinoButton(padding: EdgeInsets.zero, onPressed: _newAccount, child: const Icon(CupertinoIcons.plus, semanticLabel: 'Добавить')),
           ],
         ),
       ),

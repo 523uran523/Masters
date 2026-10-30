@@ -318,7 +318,7 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
           onPressed: () => Navigator.of(context).push(
             CupertinoPageRoute(builder: (_) => JobFormScreen(jobId: job.id)),
           ),
-          child: const Icon(CupertinoIcons.pencil),
+          child: const Icon(CupertinoIcons.pencil, semanticLabel: 'Редактировать'),
         ),
       ),
       child: SafeArea(

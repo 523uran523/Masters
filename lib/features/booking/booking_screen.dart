@@ -212,7 +212,7 @@ class _BookingScreenState extends State<BookingScreen> {
                 _calendarMonth = DateTime(_calendarMonth.year, _calendarMonth.month + 1, 1);
               });
             }, child: const Icon(CupertinoIcons.chevron_right)),
-            CupertinoButton(padding: EdgeInsets.zero, onPressed: _newAppointment, child: const Icon(CupertinoIcons.plus)),
+            CupertinoButton(padding: EdgeInsets.zero, onPressed: _newAppointment, child: const Icon(CupertinoIcons.plus, semanticLabel: 'Добавить')),
           ],
         ),
       ),

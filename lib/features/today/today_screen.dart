@@ -54,7 +54,7 @@ class TodayScreen extends StatelessWidget {
               CupertinoPageRoute(builder: (_) => const JobFormScreen()),
             );
           },
-          child: const Icon(CupertinoIcons.plus),
+          child: const Icon(CupertinoIcons.plus, semanticLabel: 'Добавить'),
         ),
       ),
       child: SafeArea(

@@ -950,7 +950,7 @@ Future<void> _managePin() async {
                           ),
                           CupertinoButton(
                             padding: EdgeInsets.zero,
-                            child: const Icon(CupertinoIcons.plus),
+                            child: const Icon(CupertinoIcons.plus, semanticLabel: 'Добавить'),
                             onPressed: () async {
                               await context.read<SettingsController>().addJobTag(_tagController.text);
                               _tagController.clear();

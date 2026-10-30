@@ -120,7 +120,7 @@ class _ClientsScreenState extends State<ClientsScreen> {
             CupertinoButton(
               padding: EdgeInsets.zero,
               onPressed: _addClient,
-              child: const Icon(CupertinoIcons.plus),
+              child: const Icon(CupertinoIcons.plus, semanticLabel: 'Добавить'),
             ),
           ],
         ),

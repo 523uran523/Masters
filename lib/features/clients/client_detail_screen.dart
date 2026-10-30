@@ -38,7 +38,7 @@ class ClientDetailScreen extends StatelessWidget {
             CupertinoButton(
               padding: EdgeInsets.zero,
               onPressed: () => _editClient(context, store, client),
-              child: const Icon(CupertinoIcons.pencil),
+              child: const Icon(CupertinoIcons.pencil, semanticLabel: 'Редактировать'),
             ),
             CupertinoButton(
               padding: EdgeInsets.zero,
