@@ -154,6 +154,100 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
     }
   }
 
+  Future<void> _exportEmployeePayslip(
+    Employee employee,
+    PayrollPeriod? period,
+  ) async {
+    final store = context.read<MastersStore>();
+    final now = DateTime.now();
+    final DateTime start;
+    final DateTime end;
+    final String title;
+    if (period == null) {
+      start = DateTime(now.year, now.month, 1);
+      end = now;
+      title =
+          'Расчётный листок: ${employee.name} • ${DateFormat('MMMM yyyy', 'ru').format(now)}';
+    } else {
+      start = period.startAt;
+      end = period.endAt;
+      title = 'Расчётный листок: ${employee.name} • ${period.name}';
+    }
+    setState(() => _busy = true);
+    try {
+      final data = store.payslipDataForEmployee(employee.id, start, end);
+      String money(int cents) => '${(cents / 100).toStringAsFixed(2)} ₽';
+      final lines = <String>[
+        'Сотрудник: ${employee.name}',
+        'Период: ${DateFormat('dd.MM.yyyy', 'ru').format(start)} — ${DateFormat('dd.MM.yyyy', 'ru').format(end)}',
+        'Заработано: ${money(data['earned'] ?? 0)}',
+        'Бонусы: ${money(data['bonuses'] ?? 0)}',
+        'Штрафы: ${money(data['penalties'] ?? 0)}',
+        'Авансы: ${money(data['advances'] ?? 0)}',
+        'Выплаты: ${money(data['payouts'] ?? 0)}',
+        'К выплате: ${money(data['owed'] ?? 0)}',
+      ];
+      final bytes = await DocumentService.buildEmployeePayslipPdf(
+        title: title,
+        lines: lines,
+      );
+      final suggested =
+          'payslip-${employee.id.substring(0, 6)}-${start.year}-${start.month}.pdf';
+      final ok = await DocumentService.savePdf(bytes, suggested);
+      if (mounted && ok) {
+        await showAppAlert(
+          context,
+          title: 'Готово',
+          message: 'Листок сохранён.',
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _pickPayslipPeriod(Employee employee) async {
+    final store = context.read<MastersStore>();
+    final periods = store.payrollPeriods.take(6).toList();
+    if (periods.isEmpty) {
+      await _exportEmployeePayslip(employee, null);
+      return;
+    }
+    final selected = await showCupertinoModalPopup<String>(
+      context: context,
+      builder: (dialogContext) => CupertinoActionSheet(
+        title: const Text('Выберите период'),
+        actions: [
+          CupertinoActionSheetAction(
+            isDefaultAction: true,
+            onPressed: () => Navigator.of(dialogContext).pop('current'),
+            child: const Text('Текущий месяц'),
+          ),
+          for (final period in periods)
+            CupertinoActionSheetAction(
+              onPressed: () => Navigator.of(dialogContext).pop(period.id),
+              child: Text(period.name),
+            ),
+        ],
+        cancelButton: CupertinoActionSheetAction(
+          child: const Text('Отмена'),
+          onPressed: () => Navigator.of(dialogContext).pop(),
+        ),
+      ),
+    );
+    if (!mounted) return;
+    if (selected == null) return;
+    if (selected == 'current') {
+      await _exportEmployeePayslip(employee, null);
+    } else {
+      final period = store.payrollPeriods.firstWhere(
+        (p) => p.id == selected,
+        orElse: () => store.payrollPeriods.first,
+      );
+      await _exportEmployeePayslip(employee, period);
+    }
+  }
+
   Future<void> _exportPayroll() async {
     final store = context.read<MastersStore>();
     final now = DateTime.now();
@@ -217,48 +311,6 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
       );
     } finally {
       if (mounted) setState(() => _busy = false);
-    }
-  }
-
-  Future<void> _pickPayrollPeriod() async {
-    final store = context.read<MastersStore>();
-    final periods = store.payrollPeriods.take(6).toList();
-    if (periods.isEmpty) {
-      await _exportPayroll();
-      return;
-    }
-    final selected = await showCupertinoModalPopup<String>(
-      context: context,
-      builder: (dialogContext) => CupertinoActionSheet(
-        title: const Text('Выберите расчётный период'),
-        actions: [
-          CupertinoActionSheetAction(
-            isDefaultAction: true,
-            onPressed: () => Navigator.of(dialogContext).pop('current'),
-            child: const Text('Текущий месяц'),
-          ),
-          for (final period in periods)
-            CupertinoActionSheetAction(
-              onPressed: () => Navigator.of(dialogContext).pop(period.id),
-              child: Text(period.name),
-            ),
-        ],
-        cancelButton: CupertinoActionSheetAction(
-          child: const Text('Отмена'),
-          onPressed: () => Navigator.of(dialogContext).pop(),
-        ),
-      ),
-    );
-    if (!mounted) return;
-    if (selected == null) return;
-    if (selected == 'current') {
-      _exportPayroll();
-    } else {
-      final period = store.payrollPeriods.firstWhere(
-        (p) => p.id == selected,
-        orElse: () => store.payrollPeriods.first,
-      );
-      await _exportPayrollPeriod(period);
     }
   }
 
@@ -691,6 +743,11 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
                       label: 'PDF',
                       icon: CupertinoIcons.doc_text,
                       onPressed: _exportPayroll,
+                    ),
+                    SecondaryButton(
+                      label: 'PDF листок',
+                      icon: CupertinoIcons.doc_text,
+                      onPressed: () => _pickPayslipPeriod(e),
                     ),
                   ],
                 ),

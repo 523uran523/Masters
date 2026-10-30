@@ -2698,6 +2698,34 @@ class MastersStore extends ChangeNotifier {
     };
   }
 
+  Map<String, int> payslipDataForEmployee(
+    String employeeId,
+    DateTime start,
+    DateTime end,
+  ) {
+    final earned = earnedCentsForPeriod(employeeId, start, end);
+    int advances = 0;
+    int payouts = 0;
+    int bonuses = 0;
+    int penalties = 0;
+    for (final p in paymentsForEmployee(employeeId)) {
+      if (p.createdAt.isBefore(start) || p.createdAt.isAfter(end)) continue;
+      if (p.type == 'advance') advances += p.amountCents;
+      if (p.type == 'payout') payouts += p.amountCents;
+      if (p.type == 'bonus') bonuses += p.amountCents;
+      if (p.type == 'penalty') penalties += p.amountCents;
+    }
+    final owed = employeeBalanceOwed(employeeId);
+    return <String, int>{
+      'earned': earned,
+      'advances': advances,
+      'payouts': payouts,
+      'bonuses': bonuses,
+      'penalties': penalties,
+      'owed': owed,
+    };
+  }
+
   List<Map<String, Object?>> payrollSummary(DateTime start, DateTime end) {
     final rows = _employees.where((e) => !e.archived).map((employee) {
       final earned = earnedCentsForPeriod(employee.id, start, end);

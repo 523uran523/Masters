@@ -374,6 +374,39 @@ class DocumentService {
         ((double.tryParse(value.toString()) ?? 0) * 100).round();
   }
 
+  static Future<Uint8List> buildEmployeePayslipPdf({
+    required String title,
+    required List<String> lines,
+  }) async {
+    final pdf = pw.Document();
+    pdf.addPage(
+      pw.Page(
+        pageFormat: PdfPageFormat.a4,
+        build: (context) {
+          return pw.Column(
+            crossAxisAlignment: pw.CrossAxisAlignment.start,
+            children: [
+              pw.Text(
+                title,
+                style: pw.TextStyle(
+                  fontSize: 20,
+                  fontWeight: pw.FontWeight.bold,
+                ),
+              ),
+              pw.SizedBox(height: 10),
+              for (final line in lines)
+                pw.Padding(
+                  padding: const pw.EdgeInsets.only(bottom: 4),
+                  child: pw.Text(line, style: const pw.TextStyle(fontSize: 12)),
+                ),
+            ],
+          );
+        },
+      ),
+    );
+    return pdf.save();
+  }
+
   static Future<bool> savePdf(Uint8List bytes, String suggestedName) async {
     final uri = await FilePicker.saveFile(
       fileName: suggestedName,
