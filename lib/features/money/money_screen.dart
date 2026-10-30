@@ -6,7 +6,9 @@ import '../../app/theme/app_theme.dart';
 import '../../app/ui.dart';
 import '../employees/employees_screen.dart';
 import '../stats/stats_screen.dart';
+import '../../data/models/money_transaction.dart';
 import '../../state/masters_store.dart';
+
 
 class MoneyScreen extends StatefulWidget {
   const MoneyScreen({super.key});
@@ -474,6 +476,45 @@ class _MoneyScreenState extends State<MoneyScreen> {
     super.dispose();
   }
 
+  Future<void> _showTransactionDetail(MoneyTransaction t) async {
+    final store = context.read<MastersStore>();
+    final acc = store.accountById(t.accountId);
+    await showCupertinoModalPopup<void>(
+      context: context,
+      builder: (modalContext) => Container(
+        height: MediaQuery.of(context).size.height * 0.55,
+        color: context.colors.card,
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+        child: SafeArea(
+          top: false,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(t.category.isEmpty ? t.kind : t.category, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
+              const SizedBox(height: 12),
+              _KV('Счёт', acc?.name ?? '—'),
+              _KV('Сумма', '${t.direction == 'in' ? '+' : '-'}${_money(t.amountCents)}'),
+              _KV('Тип', t.kind),
+              _KV('Дата', DateFormat('d MMM yyyy, HH:mm', 'ru').format(t.createdAt)),
+              if (t.note != null && t.note!.isNotEmpty) _KV('Комментарий', t.note!),
+              const SizedBox(height: 16),
+              SecondaryButton(
+                label: 'Отменить операцию',
+                icon: CupertinoIcons.xmark,
+                onPressed: () async {
+                  final ok = await showAppConfirm(context, title: 'Отменить операцию?', message: 'Сумма вернётся в историю как отменённая.', destructive: true, confirmLabel: 'Отменить');
+                  if (!ok || !mounted) return;
+                  store.voidTransaction(t.id);
+                  if (modalContext.mounted) Navigator.of(modalContext).pop();
+                },
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final store = context.watch<MastersStore>();
@@ -750,6 +791,7 @@ SectionLabel('Команда'),
                             return Padding(
                               padding: const EdgeInsets.only(bottom: 8),
                               child: AppCard(
+                                 onTap: () => _showTransactionDetail(t),
                                 child: Row(
                                   children: [
                                     Expanded(
