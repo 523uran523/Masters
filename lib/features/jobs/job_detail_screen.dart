@@ -1,4 +1,4 @@
-﻿import 'dart:async';
+import 'dart:async';
 import 'dart:math';
 
 import 'package:flutter/cupertino.dart';
@@ -19,6 +19,7 @@ import '../../data/models/job_attachment.dart';
 import 'job_form_screen.dart';
 import 'cost_calculator_screen.dart';
 import '../../state/masters_store.dart';
+import '../../state/settings_controller.dart';
 
 class JobDetailScreen extends StatefulWidget {
   const JobDetailScreen({super.key, required this.jobId});
@@ -68,7 +69,9 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
             ),
             CupertinoButton(
               child: const Text('╨Р╨║╤В ╨▓╤Л╨┐╨╛╨╗╨╜╨╡╨╜╨╜╤Л╤Е ╤А╨░╨▒╨╛╤В'),
-              onPressed: () => Navigator.of(ctx).pop('╨Р╨║╤В ╨▓╤Л╨┐╨╛╨╗╨╜╨╡╨╜╨╜╤Л╤Е ╤А╨░╨▒╨╛╤В'),
+              onPressed: () =>
+                  Navigator.of(ctx)
+                      .pop('╨Р╨║╤В ╨▓╤Л╨┐╨╛╨╗╨╜╨╡╨╜╨╜╤Л╤Е ╤А╨░╨▒╨╛╤В'),
             ),
             CupertinoButton(
               child: const Text('╨б╤З╤С╤В'),
@@ -158,18 +161,27 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
   }
 
   Future<void> _addStage(MastersStore store) async {
-    final title = await _promptText('╨Э╨╛╨▓╤Л╨╣ ╤Н╤В╨░╨┐', '╨Э╨░╨┐╤А╨╕╨╝╨╡╤А: ╨Ч╨░╨╝╨╡╤А');
+    final title = await _promptText(
+      '╨Э╨╛╨▓╤Л╨╣ ╤Н╤В╨░╨┐',
+      '╨Э╨░╨┐╤А╨╕╨╝╨╡╤А: ╨Ч╨░╨╝╨╡╤А',
+    );
     if (title == null || title.trim().isEmpty) return;
     await store.addStage(widget.jobId, title.trim());
   }
 
   Future<void> _addMaterial(MastersStore store) async {
-    final name = await _promptText('╨Ь╨░╤В╨╡╤А╨╕╨░╨╗', '╨Э╨░╨┐╤А╨╕╨╝╨╡╤А: ╨Ъ╨░╨▒╨╡╨╗╤М 3x2.5');
+    final name = await _promptText(
+      '╨Ь╨░╤В╨╡╤А╨╕╨░╨╗',
+      '╨Э╨░╨┐╤А╨╕╨╝╨╡╤А: ╨Ъ╨░╨▒╨╡╨╗╤М 3x2.5',
+    );
     if (name == null || name.trim().isEmpty) return;
     final qtyStr = await _promptText('╨Ъ╨╛╨╗╨╕╤З╨╡╤Б╤В╨▓╨╛', '1');
     final qty = double.tryParse((qtyStr ?? '1').replaceAll(',', '.')) ?? 1;
     final unit = await _promptText('╨Х╨┤╨╕╨╜╨╕╤Ж╨░', '╨╝') ?? '╤И╤В';
-    final priceStr = await _promptText('╨ж╨╡╨╜╨░ ╨╖╨░ ╨╡╨┤╨╕╨╜╨╕╤Ж╤Г (тВ╜)', '0');
+    final priceStr = await _promptText(
+      '╨ж╨╡╨╜╨░ ╨╖╨░ ╨╡╨┤╨╕╨╜╨╕╤Ж╤Г (тВ╜)',
+      '0',
+    );
     final priceCents =
         ((double.tryParse((priceStr ?? '0').replaceAll(',', '.')) ?? 0) * 100)
             .round();
@@ -197,7 +209,8 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
         await showAppAlert(
           context,
           title: 'РћС€РёР±РєР°',
-          message: 'РЎСѓРјРјР° РЅРµ РјРѕР¶РµС‚ РїСЂРµРІС‹С€Р°С‚СЊ РѕСЃС‚Р°С‚РѕРє.',
+          message:
+              'РЎСѓРјРјР° РЅРµ РјРѕР¶РµС‚ РїСЂРµРІС‹С€Р°С‚СЊ РѕСЃС‚Р°С‚РѕРє.',
         );
       }
       return;
@@ -206,18 +219,22 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
     if (accountId == null) return;
     try {
       await store.addTransaction(
-      accountId: accountId,
-      kind: 'payment',
-      direction: 'in',
-      amountCents: amount,
-      category: '╨Ю╨┐╨╗╨░╤В╨░ ╨╖╨░╨║╨░╨╖╨░',
-      note: job.title,
-      clientId: job.clientId,
-      jobId: job.id,
-    );
+        accountId: accountId,
+        kind: 'payment',
+        direction: 'in',
+        amountCents: amount,
+        category: '╨Ю╨┐╨╗╨░╤В╨░ ╨╖╨░╨║╨░╨╖╨░',
+        note: job.title,
+        clientId: job.clientId,
+        jobId: job.id,
+      );
     } catch (e) {
       if (mounted) {
-        await showAppAlert(context, title: 'РћС€РёР±РєР°', message: e.toString());
+        await showAppAlert(
+          context,
+          title: 'РћС€РёР±РєР°',
+          message: e.toString(),
+        );
       }
     }
   }
@@ -251,7 +268,9 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
             CupertinoDialogAction(
               isDefaultAction: true,
               onPressed: () => Navigator.of(dialogContext).pop('accept'),
-              child: const Text('РџСЂРёРЅСЏС‚СЊ РѕСЃС‚Р°С‚РѕРє Рё Р·Р°РєСЂС‹С‚СЊ'),
+              child: const Text(
+                'РџСЂРёРЅСЏС‚СЊ РѕСЃС‚Р°С‚РѕРє Рё Р·Р°РєСЂС‹С‚СЊ',
+              ),
             ),
             CupertinoDialogAction(
               isDestructiveAction: true,
@@ -277,7 +296,8 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
         );
         if (amountStr == null || !mounted) return;
         final amount =
-            ((double.tryParse(amountStr.replaceAll(',', '.')) ?? 0) * 100).round();
+            ((double.tryParse(amountStr.replaceAll(',', '.')) ?? 0) * 100)
+                .round();
         if (amount <= 0 || amount > remaining) {
           await showAppAlert(
             context,
@@ -318,8 +338,7 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
           await showAppAlert(
             context,
             title: 'РћРїР»Р°С‚Р° РїСЂРёРЅСЏС‚Р°',
-            message:
-                'РћСЃС‚Р°С‚РѕРє РЅРµ РїРѕРіР°С€РµРЅ РїРѕР»РЅРѕСЃС‚СЊСЋ. Р—Р°РєР°Р· РѕСЃС‚Р°С‘С‚СЃСЏ РЅРµРѕРїР»Р°С‡РµРЅРЅС‹Рј.',
+            message: 'РћСЃС‚Р°С‚РѕРє РЅРµ РїРѕРіР°С€РµРЅ РїРѕР»РЅРѕСЃС‚СЊСЋ. Р—Р°РєР°Р· РѕСЃС‚Р°С‘С‚СЃСЏ РЅРµРѕРїР»Р°С‡РµРЅРЅС‹Рј.',
           );
         }
         return;
@@ -340,10 +359,15 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
       }
     } catch (e) {
       if (mounted) {
-        await showAppAlert(context, title: 'РћС€РёР±РєР°', message: e.toString());
+        await showAppAlert(
+          context,
+          title: 'РћС€РёР±РєР°',
+          message: e.toString(),
+        );
       }
     }
   }
+
   Future<void> _sendMessage(MastersStore store, Job job) async {
     final client = store.clientById(job.clientId);
     if (client == null || client.phone.isEmpty) {
@@ -403,8 +427,10 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
         '╨Ч╨┤╤А╨░╨▓╤Б╤В╨▓╤Г╨╣╤В╨╡, ${client.name}! ╨а╨░╨▒╨╛╤В╨░ "${job.title}" ╨▓ ╨┐╤А╨╛╤Ж╨╡╤Б╤Б╨╡.',
       'pay' =>
         '╨Ч╨┤╤А╨░╨▓╤Б╤В╨▓╤Г╨╣╤В╨╡, ${client.name}! ╨Ю╤Б╤В╨░╨╗╨╛╤Б╤М ╨╛╨┐╨╗╨░╤В╨╕╤В╤М ${(debt / 100).toStringAsFixed(0)} тВ╜ ╨┐╨╛ ╨╖╨░╨║╨░╨╖╤Г "${job.title}".',
-      'whatsapp' => '╨Ч╨┤╤А╨░╨▓╤Б╤В╨▓╤Г╨╣╤В╨╡, ${client.name}! ╨Я╨╛ ╨╖╨░╨║╨░╨╖╤Г "${job.title}".',
-      'telegram' => '╨Ч╨┤╤А╨░╨▓╤Б╤В╨▓╤Г╨╣╤В╨╡, ${client.name}! ╨Я╨╛ ╨╖╨░╨║╨░╨╖╤Г "${job.title}".',
+      'whatsapp' =>
+        '╨Ч╨┤╤А╨░╨▓╤Б╤В╨▓╤Г╨╣╤В╨╡, ${client.name}! ╨Я╨╛ ╨╖╨░╨║╨░╨╖╤Г "${job.title}".',
+      'telegram' =>
+        '╨Ч╨┤╤А╨░╨▓╤Б╤В╨▓╤Г╨╣╤В╨╡, ${client.name}! ╨Я╨╛ ╨╖╨░╨║╨░╨╖╤Г "${job.title}".',
       _ => '',
     };
     if (template == 'whatsapp') {
@@ -458,7 +484,10 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
     final minStr = await _promptText('╨Т╤А╨╡╨╝╤П (╨╝╨╕╨╜╤Г╤В╤Л)', '60');
     final minutes = int.tryParse((minStr ?? '').trim()) ?? 0;
     if (minutes <= 0) return;
-    final note = await _promptText('╨Ч╨░╨╝╨╡╤В╨║╨░ (╨╜╨╡╨╛╨▒╤П╨╖╨░╤В╨╡╨╗╤М╨╜╨╛)', '');
+    final note = await _promptText(
+      '╨Ч╨░╨╝╨╡╤В╨║╨░ (╨╜╨╡╨╛╨▒╤П╨╖╨░╤В╨╡╨╗╤М╨╜╨╛)',
+      '',
+    );
     await store.addSession(
       jobId: widget.jobId,
       startedAt: DateTime.now().subtract(Duration(minutes: minutes)),
@@ -501,6 +530,7 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
   Widget build(BuildContext context) {
     final colors = context.colors;
     final store = context.watch<MastersStore>();
+    final settings = context.watch<SettingsController>();
     final job = store.jobById(widget.jobId);
     if (job == null) {
       return CupertinoPageScaffold(
@@ -583,7 +613,9 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
                       ),
                     ),
                   ],
-                  if (job.tags != null && job.tags!.trim().isNotEmpty) ...[
+                  if (settings.jobTagsEnabled &&
+                      job.tags != null &&
+                      job.tags!.trim().isNotEmpty) ...[
                     const SizedBox(height: 8),
                     Text(
                       '╨в╨╡╨│╨╕: ${job.tags}',
@@ -640,7 +672,10 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
             AppCard(
               child: Column(
                 children: [
-                  _KV('╨ж╨╡╨╜╨░', '${(job.priceCents / 100).toStringAsFixed(0)} тВ╜'),
+                  _KV(
+                    '╨ж╨╡╨╜╨░',
+                    '${(job.priceCents / 100).toStringAsFixed(0)} тВ╜',
+                  ),
                   _KV(
                     '╨а╨░╤Б╤Е╨╛╨┤ (╨▓╨▓╨╡╨┤╤С╨╜╨╜╤Л╨╣)',
                     '${(job.costCents / 100).toStringAsFixed(0)} тВ╜',
@@ -940,7 +975,9 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
                     ),
                   ),
                   SecondaryButton(
-                    label: _busyAttachment ? '╨Ф╨╛╨▒╨░╨▓╨╗╨╡╨╜╨╕╨╡...' : '╨Ф╨╛╨▒╨░╨▓╨╕╤В╤М ╤Д╨░╨╣╨╗',
+                    label: _busyAttachment
+                        ? '╨Ф╨╛╨▒╨░╨▓╨╗╨╡╨╜╨╕╨╡...'
+                        : '╨Ф╨╛╨▒╨░╨▓╨╕╤В╤М ╤Д╨░╨╣╨╗',
                     icon: CupertinoIcons.plus,
                     onPressed: _busyAttachment ? () {} : _addAttachment,
                   ),
@@ -956,7 +993,9 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
                     icon: job.archived
                         ? CupertinoIcons.tray_full
                         : CupertinoIcons.archivebox,
-                    label: job.archived ? '╨Т╨╛╤Б╤Б╤В╨░╨╜╨╛╨▓╨╕╤В╤М' : '╨Т ╨░╤А╤Е╨╕╨▓',
+                    label: job.archived
+                        ? '╨Т╨╛╤Б╤Б╤В╨░╨╜╨╛╨▓╨╕╤В╤М'
+                        : '╨Т ╨░╤А╤Е╨╕╨▓',
                     onTap: () => store.setArchived(job.id, !job.archived),
                   ),
                   Hairline(indent: 0),
@@ -1074,4 +1113,3 @@ class _ActionTile extends StatelessWidget {
     );
   }
 }
-

@@ -1399,6 +1399,21 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     children: [
                       Row(
                         children: [
+                          const Expanded(
+                            child: Text('Показывать теги в заказах'),
+                          ),
+                          CupertinoSwitch(
+                            value: settings.jobTagsEnabled,
+                            onChanged: (value) async {
+                              await settings.setJobTagsEnabled(value);
+                              if (mounted) setState(() {});
+                            },
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      Row(
+                        children: [
                           Expanded(
                             child: CupertinoTextField(
                               controller: _tagController,

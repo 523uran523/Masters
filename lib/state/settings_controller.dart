@@ -9,16 +9,16 @@ enum AppThemeMode { system, light, dark }
 
 extension AppThemeModeLabel on AppThemeMode {
   String get label => switch (this) {
-        AppThemeMode.system => 'Системная',
-        AppThemeMode.light => 'Светлая',
-        AppThemeMode.dark => 'Тёмная',
-      };
+    AppThemeMode.system => 'Системная',
+    AppThemeMode.light => 'Светлая',
+    AppThemeMode.dark => 'Тёмная',
+  };
 
   String get shortLabel => switch (this) {
-        AppThemeMode.system => 'Система',
-        AppThemeMode.light => 'Светлая',
-        AppThemeMode.dark => 'Тёмная',
-      };
+    AppThemeMode.system => 'Система',
+    AppThemeMode.light => 'Светлая',
+    AppThemeMode.dark => 'Тёмная',
+  };
 }
 
 class SettingsController extends ChangeNotifier {
@@ -48,6 +48,7 @@ class SettingsController extends ChangeNotifier {
   static const _taxRateKey = 'tax_rate';
   static const _taxAccountKey = 'tax_account';
   static const _jobTagsKey = 'job_tags';
+  static const _jobTagsEnabledKey = 'job_tags_enabled';
   static const _appPinHashKey = 'app_pin_hash';
   static const _appPinUnlockedUntilKey = 'app_pin_unlocked_until';
   static const _appBiometricEnabledKey = 'app_biometric_enabled';
@@ -110,17 +111,31 @@ class SettingsController extends ChangeNotifier {
     } else if (!list.contains(index)) {
       list.add(index);
     }
-    await _prefs.setStringList(_hiddenTabsKey, list.map((e) => e.toString()).toList());
+    await _prefs.setStringList(
+      _hiddenTabsKey,
+      list.map((e) => e.toString()).toList(),
+    );
     notifyListeners();
   }
 
   String get businessType => _prefs.getString(_businessTypeKey) ?? 'service';
-  List<String> get modules => (_prefs.getString(_modulesKey) ?? '').split(',').where((e) => e.isNotEmpty).toList();
+  List<String> get modules => (_prefs.getString(_modulesKey) ?? '')
+      .split(',')
+      .where((e) => e.isNotEmpty)
+      .toList();
   String get objectTerm => _prefs.getString(_objectTermKey) ?? 'Объект';
   String get clientTerm => _prefs.getString(_clientTermKey) ?? 'Клиент';
   int get taxRate => _prefs.getInt(_taxRateKey) ?? 0;
   String? get taxAccountId => _prefs.getString(_taxAccountKey);
-  List<String> get jobTags => (_prefs.getStringList(_jobTagsKey) ?? const []).toList();
+  List<String> get jobTags =>
+      (_prefs.getStringList(_jobTagsKey) ?? const []).toList();
+
+  bool get jobTagsEnabled => _prefs.getBool(_jobTagsEnabledKey) ?? true;
+
+  Future<void> setJobTagsEnabled(bool value) async {
+    await _prefs.setBool(_jobTagsEnabledKey, value);
+    notifyListeners();
+  }
 
   Future<void> setBusinessType(String value) async {
     await _prefs.setString(_businessTypeKey, value);
@@ -186,7 +201,10 @@ class SettingsController extends ChangeNotifier {
     if (value == null) {
       await _prefs.remove(_yandexLastCloudModifiedKey);
     } else {
-      await _prefs.setInt(_yandexLastCloudModifiedKey, value.millisecondsSinceEpoch);
+      await _prefs.setInt(
+        _yandexLastCloudModifiedKey,
+        value.millisecondsSinceEpoch,
+      );
     }
     notifyListeners();
   }
@@ -209,7 +227,10 @@ class SettingsController extends ChangeNotifier {
     }
     if (expiresInSeconds != null) {
       final expires = DateTime.now().add(Duration(seconds: expiresInSeconds));
-      await _prefs.setInt(_yandexTokenExpiresKey, expires.millisecondsSinceEpoch);
+      await _prefs.setInt(
+        _yandexTokenExpiresKey,
+        expires.millisecondsSinceEpoch,
+      );
     }
     notifyListeners();
   }

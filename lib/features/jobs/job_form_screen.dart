@@ -451,6 +451,7 @@ class _JobFormScreenState extends State<JobFormScreen> {
   Widget build(BuildContext context) {
     final colors = context.colors;
     final store = context.watch<MastersStore>();
+    final settings = context.watch<SettingsController>();
     final client = _clientId == null ? null : store.clientById(_clientId!);
     final obj = _objectId == null ? null : store.objectById(_objectId);
 
@@ -640,51 +641,53 @@ class _JobFormScreenState extends State<JobFormScreen> {
                     maxLines: 4,
                     minLines: 2,
                   ),
-                  const SizedBox(height: 8),
-                  CupertinoTextField(
-                    controller: _tagsController,
-                    placeholder: 'Теги (через запятую)',
-                  ),
-                  const SizedBox(height: 6),
-                  Wrap(
-                    spacing: 6,
-                    runSpacing: 6,
-                    children: [
-                      for (final tag
-                          in context.read<SettingsController>().jobTags)
-                        GestureDetector(
-                          onTap: () {
-                            final current = _tagsController.text.trim();
-                            final existing = current.isEmpty
-                                ? <String>[]
-                                : current
-                                      .split(',')
-                                      .map((e) => e.trim())
-                                      .toList();
-                            if (!existing.contains(tag)) {
-                              _tagsController.text = existing.isEmpty
-                                  ? tag
-                                  : '$current, $tag';
-                              setState(() {});
-                            }
-                          },
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 8,
-                              vertical: 4,
-                            ),
-                            decoration: BoxDecoration(
-                              color: context.colors.cardElevated,
-                              borderRadius: BorderRadius.circular(99),
-                            ),
-                            child: Text(
-                              tag,
-                              style: const TextStyle(fontSize: 11),
+                  if (settings.jobTagsEnabled) ...[
+                    const SizedBox(height: 8),
+                    CupertinoTextField(
+                      controller: _tagsController,
+                      placeholder: 'Теги (через запятую)',
+                    ),
+                    const SizedBox(height: 6),
+                    Wrap(
+                      spacing: 6,
+                      runSpacing: 6,
+                      children: [
+                        for (final tag
+                            in context.read<SettingsController>().jobTags)
+                          GestureDetector(
+                            onTap: () {
+                              final current = _tagsController.text.trim();
+                              final existing = current.isEmpty
+                                  ? <String>[]
+                                  : current
+                                        .split(',')
+                                        .map((e) => e.trim())
+                                        .toList();
+                              if (!existing.contains(tag)) {
+                                _tagsController.text = existing.isEmpty
+                                    ? tag
+                                    : '$current, $tag';
+                                setState(() {});
+                              }
+                            },
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 4,
+                              ),
+                              decoration: BoxDecoration(
+                                color: context.colors.cardElevated,
+                                borderRadius: BorderRadius.circular(99),
+                              ),
+                              child: Text(
+                                tag,
+                                style: const TextStyle(fontSize: 11),
+                              ),
                             ),
                           ),
-                        ),
-                    ],
-                  ),
+                      ],
+                    ),
+                  ],
                 ],
               ),
             ),
