@@ -1390,9 +1390,6 @@ class _MoneyScreenState extends State<MoneyScreen> {
                                     clientName,
                                     accountName,
                                     jobTitle,
-                                    t.accountId,
-                                    ?clientId,
-                                    ?jobId,
                                   ].join(' ').toLowerCase();
                                   if (!haystack.contains(q)) {
                                     return false;
