@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 
 import '../../app/theme/app_theme.dart';
 import '../../app/ui.dart';
+import '../../core/deep_link_service.dart';
 import '../../core/utils/app_utils.dart';
 import '../../data/models/client_reminder.dart';
 import '../../data/models/job.dart';
@@ -187,51 +188,9 @@ class TodayScreen extends StatelessWidget {
                   buildSection('Новые', newJobs),
                   if (dueRems.isNotEmpty) ...[
                     SectionLabel('Напоминания'),
-                    ...dueRems.map((r) {
-                      final c = store.clientById(r.clientId);
-                      return Padding(
-                        padding: const EdgeInsets.only(bottom: 8),
-                        child: AppCard(
-                          onTap: () {},
-                          child: Row(
-                            children: [
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      r.title,
-                                      style: const TextStyle(
-                                        fontWeight: FontWeight.w600,
-                                      ),
-                                    ),
-                                    Text(
-                                      c?.name ?? 'Клиент',
-                                      style: TextStyle(
-                                        color: colors.secondaryLabel,
-                                        fontSize: 12,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              CupertinoButton(
-                                padding: EdgeInsets.zero,
-                                onPressed: () => store.setReminderStatus(
-                                  r.id,
-                                  ReminderStatus.done,
-                                ),
-                                child: Icon(
-                                  CupertinoIcons.checkmark_circle,
-                                  color: colors.green,
-                                  semanticLabel: 'Выполнено',
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      );
-                    }),
+                    ...dueRems.map(
+                      (r) => _reminderCard(context, store, r, colors),
+                    ),
                   ],
                 ],
               );
@@ -253,51 +212,9 @@ class TodayScreen extends StatelessWidget {
                       buildSection('Новые', newJobs),
                       if (dueRems.isNotEmpty) ...[
                         SectionLabel('Напоминания'),
-                        ...dueRems.map((r) {
-                          final c = store.clientById(r.clientId);
-                          return Padding(
-                            padding: const EdgeInsets.only(bottom: 8),
-                            child: AppCard(
-                              child: Row(
-                                children: [
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          r.title,
-                                          style: const TextStyle(
-                                            fontWeight: FontWeight.w600,
-                                          ),
-                                        ),
-                                        Text(
-                                          c?.name ?? 'Клиент',
-                                          style: TextStyle(
-                                            color: colors.secondaryLabel,
-                                            fontSize: 12,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                  CupertinoButton(
-                                    padding: EdgeInsets.zero,
-                                    onPressed: () => store.setReminderStatus(
-                                      r.id,
-                                      ReminderStatus.done,
-                                    ),
-                                    child: Icon(
-                                      CupertinoIcons.checkmark_circle,
-                                      color: colors.green,
-                                      semanticLabel: 'Выполнено',
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          );
-                        }),
+                        ...dueRems.map(
+                          (r) => _reminderCard(context, store, r, colors),
+                        ),
                       ],
                     ],
                   ),
@@ -305,6 +222,142 @@ class TodayScreen extends StatelessWidget {
               ],
             );
           },
+        ),
+      ),
+    );
+  }
+
+  Widget _reminderCard(
+    BuildContext context,
+    MastersStore store,
+    ClientReminder reminder,
+    AppColors colors,
+  ) {
+    final client = store.clientById(reminder.clientId);
+    final name = (client?.name.trim().isNotEmpty ?? false)
+        ? client!.name.trim()
+        : 'Клиент';
+    final phone = client?.phone.trim() ?? '';
+    final hasPhone = phone.isNotEmpty;
+    final job = reminder.jobId == null ? null : store.jobById(reminder.jobId!);
+    final message = _reminderMessage(reminder, name, job);
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: AppCard(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        reminder.title,
+                        style: const TextStyle(fontWeight: FontWeight.w600),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        client?.name ?? 'Клиент',
+                        style: TextStyle(
+                          color: colors.secondaryLabel,
+                          fontSize: 12,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        message,
+                        style: TextStyle(
+                          color: colors.secondaryLabel,
+                          fontSize: 12,
+                          height: 1.25,
+                        ),
+                        maxLines: 3,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ),
+                ),
+                CupertinoButton(
+                  padding: EdgeInsets.zero,
+                  onPressed: () =>
+                      store.setReminderStatus(reminder.id, ReminderStatus.done),
+                  child: Icon(
+                    CupertinoIcons.checkmark_circle,
+                    color: colors.green,
+                    semanticLabel: 'Выполнено',
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 6),
+            if (hasPhone)
+              Wrap(
+                spacing: 6,
+                runSpacing: 4,
+                children: [
+                  CupertinoButton(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 4,
+                    ),
+                    onPressed: () async {
+                      try {
+                        await DeepLinkService.openWhatsApp(
+                          phone: phone,
+                          text: message,
+                        );
+                        await store.setReminderStatus(
+                          reminder.id,
+                          ReminderStatus.done,
+                        );
+                      } catch (_) {
+                        // Platform launch errors are expected on web/simulator.
+                      }
+                    },
+                    child: const Text(
+                      'WhatsApp',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                  CupertinoButton(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 4,
+                    ),
+                    onPressed: () async {
+                      try {
+                        await DeepLinkService.openSms(phone, message);
+                        await store.setReminderStatus(
+                          reminder.id,
+                          ReminderStatus.done,
+                        );
+                      } catch (_) {
+                        // Platform launch errors are expected on web/simulator.
+                      }
+                    },
+                    child: const Text(
+                      'SMS',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ],
+              )
+            else
+              Text(
+                'Без телефона',
+                style: TextStyle(color: colors.tertiaryLabel, fontSize: 12),
+              ),
+          ],
         ),
       ),
     );
@@ -547,5 +600,21 @@ class _SummaryTile extends StatelessWidget {
         ),
       ),
     );
+  }
+}
+
+String _reminderMessage(ClientReminder reminder, String clientName, Job? job) {
+  final detail = reminder.body?.trim();
+  final jobTitle = job?.title.trim();
+  final subject = (detail != null && detail.isNotEmpty) ? detail : reminder.title;
+  switch (reminder.type) {
+    case 'appointment':
+      final label = (jobTitle != null && jobTitle.isNotEmpty) ? jobTitle : subject;
+      return 'Здравствуйте, $clientName. Запись: $label.';
+    case 'warranty':
+      final label = (jobTitle != null && jobTitle.isNotEmpty) ? jobTitle : subject;
+      return 'Здравствуйте, $clientName. Напоминаю о сервисном обслуживании по работе "$label".';
+    default:
+      return 'Здравствуйте, $clientName. Напоминаю: $subject.';
   }
 }
