@@ -959,15 +959,35 @@ class _JobRow extends StatelessWidget {
                         : null,
                   ),
                 ),
-                const SizedBox(height: 2),
-                Text(
-                  [
-                    clientName,
+                const SizedBox(height: 4),
+                Wrap(
+                  spacing: 6,
+                  runSpacing: 4,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: [
+                    Text(
+                      clientName,
+                      style: TextStyle(
+                        color: colors.secondaryLabel,
+                        fontSize: 12,
+                      ),
+                    ),
                     if (job.dueDate != null)
-                      DateFormat('d MMM', 'ru').format(job.dueDate!),
-                    if (totalMin > 0) formatMinutes(totalMin),
-                  ].join(' • '),
-                  style: TextStyle(color: colors.secondaryLabel, fontSize: 12),
+                      Pill(
+                        job.dueDate!.year == DateTime.now().year
+                            ? DateFormat('d MMM HH:mm', 'ru').format(job.dueDate!)
+                            : DateFormat('d MMM yyyy HH:mm', 'ru').format(job.dueDate!),
+                        color: _dueColor(context, job),
+                      ),
+                    if (totalMin > 0)
+                      Text(
+                        formatMinutes(totalMin),
+                        style: TextStyle(
+                          color: colors.secondaryLabel,
+                          fontSize: 12,
+                        ),
+                      ),
+                  ],
                 ),
               ],
             ),
@@ -1032,26 +1052,31 @@ class _JobCard extends StatelessWidget {
             style: TextStyle(color: colors.secondaryLabel, fontSize: 12),
           ),
           const SizedBox(height: 6),
-          Row(
+          Wrap(
+            spacing: 6,
+            runSpacing: 4,
+            crossAxisAlignment: WrapCrossAlignment.center,
             children: [
               if (job.dueDate != null)
-                Text(
-                  DateFormat('d MMM', 'ru').format(job.dueDate!),
-                  style: TextStyle(color: colors.secondaryLabel, fontSize: 11),
+                Pill(
+                  DateFormat(
+                    job.dueDate!.year == DateTime.now().year
+                        ? 'd MMM HH:mm'
+                        : 'd MMM yyyy HH:mm',
+                    'ru',
+                  ).format(job.dueDate!),
+                  color: _dueColor(context, job),
                 ),
-              const Spacer(),
               if (totalMin > 0)
                 Text(
                   formatMinutes(totalMin),
                   style: TextStyle(color: colors.secondaryLabel, fontSize: 11),
                 ),
-              if (stages.isNotEmpty) ...[
-                const SizedBox(width: 6),
+              if (stages.isNotEmpty)
                 Text(
                   '$done/${stages.length}',
                   style: TextStyle(color: colors.secondaryLabel, fontSize: 11),
                 ),
-              ],
             ],
           ),
           if (stages.isNotEmpty)
@@ -1077,4 +1102,16 @@ class _JobCard extends StatelessWidget {
       ),
     );
   }
+}
+
+Color _dueColor(BuildContext context, Job job) {
+  final colors = context.colors;
+  if (job.status == JobStatus.done || job.status == JobStatus.closed) {
+    return colors.tertiaryLabel;
+  }
+  final due = job.dueDate;
+  if (due != null && due.isBefore(DateTime.now())) {
+    return colors.red;
+  }
+  return colors.accent;
 }
