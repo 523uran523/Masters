@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 
 import '../../app/theme/app_theme.dart';
 import '../../app/ui.dart';
+import 'package:share_plus/share_plus.dart';
 import '../../core/deep_link_service.dart';
 import '../../data/models/client.dart';
 import '../../data/models/client_reminder.dart';
@@ -87,6 +88,27 @@ class ClientDetailScreen extends StatelessWidget {
                       message: 'Добавьте телефон, чтобы быстро написать клиенту.',
                       art: Icon(CupertinoIcons.phone, size: 32, color: context.colors.tertiaryLabel),
                     ),
+                  const SizedBox(height: 8),
+                  SecondaryButton(
+                    label: 'Поделиться сводкой',
+                    icon: CupertinoIcons.share,
+                    onPressed: () async {
+                      final store = context.read<MastersStore>();
+                      final reminders = store.remindersForClient(clientId);
+                      final debt = store.clientDebtCents(clientId);
+                      final jobs = store.jobsForClient(clientId);
+                      final text = StringBuffer()
+                        ..writeln('Клиент: ${client.name}')
+                        ..writeln('Телефон: ${client.phone}')
+                        ..writeln('Долг: ${(debt / 100).toStringAsFixed(0)} ₽')
+                        ..writeln('Заказов: ${jobs.length}')
+                        ..writeln('Напоминаний: ${reminders.length}');
+                      for (final r in reminders) {
+                        text.writeln('- ${r.title} (${r.dueAt.day}.${r.dueAt.month}.${r.dueAt.year})');
+                      }
+                      await Share.share(text.toString());
+                    },
+                  ),
                   const SizedBox(height: 8),
                   SecondaryButton(
                     label: 'Создать напоминание',
