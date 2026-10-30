@@ -39,6 +39,8 @@ class _StatsScreenState extends State<StatsScreen> {
   }
 
   int _period = 1; // 0 week, 1 month, 2 quarter
+  String? _employeeFilter;
+  String? _tagFilter;
 
   DateTime _start(DateTime now) {
     if (_period == 0) return DateTime(now.year, now.month, now.day).subtract(const Duration(days: 7));
@@ -93,7 +95,10 @@ class _StatsScreenState extends State<StatsScreen> {
     final completedJobs = store.jobs.where((j) {
       if (j.archived) return false;
       final d = j.finishedAt ?? j.updatedAt;
-      return (j.status == JobStatus.done || j.status == JobStatus.closed) && !d.isBefore(start) && !d.isAfter(now);
+      if (!(j.status == JobStatus.done || j.status == JobStatus.closed) || d.isBefore(start) || d.isAfter(now)) return false;
+      if (_employeeFilter != null && j.assigneeId != _employeeFilter) return false;
+      if (_tagFilter != null && (_tagFilter!.isEmpty || !(j.tags ?? '').split(',').map((e) => e.trim()).contains(_tagFilter))) return false;
+      return true;
     }).toList();
     final jobRevenue = completedJobs.fold(0, (s, j) => s + j.priceCents);
     final jobCost = completedJobs.fold(0, (s, j) => s + j.costCents + store.totalMaterialCents(j.id));
@@ -198,6 +203,80 @@ class _StatsScreenState extends State<StatsScreen> {
                    SecondaryButton(label: 'Экспорт P&L в Excel', icon: CupertinoIcons.doc_on_doc, onPressed: () => _exportXlsx(revenue, expense, profit, jobRevenue, jobCost, jobMargin, completedJobs.length)),
                 ],
               ),
+            ),
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                Expanded(
+                  child: SecondaryButton(
+                    label: _employeeFilter == null ? 'Сотрудник: все' : (store.employeeById(_employeeFilter!)?.name ?? 'Сотрудник'),
+                    icon: CupertinoIcons.person_2,
+                    onPressed: () async {
+                      final v = await showCupertinoModalPopup<String?>(
+                        context: context,
+                        builder: (dialogContext) => Container(
+                          height: 260,
+                          color: context.colors.card,
+                          child: Column(
+                            children: [
+                              CupertinoButton(child: const Text('Все сотрудники'), onPressed: () => Navigator.of(dialogContext).pop('__all__')),
+                              Expanded(
+                                child: ListView(
+                                  children: [
+                                    for (final e in store.employees)
+                                      CupertinoButton(
+                                        onPressed: () => Navigator.of(dialogContext).pop(e.id),
+                                        child: Align(alignment: Alignment.centerLeft, child: Text(e.name)),
+                                      ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                      if (v == '__all__') setState(() => _employeeFilter = null);
+                      else if (v != null) setState(() => _employeeFilter = v);
+                    },
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: SecondaryButton(
+                    label: _tagFilter == null ? 'Тег: все' : _tagFilter!,
+                    icon: CupertinoIcons.tag,
+                    onPressed: () async {
+                      final tags = store.jobs.expand((j) => (j.tags ?? '').split(',').map((e) => e.trim())).where((e) => e.isNotEmpty).toSet().toList()..sort();
+                      if (tags.isEmpty) return;
+                      final v = await showCupertinoModalPopup<String?>(
+                        context: context,
+                        builder: (dialogContext) => Container(
+                          height: 260,
+                          color: context.colors.card,
+                          child: Column(
+                            children: [
+                              CupertinoButton(child: const Text('Все теги'), onPressed: () => Navigator.of(dialogContext).pop('__all__')),
+                              Expanded(
+                                child: ListView(
+                                  children: [
+                                    for (final t in tags)
+                                      CupertinoButton(
+                                        onPressed: () => Navigator.of(dialogContext).pop(t),
+                                        child: Align(alignment: Alignment.centerLeft, child: Text(t)),
+                                      ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                      if (v == '__all__') setState(() => _tagFilter = null);
+                      else if (v != null) setState(() => _tagFilter = v);
+                    },
+                  ),
+                ),
+              ],
             ),
             const SizedBox(height: 16),
             SectionLabel('Доходы по категориям'),

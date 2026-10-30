@@ -39,7 +39,7 @@ void main() {
     try {
       final db = appDb.database;
       final tables = (await db.rawQuery("SELECT name FROM sqlite_master WHERE type='table'")).map((r) => r['name'] as String).toSet();
-      for (final t in ['clients', 'jobs', 'job_attachments', 'money_transactions', 'employees', 'recurring_payments', 'audit_log', 'closed_periods']) {
+      for (final t in ['clients', 'jobs', 'job_attachments', 'money_transactions', 'employees', 'recurring_payments', 'audit_log', 'period_closures']) {
         expect(tables.contains(t), isTrue, reason: 'missing table $t');
       }
       final version = (await db.rawQuery('PRAGMA user_version'))[0]['user_version'];
