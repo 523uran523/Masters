@@ -253,12 +253,32 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
                         child: AppCard(
                           child: Row(
                             children: [
-                              Expanded(
-                                child: Text(
-                                  period.name,
-                                  style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
-                                ),
+                            Expanded(
+                              child: Row(
+                                children: [
+                                  Text(
+                                    period.name,
+                                    style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                    decoration: BoxDecoration(
+                                      color: period.isClosed ? context.colors.green.withValues(alpha: 0.15) : context.colors.orange.withValues(alpha: 0.15),
+                                      borderRadius: BorderRadius.circular(99),
+                                    ),
+                                    child: Text(
+                                      period.isClosed ? 'Закрыт' : 'Открыт',
+                                      style: TextStyle(
+                                        color: period.isClosed ? context.colors.green : context.colors.orange,
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.w700,
+                                      ),
+                                    ),
+                                  ),
+                                ],
                               ),
+                            ),
                               if (!period.isClosed)
                                 CupertinoButton(
                                   padding: EdgeInsets.zero,
