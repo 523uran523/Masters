@@ -303,13 +303,6 @@ class ClientDetailScreen extends StatelessWidget {
                                           Text(
                                             item.line,
                                             style: TextStyle(
-                                              decoration:
-                                                  item.jobStatus ==
-                                                          JobStatus.done ||
-                                                      item.jobStatus ==
-                                                          JobStatus.closed
-                                                  ? TextDecoration.lineThrough
-                                                  : null,
                                               color:
                                                   context.colors.secondaryLabel,
                                               fontSize: 12,
