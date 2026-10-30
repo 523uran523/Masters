@@ -130,8 +130,28 @@ class _JobsScreenState extends State<JobsScreen> {
     final q = _query.trim().toLowerCase();
     if (q.isNotEmpty) {
       list = list.where((j) {
-        return j.title.toLowerCase().contains(q) ||
-            (j.note ?? '').toLowerCase().contains(q);
+        final title = (j.title).toLowerCase();
+        final note = (j.note ?? '').toLowerCase();
+        final tags = (j.tags ?? '').toLowerCase();
+        var clientName = '';
+        final client = store.clientById(j.clientId);
+        if (client != null) clientName = client.name;
+        var assigneeName = '';
+        final assigneeId = j.assigneeId;
+        if (assigneeId != null && assigneeId.trim().isNotEmpty) {
+          if (assigneeId == '__self__') {
+            final self = store.selfEmployee;
+            if (self != null) assigneeName = self.name;
+          } else {
+            final employee = store.employeeById(assigneeId);
+            if (employee != null) assigneeName = employee.name;
+          }
+        }
+        return title.contains(q) ||
+            note.contains(q) ||
+            tags.contains(q) ||
+            clientName.toLowerCase().contains(q) ||
+            assigneeName.toLowerCase().contains(q);
       }).toList();
     }
     list.sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
