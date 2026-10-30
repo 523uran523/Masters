@@ -8,6 +8,7 @@ import '../../app/ui.dart';
 import 'package:share_plus/share_plus.dart';
 
 import '../../core/deep_link_service.dart';
+import '../../data/models/appointment.dart';
 import '../../data/models/client.dart';
 import '../../data/models/client_reminder.dart';
 import '../../data/models/job.dart';
@@ -31,6 +32,42 @@ class ClientDetailScreen extends StatelessWidget {
     }
     final objects = store.objects.where((o) => o.clientId == clientId).toList();
     final jobs = store.jobsForClient(clientId);
+    final reminders = store.remindersForClient(clientId);
+    final appointments = store.appointments
+        .where((a) => a.clientId == clientId)
+        .toList();
+    final historyItems = <_HistoryItem>[
+      ...jobs.map(
+        (job) => _HistoryItem(
+          icon: CupertinoIcons.doc_text,
+          color: context.colors.accent,
+          title: job.title,
+          line:
+              '${job.status.label} • ${(job.priceCents / 100).toStringAsFixed(0)} ₽',
+          date: job.updatedAt,
+        ),
+      ),
+      ...reminders.map(
+        (r) => _HistoryItem(
+          icon: CupertinoIcons.bell,
+          color: context.colors.orange,
+          title: r.title,
+          line: r.body != null && r.body!.isNotEmpty
+              ? '${r.status.label} • ${r.body}'
+              : r.status.label,
+          date: r.dueAt,
+        ),
+      ),
+      ...appointments.map(
+        (a) => _HistoryItem(
+          icon: CupertinoIcons.calendar,
+          color: context.colors.purple,
+          title: a.title,
+          line: a.status.label,
+          date: a.startAt,
+        ),
+      ),
+    ]..sort((a, b) => b.date.compareTo(a.date));
 
     return CupertinoPageScaffold(
       navigationBar: CupertinoNavigationBar(
@@ -207,6 +244,73 @@ class ClientDetailScreen extends StatelessWidget {
                       ),
                 ],
               ),
+            ),
+            const SizedBox(height: 16),
+            SectionLabel('История'),
+            AppCard(
+              child: historyItems.isEmpty
+                  ? EmptyState(
+                      title: 'Нет истории',
+                      message: 'События по клиенту появятся здесь.',
+                      art: Icon(
+                        CupertinoIcons.clock,
+                        size: 32,
+                        color: context.colors.tertiaryLabel,
+                      ),
+                    )
+                  : Column(
+                      children: historyItems
+                          .map(
+                            (item) => Padding(
+                              padding: const EdgeInsets.symmetric(vertical: 6),
+                              child: Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  IconBadge(
+                                    icon: item.icon,
+                                    color: item.color,
+                                    size: 26,
+                                  ),
+                                  const SizedBox(width: 10),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          item.title,
+                                          style: const TextStyle(
+                                            fontWeight: FontWeight.w500,
+                                          ),
+                                        ),
+                                        if (item.line.isNotEmpty)
+                                          Text(
+                                            item.line,
+                                            style: TextStyle(
+                                              color:
+                                                  context.colors.secondaryLabel,
+                                              fontSize: 12,
+                                            ),
+                                          ),
+                                        Text(
+                                          DateFormat(
+                                            'd MMM yyyy, HH:mm',
+                                            'ru',
+                                          ).format(item.date),
+                                          style: TextStyle(
+                                            color: context.colors.tertiaryLabel,
+                                            fontSize: 11,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          )
+                          .toList(),
+                    ),
             ),
             const SizedBox(height: 16),
             SectionLabel('Объекты (${objects.length})'),
@@ -700,4 +804,21 @@ class ClientDetailScreen extends StatelessWidget {
       ),
     );
   }
+}
+
+
+class _HistoryItem {
+  const _HistoryItem({
+    required this.icon,
+    required this.color,
+    required this.title,
+    required this.line,
+    required this.date,
+  });
+
+  final IconData icon;
+  final Color color;
+  final String title;
+  final String line;
+  final DateTime date;
 }
