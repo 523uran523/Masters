@@ -28,6 +28,9 @@ class _JobsScreenState extends State<JobsScreen> {
   String? _assigneeFilter;
   JobPriority? _priorityFilter;
   String? _tagFilter;
+  String? _clientFilter;
+  DateTime? _dateFrom;
+  DateTime? _dateTo;
 
   @override
   void dispose() {
@@ -63,6 +66,41 @@ class _JobsScreenState extends State<JobsScreen> {
         return false;
       }
     }
+    final cf = _clientFilter;
+    if (cf != null && cf != '__all__' && cf.trim().isNotEmpty) {
+      final value = cf.trim();
+      if (value == '__none__') {
+        if (job.clientId.trim().isNotEmpty &&
+            store.clientById(job.clientId) != null) {
+          return false;
+        }
+      } else if (job.clientId.trim() != value) {
+        return false;
+      }
+    }
+    if (_dateFrom != null || _dateTo != null) {
+      final createdAt = job.createdAt;
+      if (_dateFrom != null) {
+        final from = DateTime(
+          _dateFrom!.year,
+          _dateFrom!.month,
+          _dateFrom!.day,
+        );
+        if (createdAt.isBefore(from)) return false;
+      }
+      if (_dateTo != null) {
+        final toEnd = DateTime(
+          _dateTo!.year,
+          _dateTo!.month,
+          _dateTo!.day,
+          23,
+          59,
+          59,
+          999,
+        );
+        if (createdAt.isAfter(toEnd)) return false;
+      }
+    }
     return true;
   }
 
@@ -73,7 +111,12 @@ class _JobsScreenState extends State<JobsScreen> {
       _priorityFilter != null ||
       (_tagFilter != null &&
           _tagFilter != '__all__' &&
-          _tagFilter!.trim().isNotEmpty);
+          _tagFilter!.trim().isNotEmpty) ||
+      (_clientFilter != null &&
+          _clientFilter != '__all__' &&
+          _clientFilter!.trim().isNotEmpty) ||
+      _dateFrom != null ||
+      _dateTo != null;
 
   List<Job> _filteredJobs(MastersStore store) {
     var list = store.jobs
@@ -263,6 +306,136 @@ class _JobsScreenState extends State<JobsScreen> {
     });
   }
 
+  Future<void> _pickClientFilter() async {
+    final store = context.read<MastersStore>();
+    final result = await showCupertinoModalPopup<String?>(
+      context: context,
+      builder: (dialogContext) => CupertinoActionSheet(
+        title: const Text('Клиент'),
+        actions: [
+          CupertinoActionSheetAction(
+            isDefaultAction:
+                _clientFilter == null || _clientFilter == '__all__',
+            onPressed: () => Navigator.of(dialogContext).pop('__all__'),
+            child: const Text('Все'),
+          ),
+          CupertinoActionSheetAction(
+            isDefaultAction: _clientFilter == '__none__',
+            onPressed: () => Navigator.of(dialogContext).pop('__none__'),
+            child: const Text('Без клиента'),
+          ),
+          for (final c in [
+            ...store.clients,
+          ]..sort((a, b) => a.name.compareTo(b.name)))
+            CupertinoActionSheetAction(
+              isDefaultAction: _clientFilter == c.id,
+              onPressed: () => Navigator.of(dialogContext).pop(c.id),
+              child: Text(c.name),
+            ),
+        ],
+        cancelButton: CupertinoActionSheetAction(
+          onPressed: () => Navigator.of(dialogContext).pop(),
+          child: const Text('Отмена'),
+        ),
+      ),
+    );
+    if (result == null || !mounted) return;
+    setState(() {
+      _clientFilter = result == '__all__' ? null : result;
+    });
+  }
+
+  Future<void> _pickDate(bool from) async {
+    DateTime selected = from
+        ? (_dateFrom ?? DateTime.now())
+        : (_dateTo ?? DateTime.now());
+    await showCupertinoModalPopup<void>(
+      context: context,
+      builder: (ctx) => Container(
+        height: 300,
+        color: context.colors.card,
+        child: Column(
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                CupertinoButton(
+                  child: const Text('Отмена'),
+                  onPressed: () => Navigator.of(ctx).pop(),
+                ),
+                CupertinoButton(
+                  child: const Text('Готово'),
+                  onPressed: () {
+                    final picked = DateTime(
+                      selected.year,
+                      selected.month,
+                      selected.day,
+                    );
+                    Navigator.of(ctx).pop();
+                    setState(() {
+                      if (from) {
+                        _dateFrom = picked;
+                      } else {
+                        _dateTo = picked;
+                      }
+                    });
+                  },
+                ),
+              ],
+            ),
+            Expanded(
+              child: CupertinoDatePicker(
+                mode: CupertinoDatePickerMode.date,
+                initialDateTime: selected,
+                onDateTimeChanged: (dt) => selected = dt,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _openDateFilter() async {
+    final action = await showCupertinoModalPopup<String?>(
+      context: context,
+      builder: (ctx) => CupertinoActionSheet(
+        title: const Text('Даты'),
+        actions: [
+          CupertinoActionSheetAction(
+            onPressed: () => Navigator.of(ctx).pop('from'),
+            child: const Text('С'),
+          ),
+          CupertinoActionSheetAction(
+            onPressed: () => Navigator.of(ctx).pop('to'),
+            child: const Text('По'),
+          ),
+          if (_dateFrom != null || _dateTo != null)
+            CupertinoActionSheetAction(
+              onPressed: () => Navigator.of(ctx).pop('clear'),
+              child: const Text('Сбросить'),
+            ),
+        ],
+        cancelButton: CupertinoActionSheetAction(
+          onPressed: () => Navigator.of(ctx).pop(),
+          child: const Text('Отмена'),
+        ),
+      ),
+    );
+    if (action == 'from') {
+      await _pickDate(true);
+    } else if (action == 'to') {
+      await _pickDate(false);
+    } else if (action == 'clear' || action == 'all') {
+      if (mounted) {
+        setState(() {
+          _dateFrom = null;
+          _dateTo = null;
+        });
+      }
+    }
+  }
+
   Future<void> _showFilters() async {
     if (!mounted) return;
     await showCupertinoModalPopup<void>(
@@ -270,6 +443,20 @@ class _JobsScreenState extends State<JobsScreen> {
       builder: (dialogContext) => CupertinoActionSheet(
         title: const Text('Фильтры'),
         actions: [
+          CupertinoActionSheetAction(
+            onPressed: () {
+              Navigator.of(dialogContext).pop();
+              _pickClientFilter();
+            },
+            child: const Text('Клиент'),
+          ),
+          CupertinoActionSheetAction(
+            onPressed: () {
+              Navigator.of(dialogContext).pop();
+              _openDateFilter();
+            },
+            child: const Text('Даты'),
+          ),
           CupertinoActionSheetAction(
             onPressed: () {
               Navigator.of(dialogContext).pop();
@@ -298,6 +485,9 @@ class _JobsScreenState extends State<JobsScreen> {
                 _assigneeFilter = null;
                 _priorityFilter = null;
                 _tagFilter = null;
+                _clientFilter = null;
+                _dateFrom = null;
+                _dateTo = null;
               });
             },
             child: const Text('Сбросить'),
