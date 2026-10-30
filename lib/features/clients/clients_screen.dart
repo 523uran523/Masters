@@ -18,6 +18,7 @@ class _ClientsScreenState extends State<ClientsScreen> {
   String _query = '';
   String _clientFilter = 'all';
   bool _searchVisible = false;
+  String? _selectedClientId;
 
   @override
   void dispose() {
@@ -68,10 +69,7 @@ class _ClientsScreenState extends State<ClientsScreen> {
     );
   }
 
-  @override
-  Widget build(BuildContext context) {
-    final store = context.watch<MastersStore>();
-    final colors = context.colors;
+  Widget _buildList(MastersStore store, AppColors colors, bool wide) {
     var clients = store.clients;
     final q = _query.trim().toLowerCase();
     if (q.isNotEmpty) {
@@ -86,6 +84,92 @@ class _ClientsScreenState extends State<ClientsScreen> {
     } else if (_clientFilter == 'paid') {
       clients = clients.where((c) => store.clientDebtCents(c.id) <= 0).toList();
     }
+
+    if (clients.isEmpty) {
+      return EmptyState(
+        title: 'Нет клиентов',
+        message: 'Нажмите +, чтобы добавить клиента.',
+        art: Icon(CupertinoIcons.person, size: 48, color: colors.tertiaryLabel),
+      );
+    }
+    return ListView.builder(
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 72),
+      itemCount: clients.length,
+      itemBuilder: (context, index) {
+        final c = clients[index];
+        final jobsCount = store.jobsForClient(c.id).length;
+        final objectsCount = store.objects.where((o) => o.clientId == c.id).length;
+        final selected = _selectedClientId == c.id;
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 8),
+          child: Dismissible(
+            key: ValueKey(c.id),
+            direction: DismissDirection.endToStart,
+            background: Container(
+              alignment: Alignment.centerRight,
+              padding: const EdgeInsets.only(right: 16),
+              decoration: BoxDecoration(
+                color: colors.red.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: Icon(CupertinoIcons.delete, color: colors.red),
+            ),
+            confirmDismiss: (_) => showAppConfirm(
+              context,
+              title: 'Удалить клиента?',
+              message: 'Объекты и заказы клиента тоже удалятся.',
+              destructive: true,
+              confirmLabel: 'Удалить',
+            ),
+            onDismissed: (_) => context.read<MastersStore>().deleteClient(c.id),
+            child: AppCard(
+              onTap: () {
+                if (wide) {
+                  setState(() => _selectedClientId = c.id);
+                } else {
+                  Navigator.of(context).push(
+                    CupertinoPageRoute(
+                        builder: (_) => ClientDetailScreen(clientId: c.id)),
+                  );
+                }
+              },
+              child: Row(
+                children: [
+                  IconBadge(color: colors.accent, icon: CupertinoIcons.person),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(c.name,
+                            style: const TextStyle(fontWeight: FontWeight.w600)),
+                        Text(
+                          [
+                            if (c.phone.isNotEmpty) c.phone,
+                            '$objectsCount объектов',
+                            '$jobsCount заказов',
+                          ].join(' • '),
+                          style: TextStyle(color: colors.secondaryLabel, fontSize: 12),
+                        ),
+                      ],
+                    ),
+                  ),
+                  if (selected && wide)
+                    Icon(CupertinoIcons.checkmark_circle_fill, color: colors.accent),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final store = context.watch<MastersStore>();
+    final colors = context.colors;
+    final isWide = MediaQuery.of(context).size.width >= 720;
 
     return CupertinoPageScaffold(
       navigationBar: CupertinoNavigationBar(
@@ -138,79 +222,23 @@ class _ClientsScreenState extends State<ClientsScreen> {
                 ),
               ),
             Expanded(
-              child: clients.isEmpty
-                  ? EmptyState(
-                      title: 'Нет клиентов',
-                      message: 'Нажмите +, чтобы добавить клиента.',
-                      art: Icon(CupertinoIcons.person, size: 48, color: colors.tertiaryLabel),
+              child: isWide
+                  ? Row(
+                      children: [
+                        Expanded(child: _buildList(store, colors, true)),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: _selectedClientId == null
+                              ? EmptyState(
+                                  title: 'Выберите клиента',
+                                  message: 'Слева список клиентов; справа — карточка.',
+                                  art: Icon(CupertinoIcons.person_2, size: 48, color: colors.tertiaryLabel),
+                                )
+                              : ClientDetailScreen(clientId: _selectedClientId!),
+                        ),
+                      ],
                     )
-                  : ListView.builder(
-                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 72),
-                      itemCount: clients.length,
-                      itemBuilder: (context, index) {
-                        final c = clients[index];
-                        final jobsCount = store.jobsForClient(c.id).length;
-                        final objectsCount = store.objects.where((o) => o.clientId == c.id).length;
-                        return Padding(
-                          padding: const EdgeInsets.only(bottom: 8),
-                          child: Dismissible(
-                            key: ValueKey(c.id),
-                            direction: DismissDirection.endToStart,
-                            background: Container(
-                              alignment: Alignment.centerRight,
-                              padding: const EdgeInsets.only(right: 16),
-                              decoration: BoxDecoration(
-                                color: colors.red.withValues(alpha: 0.12),
-                                borderRadius: BorderRadius.circular(16),
-                              ),
-                              child: Icon(CupertinoIcons.delete, color: colors.red),
-                            ),
-                            confirmDismiss: (_) => showAppConfirm(
-                              context,
-                              title: 'Удалить клиента?',
-                              message: 'Объекты и заказы клиента тоже удалятся.',
-                              destructive: true,
-                              confirmLabel: 'Удалить',
-                            ),
-                            onDismissed: (_) => context.read<MastersStore>().deleteClient(c.id),
-                            child: AppCard(
-                              onTap: () => Navigator.of(context).push(
-                                CupertinoPageRoute(
-                                    builder: (_) => ClientDetailScreen(clientId: c.id)),
-                              ),
-                              child: Row(
-                                children: [
-                                  IconBadge(
-                                      color: colors.accent, icon: CupertinoIcons.person),
-                                  const SizedBox(width: 12),
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        Text(c.name,
-                                            style: const TextStyle(
-                                                fontWeight: FontWeight.w600)),
-                                        Text(
-                                          [
-                                            if (c.phone.isNotEmpty) c.phone,
-                                            '$objectsCount объектов',
-                                            '$jobsCount заказов',
-                                          ].join(' • '),
-                                          style: TextStyle(
-                                              color: colors.secondaryLabel, fontSize: 12),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                  Icon(CupertinoIcons.chevron_forward,
-                                      size: 16, color: colors.tertiaryLabel),
-                                ],
-                              ),
-                            ),
-                          ),
-                        );
-                      },
-                    ),
+                  : _buildList(store, colors, false),
             ),
           ],
         ),
