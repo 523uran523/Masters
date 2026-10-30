@@ -394,23 +394,27 @@ class ClientDetailScreen extends StatelessWidget {
                   icon: CupertinoIcons.calendar,
                   onPressed: () async {
                     final title = titleController.text.trim().isEmpty ? 'Визит: ${client.name}' : titleController.text.trim();
-                    final appt = await store.createAppointment(
-                      title: title,
-                      clientId: client.id,
-                      startAt: selected,
-                      endAt: selected.add(const Duration(hours: 1)),
-                      note: noteController.text.trim().isEmpty ? null : noteController.text.trim(),
-                    );
-                    await store.createReminder(
-                      clientId: client.id,
-                      type: 'appointment',
-                      title: 'Визит: ${client.name}',
-                      body: noteController.text.trim().isEmpty ? title : noteController.text.trim(),
-                      dueAt: selected,
-                    );
-                    if (modalContext.mounted) Navigator.of(modalContext).pop();
-                    if (context.mounted) {
-                      await showAppAlert(context, title: 'Запись создана', message: 'Визит: ${appt.title}');
+                    try {
+                      final appt = await store.createAppointment(
+                        title: title,
+                        clientId: client.id,
+                        startAt: selected,
+                        endAt: selected.add(const Duration(hours: 1)),
+                        note: noteController.text.trim().isEmpty ? null : noteController.text.trim(),
+                      );
+                      await store.createReminder(
+                        clientId: client.id,
+                        type: 'appointment',
+                        title: 'Визит: ${client.name}',
+                        body: noteController.text.trim().isEmpty ? title : noteController.text.trim(),
+                        dueAt: selected,
+                      );
+                      if (modalContext.mounted) Navigator.of(modalContext).pop();
+                      if (context.mounted) {
+                        await showAppAlert(context, title: 'Запись создана', message: 'Визит: ${appt.title}');
+                      }
+                    } catch (e) {
+                      if (context.mounted) await showAppAlert(context, title: 'Конфликт расписания', message: e.toString());
                     }
                   },
                 ),

@@ -1057,6 +1057,13 @@ class MastersStore extends ChangeNotifier {
     final s = startAt ?? now;
     final e = endAt ?? s.add(const Duration(hours: 1));
     final r = resourceId ?? defaultResource()?.id;
+    final conflicts = _appointments.where((a) =>
+        a.resourceId == r &&
+        !a.endAt.isBefore(s) &&
+        !a.startAt.isAfter(e));
+    if (conflicts.isNotEmpty) {
+      throw StateError('Ресурс уже занят в это время. Выберите другое время.');
+    }
     final appt = Appointment(
       id: newId(),
       clientId: clientId,
