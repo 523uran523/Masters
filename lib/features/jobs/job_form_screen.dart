@@ -7,6 +7,7 @@ import '../../core/utils/app_utils.dart';
 import '../../data/models/job.dart';
 import 'cost_calculator_screen.dart';
 import '../../state/masters_store.dart';
+import '../../state/settings_controller.dart';
 
 class JobFormScreen extends StatefulWidget {
   const JobFormScreen({super.key, this.jobId});
@@ -21,6 +22,7 @@ class _JobFormScreenState extends State<JobFormScreen> {
   final _priceController = TextEditingController();
   final _costController = TextEditingController();
   final _noteController = TextEditingController();
+  final _tagsController = TextEditingController();
 
   String? _clientId;
   String? _objectId;
@@ -53,6 +55,7 @@ class _JobFormScreenState extends State<JobFormScreen> {
         _costController.text =
             (job.costCents / 100).toStringAsFixed(2).replaceAll('.00', '');
         _noteController.text = job.note ?? '';
+      _tagsController.text = job.tags ?? '';
         _dueDate = job.dueDate;
       }
     }
@@ -64,6 +67,7 @@ class _JobFormScreenState extends State<JobFormScreen> {
     _priceController.dispose();
     _costController.dispose();
     _noteController.dispose();
+    _tagsController.dispose();
     super.dispose();
   }
 
@@ -334,6 +338,7 @@ class _JobFormScreenState extends State<JobFormScreen> {
           costCents: _parseCents(_costController.text),
           dueDate: _dueDate,
           note: _noteController.text.trim().isEmpty ? null : _noteController.text.trim(),
+          tags: _tagsController.text.trim().isEmpty ? null : _tagsController.text.trim(),
         ));
       } else {
         await store.createJob(
@@ -347,6 +352,7 @@ class _JobFormScreenState extends State<JobFormScreen> {
           costCents: _parseCents(_costController.text),
           dueDate: _dueDate,
           note: _noteController.text.trim().isEmpty ? null : _noteController.text.trim(),
+          tags: _tagsController.text.trim().isEmpty ? null : _tagsController.text.trim(),
         );
       }
       if (mounted) Navigator.of(context).pop();
@@ -567,6 +573,34 @@ class _JobFormScreenState extends State<JobFormScreen> {
                     placeholder: 'Заметка',
                     maxLines: 4,
                     minLines: 2,
+                  ),
+                  const SizedBox(height: 8),
+                  CupertinoTextField(
+                    controller: _tagsController,
+                    placeholder: 'Теги (через запятую)',
+                  ),
+                  const SizedBox(height: 6),
+                  Wrap(
+                    spacing: 6,
+                    runSpacing: 6,
+                    children: [
+                      for (final tag in context.read<SettingsController>().jobTags)
+                        GestureDetector(
+                          onTap: () {
+                            final current = _tagsController.text.trim();
+                            final existing = current.isEmpty ? <String>[] : current.split(',').map((e) => e.trim()).toList();
+                            if (!existing.contains(tag)) {
+                              _tagsController.text = existing.isEmpty ? tag : '$current, $tag';
+                              setState(() {});
+                            }
+                          },
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            decoration: BoxDecoration(color: context.colors.cardElevated, borderRadius: BorderRadius.circular(99)),
+                            child: Text(tag, style: const TextStyle(fontSize: 11)),
+                          ),
+                        ),
+                    ],
                   ),
                 ],
               ),
