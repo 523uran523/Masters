@@ -43,12 +43,12 @@ class _InventoryScreenState extends State<InventoryScreen> {
         actions: [
           CupertinoDialogAction(
             onPressed: () => Navigator.of(dc).pop(),
-            child: const Text('Р С›РЎвЂљР СР ВµР Р…Р В°'),
+            child: const Text('Р В РЎвЂєР РЋРІР‚С™Р В РЎВР В Р’ВµР В Р вЂ¦Р В Р’В°'),
           ),
           CupertinoDialogAction(
             isDefaultAction: true,
             onPressed: () => Navigator.of(dc).pop(controller.text.trim()),
-            child: const Text('Р С›Р С™'),
+            child: const Text('Р В РЎвЂєР В РЎв„ў'),
           ),
         ],
       ),
@@ -59,18 +59,20 @@ class _InventoryScreenState extends State<InventoryScreen> {
     final unit = await showCupertinoModalPopup<String>(
       context: context,
       builder: (dialogContext) => CupertinoActionSheet(
-        title: const Text('Р вЂўР Т‘Р С‘Р Р…Р С‘РЎвЂ Р В° Р С‘Р В·Р СР ВµРЎР‚Р ВµР Р…Р С‘РЎРЏ'),
+        title: const Text(
+          'Р В РІР‚СћР В РўвЂР В РЎвЂР В Р вЂ¦Р В РЎвЂР РЋРІР‚В Р В Р’В° Р В РЎвЂР В Р’В·Р В РЎВР В Р’ВµР РЋР вЂљР В Р’ВµР В Р вЂ¦Р В РЎвЂР РЋР РЏ',
+        ),
         actions: [
           for (final item in [
-            'РЎв‚¬РЎвЂљ',
-            'Р С–',
-            'Р С”Р С–',
-            'Р СР В»',
-            'Р В»',
-            'Р С',
-            'РЎРѓР С',
-            'РЎС“Р С—Р В°Р С”',
-            'РЎС“РЎРѓР В»РЎС“Р С–Р В°',
+            'Р РЋРІвЂљВ¬Р РЋРІР‚С™',
+            'Р В РЎвЂ“',
+            'Р В РЎвЂќР В РЎвЂ“',
+            'Р В РЎВР В Р’В»',
+            'Р В Р’В»',
+            'Р В РЎВ',
+            'Р РЋР С“Р В РЎВ',
+            'Р РЋРЎвЂњР В РЎвЂ”Р В Р’В°Р В РЎвЂќ',
+            'Р РЋРЎвЂњР РЋР С“Р В Р’В»Р РЋРЎвЂњР В РЎвЂ“Р В Р’В°',
           ])
             CupertinoActionSheetAction(
               onPressed: () => Navigator.of(dialogContext).pop(item),
@@ -78,17 +80,19 @@ class _InventoryScreenState extends State<InventoryScreen> {
             ),
           CupertinoActionSheetAction(
             onPressed: () => Navigator.of(dialogContext).pop('__custom__'),
-            child: const Text('Р вЂќРЎР‚РЎС“Р С–Р В°РЎРЏ...'),
+            child: const Text('Р В РІР‚СњР РЋР вЂљР РЋРЎвЂњР В РЎвЂ“Р В Р’В°Р РЋР РЏ...'),
           ),
         ],
         cancelButton: CupertinoActionSheetAction(
           onPressed: () => Navigator.of(dialogContext).pop(),
-          child: const Text('Р С›РЎвЂљР СР ВµР Р…Р В°'),
+          child: const Text('Р В РЎвЂєР РЋРІР‚С™Р В РЎВР В Р’ВµР В Р вЂ¦Р В Р’В°'),
         ),
       ),
     );
     if (unit == null) return null;
-    if (unit == '__custom__') return _prompt('Р вЂўР Т‘Р С‘Р Р…Р С‘РЎвЂ Р В°', 'РЎв‚¬РЎвЂљ');
+    if (unit == '__custom__') {
+      return _prompt('Р В РІР‚СћР В РўвЂР В РЎвЂР В Р вЂ¦Р В РЎвЂР РЋРІР‚В Р В Р’В°', 'Р РЋРІвЂљВ¬Р РЋРІР‚С™');
+    }
     return unit;
   }
 
@@ -120,28 +124,34 @@ class _InventoryScreenState extends State<InventoryScreen> {
     final v = await showCupertinoModalPopup<String>(
       context: context,
       builder: (dialogContext) => CupertinoActionSheet(
-        title: const Text('Р В¤Р С‘Р В»РЎРЉРЎвЂљРЎР‚ РЎРѓР С”Р В»Р В°Р Т‘Р В°'),
+        title: const Text('Р В Р’В¤Р В РЎвЂР В Р’В»Р РЋР Р‰Р РЋРІР‚С™Р РЋР вЂљ Р РЋР С“Р В РЎвЂќР В Р’В»Р В Р’В°Р В РўвЂР В Р’В°'),
         actions: [
           CupertinoActionSheetAction(
             onPressed: () => Navigator.of(dialogContext).pop('all'),
-            child: const Text('Р вЂ™РЎРѓР Вµ Р С—Р С•Р В·Р С‘РЎвЂ Р С‘Р С‘'),
+            child: const Text('Р В РІР‚в„ўР РЋР С“Р В Р’Вµ Р В РЎвЂ”Р В РЎвЂўР В Р’В·Р В РЎвЂР РЋРІР‚В Р В РЎвЂР В РЎвЂ'),
           ),
           CupertinoActionSheetAction(
             onPressed: () => Navigator.of(dialogContext).pop('good'),
-            child: const Text('Р СћР С•Р В»РЎРЉР С”Р С• РЎвЂљР С•Р Р†Р В°РЎР‚РЎвЂ№'),
+            child: const Text(
+              'Р В РЎС›Р В РЎвЂўР В Р’В»Р РЋР Р‰Р В РЎвЂќР В РЎвЂў Р РЋРІР‚С™Р В РЎвЂўР В Р вЂ Р В Р’В°Р РЋР вЂљР РЋРІР‚в„–',
+            ),
           ),
           CupertinoActionSheetAction(
             onPressed: () => Navigator.of(dialogContext).pop('service'),
-            child: const Text('Р СћР С•Р В»РЎРЉР С”Р С• РЎС“РЎРѓР В»РЎС“Р С–Р С‘'),
+            child: const Text(
+              'Р В РЎС›Р В РЎвЂўР В Р’В»Р РЋР Р‰Р В РЎвЂќР В РЎвЂў Р РЋРЎвЂњР РЋР С“Р В Р’В»Р РЋРЎвЂњР В РЎвЂ“Р В РЎвЂ',
+            ),
           ),
           CupertinoActionSheetAction(
             onPressed: () => Navigator.of(dialogContext).pop('low'),
-            child: const Text('Р СљР В°Р В»Р С• Р Р…Р В° РЎРѓР С”Р В»Р В°Р Т‘Р Вµ'),
+            child: const Text(
+              'Р В РЎС™Р В Р’В°Р В Р’В»Р В РЎвЂў Р В Р вЂ¦Р В Р’В° Р РЋР С“Р В РЎвЂќР В Р’В»Р В Р’В°Р В РўвЂР В Р’Вµ',
+            ),
           ),
         ],
         cancelButton: CupertinoActionSheetAction(
           onPressed: () => Navigator.of(dialogContext).pop(),
-          child: const Text('Р С›РЎвЂљР СР ВµР Р…Р В°'),
+          child: const Text('Р В РЎвЂєР РЋРІР‚С™Р В РЎВР В Р’ВµР В Р вЂ¦Р В Р’В°'),
         ),
       ),
     );
@@ -149,20 +159,35 @@ class _InventoryScreenState extends State<InventoryScreen> {
   }
 
   Future<void> _newItem() async {
-    final name = await _prompt('Р СњР В°Р В·Р Р†Р В°Р Р…Р С‘Р Вµ Р С—Р С•Р В·Р С‘РЎвЂ Р С‘Р С‘', 'Р СљР В°РЎРѓР В»Р С• Р СР С•РЎвЂљР С•РЎР‚Р Р…Р С•Р Вµ 5W-30');
+    final name = await _prompt(
+      'Р В РЎСљР В Р’В°Р В Р’В·Р В Р вЂ Р В Р’В°Р В Р вЂ¦Р В РЎвЂР В Р’Вµ Р В РЎвЂ”Р В РЎвЂўР В Р’В·Р В РЎвЂР РЋРІР‚В Р В РЎвЂР В РЎвЂ',
+      'Р В РЎС™Р В Р’В°Р РЋР С“Р В Р’В»Р В РЎвЂў Р В РЎВР В РЎвЂўР РЋРІР‚С™Р В РЎвЂўР РЋР вЂљР В Р вЂ¦Р В РЎвЂўР В Р’Вµ 5W-30',
+    );
     if (name == null || name.trim().isEmpty) return;
     final kind = await _pickKind();
     if (kind == null) return;
-    final unit = await _pickUnit() ?? 'РЎв‚¬РЎвЂљ';
-    final sellStr = await _prompt('Р В¦Р ВµР Р…Р В° Р С—РЎР‚Р С•Р Т‘Р В°Р В¶Р С‘ (РІвЂљР…)', '0') ?? '0';
-    final costStr = await _prompt('Р РЋР ВµР В±Р ВµРЎРѓРЎвЂљР С•Р С‘Р СР С•РЎРѓРЎвЂљРЎРЉ (РІвЂљР…)', '0') ?? '0';
-    final minStr = await _prompt('Р СљР С‘Р Р…. Р С•РЎРѓРЎвЂљР В°РЎвЂљР С•Р С”', '0') ?? '0';
+    final unit = await _pickUnit() ?? 'Р РЋРІвЂљВ¬Р РЋРІР‚С™';
+    final sellStr =
+        await _prompt(
+          'Р В Р’В¦Р В Р’ВµР В Р вЂ¦Р В Р’В° Р В РЎвЂ”Р РЋР вЂљР В РЎвЂўР В РўвЂР В Р’В°Р В Р’В¶Р В РЎвЂ (Р Р†РІР‚С™Р вЂ¦)',
+          '0',
+        ) ??
+        '0';
+    final costStr =
+        await _prompt(
+          'Р В Р Р‹Р В Р’ВµР В Р’В±Р В Р’ВµР РЋР С“Р РЋРІР‚С™Р В РЎвЂўР В РЎвЂР В РЎВР В РЎвЂўР РЋР С“Р РЋРІР‚С™Р РЋР Р‰ (Р Р†РІР‚С™Р вЂ¦)',
+          '0',
+        ) ??
+        '0';
+    final minStr =
+        await _prompt('Р В РЎС™Р В РЎвЂР В Р вЂ¦. Р В РЎвЂўР РЋР С“Р РЋРІР‚С™Р В Р’В°Р РЋРІР‚С™Р В РЎвЂўР В РЎвЂќ', '0') ??
+        '0';
     if (!mounted) return;
     final track = await showAppConfirm(
       context,
-      title: 'Р Р€РЎвЂЎР С‘РЎвЂљРЎвЂ№Р Р†Р В°РЎвЂљРЎРЉ Р С•РЎРѓРЎвЂљР В°РЎвЂљР С•Р С”?',
-      message: 'Р вЂќР В»РЎРЏ РЎС“РЎРѓР В»РЎС“Р С– Р СР С•Р В¶Р Р…Р С• Р С•РЎвЂљР С”Р В»РЎР‹РЎвЂЎР С‘РЎвЂљРЎРЉ РЎС“РЎвЂЎРЎвЂРЎвЂљ РЎРѓР С”Р В»Р В°Р Т‘Р В°.',
-      confirmLabel: 'Р Р€РЎвЂЎР С‘РЎвЂљРЎвЂ№Р Р†Р В°РЎвЂљРЎРЉ',
+      title: 'Р В Р в‚¬Р РЋРІР‚РЋР В РЎвЂР РЋРІР‚С™Р РЋРІР‚в„–Р В Р вЂ Р В Р’В°Р РЋРІР‚С™Р РЋР Р‰ Р В РЎвЂўР РЋР С“Р РЋРІР‚С™Р В Р’В°Р РЋРІР‚С™Р В РЎвЂўР В РЎвЂќ?',
+      message: 'Р В РІР‚СњР В Р’В»Р РЋР РЏ Р РЋРЎвЂњР РЋР С“Р В Р’В»Р РЋРЎвЂњР В РЎвЂ“ Р В РЎВР В РЎвЂўР В Р’В¶Р В Р вЂ¦Р В РЎвЂў Р В РЎвЂўР РЋРІР‚С™Р В РЎвЂќР В Р’В»Р РЋР вЂ№Р РЋРІР‚РЋР В РЎвЂР РЋРІР‚С™Р РЋР Р‰ Р РЋРЎвЂњР РЋРІР‚РЋР РЋРІР‚ВР РЋРІР‚С™ Р РЋР С“Р В РЎвЂќР В Р’В»Р В Р’В°Р В РўвЂР В Р’В°.',
+      confirmLabel: 'Р В Р в‚¬Р РЋРІР‚РЋР В РЎвЂР РЋРІР‚С™Р РЋРІР‚в„–Р В Р вЂ Р В Р’В°Р РЋРІР‚С™Р РЋР Р‰',
     );
     final sell = ((double.tryParse(sellStr.replaceAll(',', '.')) ?? 0) * 100)
         .round();
@@ -195,11 +220,11 @@ class _InventoryScreenState extends State<InventoryScreen> {
         child: Column(
           children: [
             CupertinoButton(
-              child: const Text('Р СћР С•Р Р†Р В°РЎР‚'),
+              child: const Text('Р В РЎС›Р В РЎвЂўР В Р вЂ Р В Р’В°Р РЋР вЂљ'),
               onPressed: () => Navigator.of(ctx).pop('good'),
             ),
             CupertinoButton(
-              child: const Text('Р Р€РЎРѓР В»РЎС“Р С–Р В°'),
+              child: const Text('Р В Р в‚¬Р РЋР С“Р В Р’В»Р РЋРЎвЂњР В РЎвЂ“Р В Р’В°'),
               onPressed: () => Navigator.of(ctx).pop('service'),
             ),
           ],
@@ -209,12 +234,15 @@ class _InventoryScreenState extends State<InventoryScreen> {
   }
 
   Future<void> _receiveStock(InventoryItem item) async {
-    final qtyStr = await _prompt('Р СџР С•РЎРѓРЎвЂљРЎС“Р С—Р В»Р ВµР Р…Р С‘Р Вµ, Р С”Р С•Р В»-Р Р†Р С• (${item.unit})', '1');
+    final qtyStr = await _prompt(
+      'Р В РЎСџР В РЎвЂўР РЋР С“Р РЋРІР‚С™Р РЋРЎвЂњР В РЎвЂ”Р В Р’В»Р В Р’ВµР В Р вЂ¦Р В РЎвЂР В Р’Вµ, Р В РЎвЂќР В РЎвЂўР В Р’В»-Р В Р вЂ Р В РЎвЂў (${item.unit})',
+      '1',
+    );
     final qty = double.tryParse((qtyStr ?? '').replaceAll(',', '.'));
     if (qty == null || qty <= 0) return;
     final costStr =
         await _prompt(
-          'Р В¦Р ВµР Р…Р В° Р В·Р В° Р ВµР Т‘. (РІвЂљР…)',
+          'Р В Р’В¦Р В Р’ВµР В Р вЂ¦Р В Р’В° Р В Р’В·Р В Р’В° Р В Р’ВµР В РўвЂ. (Р Р†РІР‚С™Р вЂ¦)',
           (item.costCents / 100).toStringAsFixed(0),
         ) ??
         '0';
@@ -225,7 +253,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
       await context.read<MastersStore>().receiveStock(
         itemId: item.id,
         qty: qty,
-        note: 'Р вЂ”Р В°Р С”РЎС“Р С—Р С”Р В°',
+        note: 'Р В РІР‚вЂќР В Р’В°Р В РЎвЂќР РЋРЎвЂњР В РЎвЂ”Р В РЎвЂќР В Р’В°',
       );
     } finally {
       if (mounted) setState(() => _busy = false);
@@ -233,10 +261,18 @@ class _InventoryScreenState extends State<InventoryScreen> {
   }
 
   Future<void> _writeOff(InventoryItem item) async {
-    final qtyStr = await _prompt('Р РЋР С—Р С‘РЎРѓР В°Р Р…Р С‘Р Вµ, Р С”Р С•Р В»-Р Р†Р С• (${item.unit})', '1');
+    final qtyStr = await _prompt(
+      'Р В Р Р‹Р В РЎвЂ”Р В РЎвЂР РЋР С“Р В Р’В°Р В Р вЂ¦Р В РЎвЂР В Р’Вµ, Р В РЎвЂќР В РЎвЂўР В Р’В»-Р В Р вЂ Р В РЎвЂў (${item.unit})',
+      '1',
+    );
     final qty = double.tryParse((qtyStr ?? '').replaceAll(',', '.'));
     if (qty == null || qty <= 0) return;
-    final reason = await _prompt('Р СџРЎР‚Р С‘РЎвЂЎР С‘Р Р…Р В°', 'Р вЂРЎР‚Р В°Р С”/РЎРѓР С—Р С‘РЎРѓР В°Р Р…Р С‘Р Вµ') ?? 'Р РЋР С—Р С‘РЎРѓР В°Р Р…Р С‘Р Вµ';
+    final reason =
+        await _prompt(
+          'Р В РЎСџР РЋР вЂљР В РЎвЂР РЋРІР‚РЋР В РЎвЂР В Р вЂ¦Р В Р’В°',
+          'Р В РІР‚ВР РЋР вЂљР В Р’В°Р В РЎвЂќ/Р РЋР С“Р В РЎвЂ”Р В РЎвЂР РЋР С“Р В Р’В°Р В Р вЂ¦Р В РЎвЂР В Р’Вµ',
+        ) ??
+        'Р В Р Р‹Р В РЎвЂ”Р В РЎвЂР РЋР С“Р В Р’В°Р В Р вЂ¦Р В РЎвЂР В Р’Вµ';
     if (!mounted) return;
     setState(() => _busy = true);
     try {
@@ -259,8 +295,12 @@ class _InventoryScreenState extends State<InventoryScreen> {
       if (!mounted) return;
       await showAppAlert(
         context,
-        title: count > 0 ? 'Р ВР СР С—Р С•РЎР‚РЎвЂљ Р В·Р В°Р Р†Р ВµРЎР‚РЎв‚¬РЎвЂР Р…' : 'Р ВР СР С—Р С•РЎР‚РЎвЂљ',
-        message: count > 0 ? 'Р вЂќР С•Р В±Р В°Р Р†Р В»Р ВµР Р…Р С• РЎвЂљР С•Р Р†Р В°РЎР‚Р С•Р Р†/РЎС“РЎРѓР В»РЎС“Р С–: $count.' : 'Р СњР Вµ РЎС“Р Т‘Р В°Р В»Р С•РЎРѓРЎРЉ Р Т‘Р С•Р В±Р В°Р Р†Р С‘РЎвЂљРЎРЉ Р В·Р В°Р С—Р С‘РЎРѓР С‘. Р СњРЎС“Р В¶Р ВµР Р… РЎРѓРЎвЂљР С•Р В»Р В±Р ВµРЎвЂ  name; Р С—РЎР‚Р С•Р Р†Р ВµРЎР‚РЎРЉРЎвЂљР Вµ РЎвЂћР В°Р в„–Р В» Excel.',
+        title: count > 0
+            ? 'Р В Р’ВР В РЎВР В РЎвЂ”Р В РЎвЂўР РЋР вЂљР РЋРІР‚С™ Р В Р’В·Р В Р’В°Р В Р вЂ Р В Р’ВµР РЋР вЂљР РЋРІвЂљВ¬Р РЋРІР‚ВР В Р вЂ¦'
+            : 'Р В Р’ВР В РЎВР В РЎвЂ”Р В РЎвЂўР РЋР вЂљР РЋРІР‚С™',
+        message: count > 0
+            ? 'Р В РІР‚СњР В РЎвЂўР В Р’В±Р В Р’В°Р В Р вЂ Р В Р’В»Р В Р’ВµР В Р вЂ¦Р В РЎвЂў Р РЋРІР‚С™Р В РЎвЂўР В Р вЂ Р В Р’В°Р РЋР вЂљР В РЎвЂўР В Р вЂ /Р РЋРЎвЂњР РЋР С“Р В Р’В»Р РЋРЎвЂњР В РЎвЂ“: $count.'
+            : 'Р В РЎСљР В Р’Вµ Р РЋРЎвЂњР В РўвЂР В Р’В°Р В Р’В»Р В РЎвЂўР РЋР С“Р РЋР Р‰ Р В РўвЂР В РЎвЂўР В Р’В±Р В Р’В°Р В Р вЂ Р В РЎвЂР РЋРІР‚С™Р РЋР Р‰ Р В Р’В·Р В Р’В°Р В РЎвЂ”Р В РЎвЂР РЋР С“Р В РЎвЂ. Р В РЎСљР РЋРЎвЂњР В Р’В¶Р В Р’ВµР В Р вЂ¦ Р РЋР С“Р РЋРІР‚С™Р В РЎвЂўР В Р’В»Р В Р’В±Р В Р’ВµР РЋРІР‚В  name; Р В РЎвЂ”Р РЋР вЂљР В РЎвЂўР В Р вЂ Р В Р’ВµР РЋР вЂљР РЋР Р‰Р РЋРІР‚С™Р В Р’Вµ Р РЋРІР‚С›Р В Р’В°Р В РІвЂћвЂ“Р В Р’В» Excel.',
       );
     } finally {
       if (mounted) setState(() => _busy = false);
@@ -268,9 +308,12 @@ class _InventoryScreenState extends State<InventoryScreen> {
   }
 
   Future<void> _newSupplier() async {
-    final name = await _prompt('Р ВР СРЎРЏ Р С—Р С•РЎРѓРЎвЂљР В°Р Р†РЎвЂ°Р С‘Р С”Р В°', 'Р С›Р С›Р С› Р СџР С•РЎРѓРЎвЂљР В°Р Р†РЎвЂ°Р С‘Р С”');
+    final name = await _prompt(
+      'Р В Р’ВР В РЎВР РЋР РЏ Р В РЎвЂ”Р В РЎвЂўР РЋР С“Р РЋРІР‚С™Р В Р’В°Р В Р вЂ Р РЋРІР‚В°Р В РЎвЂР В РЎвЂќР В Р’В°',
+      'Р В РЎвЂєР В РЎвЂєР В РЎвЂє Р В РЎСџР В РЎвЂўР РЋР С“Р РЋРІР‚С™Р В Р’В°Р В Р вЂ Р РЋРІР‚В°Р В РЎвЂР В РЎвЂќ',
+    );
     if (name == null || name.trim().isEmpty) return;
-    final phone = await _prompt('Р СћР ВµР В»Р ВµРЎвЂћР С•Р Р…', '') ?? '';
+    final phone = await _prompt('Р В РЎС›Р В Р’ВµР В Р’В»Р В Р’ВµР РЋРІР‚С›Р В РЎвЂўР В Р вЂ¦', '') ?? '';
     if (!mounted) return;
     await context.read<MastersStore>().createSupplier(
       name: name.trim(),
@@ -283,8 +326,8 @@ class _InventoryScreenState extends State<InventoryScreen> {
     if (store.suppliers.isEmpty) {
       await showAppAlert(
         context,
-        title: 'Р СњР ВµРЎвЂљ Р С—Р С•РЎРѓРЎвЂљР В°Р Р†РЎвЂ°Р С‘Р С”Р С•Р Р†',
-        message: 'Р РЋР Р…Р В°РЎвЂЎР В°Р В»Р В° Р Т‘Р С•Р В±Р В°Р Р†РЎРЉРЎвЂљР Вµ Р С—Р С•РЎРѓРЎвЂљР В°Р Р†РЎвЂ°Р С‘Р С”Р В°.',
+        title: 'Р В РЎСљР В Р’ВµР РЋРІР‚С™ Р В РЎвЂ”Р В РЎвЂўР РЋР С“Р РЋРІР‚С™Р В Р’В°Р В Р вЂ Р РЋРІР‚В°Р В РЎвЂР В РЎвЂќР В РЎвЂўР В Р вЂ ',
+        message: 'Р В Р Р‹Р В Р вЂ¦Р В Р’В°Р РЋРІР‚РЋР В Р’В°Р В Р’В»Р В Р’В° Р В РўвЂР В РЎвЂўР В Р’В±Р В Р’В°Р В Р вЂ Р РЋР Р‰Р РЋРІР‚С™Р В Р’Вµ Р В РЎвЂ”Р В РЎвЂўР РЋР С“Р РЋРІР‚С™Р В Р’В°Р В Р вЂ Р РЋРІР‚В°Р В РЎвЂР В РЎвЂќР В Р’В°.',
       );
       return;
     }
@@ -292,19 +335,28 @@ class _InventoryScreenState extends State<InventoryScreen> {
     if (supplierId == null || !mounted) return;
     final itemId = await _pickInventoryItem(store);
     if (itemId == null || !mounted) return;
-    final qtyStr = await _prompt('Р С™Р С•Р В»Р С‘РЎвЂЎР ВµРЎРѓРЎвЂљР Р†Р С•', '1');
+    final qtyStr = await _prompt(
+      'Р В РЎв„ўР В РЎвЂўР В Р’В»Р В РЎвЂР РЋРІР‚РЋР В Р’ВµР РЋР С“Р РЋРІР‚С™Р В Р вЂ Р В РЎвЂў',
+      '1',
+    );
     final qty = double.tryParse((qtyStr ?? '').trim().replaceAll(',', '.'));
     if (qty == null || qty <= 0 || !mounted) return;
-    final priceStr = await _prompt('Р В¦Р ВµР Р…Р В° Р В·Р В° Р ВµР Т‘.', '0');
+    final priceStr = await _prompt('Р В Р’В¦Р В Р’ВµР В Р вЂ¦Р В Р’В° Р В Р’В·Р В Р’В° Р В Р’ВµР В РўвЂ.', '0');
     final price =
         ((double.tryParse((priceStr ?? '0').replaceAll(',', '.')) ?? 0) * 100)
             .round();
     if (price <= 0 || !mounted) return;
-    final note = await _prompt('Р С™Р С•Р СР СР ВµР Р…РЎвЂљР В°РЎР‚Р С‘Р в„–', '');
+    final note = await _prompt(
+      'Р В РЎв„ўР В РЎвЂўР В РЎВР В РЎВР В Р’ВµР В Р вЂ¦Р РЋРІР‚С™Р В Р’В°Р РЋР вЂљР В РЎвЂР В РІвЂћвЂ“',
+      '',
+    );
     if (!mounted) return;
     final accountId = await _pickAccount(store);
     if (accountId == null || !mounted) return;
-    final paidStr = await _prompt('Р С›Р С—Р В»Р В°РЎвЂЎР ВµР Р…Р С• РЎРѓР ВµР в„–РЎвЂЎР В°РЎРѓ (0 = Р Т‘Р С•Р В»Р С–)', '0');
+    final paidStr = await _prompt(
+      'Р В РЎвЂєР В РЎвЂ”Р В Р’В»Р В Р’В°Р РЋРІР‚РЋР В Р’ВµР В Р вЂ¦Р В РЎвЂў Р РЋР С“Р В Р’ВµР В РІвЂћвЂ“Р РЋРІР‚РЋР В Р’В°Р РЋР С“ (0 = Р В РўвЂР В РЎвЂўР В Р’В»Р В РЎвЂ“)',
+      '0',
+    );
     final paid =
         ((double.tryParse((paidStr ?? '0').replaceAll(',', '.')) ?? 0) * 100)
             .round();
@@ -347,7 +399,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
               ),
               const SizedBox(height: 4),
               Text(
-                'Р вЂќР С•Р В»Р С–: ${_money(store.supplierDebtCents(supplier.id))}',
+                'Р В РІР‚СњР В РЎвЂўР В Р’В»Р В РЎвЂ“: ${_money(store.supplierDebtCents(supplier.id))}',
                 style: TextStyle(color: context.colors.secondaryLabel),
               ),
               const SizedBox(height: 12),
@@ -364,7 +416,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
                             children: [
                               Expanded(
                                 child: Text(
-                                  '#${purchase.id.substring(0, 6)} Р’В· ${_money(purchase.totalCents)}',
+                                  '#${purchase.id.substring(0, 6)} Р вЂ™Р’В· ${_money(purchase.totalCents)}',
                                   style: const TextStyle(
                                     fontWeight: FontWeight.w500,
                                   ),
@@ -377,7 +429,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
                                   await _paySupplier(supplier);
                                 },
                                 child: const Text(
-                                  'Р С›Р С—Р В»Р В°РЎвЂљР С‘РЎвЂљРЎРЉ',
+                                  'Р В РЎвЂєР В РЎвЂ”Р В Р’В»Р В Р’В°Р РЋРІР‚С™Р В РЎвЂР РЋРІР‚С™Р РЋР Р‰',
                                   style: TextStyle(fontSize: 12),
                                 ),
                               ),
@@ -387,14 +439,14 @@ class _InventoryScreenState extends State<InventoryScreen> {
                       ),
                     if (store.purchasesForSupplier(supplier.id).isEmpty)
                       EmptyState(
-                        title: 'Р СњР ВµРЎвЂљ Р В·Р В°Р С”РЎС“Р С—Р С•Р С”',
-                        message: 'Р вЂ”Р В°Р С—Р С‘РЎв‚¬Р С‘РЎвЂљР Вµ Р С—Р ВµРЎР‚Р Р†РЎС“РЎР‹ Р В·Р В°Р С”РЎС“Р С—Р С”РЎС“ Р Т‘Р В»РЎРЏ Р С—Р С•РЎРѓРЎвЂљР В°Р Р†РЎвЂ°Р С‘Р С”Р В°.',
+                        title: 'Р В РЎСљР В Р’ВµР РЋРІР‚С™ Р В Р’В·Р В Р’В°Р В РЎвЂќР РЋРЎвЂњР В РЎвЂ”Р В РЎвЂўР В РЎвЂќ',
+                        message: 'Р В РІР‚вЂќР В Р’В°Р В РЎвЂ”Р В РЎвЂР РЋРІвЂљВ¬Р В РЎвЂР РЋРІР‚С™Р В Р’Вµ Р В РЎвЂ”Р В Р’ВµР РЋР вЂљР В Р вЂ Р РЋРЎвЂњР РЋР вЂ№ Р В Р’В·Р В Р’В°Р В РЎвЂќР РЋРЎвЂњР В РЎвЂ”Р В РЎвЂќР РЋРЎвЂњ Р В РўвЂР В Р’В»Р РЋР РЏ Р В РЎвЂ”Р В РЎвЂўР РЋР С“Р РЋРІР‚С™Р В Р’В°Р В Р вЂ Р РЋРІР‚В°Р В РЎвЂР В РЎвЂќР В Р’В°.',
                       ),
                   ],
                 ),
               ),
               SecondaryButton(
-                label: 'Р вЂ”Р В°Р С”РЎР‚РЎвЂ№РЎвЂљРЎРЉ',
+                label: 'Р В РІР‚вЂќР В Р’В°Р В РЎвЂќР РЋР вЂљР РЋРІР‚в„–Р РЋРІР‚С™Р РЋР Р‰',
                 icon: CupertinoIcons.xmark,
                 onPressed: () => Navigator.of(modalContext).pop(),
               ),
@@ -410,8 +462,8 @@ class _InventoryScreenState extends State<InventoryScreen> {
     if (store.accounts.isEmpty) {
       await showAppAlert(
         context,
-        title: 'Р СњР ВµРЎвЂљ РЎРѓРЎвЂЎРЎвЂРЎвЂљР В°',
-        message: 'Р РЋР Р…Р В°РЎвЂЎР В°Р В»Р В° РЎРѓР С•Р В·Р Т‘Р В°Р в„–РЎвЂљР Вµ РЎРѓРЎвЂЎРЎвЂРЎвЂљ Р Р† РЎР‚Р В°Р В·Р Т‘Р ВµР В»Р Вµ Р вЂќР ВµР Р…РЎРЉР С–Р С‘.',
+        title: 'Р В РЎСљР В Р’ВµР РЋРІР‚С™ Р РЋР С“Р РЋРІР‚РЋР РЋРІР‚ВР РЋРІР‚С™Р В Р’В°',
+        message: 'Р В Р Р‹Р В Р вЂ¦Р В Р’В°Р РЋРІР‚РЋР В Р’В°Р В Р’В»Р В Р’В° Р РЋР С“Р В РЎвЂўР В Р’В·Р В РўвЂР В Р’В°Р В РІвЂћвЂ“Р РЋРІР‚С™Р В Р’Вµ Р РЋР С“Р РЋРІР‚РЋР РЋРІР‚ВР РЋРІР‚С™ Р В Р вЂ  Р РЋР вЂљР В Р’В°Р В Р’В·Р В РўвЂР В Р’ВµР В Р’В»Р В Р’Вµ Р В РІР‚СњР В Р’ВµР В Р вЂ¦Р РЋР Р‰Р В РЎвЂ“Р В РЎвЂ.',
       );
       return;
     }
@@ -429,7 +481,9 @@ class _InventoryScreenState extends State<InventoryScreen> {
             children: [
               CupertinoButton(
                 onPressed: () => Navigator.of(ctx).pop(),
-                child: const Text('Р С›Р В±РЎвЂ°Р В°РЎРЏ Р С•Р С—Р В»Р В°РЎвЂљР В° (Р В±Р ВµР В· Р С—РЎР‚Р С‘Р Р†РЎРЏР В·Р С”Р С‘)'),
+                child: const Text(
+                  'Р В РЎвЂєР В Р’В±Р РЋРІР‚В°Р В Р’В°Р РЋР РЏ Р В РЎвЂўР В РЎвЂ”Р В Р’В»Р В Р’В°Р РЋРІР‚С™Р В Р’В° (Р В Р’В±Р В Р’ВµР В Р’В· Р В РЎвЂ”Р РЋР вЂљР В РЎвЂР В Р вЂ Р РЋР РЏР В Р’В·Р В РЎвЂќР В РЎвЂ)',
+                ),
               ),
               for (final purchase in purchases)
                 CupertinoButton(
@@ -437,7 +491,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
                   child: Align(
                     alignment: Alignment.centerLeft,
                     child: Text(
-                      'Р вЂ”Р В°Р С”РЎС“Р С—Р С”Р В° ${purchase.id.substring(0, 6)} Р’В· ${_money(purchase.totalCents)}',
+                      'Р В РІР‚вЂќР В Р’В°Р В РЎвЂќР РЋРЎвЂњР В РЎвЂ”Р В РЎвЂќР В Р’В° ${purchase.id.substring(0, 6)} Р вЂ™Р’В· ${_money(purchase.totalCents)}',
                     ),
                   ),
                 ),
@@ -446,14 +500,19 @@ class _InventoryScreenState extends State<InventoryScreen> {
         ),
       );
     }
-    final amountStr = await _prompt('Р РЋРЎС“Р СР СР В° Р С•Р С—Р В»Р В°РЎвЂљРЎвЂ№', '0');
+    final amountStr = await _prompt(
+      'Р В Р Р‹Р РЋРЎвЂњР В РЎВР В РЎВР В Р’В° Р В РЎвЂўР В РЎвЂ”Р В Р’В»Р В Р’В°Р РЋРІР‚С™Р РЋРІР‚в„–',
+      '0',
+    );
     final amount =
         ((double.tryParse((amountStr ?? '').replaceAll(',', '.')) ?? 0) * 100)
             .round();
     if (amount <= 0 || !mounted) return;
     final accountId = await _pickAccount(store);
     if (accountId == null || !mounted) return;
-    final note = await _prompt('Р С™Р С•Р СР СР ВµР Р…РЎвЂљР В°РЎР‚Р С‘Р в„–', '') ?? '';
+    final note =
+        await _prompt('Р В РЎв„ўР В РЎвЂўР В РЎВР В РЎВР В Р’ВµР В Р вЂ¦Р РЋРІР‚С™Р В Р’В°Р РЋР вЂљР В РЎвЂР В РІвЂћвЂ“', '') ??
+        '';
     if (!mounted) return;
     setState(() => _busy = true);
     try {
@@ -471,8 +530,8 @@ class _InventoryScreenState extends State<InventoryScreen> {
       if (mounted) {
         await showAppAlert(
           context,
-          title: 'Р вЂњР С•РЎвЂљР С•Р Р†Р С•',
-          message: 'Р С›Р С—Р В»Р В°РЎвЂљР В° Р С—Р С•РЎРѓРЎвЂљР В°Р Р†РЎвЂ°Р С‘Р С”РЎС“ Р С—РЎР‚Р С•Р Р†Р ВµР Т‘Р ВµР Р…Р В°.',
+          title: 'Р В РІР‚СљР В РЎвЂўР РЋРІР‚С™Р В РЎвЂўР В Р вЂ Р В РЎвЂў',
+          message: 'Р В РЎвЂєР В РЎвЂ”Р В Р’В»Р В Р’В°Р РЋРІР‚С™Р В Р’В° Р В РЎвЂ”Р В РЎвЂўР РЋР С“Р РЋРІР‚С™Р В Р’В°Р В Р вЂ Р РЋРІР‚В°Р В РЎвЂР В РЎвЂќР РЋРЎвЂњ Р В РЎвЂ”Р РЋР вЂљР В РЎвЂўР В Р вЂ Р В Р’ВµР В РўвЂР В Р’ВµР В Р вЂ¦Р В Р’В°.',
         );
       }
     } finally {
@@ -483,10 +542,10 @@ class _InventoryScreenState extends State<InventoryScreen> {
   Future<void> _deleteSupplier(Supplier supplier) async {
     final ok = await showAppConfirm(
       context,
-      title: 'Р Р€Р Т‘Р В°Р В»Р С‘РЎвЂљРЎРЉ Р С—Р С•РЎРѓРЎвЂљР В°Р Р†РЎвЂ°Р С‘Р С”Р В°?',
+      title: 'Р В Р в‚¬Р В РўвЂР В Р’В°Р В Р’В»Р В РЎвЂР РЋРІР‚С™Р РЋР Р‰ Р В РЎвЂ”Р В РЎвЂўР РЋР С“Р РЋРІР‚С™Р В Р’В°Р В Р вЂ Р РЋРІР‚В°Р В РЎвЂР В РЎвЂќР В Р’В°?',
       message: supplier.name,
       destructive: true,
-      confirmLabel: 'Р Р€Р Т‘Р В°Р В»Р С‘РЎвЂљРЎРЉ',
+      confirmLabel: 'Р В Р в‚¬Р В РўвЂР В Р’В°Р В Р’В»Р В РЎвЂР РЋРІР‚С™Р РЋР Р‰',
     );
     if (!ok || !mounted) return;
     setState(() => _busy = true);
@@ -569,15 +628,15 @@ class _InventoryScreenState extends State<InventoryScreen> {
     );
   }
 
-  String _money(int cents) => '${(cents / 100).toStringAsFixed(0)} РІвЂљР…';
+  String _money(int cents) => '${(cents / 100).toStringAsFixed(0)} Р Р†РІР‚С™Р вЂ¦';
 
   Future<void> _delete(InventoryItem item) async {
     final ok = await showAppConfirm(
       context,
-      title: 'Р Р€Р Т‘Р В°Р В»Р С‘РЎвЂљРЎРЉ Р С—Р С•Р В·Р С‘РЎвЂ Р С‘РЎР‹?',
+      title: 'Р В Р в‚¬Р В РўвЂР В Р’В°Р В Р’В»Р В РЎвЂР РЋРІР‚С™Р РЋР Р‰ Р В РЎвЂ”Р В РЎвЂўР В Р’В·Р В РЎвЂР РЋРІР‚В Р В РЎвЂР РЋР вЂ№?',
       message: item.name,
       destructive: true,
-      confirmLabel: 'Р Р€Р Т‘Р В°Р В»Р С‘РЎвЂљРЎРЉ',
+      confirmLabel: 'Р В Р в‚¬Р В РўвЂР В Р’В°Р В Р’В»Р В РЎвЂР РЋРІР‚С™Р РЋР Р‰',
     );
     if (!ok) return;
     if (!mounted) return;
@@ -585,26 +644,30 @@ class _InventoryScreenState extends State<InventoryScreen> {
   }
 
   Future<void> _editItem(InventoryItem item) async {
-    final name = await _prompt('Р СњР В°Р В·Р Р†Р В°Р Р…Р С‘Р Вµ', item.name, initial: item.name);
+    final name = await _prompt(
+      'Р В РЎСљР В Р’В°Р В Р’В·Р В Р вЂ Р В Р’В°Р В Р вЂ¦Р В РЎвЂР В Р’Вµ',
+      item.name,
+      initial: item.name,
+    );
     if (name == null || name.trim().isEmpty) return;
     final unit = await _pickUnit() ?? item.unit;
     final sellStr =
         await _prompt(
-          'Р В¦Р ВµР Р…Р В° Р С—РЎР‚Р С•Р Т‘Р В°Р В¶Р С‘ (РІвЂљР…)',
+          'Р В Р’В¦Р В Р’ВµР В Р вЂ¦Р В Р’В° Р В РЎвЂ”Р РЋР вЂљР В РЎвЂўР В РўвЂР В Р’В°Р В Р’В¶Р В РЎвЂ (Р Р†РІР‚С™Р вЂ¦)',
           (item.sellPriceCents / 100).toStringAsFixed(0),
           initial: (item.sellPriceCents / 100).toStringAsFixed(0),
         ) ??
         (item.sellPriceCents / 100).toString();
     final costStr =
         await _prompt(
-          'Р РЋР ВµР В±Р ВµРЎРѓРЎвЂљР С•Р С‘Р СР С•РЎРѓРЎвЂљРЎРЉ (РІвЂљР…)',
+          'Р В Р Р‹Р В Р’ВµР В Р’В±Р В Р’ВµР РЋР С“Р РЋРІР‚С™Р В РЎвЂўР В РЎвЂР В РЎВР В РЎвЂўР РЋР С“Р РЋРІР‚С™Р РЋР Р‰ (Р Р†РІР‚С™Р вЂ¦)',
           (item.costCents / 100).toStringAsFixed(0),
           initial: (item.costCents / 100).toStringAsFixed(0),
         ) ??
         '0';
     final minStr =
         await _prompt(
-          'Р СљР С‘Р Р…. Р С•РЎРѓРЎвЂљР В°РЎвЂљР С•Р С”',
+          'Р В РЎС™Р В РЎвЂР В Р вЂ¦. Р В РЎвЂўР РЋР С“Р РЋРІР‚С™Р В Р’В°Р РЋРІР‚С™Р В РЎвЂўР В РЎвЂќ',
           item.minQty.toString(),
           initial: item.minQty.toString(),
         ) ??
@@ -633,18 +696,18 @@ class _InventoryScreenState extends State<InventoryScreen> {
 
   Future<void> _showItemHistory(InventoryItem item) async {
     final store = context.read<MastersStore>();
-    final movements = store.stockMovementsByItem(item.id);
+    final movements = store.stockMovementsForItem(item.id);
 
     String typeLabel(String type) {
       switch (type) {
         case 'in':
-          return 'Поступление';
+          return 'РџРѕСЃС‚СѓРїР»РµРЅРёРµ';
         case 'out':
-          return 'Расход';
+          return 'Р Р°СЃС…РѕРґ';
         case 'writeoff':
-          return 'Списание';
+          return 'РЎРїРёСЃР°РЅРёРµ';
         case 'adjust':
-          return 'Корректировка';
+          return 'РљРѕСЂСЂРµРєС‚РёСЂРѕРІРєР°';
         default:
           return type;
       }
@@ -676,7 +739,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
     }
 
     String formatStock(double value) {
-      final prefix = value < 0 ? '−' : '';
+      final prefix = value < 0 ? 'в€’' : '';
       return '$prefix${formatQty(value)}';
     }
 
@@ -693,148 +756,111 @@ class _InventoryScreenState extends State<InventoryScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        item.name,
-                        style: const TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                    ),
-                    CupertinoButton(
-                      padding: EdgeInsets.zero,
-                      onPressed: () => Navigator.of(modalContext).pop(),
-                      child: Icon(
-                        CupertinoIcons.xmark,
-                        size: 18,
-                        color: colors.tertiaryLabel,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 2),
                 Text(
-                  item.stockQty < 0
-                      ? 'Текущий остаток: −${formatQty(item.stockQty)} ${item.unit} • Отрицательный остаток'
-                      : 'Текущий остаток: ${formatQty(item.stockQty)} ${item.unit}',
-                  style: TextStyle(
-                    color: item.stockQty < 0 ? colors.red : colors.secondaryLabel,
-                    fontSize: 13,
-                    fontWeight: item.stockQty < 0
-                        ? FontWeight.w600
-                        : FontWeight.w400,
+                  item.name,
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w700,
                   ),
                 ),
-                const SizedBox(height: 2),
+                const SizedBox(height: 4),
                 Text(
-                  'Себестоимость позиции: ${(item.costCents / 100).toStringAsFixed(2)} ₽/${item.unit}',
-                  style: TextStyle(
-                    color: colors.secondaryLabel,
-                    fontSize: 12,
-                  ),
+                  'РћСЃС‚Р°С‚РѕРє: ${item.stockQty.toStringAsFixed(item.stockQty % 1 == 0 ? 0 : 2)} ${item.unit}',
+                  style: TextStyle(color: colors.secondaryLabel),
                 ),
                 const SizedBox(height: 12),
                 Expanded(
                   child: movements.isEmpty
                       ? EmptyState(
-                          title: 'Нет движений',
+                          title: 'РќРµС‚ РґРІРёР¶РµРЅРёР№',
                           message:
-                              'История поступлений и списаний по этой позиции появится здесь.',
-                          art: Icon(
-                            CupertinoIcons.clock,
-                            size: 36,
-                            color: colors.tertiaryLabel,
-                          ),
+                              'РСЃС‚РѕСЂРёСЏ РїРѕСЃС‚СѓРїР»РµРЅРёР№ Рё СЃРїРёСЃР°РЅРёР№ РїРѕСЏРІРёС‚СЃСЏ Р·РґРµСЃСЊ.',
                         )
-                      : ListView.builder(
-                          itemCount: movements.length,
-                          itemBuilder: (context, index) {
-                            final movement = movements[index];
-                            final delta = signedDelta(movement);
-                            final isIncrease = delta >= 0;
-                            final qtyColor = isIncrease ? colors.label : colors.red;
-                            final qtyPrefix = isIncrease ? '+' : '−';
-                            final reason = movement.note?.trim();
-                            final balance = balancesAfter[movement.id] ?? item.stockQty;
+                      : ListView(
+                          children: movements.map((movement) {
+                            final delta = movement.qty < 0
+                                ? movement.qty
+                                : (movement.type == 'out' ||
+                                        movement.type == 'writeoff' ||
+                                        movement.type == 'sale')
+                                    ? -movement.qty
+                                    : movement.qty;
                             return Padding(
                               padding: const EdgeInsets.only(bottom: 8),
                               child: AppCard(
                                 child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  crossAxisAlignment:
+                                      CrossAxisAlignment.start,
                                   children: [
                                     Row(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
                                       children: [
                                         Expanded(
-                                          child: Column(
-                                            crossAxisAlignment:
-                                                CrossAxisAlignment.start,
-                                            children: [
-                                              Text(
-                                                '${typeLabel(movement.type)}${reason == null || reason.isEmpty ? '' : ' · $reason'}',
-                                                style: const TextStyle(
-                                                  fontWeight: FontWeight.w600,
-                                                ),
-                                              ),
-                                              const SizedBox(height: 2),
-                                              Text(
-                                                DateFormat(
-                                                  'dd.MM.yyyy HH:mm',
-                                                  'ru',
-                                                ).format(movement.createdAt),
-                                                style: TextStyle(
-                                                  color: colors.secondaryLabel,
-                                                  fontSize: 12,
-                                                ),
-                                              ),
-                                            ],
+                                          child: Text(
+                                            typeLabel(movement.type),
+                                            style: TextStyle(
+                                              fontWeight: FontWeight.w600,
+                                              color: delta >= 0
+                                                  ? colors.green
+                                                  : colors.red,
+                                            ),
                                           ),
                                         ),
                                         Text(
-                                          '$qtyPrefix${formatQty(delta)} ${item.unit}',
+                                          '${delta >= 0 ? '+' : ''}${delta.toStringAsFixed(delta.abs() % 1 == 0 ? 0 : 2)} ${item.unit}',
                                           style: TextStyle(
-                                            color: qtyColor,
                                             fontWeight: FontWeight.w700,
-                                            fontFeatures: const [
-                                              FontFeature.tabularFigures(),
-                                            ],
+                                            color: delta >= 0
+                                                ? colors.green
+                                                : colors.red,
                                           ),
                                         ),
                                       ],
                                     ),
-                                    const SizedBox(height: 4),
+                                    const SizedBox(height: 2),
                                     Text(
-                                      'Остаток после: ${formatStock(balance)} ${item.unit}${balance < 0 ? ' • Отрицательный остаток' : ''}',
+                                      DateFormat(
+                                        'dd.MM.yyyy HH:mm',
+                                        'ru',
+                                      ).format(movement.createdAt),
                                       style: TextStyle(
-                                        color: balance < 0
-                                            ? colors.red
-                                            : colors.secondaryLabel,
+                                        color: colors.secondaryLabel,
                                         fontSize: 12,
                                       ),
                                     ),
+                                    if ((movement.note ?? '')
+                                        .trim()
+                                        .isNotEmpty) ...[
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        'РџСЂРёС‡РёРЅР°: ${movement.note}',
+                                        style: TextStyle(
+                                          color: colors.secondaryLabel,
+                                          fontSize: 13,
+                                        ),
+                                      ),
+                                    ],
                                   ],
                                 ),
                               ),
                             );
-                          },
+                          }).toList(),
                         ),
                 ),
+                const SizedBox(height: 8),
                 SecondaryButton(
-                  label: 'Закрыть',
+                  label: 'Р—Р°РєСЂС‹С‚СЊ',
                   icon: CupertinoIcons.xmark,
-                  onPressed: () => Navigator.of(modalContext).pop(),
+                  onPressed: () =>
+                      Navigator.of(modalContext).pop(),
                 ),
               ],
             ),
           ),
-        ),
-      );
-    },
-  );
-}
+        );
+      },
+    );
+
+  }
 
   @override
   void dispose() {
@@ -850,14 +876,17 @@ class _InventoryScreenState extends State<InventoryScreen> {
 
     return CupertinoPageScaffold(
       navigationBar: CupertinoNavigationBar(
-        middle: const Text('Р РЋР С”Р В»Р В°Р Т‘'),
+        middle: const Text('Р В Р Р‹Р В РЎвЂќР В Р’В»Р В Р’В°Р В РўвЂ'),
         trailing: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
             CupertinoButton(
               padding: EdgeInsets.zero,
               onPressed: _newItem,
-              child: const Icon(CupertinoIcons.plus, semanticLabel: 'Р вЂќР С•Р В±Р В°Р Р†Р С‘РЎвЂљРЎРЉ'),
+              child: const Icon(
+                CupertinoIcons.plus,
+                semanticLabel: 'Р В РІР‚СњР В РЎвЂўР В Р’В±Р В Р’В°Р В Р вЂ Р В РЎвЂР РЋРІР‚С™Р РЋР Р‰',
+              ),
             ),
           ],
         ),
@@ -872,24 +901,24 @@ class _InventoryScreenState extends State<InventoryScreen> {
                     const SizedBox(height: 0),
                   ],
                   SectionLabel(
-                    'Р СџР С•РЎРѓРЎвЂљР В°Р Р†РЎвЂ°Р С‘Р С”Р С‘ Р С‘ Р В·Р В°Р С”РЎС“Р С—Р С”Р С‘ (${store.suppliers.length})',
+                    'Р В РЎСџР В РЎвЂўР РЋР С“Р РЋРІР‚С™Р В Р’В°Р В Р вЂ Р РЋРІР‚В°Р В РЎвЂР В РЎвЂќР В РЎвЂ Р В РЎвЂ Р В Р’В·Р В Р’В°Р В РЎвЂќР РЋРЎвЂњР В РЎвЂ”Р В РЎвЂќР В РЎвЂ (${store.suppliers.length})',
                   ),
                   PrimaryButton(
-                    label: 'Р СњР С•Р Р†РЎвЂ№Р в„– Р С—Р С•РЎРѓРЎвЂљР В°Р Р†РЎвЂ°Р С‘Р С”',
+                    label: 'Р В РЎСљР В РЎвЂўР В Р вЂ Р РЋРІР‚в„–Р В РІвЂћвЂ“ Р В РЎвЂ”Р В РЎвЂўР РЋР С“Р РЋРІР‚С™Р В Р’В°Р В Р вЂ Р РЋРІР‚В°Р В РЎвЂР В РЎвЂќ',
                     icon: CupertinoIcons.person_badge_plus,
                     onPressed: _newSupplier,
                   ),
                   const SizedBox(height: 8),
                   SecondaryButton(
-                    label: 'Р вЂ”Р В°Р С—Р С‘РЎРѓР В°РЎвЂљРЎРЉ Р В·Р В°Р С”РЎС“Р С—Р С”РЎС“',
+                    label: 'Р В РІР‚вЂќР В Р’В°Р В РЎвЂ”Р В РЎвЂР РЋР С“Р В Р’В°Р РЋРІР‚С™Р РЋР Р‰ Р В Р’В·Р В Р’В°Р В РЎвЂќР РЋРЎвЂњР В РЎвЂ”Р В РЎвЂќР РЋРЎвЂњ',
                     icon: CupertinoIcons.doc_on_clipboard,
                     onPressed: _recordPurchase,
                   ),
                   const SizedBox(height: 8),
                   if (store.suppliers.isEmpty)
                     EmptyState(
-                      title: 'Р СњР ВµРЎвЂљ Р С—Р С•РЎРѓРЎвЂљР В°Р Р†РЎвЂ°Р С‘Р С”Р С•Р Р†',
-                      message: 'Р вЂќР С•Р В±Р В°Р Р†РЎРЉРЎвЂљР Вµ Р С—Р С•РЎРѓРЎвЂљР В°Р Р†РЎвЂ°Р С‘Р С”Р В°, РЎвЂЎРЎвЂљР С•Р В±РЎвЂ№ РЎС“РЎвЂЎР С‘РЎвЂљРЎвЂ№Р Р†Р В°РЎвЂљРЎРЉ Р В·Р В°Р С”РЎС“Р С—Р С”Р С‘ Р С‘ Р Т‘Р С•Р В»Р С–Р С‘.',
+                      title: 'Р В РЎСљР В Р’ВµР РЋРІР‚С™ Р В РЎвЂ”Р В РЎвЂўР РЋР С“Р РЋРІР‚С™Р В Р’В°Р В Р вЂ Р РЋРІР‚В°Р В РЎвЂР В РЎвЂќР В РЎвЂўР В Р вЂ ',
+                      message: 'Р В РІР‚СњР В РЎвЂўР В Р’В±Р В Р’В°Р В Р вЂ Р РЋР Р‰Р РЋРІР‚С™Р В Р’Вµ Р В РЎвЂ”Р В РЎвЂўР РЋР С“Р РЋРІР‚С™Р В Р’В°Р В Р вЂ Р РЋРІР‚В°Р В РЎвЂР В РЎвЂќР В Р’В°, Р РЋРІР‚РЋР РЋРІР‚С™Р В РЎвЂўР В Р’В±Р РЋРІР‚в„– Р РЋРЎвЂњР РЋРІР‚РЋР В РЎвЂР РЋРІР‚С™Р РЋРІР‚в„–Р В Р вЂ Р В Р’В°Р РЋРІР‚С™Р РЋР Р‰ Р В Р’В·Р В Р’В°Р В РЎвЂќР РЋРЎвЂњР В РЎвЂ”Р В РЎвЂќР В РЎвЂ Р В РЎвЂ Р В РўвЂР В РЎвЂўР В Р’В»Р В РЎвЂ“Р В РЎвЂ.',
                       art: Icon(
                         CupertinoIcons.person_2,
                         size: 36,
@@ -918,7 +947,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
                                     ),
                                   ),
                                   Text(
-                                    'Р вЂќР С•Р В»Р С–: ${_money(store.supplierDebtCents(supplier.id))}',
+                                    'Р В РІР‚СњР В РЎвЂўР В Р’В»Р В РЎвЂ“: ${_money(store.supplierDebtCents(supplier.id))}',
                                     style: TextStyle(
                                       color: colors.secondaryLabel,
                                       fontSize: 12,
@@ -930,7 +959,8 @@ class _InventoryScreenState extends State<InventoryScreen> {
                                     child: const Icon(
                                       CupertinoIcons.money_dollar,
                                       size: 18,
-                                      semanticLabel: 'Р С›Р С—Р В»Р В°РЎвЂљР С‘РЎвЂљРЎРЉ',
+                                      semanticLabel:
+                                          'Р В РЎвЂєР В РЎвЂ”Р В Р’В»Р В Р’В°Р РЋРІР‚С™Р В РЎвЂР РЋРІР‚С™Р РЋР Р‰',
                                     ),
                                   ),
                                   CupertinoButton(
@@ -940,7 +970,8 @@ class _InventoryScreenState extends State<InventoryScreen> {
                                       CupertinoIcons.xmark,
                                       size: 16,
                                       color: colors.tertiaryLabel,
-                                      semanticLabel: 'Р Р€Р Т‘Р В°Р В»Р С‘РЎвЂљРЎРЉ',
+                                      semanticLabel:
+                                          'Р В Р в‚¬Р В РўвЂР В Р’В°Р В Р’В»Р В РЎвЂР РЋРІР‚С™Р РЋР Р‰',
                                     ),
                                   ),
                                 ],
@@ -951,7 +982,9 @@ class _InventoryScreenState extends State<InventoryScreen> {
                     ),
                   const SizedBox(height: 16),
                   if (low.isNotEmpty) ...[
-                    SectionLabel('Р СњР С‘Р В·Р С”Р С‘Р в„– Р С•РЎРѓРЎвЂљР В°РЎвЂљР С•Р С” (${low.length})'),
+                    SectionLabel(
+                      'Р В РЎСљР В РЎвЂР В Р’В·Р В РЎвЂќР В РЎвЂР В РІвЂћвЂ“ Р В РЎвЂўР РЋР С“Р РЋРІР‚С™Р В Р’В°Р РЋРІР‚С™Р В РЎвЂўР В РЎвЂќ (${low.length})',
+                    ),
                     AppCard(
                       child: Column(
                         children: low
@@ -971,7 +1004,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
                                       ),
                                     ),
                                     Text(
-                                      '${i.stockQty.toStringAsFixed(i.stockQty % 1 == 0 ? 0 : 2)} ${i.unit} (Р СР С‘Р Р… ${i.minQty})',
+                                      '${i.stockQty.toStringAsFixed(i.stockQty % 1 == 0 ? 0 : 2)} ${i.unit} (Р В РЎВР В РЎвЂР В Р вЂ¦ ${i.minQty})',
                                       style: TextStyle(
                                         color: colors.red,
                                         fontSize: 12,
@@ -988,7 +1021,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
                     const SizedBox(height: 16),
                   ],
                   SecondaryButton(
-                    label: 'Р ВР СР С—Р С•РЎР‚РЎвЂљ Р С‘Р В· Excel',
+                    label: 'Р В Р’ВР В РЎВР В РЎвЂ”Р В РЎвЂўР РЋР вЂљР РЋРІР‚С™ Р В РЎвЂР В Р’В· Excel',
                     icon: CupertinoIcons.doc_on_doc,
                     onPressed: _importInventoryExcel,
                   ),
@@ -996,25 +1029,29 @@ class _InventoryScreenState extends State<InventoryScreen> {
                   const SizedBox(height: 8),
                   CupertinoTextField(
                     controller: _searchController,
-                    placeholder: 'Р СџР С•Р С‘РЎРѓР С” Р С—Р С• РЎРѓР С”Р В»Р В°Р Т‘РЎС“',
+                    placeholder: 'Р В РЎСџР В РЎвЂўР В РЎвЂР РЋР С“Р В РЎвЂќ Р В РЎвЂ”Р В РЎвЂў Р РЋР С“Р В РЎвЂќР В Р’В»Р В Р’В°Р В РўвЂР РЋРЎвЂњ',
                     onChanged: (v) => setState(() => _invQuery = v),
                   ),
                   const SizedBox(height: 8),
                   SecondaryButton(
                     label: _invFilter == 'all'
-                        ? 'Р В¤Р С‘Р В»РЎРЉРЎвЂљРЎР‚: Р Р†РЎРѓР Вµ'
+                        ? 'Р В Р’В¤Р В РЎвЂР В Р’В»Р РЋР Р‰Р РЋРІР‚С™Р РЋР вЂљ: Р В Р вЂ Р РЋР С“Р В Р’Вµ'
                         : (_invFilter == 'good'
-                              ? 'Р СћР С•Р Р†Р В°РЎР‚РЎвЂ№'
-                              : (_invFilter == 'service' ? 'Р Р€РЎРѓР В»РЎС“Р С–Р С‘' : 'Р СљР В°Р В»Р С•')),
+                              ? 'Р В РЎС›Р В РЎвЂўР В Р вЂ Р В Р’В°Р РЋР вЂљР РЋРІР‚в„–'
+                              : (_invFilter == 'service'
+                                    ? 'Р В Р в‚¬Р РЋР С“Р В Р’В»Р РЋРЎвЂњР В РЎвЂ“Р В РЎвЂ'
+                                    : 'Р В РЎС™Р В Р’В°Р В Р’В»Р В РЎвЂў')),
                     icon: CupertinoIcons.line_horizontal_3_decrease,
                     onPressed: _pickInventoryFilter,
                   ),
                   const SizedBox(height: 8),
-                  SectionLabel('Р СџР С•Р В·Р С‘РЎвЂ Р С‘Р С‘ (${_filteredInventory(store).length})'),
+                  SectionLabel(
+                    'Р В РЎСџР В РЎвЂўР В Р’В·Р В РЎвЂР РЋРІР‚В Р В РЎвЂР В РЎвЂ (${_filteredInventory(store).length})',
+                  ),
                   store.inventoryItems.isEmpty
                       ? EmptyState(
-                          title: 'Р СњР ВµРЎвЂљ Р С—Р С•Р В·Р С‘РЎвЂ Р С‘Р в„–',
-                          message: 'Р вЂќР С•Р В±Р В°Р Р†РЎРЉРЎвЂљР Вµ РЎвЂљР С•Р Р†Р В°РЎР‚ Р С‘Р В»Р С‘ РЎС“РЎРѓР В»РЎС“Р С–РЎС“.',
+                          title: 'Р В РЎСљР В Р’ВµР РЋРІР‚С™ Р В РЎвЂ”Р В РЎвЂўР В Р’В·Р В РЎвЂР РЋРІР‚В Р В РЎвЂР В РІвЂћвЂ“',
+                          message: 'Р В РІР‚СњР В РЎвЂўР В Р’В±Р В Р’В°Р В Р вЂ Р РЋР Р‰Р РЋРІР‚С™Р В Р’Вµ Р РЋРІР‚С™Р В РЎвЂўР В Р вЂ Р В Р’В°Р РЋР вЂљ Р В РЎвЂР В Р’В»Р В РЎвЂ Р РЋРЎвЂњР РЋР С“Р В Р’В»Р РЋРЎвЂњР В РЎвЂ“Р РЋРЎвЂњ.',
                           art: Icon(
                             CupertinoIcons.cube,
                             size: 48,
@@ -1022,7 +1059,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
                           ),
                           actions: [
                             PrimaryButton(
-                              label: 'Р вЂќР С•Р В±Р В°Р Р†Р С‘РЎвЂљРЎРЉ Р С—Р С•Р В·Р С‘РЎвЂ Р С‘РЎР‹',
+                              label: 'Р В РІР‚СњР В РЎвЂўР В Р’В±Р В Р’В°Р В Р вЂ Р В РЎвЂР РЋРІР‚С™Р РЋР Р‰ Р В РЎвЂ”Р В РЎвЂўР В Р’В·Р В РЎвЂР РЋРІР‚В Р В РЎвЂР РЋР вЂ№',
                               icon: CupertinoIcons.plus,
                               onPressed: _newItem,
                             ),
@@ -1048,7 +1085,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
                                             ),
                                           ),
                                           Text(
-                                            '${item.kind == 'service' ? 'Р Р€РЎРѓР В»РЎС“Р С–Р В°' : 'Р СћР С•Р Р†Р В°РЎР‚'} РІР‚Сћ ${item.unit} РІР‚Сћ Р С—РЎР‚Р С•Р Т‘Р В°Р В¶Р В° ${(item.sellPriceCents / 100).toStringAsFixed(0)} РІвЂљР…',
+                                            '${item.kind == 'service' ? 'Р В Р в‚¬Р РЋР С“Р В Р’В»Р РЋРЎвЂњР В РЎвЂ“Р В Р’В°' : 'Р В РЎС›Р В РЎвЂўР В Р вЂ Р В Р’В°Р РЋР вЂљ'} Р Р†Р вЂљРЎС› ${item.unit} Р Р†Р вЂљРЎС› Р В РЎвЂ”Р РЋР вЂљР В РЎвЂўР В РўвЂР В Р’В°Р В Р’В¶Р В Р’В° ${(item.sellPriceCents / 100).toStringAsFixed(0)} Р Р†РІР‚С™Р вЂ¦',
                                             style: TextStyle(
                                               color: colors.secondaryLabel,
                                               fontSize: 12,
@@ -1056,7 +1093,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
                                           ),
                                           if (item.trackStock)
                                             Text(
-                                              'Р С›РЎРѓРЎвЂљР В°РЎвЂљР С•Р С”: ${item.stockQty.toStringAsFixed(item.stockQty % 1 == 0 ? 0 : 2)} ${item.unit}${item.lowStock ? ' (Р СР В°Р В»Р С•)' : ''}',
+                                              'Р В РЎвЂєР РЋР С“Р РЋРІР‚С™Р В Р’В°Р РЋРІР‚С™Р В РЎвЂўР В РЎвЂќ: ${item.stockQty.toStringAsFixed(item.stockQty % 1 == 0 ? 0 : 2)} ${item.unit}${item.lowStock ? ' (Р В РЎВР В Р’В°Р В Р’В»Р В РЎвЂў)' : ''}',
                                               style: TextStyle(
                                                 color: item.stockQty < 0
                                                     ? colors.red
@@ -1070,7 +1107,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
                                           if (item.trackStock &&
                                               item.stockQty < 0)
                                             Text(
-                                              'Р С›РЎвЂљРЎР‚Р С‘РЎвЂ Р В°РЎвЂљР ВµР В»РЎРЉР Р…РЎвЂ№Р в„– Р С•РЎРѓРЎвЂљР В°РЎвЂљР С•Р С”',
+                                              'Р В РЎвЂєР РЋРІР‚С™Р РЋР вЂљР В РЎвЂР РЋРІР‚В Р В Р’В°Р РЋРІР‚С™Р В Р’ВµР В Р’В»Р РЋР Р‰Р В Р вЂ¦Р РЋРІР‚в„–Р В РІвЂћвЂ“ Р В РЎвЂўР РЋР С“Р РЋРІР‚С™Р В Р’В°Р РЋРІР‚С™Р В РЎвЂўР В РЎвЂќ',
                                               style: TextStyle(
                                                 color: colors.red,
                                                 fontSize: 12,
@@ -1087,7 +1124,8 @@ class _InventoryScreenState extends State<InventoryScreen> {
                                         child: const Icon(
                                           CupertinoIcons.plus_circle,
                                           size: 20,
-                                          semanticLabel: 'Р СџРЎР‚Р С‘РЎвЂР С',
+                                          semanticLabel:
+                                              'Р В РЎСџР РЋР вЂљР В РЎвЂР РЋРІР‚ВР В РЎВ',
                                         ),
                                       ),
                                       CupertinoButton(
@@ -1096,7 +1134,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
                                         child: const Icon(
                                           CupertinoIcons.minus_circle,
                                           size: 20,
-                                          semanticLabel: 'Р РЋР С—Р С‘РЎРѓР В°Р Р…Р С‘Р Вµ',
+                                          semanticLabel: 'Р В Р Р‹Р В РЎвЂ”Р В РЎвЂР РЋР С“Р В Р’В°Р В Р вЂ¦Р В РЎвЂР В Р’Вµ',
                                         ),
                                       ),
                                     ],
@@ -1104,7 +1142,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
                                       padding: EdgeInsets.zero,
                                       onPressed: () => _showItemHistory(item),
                                       child: const Text(
-                                        'Р ВРЎРѓРЎвЂљР С•РЎР‚Р С‘РЎРЏ',
+                                        'Р В Р’ВР РЋР С“Р РЋРІР‚С™Р В РЎвЂўР РЋР вЂљР В РЎвЂР РЋР РЏ',
                                         style: TextStyle(fontSize: 12),
                                       ),
                                     ),
@@ -1115,7 +1153,8 @@ class _InventoryScreenState extends State<InventoryScreen> {
                                         CupertinoIcons.xmark,
                                         size: 16,
                                         color: colors.tertiaryLabel,
-                                        semanticLabel: 'Р Р€Р Т‘Р В°Р В»Р С‘РЎвЂљРЎРЉ',
+                                        semanticLabel:
+                                            'Р В Р в‚¬Р В РўвЂР В Р’В°Р В Р’В»Р В РЎвЂР РЋРІР‚С™Р РЋР Р‰',
                                       ),
                                     ),
                                   ],
