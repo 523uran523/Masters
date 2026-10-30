@@ -5,7 +5,6 @@ import 'package:provider/provider.dart';
 import '../../app/theme/app_theme.dart';
 import '../../app/ui.dart';
 import '../../data/models/inventory_item.dart';
-import '../../data/models/stock_movement.dart';
 import '../../data/models/supplier.dart';
 import '../../state/masters_store.dart';
 
@@ -43,14 +42,12 @@ class _InventoryScreenState extends State<InventoryScreen> {
         actions: [
           CupertinoDialogAction(
             onPressed: () => Navigator.of(dc).pop(),
-            child: const Text(
-              'Р В РЎвЂєР РЋРІР‚С™Р В РЎВР В Р’ВµР В Р вЂ¦Р В Р’В°',
-            ),
+            child: const Text('Отмена'),
           ),
           CupertinoDialogAction(
             isDefaultAction: true,
             onPressed: () => Navigator.of(dc).pop(controller.text.trim()),
-            child: const Text('Р В РЎвЂєР В РЎв„ў'),
+            child: const Text('ОК'),
           ),
         ],
       ),
@@ -61,20 +58,18 @@ class _InventoryScreenState extends State<InventoryScreen> {
     final unit = await showCupertinoModalPopup<String>(
       context: context,
       builder: (dialogContext) => CupertinoActionSheet(
-        title: const Text(
-          'Р В РІР‚СћР В РўвЂР В РЎвЂР В Р вЂ¦Р В РЎвЂР РЋРІР‚В Р В Р’В° Р В РЎвЂР В Р’В·Р В РЎВР В Р’ВµР РЋР вЂљР В Р’ВµР В Р вЂ¦Р В РЎвЂР РЋР РЏ',
-        ),
+        title: const Text('Единица измерения'),
         actions: [
           for (final item in [
-            'Р РЋРІвЂљВ¬Р РЋРІР‚С™',
-            'Р В РЎвЂ“',
-            'Р В РЎвЂќР В РЎвЂ“',
-            'Р В РЎВР В Р’В»',
-            'Р В Р’В»',
-            'Р В РЎВ',
-            'Р РЋР С“Р В РЎВ',
-            'Р РЋРЎвЂњР В РЎвЂ”Р В Р’В°Р В РЎвЂќ',
-            'Р РЋРЎвЂњР РЋР С“Р В Р’В»Р РЋРЎвЂњР В РЎвЂ“Р В Р’В°',
+            'шт',
+            'г',
+            'кг',
+            'мл',
+            'л',
+            'м',
+            'см',
+            'упак',
+            'услуга',
           ])
             CupertinoActionSheetAction(
               onPressed: () => Navigator.of(dialogContext).pop(item),
@@ -82,26 +77,17 @@ class _InventoryScreenState extends State<InventoryScreen> {
             ),
           CupertinoActionSheetAction(
             onPressed: () => Navigator.of(dialogContext).pop('__custom__'),
-            child: const Text(
-              'Р В РІР‚СњР РЋР вЂљР РЋРЎвЂњР В РЎвЂ“Р В Р’В°Р РЋР РЏ...',
-            ),
+            child: const Text('Другая...'),
           ),
         ],
         cancelButton: CupertinoActionSheetAction(
           onPressed: () => Navigator.of(dialogContext).pop(),
-          child: const Text(
-            'Р В РЎвЂєР РЋРІР‚С™Р В РЎВР В Р’ВµР В Р вЂ¦Р В Р’В°',
-          ),
+          child: const Text('Отмена'),
         ),
       ),
     );
     if (unit == null) return null;
-    if (unit == '__custom__') {
-      return _prompt(
-        'Р В РІР‚СћР В РўвЂР В РЎвЂР В Р вЂ¦Р В РЎвЂР РЋРІР‚В Р В Р’В°',
-        'Р РЋРІвЂљВ¬Р РЋРІР‚С™',
-      );
-    }
+    if (unit == '__custom__') return _prompt('Единица', 'шт');
     return unit;
   }
 
@@ -117,15 +103,11 @@ class _InventoryScreenState extends State<InventoryScreen> {
           )
           .toList();
     }
-    if (_invFilter == 'good') {
+    if (_invFilter == 'good')
       list = list.where((i) => i.kind == 'good').toList();
-    }
-    if (_invFilter == 'service') {
+    if (_invFilter == 'service')
       list = list.where((i) => i.kind == 'service').toList();
-    }
-    if (_invFilter == 'low') {
-      list = list.where((i) => i.lowStock).toList();
-    }
+    if (_invFilter == 'low') list = list.where((i) => i.lowStock).toList();
     return list;
   }
 
@@ -133,40 +115,28 @@ class _InventoryScreenState extends State<InventoryScreen> {
     final v = await showCupertinoModalPopup<String>(
       context: context,
       builder: (dialogContext) => CupertinoActionSheet(
-        title: const Text(
-          'Р В Р’В¤Р В РЎвЂР В Р’В»Р РЋР Р‰Р РЋРІР‚С™Р РЋР вЂљ Р РЋР С“Р В РЎвЂќР В Р’В»Р В Р’В°Р В РўвЂР В Р’В°',
-        ),
+        title: const Text('Фильтр склада'),
         actions: [
           CupertinoActionSheetAction(
             onPressed: () => Navigator.of(dialogContext).pop('all'),
-            child: const Text(
-              'Р В РІР‚в„ўР РЋР С“Р В Р’Вµ Р В РЎвЂ”Р В РЎвЂўР В Р’В·Р В РЎвЂР РЋРІР‚В Р В РЎвЂР В РЎвЂ',
-            ),
+            child: const Text('Все позиции'),
           ),
           CupertinoActionSheetAction(
             onPressed: () => Navigator.of(dialogContext).pop('good'),
-            child: const Text(
-              'Р В РЎС›Р В РЎвЂўР В Р’В»Р РЋР Р‰Р В РЎвЂќР В РЎвЂў Р РЋРІР‚С™Р В РЎвЂўР В Р вЂ Р В Р’В°Р РЋР вЂљР РЋРІР‚в„–',
-            ),
+            child: const Text('Только товары'),
           ),
           CupertinoActionSheetAction(
             onPressed: () => Navigator.of(dialogContext).pop('service'),
-            child: const Text(
-              'Р В РЎС›Р В РЎвЂўР В Р’В»Р РЋР Р‰Р В РЎвЂќР В РЎвЂў Р РЋРЎвЂњР РЋР С“Р В Р’В»Р РЋРЎвЂњР В РЎвЂ“Р В РЎвЂ',
-            ),
+            child: const Text('Только услуги'),
           ),
           CupertinoActionSheetAction(
             onPressed: () => Navigator.of(dialogContext).pop('low'),
-            child: const Text(
-              'Р В РЎС™Р В Р’В°Р В Р’В»Р В РЎвЂў Р В Р вЂ¦Р В Р’В° Р РЋР С“Р В РЎвЂќР В Р’В»Р В Р’В°Р В РўвЂР В Р’Вµ',
-            ),
+            child: const Text('Мало на складе'),
           ),
         ],
         cancelButton: CupertinoActionSheetAction(
           onPressed: () => Navigator.of(dialogContext).pop(),
-          child: const Text(
-            'Р В РЎвЂєР РЋРІР‚С™Р В РЎВР В Р’ВµР В Р вЂ¦Р В Р’В°',
-          ),
+          child: const Text('Отмена'),
         ),
       ),
     );
@@ -174,38 +144,20 @@ class _InventoryScreenState extends State<InventoryScreen> {
   }
 
   Future<void> _newItem() async {
-    final name = await _prompt(
-      'Р В РЎСљР В Р’В°Р В Р’В·Р В Р вЂ Р В Р’В°Р В Р вЂ¦Р В РЎвЂР В Р’Вµ Р В РЎвЂ”Р В РЎвЂўР В Р’В·Р В РЎвЂР РЋРІР‚В Р В РЎвЂР В РЎвЂ',
-      'Р В РЎС™Р В Р’В°Р РЋР С“Р В Р’В»Р В РЎвЂў Р В РЎВР В РЎвЂўР РЋРІР‚С™Р В РЎвЂўР РЋР вЂљР В Р вЂ¦Р В РЎвЂўР В Р’Вµ 5W-30',
-    );
+    final name = await _prompt('Название позиции', 'Масло моторное 5W-30');
     if (name == null || name.trim().isEmpty) return;
     final kind = await _pickKind();
     if (kind == null) return;
-    final unit = await _pickUnit() ?? 'Р РЋРІвЂљВ¬Р РЋРІР‚С™';
-    final sellStr =
-        await _prompt(
-          'Р В Р’В¦Р В Р’ВµР В Р вЂ¦Р В Р’В° Р В РЎвЂ”Р РЋР вЂљР В РЎвЂўР В РўвЂР В Р’В°Р В Р’В¶Р В РЎвЂ (Р Р†РІР‚С™Р вЂ¦)',
-          '0',
-        ) ??
-        '0';
-    final costStr =
-        await _prompt(
-          'Р В Р Р‹Р В Р’ВµР В Р’В±Р В Р’ВµР РЋР С“Р РЋРІР‚С™Р В РЎвЂўР В РЎвЂР В РЎВР В РЎвЂўР РЋР С“Р РЋРІР‚С™Р РЋР Р‰ (Р Р†РІР‚С™Р вЂ¦)',
-          '0',
-        ) ??
-        '0';
-    final minStr =
-        await _prompt(
-          'Р В РЎС™Р В РЎвЂР В Р вЂ¦. Р В РЎвЂўР РЋР С“Р РЋРІР‚С™Р В Р’В°Р РЋРІР‚С™Р В РЎвЂўР В РЎвЂќ',
-          '0',
-        ) ??
-        '0';
+    final unit = await _pickUnit() ?? 'шт';
+    final sellStr = await _prompt('Цена продажи (₽)', '0') ?? '0';
+    final costStr = await _prompt('Себестоимость (₽)', '0') ?? '0';
+    final minStr = await _prompt('Мин. остаток', '0') ?? '0';
     if (!mounted) return;
     final track = await showAppConfirm(
       context,
-      title: 'Р В Р в‚¬Р РЋРІР‚РЋР В РЎвЂР РЋРІР‚С™Р РЋРІР‚в„–Р В Р вЂ Р В Р’В°Р РЋРІР‚С™Р РЋР Р‰ Р В РЎвЂўР РЋР С“Р РЋРІР‚С™Р В Р’В°Р РЋРІР‚С™Р В РЎвЂўР В РЎвЂќ?',
-      message: 'Р В РІР‚СњР В Р’В»Р РЋР РЏ Р РЋРЎвЂњР РЋР С“Р В Р’В»Р РЋРЎвЂњР В РЎвЂ“ Р В РЎВР В РЎвЂўР В Р’В¶Р В Р вЂ¦Р В РЎвЂў Р В РЎвЂўР РЋРІР‚С™Р В РЎвЂќР В Р’В»Р РЋР вЂ№Р РЋРІР‚РЋР В РЎвЂР РЋРІР‚С™Р РЋР Р‰ Р РЋРЎвЂњР РЋРІР‚РЋР РЋРІР‚ВР РЋРІР‚С™ Р РЋР С“Р В РЎвЂќР В Р’В»Р В Р’В°Р В РўвЂР В Р’В°.',
-      confirmLabel: 'Р В Р в‚¬Р РЋРІР‚РЋР В РЎвЂР РЋРІР‚С™Р РЋРІР‚в„–Р В Р вЂ Р В Р’В°Р РЋРІР‚С™Р РЋР Р‰',
+      title: 'Учитывать остаток?',
+      message: 'Для услуг можно отключить учёт склада.',
+      confirmLabel: 'Учитывать',
     );
     final sell = ((double.tryParse(sellStr.replaceAll(',', '.')) ?? 0) * 100)
         .round();
@@ -238,13 +190,11 @@ class _InventoryScreenState extends State<InventoryScreen> {
         child: Column(
           children: [
             CupertinoButton(
-              child: const Text('Р В РЎС›Р В РЎвЂўР В Р вЂ Р В Р’В°Р РЋР вЂљ'),
+              child: const Text('Товар'),
               onPressed: () => Navigator.of(ctx).pop('good'),
             ),
             CupertinoButton(
-              child: const Text(
-                'Р В Р в‚¬Р РЋР С“Р В Р’В»Р РЋРЎвЂњР В РЎвЂ“Р В Р’В°',
-              ),
+              child: const Text('Услуга'),
               onPressed: () => Navigator.of(ctx).pop('service'),
             ),
           ],
@@ -254,15 +204,12 @@ class _InventoryScreenState extends State<InventoryScreen> {
   }
 
   Future<void> _receiveStock(InventoryItem item) async {
-    final qtyStr = await _prompt(
-      'Р В РЎСџР В РЎвЂўР РЋР С“Р РЋРІР‚С™Р РЋРЎвЂњР В РЎвЂ”Р В Р’В»Р В Р’ВµР В Р вЂ¦Р В РЎвЂР В Р’Вµ, Р В РЎвЂќР В РЎвЂўР В Р’В»-Р В Р вЂ Р В РЎвЂў (${item.unit})',
-      '1',
-    );
+    final qtyStr = await _prompt('Поступление, кол-во (${item.unit})', '1');
     final qty = double.tryParse((qtyStr ?? '').replaceAll(',', '.'));
     if (qty == null || qty <= 0) return;
     final costStr =
         await _prompt(
-          'Р В Р’В¦Р В Р’ВµР В Р вЂ¦Р В Р’В° Р В Р’В·Р В Р’В° Р В Р’ВµР В РўвЂ. (Р Р†РІР‚С™Р вЂ¦)',
+          'Цена за ед. (₽)',
           (item.costCents / 100).toStringAsFixed(0),
         ) ??
         '0';
@@ -273,7 +220,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
       await context.read<MastersStore>().receiveStock(
         itemId: item.id,
         qty: qty,
-        note: 'Р В РІР‚вЂќР В Р’В°Р В РЎвЂќР РЋРЎвЂњР В РЎвЂ”Р В РЎвЂќР В Р’В°',
+        note: 'Закупка',
       );
     } finally {
       if (mounted) setState(() => _busy = false);
@@ -281,18 +228,10 @@ class _InventoryScreenState extends State<InventoryScreen> {
   }
 
   Future<void> _writeOff(InventoryItem item) async {
-    final qtyStr = await _prompt(
-      'Р В Р Р‹Р В РЎвЂ”Р В РЎвЂР РЋР С“Р В Р’В°Р В Р вЂ¦Р В РЎвЂР В Р’Вµ, Р В РЎвЂќР В РЎвЂўР В Р’В»-Р В Р вЂ Р В РЎвЂў (${item.unit})',
-      '1',
-    );
+    final qtyStr = await _prompt('Списание, кол-во (${item.unit})', '1');
     final qty = double.tryParse((qtyStr ?? '').replaceAll(',', '.'));
     if (qty == null || qty <= 0) return;
-    final reason =
-        await _prompt(
-          'Р В РЎСџР РЋР вЂљР В РЎвЂР РЋРІР‚РЋР В РЎвЂР В Р вЂ¦Р В Р’В°',
-          'Р В РІР‚ВР РЋР вЂљР В Р’В°Р В РЎвЂќ/Р РЋР С“Р В РЎвЂ”Р В РЎвЂР РЋР С“Р В Р’В°Р В Р вЂ¦Р В РЎвЂР В Р’Вµ',
-        ) ??
-        'Р В Р Р‹Р В РЎвЂ”Р В РЎвЂР РЋР С“Р В Р’В°Р В Р вЂ¦Р В РЎвЂР В Р’Вµ';
+    final reason = await _prompt('Причина', 'Брак/списание') ?? 'Списание';
     if (!mounted) return;
     setState(() => _busy = true);
     try {
@@ -315,12 +254,8 @@ class _InventoryScreenState extends State<InventoryScreen> {
       if (!mounted) return;
       await showAppAlert(
         context,
-        title: count > 0
-            ? 'Р В Р’ВР В РЎВР В РЎвЂ”Р В РЎвЂўР РЋР вЂљР РЋРІР‚С™ Р В Р’В·Р В Р’В°Р В Р вЂ Р В Р’ВµР РЋР вЂљР РЋРІвЂљВ¬Р РЋРІР‚ВР В Р вЂ¦'
-            : 'Р В Р’ВР В РЎВР В РЎвЂ”Р В РЎвЂўР РЋР вЂљР РЋРІР‚С™',
-        message: count > 0
-            ? 'Р В РІР‚СњР В РЎвЂўР В Р’В±Р В Р’В°Р В Р вЂ Р В Р’В»Р В Р’ВµР В Р вЂ¦Р В РЎвЂў Р РЋРІР‚С™Р В РЎвЂўР В Р вЂ Р В Р’В°Р РЋР вЂљР В РЎвЂўР В Р вЂ /Р РЋРЎвЂњР РЋР С“Р В Р’В»Р РЋРЎвЂњР В РЎвЂ“: $count.'
-            : 'Р В РЎСљР В Р’Вµ Р РЋРЎвЂњР В РўвЂР В Р’В°Р В Р’В»Р В РЎвЂўР РЋР С“Р РЋР Р‰ Р В РўвЂР В РЎвЂўР В Р’В±Р В Р’В°Р В Р вЂ Р В РЎвЂР РЋРІР‚С™Р РЋР Р‰ Р В Р’В·Р В Р’В°Р В РЎвЂ”Р В РЎвЂР РЋР С“Р В РЎвЂ. Р В РЎСљР РЋРЎвЂњР В Р’В¶Р В Р’ВµР В Р вЂ¦ Р РЋР С“Р РЋРІР‚С™Р В РЎвЂўР В Р’В»Р В Р’В±Р В Р’ВµР РЋРІР‚В  name; Р В РЎвЂ”Р РЋР вЂљР В РЎвЂўР В Р вЂ Р В Р’ВµР РЋР вЂљР РЋР Р‰Р РЋРІР‚С™Р В Р’Вµ Р РЋРІР‚С›Р В Р’В°Р В РІвЂћвЂ“Р В Р’В» Excel.',
+        title: count > 0 ? 'Импорт завершён' : 'Импорт',
+        message: count > 0 ? 'Добавлено товаров/услуг: $count.' : 'Не удалось добавить записи. Нужен столбец name; проверьте файл Excel.',
       );
     } finally {
       if (mounted) setState(() => _busy = false);
@@ -328,17 +263,9 @@ class _InventoryScreenState extends State<InventoryScreen> {
   }
 
   Future<void> _newSupplier() async {
-    final name = await _prompt(
-      'Р В Р’ВР В РЎВР РЋР РЏ Р В РЎвЂ”Р В РЎвЂўР РЋР С“Р РЋРІР‚С™Р В Р’В°Р В Р вЂ Р РЋРІР‚В°Р В РЎвЂР В РЎвЂќР В Р’В°',
-      'Р В РЎвЂєР В РЎвЂєР В РЎвЂє Р В РЎСџР В РЎвЂўР РЋР С“Р РЋРІР‚С™Р В Р’В°Р В Р вЂ Р РЋРІР‚В°Р В РЎвЂР В РЎвЂќ',
-    );
+    final name = await _prompt('Имя поставщика', 'ООО Поставщик');
     if (name == null || name.trim().isEmpty) return;
-    final phone =
-        await _prompt(
-          'Р В РЎС›Р В Р’ВµР В Р’В»Р В Р’ВµР РЋРІР‚С›Р В РЎвЂўР В Р вЂ¦',
-          '',
-        ) ??
-        '';
+    final phone = await _prompt('Телефон', '') ?? '';
     if (!mounted) return;
     await context.read<MastersStore>().createSupplier(
       name: name.trim(),
@@ -351,8 +278,8 @@ class _InventoryScreenState extends State<InventoryScreen> {
     if (store.suppliers.isEmpty) {
       await showAppAlert(
         context,
-        title: 'Р В РЎСљР В Р’ВµР РЋРІР‚С™ Р В РЎвЂ”Р В РЎвЂўР РЋР С“Р РЋРІР‚С™Р В Р’В°Р В Р вЂ Р РЋРІР‚В°Р В РЎвЂР В РЎвЂќР В РЎвЂўР В Р вЂ ',
-        message: 'Р В Р Р‹Р В Р вЂ¦Р В Р’В°Р РЋРІР‚РЋР В Р’В°Р В Р’В»Р В Р’В° Р В РўвЂР В РЎвЂўР В Р’В±Р В Р’В°Р В Р вЂ Р РЋР Р‰Р РЋРІР‚С™Р В Р’Вµ Р В РЎвЂ”Р В РЎвЂўР РЋР С“Р РЋРІР‚С™Р В Р’В°Р В Р вЂ Р РЋРІР‚В°Р В РЎвЂР В РЎвЂќР В Р’В°.',
+        title: 'Нет поставщиков',
+        message: 'Сначала добавьте поставщика.',
       );
       return;
     }
@@ -360,31 +287,19 @@ class _InventoryScreenState extends State<InventoryScreen> {
     if (supplierId == null || !mounted) return;
     final itemId = await _pickInventoryItem(store);
     if (itemId == null || !mounted) return;
-    final qtyStr = await _prompt(
-      'Р В РЎв„ўР В РЎвЂўР В Р’В»Р В РЎвЂР РЋРІР‚РЋР В Р’ВµР РЋР С“Р РЋРІР‚С™Р В Р вЂ Р В РЎвЂў',
-      '1',
-    );
+    final qtyStr = await _prompt('Количество', '1');
     final qty = double.tryParse((qtyStr ?? '').trim().replaceAll(',', '.'));
     if (qty == null || qty <= 0 || !mounted) return;
-    final priceStr = await _prompt(
-      'Р В Р’В¦Р В Р’ВµР В Р вЂ¦Р В Р’В° Р В Р’В·Р В Р’В° Р В Р’ВµР В РўвЂ.',
-      '0',
-    );
+    final priceStr = await _prompt('Цена за ед.', '0');
     final price =
         ((double.tryParse((priceStr ?? '0').replaceAll(',', '.')) ?? 0) * 100)
             .round();
     if (price <= 0 || !mounted) return;
-    final note = await _prompt(
-      'Р В РЎв„ўР В РЎвЂўР В РЎВР В РЎВР В Р’ВµР В Р вЂ¦Р РЋРІР‚С™Р В Р’В°Р РЋР вЂљР В РЎвЂР В РІвЂћвЂ“',
-      '',
-    );
+    final note = await _prompt('Комментарий', '');
     if (!mounted) return;
     final accountId = await _pickAccount(store);
     if (accountId == null || !mounted) return;
-    final paidStr = await _prompt(
-      'Р В РЎвЂєР В РЎвЂ”Р В Р’В»Р В Р’В°Р РЋРІР‚РЋР В Р’ВµР В Р вЂ¦Р В РЎвЂў Р РЋР С“Р В Р’ВµР В РІвЂћвЂ“Р РЋРІР‚РЋР В Р’В°Р РЋР С“ (0 = Р В РўвЂР В РЎвЂўР В Р’В»Р В РЎвЂ“)',
-      '0',
-    );
+    final paidStr = await _prompt('Оплачено сейчас (0 = долг)', '0');
     final paid =
         ((double.tryParse((paidStr ?? '0').replaceAll(',', '.')) ?? 0) * 100)
             .round();
@@ -427,7 +342,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
               ),
               const SizedBox(height: 4),
               Text(
-                'Р В РІР‚СњР В РЎвЂўР В Р’В»Р В РЎвЂ“: ${_money(store.supplierDebtCents(supplier.id))}',
+                'Долг: ${_money(store.supplierDebtCents(supplier.id))}',
                 style: TextStyle(color: context.colors.secondaryLabel),
               ),
               const SizedBox(height: 12),
@@ -444,7 +359,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
                             children: [
                               Expanded(
                                 child: Text(
-                                  '#${purchase.id.substring(0, 6)} Р вЂ™Р’В· ${_money(purchase.totalCents)}',
+                                  '#${purchase.id.substring(0, 6)} · ${_money(purchase.totalCents)}',
                                   style: const TextStyle(
                                     fontWeight: FontWeight.w500,
                                   ),
@@ -457,7 +372,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
                                   await _paySupplier(supplier);
                                 },
                                 child: const Text(
-                                  'Р В РЎвЂєР В РЎвЂ”Р В Р’В»Р В Р’В°Р РЋРІР‚С™Р В РЎвЂР РЋРІР‚С™Р РЋР Р‰',
+                                  'Оплатить',
                                   style: TextStyle(fontSize: 12),
                                 ),
                               ),
@@ -467,14 +382,14 @@ class _InventoryScreenState extends State<InventoryScreen> {
                       ),
                     if (store.purchasesForSupplier(supplier.id).isEmpty)
                       EmptyState(
-                        title: 'Р В РЎСљР В Р’ВµР РЋРІР‚С™ Р В Р’В·Р В Р’В°Р В РЎвЂќР РЋРЎвЂњР В РЎвЂ”Р В РЎвЂўР В РЎвЂќ',
-                        message: 'Р В РІР‚вЂќР В Р’В°Р В РЎвЂ”Р В РЎвЂР РЋРІвЂљВ¬Р В РЎвЂР РЋРІР‚С™Р В Р’Вµ Р В РЎвЂ”Р В Р’ВµР РЋР вЂљР В Р вЂ Р РЋРЎвЂњР РЋР вЂ№ Р В Р’В·Р В Р’В°Р В РЎвЂќР РЋРЎвЂњР В РЎвЂ”Р В РЎвЂќР РЋРЎвЂњ Р В РўвЂР В Р’В»Р РЋР РЏ Р В РЎвЂ”Р В РЎвЂўР РЋР С“Р РЋРІР‚С™Р В Р’В°Р В Р вЂ Р РЋРІР‚В°Р В РЎвЂР В РЎвЂќР В Р’В°.',
+                        title: 'Нет закупок',
+                        message: 'Запишите первую закупку для поставщика.',
                       ),
                   ],
                 ),
               ),
               SecondaryButton(
-                label: 'Р В РІР‚вЂќР В Р’В°Р В РЎвЂќР РЋР вЂљР РЋРІР‚в„–Р РЋРІР‚С™Р РЋР Р‰',
+                label: 'Закрыть',
                 icon: CupertinoIcons.xmark,
                 onPressed: () => Navigator.of(modalContext).pop(),
               ),
@@ -490,8 +405,8 @@ class _InventoryScreenState extends State<InventoryScreen> {
     if (store.accounts.isEmpty) {
       await showAppAlert(
         context,
-        title: 'Р В РЎСљР В Р’ВµР РЋРІР‚С™ Р РЋР С“Р РЋРІР‚РЋР РЋРІР‚ВР РЋРІР‚С™Р В Р’В°',
-        message: 'Р В Р Р‹Р В Р вЂ¦Р В Р’В°Р РЋРІР‚РЋР В Р’В°Р В Р’В»Р В Р’В° Р РЋР С“Р В РЎвЂўР В Р’В·Р В РўвЂР В Р’В°Р В РІвЂћвЂ“Р РЋРІР‚С™Р В Р’Вµ Р РЋР С“Р РЋРІР‚РЋР РЋРІР‚ВР РЋРІР‚С™ Р В Р вЂ  Р РЋР вЂљР В Р’В°Р В Р’В·Р В РўвЂР В Р’ВµР В Р’В»Р В Р’Вµ Р В РІР‚СњР В Р’ВµР В Р вЂ¦Р РЋР Р‰Р В РЎвЂ“Р В РЎвЂ.',
+        title: 'Нет счёта',
+        message: 'Сначала создайте счёт в разделе Деньги.',
       );
       return;
     }
@@ -509,9 +424,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
             children: [
               CupertinoButton(
                 onPressed: () => Navigator.of(ctx).pop(),
-                child: const Text(
-                  'Р В РЎвЂєР В Р’В±Р РЋРІР‚В°Р В Р’В°Р РЋР РЏ Р В РЎвЂўР В РЎвЂ”Р В Р’В»Р В Р’В°Р РЋРІР‚С™Р В Р’В° (Р В Р’В±Р В Р’ВµР В Р’В· Р В РЎвЂ”Р РЋР вЂљР В РЎвЂР В Р вЂ Р РЋР РЏР В Р’В·Р В РЎвЂќР В РЎвЂ)',
-                ),
+                child: const Text('Общая оплата (без привязки)'),
               ),
               for (final purchase in purchases)
                 CupertinoButton(
@@ -519,7 +432,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
                   child: Align(
                     alignment: Alignment.centerLeft,
                     child: Text(
-                      'Р В РІР‚вЂќР В Р’В°Р В РЎвЂќР РЋРЎвЂњР В РЎвЂ”Р В РЎвЂќР В Р’В° ${purchase.id.substring(0, 6)} Р вЂ™Р’В· ${_money(purchase.totalCents)}',
+                      'Закупка ${purchase.id.substring(0, 6)} · ${_money(purchase.totalCents)}',
                     ),
                   ),
                 ),
@@ -528,22 +441,14 @@ class _InventoryScreenState extends State<InventoryScreen> {
         ),
       );
     }
-    final amountStr = await _prompt(
-      'Р В Р Р‹Р РЋРЎвЂњР В РЎВР В РЎВР В Р’В° Р В РЎвЂўР В РЎвЂ”Р В Р’В»Р В Р’В°Р РЋРІР‚С™Р РЋРІР‚в„–',
-      '0',
-    );
+    final amountStr = await _prompt('Сумма оплаты', '0');
     final amount =
         ((double.tryParse((amountStr ?? '').replaceAll(',', '.')) ?? 0) * 100)
             .round();
     if (amount <= 0 || !mounted) return;
     final accountId = await _pickAccount(store);
     if (accountId == null || !mounted) return;
-    final note =
-        await _prompt(
-          'Р В РЎв„ўР В РЎвЂўР В РЎВР В РЎВР В Р’ВµР В Р вЂ¦Р РЋРІР‚С™Р В Р’В°Р РЋР вЂљР В РЎвЂР В РІвЂћвЂ“',
-          '',
-        ) ??
-        '';
+    final note = await _prompt('Комментарий', '') ?? '';
     if (!mounted) return;
     setState(() => _busy = true);
     try {
@@ -558,13 +463,12 @@ class _InventoryScreenState extends State<InventoryScreen> {
         purchaseId: purchaseId,
         note: note.trim().isEmpty ? null : note.trim(),
       );
-      if (mounted) {
+      if (mounted)
         await showAppAlert(
           context,
-          title: 'Р В РІР‚СљР В РЎвЂўР РЋРІР‚С™Р В РЎвЂўР В Р вЂ Р В РЎвЂў',
-          message: 'Р В РЎвЂєР В РЎвЂ”Р В Р’В»Р В Р’В°Р РЋРІР‚С™Р В Р’В° Р В РЎвЂ”Р В РЎвЂўР РЋР С“Р РЋРІР‚С™Р В Р’В°Р В Р вЂ Р РЋРІР‚В°Р В РЎвЂР В РЎвЂќР РЋРЎвЂњ Р В РЎвЂ”Р РЋР вЂљР В РЎвЂўР В Р вЂ Р В Р’ВµР В РўвЂР В Р’ВµР В Р вЂ¦Р В Р’В°.',
+          title: 'Готово',
+          message: 'Оплата поставщику проведена.',
         );
-      }
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -573,11 +477,10 @@ class _InventoryScreenState extends State<InventoryScreen> {
   Future<void> _deleteSupplier(Supplier supplier) async {
     final ok = await showAppConfirm(
       context,
-      title: 'Р В Р в‚¬Р В РўвЂР В Р’В°Р В Р’В»Р В РЎвЂР РЋРІР‚С™Р РЋР Р‰ Р В РЎвЂ”Р В РЎвЂўР РЋР С“Р РЋРІР‚С™Р В Р’В°Р В Р вЂ Р РЋРІР‚В°Р В РЎвЂР В РЎвЂќР В Р’В°?',
+      title: 'Удалить поставщика?',
       message: supplier.name,
       destructive: true,
-      confirmLabel:
-          'Р В Р в‚¬Р В РўвЂР В Р’В°Р В Р’В»Р В РЎвЂР РЋРІР‚С™Р РЋР Р‰',
+      confirmLabel: 'Удалить',
     );
     if (!ok || !mounted) return;
     setState(() => _busy = true);
@@ -660,17 +563,15 @@ class _InventoryScreenState extends State<InventoryScreen> {
     );
   }
 
-  String _money(int cents) =>
-      '${(cents / 100).toStringAsFixed(0)} Р Р†РІР‚С™Р вЂ¦';
+  String _money(int cents) => '${(cents / 100).toStringAsFixed(0)} ₽';
 
   Future<void> _delete(InventoryItem item) async {
     final ok = await showAppConfirm(
       context,
-      title: 'Р В Р в‚¬Р В РўвЂР В Р’В°Р В Р’В»Р В РЎвЂР РЋРІР‚С™Р РЋР Р‰ Р В РЎвЂ”Р В РЎвЂўР В Р’В·Р В РЎвЂР РЋРІР‚В Р В РЎвЂР РЋР вЂ№?',
+      title: 'Удалить позицию?',
       message: item.name,
       destructive: true,
-      confirmLabel:
-          'Р В Р в‚¬Р В РўвЂР В Р’В°Р В Р’В»Р В РЎвЂР РЋРІР‚С™Р РЋР Р‰',
+      confirmLabel: 'Удалить',
     );
     if (!ok) return;
     if (!mounted) return;
@@ -678,30 +579,26 @@ class _InventoryScreenState extends State<InventoryScreen> {
   }
 
   Future<void> _editItem(InventoryItem item) async {
-    final name = await _prompt(
-      'Р В РЎСљР В Р’В°Р В Р’В·Р В Р вЂ Р В Р’В°Р В Р вЂ¦Р В РЎвЂР В Р’Вµ',
-      item.name,
-      initial: item.name,
-    );
+    final name = await _prompt('Название', item.name, initial: item.name);
     if (name == null || name.trim().isEmpty) return;
     final unit = await _pickUnit() ?? item.unit;
     final sellStr =
         await _prompt(
-          'Р В Р’В¦Р В Р’ВµР В Р вЂ¦Р В Р’В° Р В РЎвЂ”Р РЋР вЂљР В РЎвЂўР В РўвЂР В Р’В°Р В Р’В¶Р В РЎвЂ (Р Р†РІР‚С™Р вЂ¦)',
+          'Цена продажи (₽)',
           (item.sellPriceCents / 100).toStringAsFixed(0),
           initial: (item.sellPriceCents / 100).toStringAsFixed(0),
         ) ??
         (item.sellPriceCents / 100).toString();
     final costStr =
         await _prompt(
-          'Р В Р Р‹Р В Р’ВµР В Р’В±Р В Р’ВµР РЋР С“Р РЋРІР‚С™Р В РЎвЂўР В РЎвЂР В РЎВР В РЎвЂўР РЋР С“Р РЋРІР‚С™Р РЋР Р‰ (Р Р†РІР‚С™Р вЂ¦)',
+          'Себестоимость (₽)',
           (item.costCents / 100).toStringAsFixed(0),
           initial: (item.costCents / 100).toStringAsFixed(0),
         ) ??
         '0';
     final minStr =
         await _prompt(
-          'Р В РЎС™Р В РЎвЂР В Р вЂ¦. Р В РЎвЂўР РЋР С“Р РЋРІР‚С™Р В Р’В°Р РЋРІР‚С™Р В РЎвЂўР В РЎвЂќ',
+          'Мин. остаток',
           item.minQty.toString(),
           initial: item.minQty.toString(),
         ) ??
@@ -730,154 +627,118 @@ class _InventoryScreenState extends State<InventoryScreen> {
 
   Future<void> _showItemHistory(InventoryItem item) async {
     final store = context.read<MastersStore>();
-    final movements = store.stockMovementsForItem(item.id);
-
-    String typeLabel(String type) {
-      switch (type) {
-        case 'in':
-          return 'РџРѕСЃС‚СѓРїР»РµРЅРёРµ';
-        case 'out':
-          return 'Р Р°СЃС…РѕРґ';
-        case 'writeoff':
-          return 'РЎРїРёСЃР°РЅРёРµ';
-        case 'adjust':
-          return 'РљРѕСЂСЂРµРєС‚РёСЂРѕРІРєР°';
-        default:
-          return type;
-      }
-    }
-
-    double signedDelta(StockMovement movement) {
-      if (movement.qty < 0) return movement.qty;
-      switch (movement.type) {
-        case 'out':
-        case 'writeoff':
-        case 'sale':
-          return -movement.qty;
-        default:
-          return movement.qty;
-      }
-    }
-
-    final balancesAfter = <String, double>{};
-    double running = item.stockQty;
-    for (final movement in movements) {
-      balancesAfter[movement.id] = running;
-      running -= signedDelta(movement);
-    }
-
+    final movements =
+        store.stockMovements.where((m) => m.itemId == item.id).toList()
+          ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
     await showCupertinoModalPopup<void>(
       context: context,
-      builder: (modalContext) {
-        final colors = context.colors;
-        return Container(
-          height: MediaQuery.of(context).size.height * 0.75,
-          color: colors.card,
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
-          child: SafeArea(
-            top: false,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Text(
-                  item.name,
-                  style: const TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w700,
-                  ),
+      builder: (modalContext) => Container(
+        height: MediaQuery.of(context).size.height * 0.7,
+        color: context.colors.card,
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+        child: SafeArea(
+          top: false,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(
+                item.name,
+                style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w700,
                 ),
-                const SizedBox(height: 4),
-                Text(
-                  'РћСЃС‚Р°С‚РѕРє: ${item.stockQty.toStringAsFixed(item.stockQty % 1 == 0 ? 0 : 2)} ${item.unit}',
-                  style: TextStyle(color: colors.secondaryLabel),
-                ),
-                const SizedBox(height: 12),
-                Expanded(
-                  child: movements.isEmpty
-                      ? EmptyState(
-                          title: 'РќРµС‚ РґРІРёР¶РµРЅРёР№',
-                          message: 'РСЃС‚РѕСЂРёСЏ РїРѕСЃС‚СѓРїР»РµРЅРёР№ Рё СЃРїРёСЃР°РЅРёР№ РїРѕСЏРІРёС‚СЃСЏ Р·РґРµСЃСЊ.',
-                        )
-                      : ListView(
-                          children: movements.map((movement) {
-                            final delta = movement.qty < 0
-                                ? movement.qty
-                                : (movement.type == 'out' ||
-                                      movement.type == 'writeoff' ||
-                                      movement.type == 'sale')
-                                ? -movement.qty
-                                : movement.qty;
-                            return Padding(
-                              padding: const EdgeInsets.only(bottom: 8),
-                              child: AppCard(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Row(
+              ),
+              const SizedBox(height: 4),
+              Text(
+                '\u0418\u0441\u0442\u043e\u0440\u0438\u044f \u0434\u0432\u0438\u0436\u0435\u043d\u0438\u0439',
+                style: TextStyle(color: context.colors.secondaryLabel),
+              ),
+              const SizedBox(height: 12),
+              Expanded(
+                child: movements.isEmpty
+                    ? EmptyState(
+                        title: '\u041d\u0435\u0442 \u0434\u0432\u0438\u0436\u0435\u043d\u0438\u0439',
+                        message: '\u041f\u043e\u0441\u0442\u0443\u043f\u043b\u0435\u043d\u0438\u044f \u0438 \u0441\u043f\u0438\u0441\u0430\u043d\u0438\u044f \u043f\u043e\u044f\u0432\u044f\u0442\u0441\u044f \u0437\u0434\u0435\u0441\u044c \u043f\u043e\u0441\u043b\u0435 \u043e\u043f\u0435\u0440\u0430\u0446\u0438\u0439.',
+                      )
+                    : ListView(
+                        children: movements.map((movement) {
+                          String typeLabel(String type) {
+                            switch (type) {
+                              case 'in':
+                                return '\u041f\u043e\u0441\u0442\u0443\u043f\u043b\u0435\u043d\u0438\u0435';
+                              case 'out':
+                                return '\u0420\u0430\u0441\u0445\u043e\u0434';
+                              case 'writeoff':
+                                return '\u0421\u043f\u0438\u0441\u0430\u043d\u0438\u0435';
+                              case 'adjust':
+                                return '\u041a\u043e\u0440\u0440\u0435\u043a\u0442\u0438\u0440\u043e\u0432\u043a\u0430';
+                              default:
+                                return type;
+                            }
+                          }
+
+                          final signed =
+                              (movement.type == 'in' ||
+                                  movement.type == 'adjust')
+                              ? movement.qty
+                              : -movement.qty;
+                          return Padding(
+                            padding: const EdgeInsets.only(bottom: 8),
+                            child: AppCard(
+                              child: Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
                                       children: [
-                                        Expanded(
-                                          child: Text(
-                                            typeLabel(movement.type),
-                                            style: TextStyle(
-                                              fontWeight: FontWeight.w600,
-                                              color: delta >= 0
-                                                  ? colors.green
-                                                  : colors.red,
-                                            ),
+                                        Text(
+                                          '${typeLabel(movement.type)}${movement.note == null || movement.note!.trim().isEmpty ? '' : ' \u00b7 ${movement.note}'}',
+                                          style: const TextStyle(
+                                            fontWeight: FontWeight.w500,
                                           ),
                                         ),
+                                        const SizedBox(height: 2),
                                         Text(
-                                          '${delta >= 0 ? '+' : ''}${delta.toStringAsFixed(delta.abs() % 1 == 0 ? 0 : 2)} ${item.unit}',
+                                          DateFormat(
+                                            'dd.MM.yyyy HH:mm',
+                                            'ru',
+                                          ).format(movement.createdAt),
                                           style: TextStyle(
-                                            fontWeight: FontWeight.w700,
-                                            color: delta >= 0
-                                                ? colors.green
-                                                : colors.red,
+                                            color:
+                                                context.colors.secondaryLabel,
+                                            fontSize: 12,
                                           ),
                                         ),
                                       ],
                                     ),
-                                    const SizedBox(height: 2),
-                                    Text(
-                                      DateFormat(
-                                        'dd.MM.yyyy HH:mm',
-                                        'ru',
-                                      ).format(movement.createdAt),
-                                      style: TextStyle(
-                                        color: colors.secondaryLabel,
-                                        fontSize: 12,
-                                      ),
+                                  ),
+                                  Text(
+                                    '${signed >= 0 ? '+' : ''}${signed.abs().toStringAsFixed(signed.abs() % 1 == 0 ? 0 : 2)} ${item.unit}',
+                                    style: TextStyle(
+                                      color: signed >= 0
+                                          ? context.colors.label
+                                          : context.colors.red,
+                                      fontWeight: FontWeight.w600,
                                     ),
-                                    if ((movement.note ?? '')
-                                        .trim()
-                                        .isNotEmpty) ...[
-                                      const SizedBox(height: 4),
-                                      Text(
-                                        'РџСЂРёС‡РёРЅР°: ${movement.note}',
-                                        style: TextStyle(
-                                          color: colors.secondaryLabel,
-                                          fontSize: 13,
-                                        ),
-                                      ),
-                                    ],
-                                  ],
-                                ),
+                                  ),
+                                ],
                               ),
-                            );
-                          }).toList(),
-                        ),
-                ),
-                const SizedBox(height: 8),
-                SecondaryButton(
-                  label: 'Р—Р°РєСЂС‹С‚СЊ',
-                  icon: CupertinoIcons.xmark,
-                  onPressed: () => Navigator.of(modalContext).pop(),
-                ),
-              ],
-            ),
+                            ),
+                          );
+                        }).toList(),
+                      ),
+              ),
+              SecondaryButton(
+                label: '\u0417\u0430\u043a\u0440\u044b\u0442\u044c',
+                icon: CupertinoIcons.xmark,
+                onPressed: () => Navigator.of(modalContext).pop(),
+              ),
+            ],
           ),
-        );
-      },
+        ),
+      ),
     );
   }
 
@@ -895,17 +756,14 @@ class _InventoryScreenState extends State<InventoryScreen> {
 
     return CupertinoPageScaffold(
       navigationBar: CupertinoNavigationBar(
-        middle: const Text('Р В Р Р‹Р В РЎвЂќР В Р’В»Р В Р’В°Р В РўвЂ'),
+        middle: const Text('Склад'),
         trailing: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
             CupertinoButton(
               padding: EdgeInsets.zero,
               onPressed: _newItem,
-              child: const Icon(
-                CupertinoIcons.plus,
-                semanticLabel: 'Р В РІР‚СњР В РЎвЂўР В Р’В±Р В Р’В°Р В Р вЂ Р В РЎвЂР РЋРІР‚С™Р РЋР Р‰',
-              ),
+              child: const Icon(CupertinoIcons.plus, semanticLabel: 'Добавить'),
             ),
           ],
         ),
@@ -920,24 +778,24 @@ class _InventoryScreenState extends State<InventoryScreen> {
                     const SizedBox(height: 0),
                   ],
                   SectionLabel(
-                    'Р В РЎСџР В РЎвЂўР РЋР С“Р РЋРІР‚С™Р В Р’В°Р В Р вЂ Р РЋРІР‚В°Р В РЎвЂР В РЎвЂќР В РЎвЂ Р В РЎвЂ Р В Р’В·Р В Р’В°Р В РЎвЂќР РЋРЎвЂњР В РЎвЂ”Р В РЎвЂќР В РЎвЂ (${store.suppliers.length})',
+                    'Поставщики и закупки (${store.suppliers.length})',
                   ),
                   PrimaryButton(
-                    label: 'Р В РЎСљР В РЎвЂўР В Р вЂ Р РЋРІР‚в„–Р В РІвЂћвЂ“ Р В РЎвЂ”Р В РЎвЂўР РЋР С“Р РЋРІР‚С™Р В Р’В°Р В Р вЂ Р РЋРІР‚В°Р В РЎвЂР В РЎвЂќ',
+                    label: 'Новый поставщик',
                     icon: CupertinoIcons.person_badge_plus,
                     onPressed: _newSupplier,
                   ),
                   const SizedBox(height: 8),
                   SecondaryButton(
-                    label: 'Р В РІР‚вЂќР В Р’В°Р В РЎвЂ”Р В РЎвЂР РЋР С“Р В Р’В°Р РЋРІР‚С™Р РЋР Р‰ Р В Р’В·Р В Р’В°Р В РЎвЂќР РЋРЎвЂњР В РЎвЂ”Р В РЎвЂќР РЋРЎвЂњ',
+                    label: 'Записать закупку',
                     icon: CupertinoIcons.doc_on_clipboard,
                     onPressed: _recordPurchase,
                   ),
                   const SizedBox(height: 8),
                   if (store.suppliers.isEmpty)
                     EmptyState(
-                      title: 'Р В РЎСљР В Р’ВµР РЋРІР‚С™ Р В РЎвЂ”Р В РЎвЂўР РЋР С“Р РЋРІР‚С™Р В Р’В°Р В Р вЂ Р РЋРІР‚В°Р В РЎвЂР В РЎвЂќР В РЎвЂўР В Р вЂ ',
-                      message: 'Р В РІР‚СњР В РЎвЂўР В Р’В±Р В Р’В°Р В Р вЂ Р РЋР Р‰Р РЋРІР‚С™Р В Р’Вµ Р В РЎвЂ”Р В РЎвЂўР РЋР С“Р РЋРІР‚С™Р В Р’В°Р В Р вЂ Р РЋРІР‚В°Р В РЎвЂР В РЎвЂќР В Р’В°, Р РЋРІР‚РЋР РЋРІР‚С™Р В РЎвЂўР В Р’В±Р РЋРІР‚в„– Р РЋРЎвЂњР РЋРІР‚РЋР В РЎвЂР РЋРІР‚С™Р РЋРІР‚в„–Р В Р вЂ Р В Р’В°Р РЋРІР‚С™Р РЋР Р‰ Р В Р’В·Р В Р’В°Р В РЎвЂќР РЋРЎвЂњР В РЎвЂ”Р В РЎвЂќР В РЎвЂ Р В РЎвЂ Р В РўвЂР В РЎвЂўР В Р’В»Р В РЎвЂ“Р В РЎвЂ.',
+                      title: 'Нет поставщиков',
+                      message: 'Добавьте поставщика, чтобы учитывать закупки и долги.',
                       art: Icon(
                         CupertinoIcons.person_2,
                         size: 36,
@@ -966,7 +824,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
                                     ),
                                   ),
                                   Text(
-                                    'Р В РІР‚СњР В РЎвЂўР В Р’В»Р В РЎвЂ“: ${_money(store.supplierDebtCents(supplier.id))}',
+                                    'Долг: ${_money(store.supplierDebtCents(supplier.id))}',
                                     style: TextStyle(
                                       color: colors.secondaryLabel,
                                       fontSize: 12,
@@ -978,7 +836,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
                                     child: const Icon(
                                       CupertinoIcons.money_dollar,
                                       size: 18,
-                                      semanticLabel: 'Р В РЎвЂєР В РЎвЂ”Р В Р’В»Р В Р’В°Р РЋРІР‚С™Р В РЎвЂР РЋРІР‚С™Р РЋР Р‰',
+                                      semanticLabel: 'Оплатить',
                                     ),
                                   ),
                                   CupertinoButton(
@@ -988,7 +846,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
                                       CupertinoIcons.xmark,
                                       size: 16,
                                       color: colors.tertiaryLabel,
-                                      semanticLabel: 'Р В Р в‚¬Р В РўвЂР В Р’В°Р В Р’В»Р В РЎвЂР РЋРІР‚С™Р РЋР Р‰',
+                                      semanticLabel: 'Удалить',
                                     ),
                                   ),
                                 ],
@@ -999,9 +857,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
                     ),
                   const SizedBox(height: 16),
                   if (low.isNotEmpty) ...[
-                    SectionLabel(
-                      'Р В РЎСљР В РЎвЂР В Р’В·Р В РЎвЂќР В РЎвЂР В РІвЂћвЂ“ Р В РЎвЂўР РЋР С“Р РЋРІР‚С™Р В Р’В°Р РЋРІР‚С™Р В РЎвЂўР В РЎвЂќ (${low.length})',
-                    ),
+                    SectionLabel('Низкий остаток (${low.length})'),
                     AppCard(
                       child: Column(
                         children: low
@@ -1021,7 +877,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
                                       ),
                                     ),
                                     Text(
-                                      '${i.stockQty.toStringAsFixed(i.stockQty % 1 == 0 ? 0 : 2)} ${i.unit} (Р В РЎВР В РЎвЂР В Р вЂ¦ ${i.minQty})',
+                                      '${i.stockQty.toStringAsFixed(i.stockQty % 1 == 0 ? 0 : 2)} ${i.unit} (мин ${i.minQty})',
                                       style: TextStyle(
                                         color: colors.red,
                                         fontSize: 12,
@@ -1038,7 +894,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
                     const SizedBox(height: 16),
                   ],
                   SecondaryButton(
-                    label: 'Р В Р’ВР В РЎВР В РЎвЂ”Р В РЎвЂўР РЋР вЂљР РЋРІР‚С™ Р В РЎвЂР В Р’В· Excel',
+                    label: 'Импорт из Excel',
                     icon: CupertinoIcons.doc_on_doc,
                     onPressed: _importInventoryExcel,
                   ),
@@ -1046,29 +902,25 @@ class _InventoryScreenState extends State<InventoryScreen> {
                   const SizedBox(height: 8),
                   CupertinoTextField(
                     controller: _searchController,
-                    placeholder: 'Р В РЎСџР В РЎвЂўР В РЎвЂР РЋР С“Р В РЎвЂќ Р В РЎвЂ”Р В РЎвЂў Р РЋР С“Р В РЎвЂќР В Р’В»Р В Р’В°Р В РўвЂР РЋРЎвЂњ',
+                    placeholder: 'Поиск по складу',
                     onChanged: (v) => setState(() => _invQuery = v),
                   ),
                   const SizedBox(height: 8),
                   SecondaryButton(
                     label: _invFilter == 'all'
-                        ? 'Р В Р’В¤Р В РЎвЂР В Р’В»Р РЋР Р‰Р РЋРІР‚С™Р РЋР вЂљ: Р В Р вЂ Р РЋР С“Р В Р’Вµ'
+                        ? 'Фильтр: все'
                         : (_invFilter == 'good'
-                              ? 'Р В РЎС›Р В РЎвЂўР В Р вЂ Р В Р’В°Р РЋР вЂљР РЋРІР‚в„–'
-                              : (_invFilter == 'service'
-                                    ? 'Р В Р в‚¬Р РЋР С“Р В Р’В»Р РЋРЎвЂњР В РЎвЂ“Р В РЎвЂ'
-                                    : 'Р В РЎС™Р В Р’В°Р В Р’В»Р В РЎвЂў')),
+                              ? 'Товары'
+                              : (_invFilter == 'service' ? 'Услуги' : 'Мало')),
                     icon: CupertinoIcons.line_horizontal_3_decrease,
                     onPressed: _pickInventoryFilter,
                   ),
                   const SizedBox(height: 8),
-                  SectionLabel(
-                    'Р В РЎСџР В РЎвЂўР В Р’В·Р В РЎвЂР РЋРІР‚В Р В РЎвЂР В РЎвЂ (${_filteredInventory(store).length})',
-                  ),
+                  SectionLabel('Позиции (${_filteredInventory(store).length})'),
                   store.inventoryItems.isEmpty
                       ? EmptyState(
-                          title: 'Р В РЎСљР В Р’ВµР РЋРІР‚С™ Р В РЎвЂ”Р В РЎвЂўР В Р’В·Р В РЎвЂР РЋРІР‚В Р В РЎвЂР В РІвЂћвЂ“',
-                          message: 'Р В РІР‚СњР В РЎвЂўР В Р’В±Р В Р’В°Р В Р вЂ Р РЋР Р‰Р РЋРІР‚С™Р В Р’Вµ Р РЋРІР‚С™Р В РЎвЂўР В Р вЂ Р В Р’В°Р РЋР вЂљ Р В РЎвЂР В Р’В»Р В РЎвЂ Р РЋРЎвЂњР РЋР С“Р В Р’В»Р РЋРЎвЂњР В РЎвЂ“Р РЋРЎвЂњ.',
+                          title: 'Нет позиций',
+                          message: 'Добавьте товар или услугу.',
                           art: Icon(
                             CupertinoIcons.cube,
                             size: 48,
@@ -1076,7 +928,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
                           ),
                           actions: [
                             PrimaryButton(
-                              label: 'Р В РІР‚СњР В РЎвЂўР В Р’В±Р В Р’В°Р В Р вЂ Р В РЎвЂР РЋРІР‚С™Р РЋР Р‰ Р В РЎвЂ”Р В РЎвЂўР В Р’В·Р В РЎвЂР РЋРІР‚В Р В РЎвЂР РЋР вЂ№',
+                              label: 'Добавить позицию',
                               icon: CupertinoIcons.plus,
                               onPressed: _newItem,
                             ),
@@ -1102,7 +954,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
                                             ),
                                           ),
                                           Text(
-                                            '${item.kind == 'service' ? 'Р В Р в‚¬Р РЋР С“Р В Р’В»Р РЋРЎвЂњР В РЎвЂ“Р В Р’В°' : 'Р В РЎС›Р В РЎвЂўР В Р вЂ Р В Р’В°Р РЋР вЂљ'} Р Р†Р вЂљРЎС› ${item.unit} Р Р†Р вЂљРЎС› Р В РЎвЂ”Р РЋР вЂљР В РЎвЂўР В РўвЂР В Р’В°Р В Р’В¶Р В Р’В° ${(item.sellPriceCents / 100).toStringAsFixed(0)} Р Р†РІР‚С™Р вЂ¦',
+                                            '${item.kind == 'service' ? 'Услуга' : 'Товар'} • ${item.unit} • продажа ${(item.sellPriceCents / 100).toStringAsFixed(0)} ₽',
                                             style: TextStyle(
                                               color: colors.secondaryLabel,
                                               fontSize: 12,
@@ -1110,21 +962,20 @@ class _InventoryScreenState extends State<InventoryScreen> {
                                           ),
                                           if (item.trackStock)
                                             Text(
-                                              'Р В РЎвЂєР РЋР С“Р РЋРІР‚С™Р В Р’В°Р РЋРІР‚С™Р В РЎвЂўР В РЎвЂќ: ${item.stockQty.toStringAsFixed(item.stockQty % 1 == 0 ? 0 : 2)} ${item.unit}${item.lowStock ? ' (Р В РЎВР В Р’В°Р В Р’В»Р В РЎвЂў)' : ''}',
+                                              'Остаток: ${item.stockQty.toStringAsFixed(item.stockQty % 1 == 0 ? 0 : 2)} ${item.unit}${item.stockQty < 0 ? ' \u2022 \u041e\u0442\u0440\u0438\u0446\u0430\u0442\u0435\u043b\u044c\u043d\u044b\u0439 \u043e\u0441\u0442\u0430\u0442\u043e\u043a' : (item.lowStock ? ' (\u043c\u0430\u043b\u043e)' : '')}',
                                               style: TextStyle(
-                                                color: item.stockQty < 0
+                                                color:
+                                                    item.stockQty < 0 ||
+                                                        item.lowStock
                                                     ? colors.red
-                                                    : (item.lowStock
-                                                          ? colors.red
-                                                          : colors
-                                                                .secondaryLabel),
+                                                    : colors.secondaryLabel,
                                                 fontSize: 12,
                                               ),
                                             ),
                                           if (item.trackStock &&
                                               item.stockQty < 0)
                                             Text(
-                                              'Р В РЎвЂєР РЋРІР‚С™Р РЋР вЂљР В РЎвЂР РЋРІР‚В Р В Р’В°Р РЋРІР‚С™Р В Р’ВµР В Р’В»Р РЋР Р‰Р В Р вЂ¦Р РЋРІР‚в„–Р В РІвЂћвЂ“ Р В РЎвЂўР РЋР С“Р РЋРІР‚С™Р В Р’В°Р РЋРІР‚С™Р В РЎвЂўР В РЎвЂќ',
+                                              'От\u0440\u0438\u0446\u0430\u0442\u0435\u043b\u044c\u043d\u044b\u0439 \u043e\u0441\u0442\u0430\u0442\u043e\u043a',
                                               style: TextStyle(
                                                 color: colors.red,
                                                 fontSize: 12,
@@ -1141,7 +992,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
                                         child: const Icon(
                                           CupertinoIcons.plus_circle,
                                           size: 20,
-                                          semanticLabel: 'Р В РЎСџР РЋР вЂљР В РЎвЂР РЋРІР‚ВР В РЎВ',
+                                          semanticLabel: 'Приём',
                                         ),
                                       ),
                                       CupertinoButton(
@@ -1150,16 +1001,19 @@ class _InventoryScreenState extends State<InventoryScreen> {
                                         child: const Icon(
                                           CupertinoIcons.minus_circle,
                                           size: 20,
-                                          semanticLabel: 'Р В Р Р‹Р В РЎвЂ”Р В РЎвЂР РЋР С“Р В Р’В°Р В Р вЂ¦Р В РЎвЂР В Р’Вµ',
+                                          semanticLabel: 'Списание',
                                         ),
                                       ),
                                     ],
                                     CupertinoButton(
                                       padding: EdgeInsets.zero,
                                       onPressed: () => _showItemHistory(item),
-                                      child: const Text(
-                                        'Р В Р’ВР РЋР С“Р РЋРІР‚С™Р В РЎвЂўР РЋР вЂљР В РЎвЂР РЋР РЏ',
-                                        style: TextStyle(fontSize: 12),
+                                      child: Text(
+                                        '\u0418\u0441\u0442\u043e\u0440\u0438\u044f',
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          color: colors.label,
+                                        ),
                                       ),
                                     ),
                                     CupertinoButton(
@@ -1169,7 +1023,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
                                         CupertinoIcons.xmark,
                                         size: 16,
                                         color: colors.tertiaryLabel,
-                                        semanticLabel: 'Р В Р в‚¬Р В РўвЂР В Р’В°Р В Р’В»Р В РЎвЂР РЋРІР‚С™Р РЋР Р‰',
+                                        semanticLabel: 'Удалить',
                                       ),
                                     ),
                                   ],
