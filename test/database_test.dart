@@ -27,6 +27,8 @@ void main() {
       expect(store.clients, isEmpty);
       expect(store.employees.length, 1);
       expect(store.selfEmployee?.name, 'Я');
+      final ver = (await appDb.database.rawQuery('PRAGMA user_version'))[0]['user_version'];
+      expect(ver, 12);
     } finally {
       await appDb.close();
     }
