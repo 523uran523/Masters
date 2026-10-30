@@ -200,6 +200,7 @@ class MastersStore extends ChangeNotifier {
     int monthIncomeCents = 0;
     for (final transaction in _moneyTransactions) {
       if (transaction.voided || transaction.direction != 'in') continue;
+      if (transaction.createdAt.isAfter(now)) continue;
       if (transaction.createdAt.year != now.year ||
           transaction.createdAt.month != now.month) {
         continue;
