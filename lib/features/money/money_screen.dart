@@ -599,8 +599,7 @@ class _MoneyScreenState extends State<MoneyScreen> {
                                   child: CupertinoDatePicker(
                                     mode: CupertinoDatePickerMode.date,
                                     initialDateTime: selected,
-                                    onDateTimeChanged: (dt) =>
-                                        selected = dt,
+                                    onDateTimeChanged: (dt) => selected = dt,
                                   ),
                                 ),
                               ],
@@ -624,14 +623,14 @@ class _MoneyScreenState extends State<MoneyScreen> {
                     if (interval <= 0) return;
                     final amount =
                         ((double.tryParse(
-                                  amountController.text.trim().replaceAll(
-                                    ',',
-                                    '.',
-                                  ),
-                                ) ??
-                                0) *
-                            100)
-                        .round();
+                                      amountController.text.trim().replaceAll(
+                                        ',',
+                                        '.',
+                                      ),
+                                    ) ??
+                                    0) *
+                                100)
+                            .round();
                     if (amount <= 0) return;
                     final category = categoryController.text.trim();
                     await store.updateRecurringPayment(
@@ -661,8 +660,7 @@ class _MoneyScreenState extends State<MoneyScreen> {
     );
   }
 
-
-Future<void> _runDueRecurring() async {
+  Future<void> _runDueRecurring() async {
     final store = context.read<MastersStore>();
     setState(() => _busy = true);
     try {
