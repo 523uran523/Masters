@@ -27,6 +27,8 @@ class _MoneyScreenState extends State<MoneyScreen> {
   String _directionFilter = 'all';
   String? _accountFilter;
   String _txQuery = '';
+  DateTime? _dateFrom;
+  DateTime? _dateTo;
 
   String _money(int cents) => '${(cents / 100).toStringAsFixed(0)} ₽';
 
@@ -67,6 +69,113 @@ class _MoneyScreenState extends State<MoneyScreen> {
         ),
       ),
     );
+  }
+
+  Future<void> _pickDate(bool from) async {
+    DateTime selected = from
+        ? (_dateFrom ?? DateTime.now())
+        : (_dateTo ?? DateTime.now());
+    await showCupertinoModalPopup<void>(
+      context: context,
+      builder: (ctx) => Container(
+        height: 300,
+        color: context.colors.card,
+        child: Column(
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                CupertinoButton(
+                  child: const Text('Отмена'),
+                  onPressed: () => Navigator.of(ctx).pop(),
+                ),
+                CupertinoButton(
+                  child: const Text('Готово'),
+                  onPressed: () {
+                    final picked = DateTime(
+                      selected.year,
+                      selected.month,
+                      selected.day,
+                    );
+                    Navigator.of(ctx).pop();
+                    setState(() {
+                      if (from) {
+                        _dateFrom = picked;
+                      } else {
+                        _dateTo = picked;
+                      }
+                    });
+                  },
+                ),
+              ],
+            ),
+            Expanded(
+              child: CupertinoDatePicker(
+                mode: CupertinoDatePickerMode.date,
+                initialDateTime: selected,
+                onDateTimeChanged: (dt) => selected = dt,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _openDateFilter() async {
+    final action = await showCupertinoModalPopup<String?>(
+      context: context,
+      builder: (ctx) => CupertinoActionSheet(
+        title: const Text('Период'),
+        actions: [
+          CupertinoActionSheetAction(
+            onPressed: () => Navigator.of(ctx).pop('from'),
+            child: const Text('С даты'),
+          ),
+          CupertinoActionSheetAction(
+            onPressed: () => Navigator.of(ctx).pop('to'),
+            child: const Text('По дату'),
+          ),
+          if (_dateFrom != null || _dateTo != null)
+            CupertinoActionSheetAction(
+              onPressed: () => Navigator.of(ctx).pop('clear'),
+              child: const Text('Очистить'),
+            ),
+          CupertinoActionSheetAction(
+            onPressed: () => Navigator.of(ctx).pop('all'),
+            child: const Text('Все'),
+          ),
+        ],
+        cancelButton: CupertinoActionSheetAction(
+          onPressed: () => Navigator.of(ctx).pop(),
+          child: const Text('Отмена'),
+        ),
+      ),
+    );
+    if (action == 'from') {
+      await _pickDate(true);
+    } else if (action == 'to') {
+      await _pickDate(false);
+    } else if (action == 'clear' || action == 'all') {
+      setState(() {
+        _dateFrom = null;
+        _dateTo = null;
+      });
+    }
+  }
+
+  String _formatDate() {
+    final f = DateFormat('d MMM yyyy', 'ru');
+    if (_dateFrom != null && _dateTo != null) {
+      return '${f.format(_dateFrom!)} — ${f.format(_dateTo!)}';
+    }
+    if (_dateFrom != null) {
+      return 'С ${f.format(_dateFrom!)}';
+    }
+    if (_dateTo != null) {
+      return 'По ${f.format(_dateTo!)}';
+    }
+    return 'Период: все';
   }
 
   Future<void> _quickSale() async => _quickTransactionSheet(isIncome: true);
@@ -361,12 +470,13 @@ class _MoneyScreenState extends State<MoneyScreen> {
     setState(() => _busy = true);
     try {
       final count = await store.runDueRecurringPayments();
-      if (mounted)
+      if (mounted) {
         await showAppAlert(
           context,
           title: 'Готово',
           message: 'Проведено плановых платежей: $count',
         );
+      }
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -659,7 +769,10 @@ class _MoneyScreenState extends State<MoneyScreen> {
                   _KV('Тип', current.kind),
                   _KV(
                     'Дата',
-                    DateFormat('d MMM yyyy, HH:mm', 'ru').format(current.createdAt),
+                    DateFormat(
+                      'd MMM yyyy, HH:mm',
+                      'ru',
+                    ).format(current.createdAt),
                   ),
                   if (current.note != null && current.note!.isNotEmpty)
                     _KV('Комментарий', current.note!),
@@ -674,7 +787,7 @@ class _MoneyScreenState extends State<MoneyScreen> {
                           height: 140,
                           width: double.infinity,
                           fit: BoxFit.cover,
-                          errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+                          errorBuilder: (_, _, _) => const SizedBox.shrink(),
                         ),
                       ),
                     const SizedBox(height: 8),
@@ -704,10 +817,11 @@ class _MoneyScreenState extends State<MoneyScreen> {
                               );
                               if (!ok || !mounted) return;
                               await store.removeReceipt(current.id);
-                              final updated = store.moneyTransactions.firstWhere(
-                                (x) => x.id == current.id,
-                                orElse: () => current,
-                              );
+                              final updated = store.moneyTransactions
+                                  .firstWhere(
+                                    (x) => x.id == current.id,
+                                    orElse: () => current,
+                                  );
                               setModalState(() => current = updated);
                             },
                           ),
@@ -734,10 +848,7 @@ class _MoneyScreenState extends State<MoneyScreen> {
                         if (files.isEmpty) return;
                         final selectedPath = files.single.path;
                         if (selectedPath == null) return;
-                        await store.attachReceipt(
-                          current.id,
-                          selectedPath,
-                        );
+                        await store.attachReceipt(current.id, selectedPath);
                         final updated = store.moneyTransactions.firstWhere(
                           (x) => x.id == current.id,
                           orElse: () => current,
@@ -759,7 +870,9 @@ class _MoneyScreenState extends State<MoneyScreen> {
                       );
                       if (!ok || !mounted) return;
                       store.voidTransaction(current.id);
-                      if (modalContext.mounted) Navigator.of(modalContext).pop();
+                      if (modalContext.mounted) {
+                        Navigator.of(modalContext).pop();
+                      }
                     },
                   ),
                 ],
@@ -1196,14 +1309,21 @@ class _MoneyScreenState extends State<MoneyScreen> {
                                 ),
                               ),
                             );
-                            if (v == '__all__')
+                            if (v == '__all__') {
                               setState(() => _accountFilter = null);
-                            else if (v != null)
+                            } else if (v != null) {
                               setState(() => _accountFilter = v);
+                            }
                           },
                         ),
                       ),
                     ],
+                  ),
+                  const SizedBox(height: 8),
+                  SecondaryButton(
+                    label: _formatDate(),
+                    icon: CupertinoIcons.calendar,
+                    onPressed: _openDateFilter,
                   ),
                   const SizedBox(height: 16),
                   SectionLabel('Журнал (${store.moneyTransactions.length})'),
@@ -1222,18 +1342,35 @@ class _MoneyScreenState extends State<MoneyScreen> {
                               .where((t) {
                                 if (t.voided) return false;
                                 if (_directionFilter != 'all' &&
-                                    t.direction != _directionFilter)
+                                    t.direction != _directionFilter) {
                                   return false;
+                                }
                                 if (_accountFilter != null &&
-                                    t.accountId != _accountFilter)
+                                    t.accountId != _accountFilter) {
                                   return false;
+                                }
+                                if (_dateFrom != null &&
+                                    t.createdAt.isBefore(_dateFrom!)) {
+                                  return false;
+                                }
+                                if (_dateTo != null) {
+                                  final endOfDay = DateTime(
+                                    _dateTo!.year,
+                                    _dateTo!.month,
+                                    _dateTo!.day + 1,
+                                  );
+                                  if (t.createdAt.isAfter(endOfDay)) {
+                                    return false;
+                                  }
+                                }
                                 final q = _txQuery.trim().toLowerCase();
                                 if (q.isNotEmpty &&
                                     !(t.category.toLowerCase().contains(q) ||
                                         (t.note ?? '').toLowerCase().contains(
                                           q,
-                                        )))
+                                        ))) {
                                   return false;
+                                }
                                 return true;
                               })
                               .take(50)
