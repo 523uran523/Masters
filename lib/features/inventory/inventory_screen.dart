@@ -16,6 +16,9 @@ class InventoryScreen extends StatefulWidget {
 
 class _InventoryScreenState extends State<InventoryScreen> {
   bool _busy = false;
+  final _searchController = TextEditingController();
+  String _invQuery = '';
+  String _invFilter = 'all';
 
   Future<String?> _prompt(String title, String placeholder, {String? initial}) async {
     final controller = TextEditingController(text: initial ?? '');
@@ -60,6 +63,35 @@ class _InventoryScreenState extends State<InventoryScreen> {
     if (unit == null) return null;
     if (unit == '__custom__') return _prompt('Единица', 'шт');
     return unit;
+  }
+
+  List<InventoryItem> _filteredInventory(MastersStore store) {
+    var list = store.inventoryItems.where((i) => !i.archived).toList();
+    final q = _invQuery.trim().toLowerCase();
+    if (q.isNotEmpty) {
+      list = list.where((i) => i.name.toLowerCase().contains(q) || i.unit.toLowerCase().contains(q)).toList();
+    }
+    if (_invFilter == 'good') list = list.where((i) => i.kind == 'good').toList();
+    if (_invFilter == 'service') list = list.where((i) => i.kind == 'service').toList();
+    if (_invFilter == 'low') list = list.where((i) => i.lowStock).toList();
+    return list;
+  }
+
+  Future<void> _pickInventoryFilter() async {
+    final v = await showCupertinoModalPopup<String>(
+      context: context,
+      builder: (dialogContext) => CupertinoActionSheet(
+        title: const Text('Фильтр склада'),
+        actions: [
+          CupertinoActionSheetAction(onPressed: () => Navigator.of(dialogContext).pop('all'), child: const Text('Все позиции')),
+          CupertinoActionSheetAction(onPressed: () => Navigator.of(dialogContext).pop('good'), child: const Text('Только товары')),
+          CupertinoActionSheetAction(onPressed: () => Navigator.of(dialogContext).pop('service'), child: const Text('Только услуги')),
+          CupertinoActionSheetAction(onPressed: () => Navigator.of(dialogContext).pop('low'), child: const Text('Мало на складе')),
+        ],
+        cancelButton: CupertinoActionSheetAction(onPressed: () => Navigator.of(dialogContext).pop(), child: const Text('Отмена')),
+      ),
+    );
+    if (v != null) setState(() => _invFilter = v);
   }
 
   Future<void> _newItem() async {
@@ -361,6 +393,12 @@ class _InventoryScreenState extends State<InventoryScreen> {
   }
 
   @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     final store = context.watch<MastersStore>();
     final colors = context.colors;
@@ -432,7 +470,20 @@ if (low.isNotEmpty) ...[
                   ],
                   SecondaryButton(label: 'Импорт из Excel', icon: CupertinoIcons.doc_on_doc, onPressed: _importInventoryExcel),
                   const SizedBox(height: 8),
-                  SectionLabel('Позиции (${store.inventoryItems.length})'),
+                   const SizedBox(height: 8),
+                   CupertinoTextField(
+                     controller: _searchController,
+                     placeholder: 'Поиск по складу',
+                     onChanged: (v) => setState(() => _invQuery = v),
+                   ),
+                   const SizedBox(height: 8),
+                   SecondaryButton(
+                     label: _invFilter == 'all' ? 'Фильтр: все' : (_invFilter == 'good' ? 'Товары' : (_invFilter == 'service' ? 'Услуги' : 'Мало')),
+                     icon: CupertinoIcons.line_horizontal_3_decrease,
+                     onPressed: _pickInventoryFilter,
+                   ),
+                   const SizedBox(height: 8),
+                   SectionLabel('Позиции (${_filteredInventory(store).length})'),
                   store.inventoryItems.isEmpty
                       ? EmptyState(
                           title: 'Нет позиций',
