@@ -8,6 +8,7 @@ import '../../app/ui.dart';
 import '../../data/models/job.dart';
 import '../../core/utils/app_utils.dart';
 import '../../state/masters_store.dart';
+import '../../state/settings_controller.dart';
 import 'job_detail_screen.dart';
 import 'job_form_screen.dart';
 
@@ -24,6 +25,9 @@ class _JobsScreenState extends State<JobsScreen> {
   final _searchController = TextEditingController();
   String _query = '';
   bool _searchVisible = false;
+  String? _assigneeFilter;
+  JobPriority? _priorityFilter;
+  String? _tagFilter;
 
   @override
   void dispose() {
@@ -31,10 +35,54 @@ class _JobsScreenState extends State<JobsScreen> {
     super.dispose();
   }
 
+  bool _extraFiltersMatch(Job job, MastersStore store) {
+    final af = _assigneeFilter;
+    if (af != null && af != '__all__' && af.trim().isNotEmpty) {
+      final selfId = store.selfEmployee?.id;
+      if (af == '__none__') {
+        if (job.assigneeId != null) return false;
+      } else if (af == '__self__') {
+        if (!(job.assigneeId == '__self__' ||
+            (selfId != null && job.assigneeId == selfId))) {
+          return false;
+        }
+      } else {
+        if (job.assigneeId != af) return false;
+      }
+    }
+    if (_priorityFilter != null && job.priority != _priorityFilter) {
+      return false;
+    }
+    final tf = _tagFilter;
+    if (tf != null && tf != '__all__' && tf.trim().isNotEmpty) {
+      final tags = (job.tags ?? '')
+          .split(',')
+          .map((e) => e.trim())
+          .where((e) => e.isNotEmpty);
+      if (!tags.contains(tf.trim())) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  bool get _hasActiveFilters =>
+      (_assigneeFilter != null &&
+          _assigneeFilter != '__all__' &&
+          _assigneeFilter!.trim().isNotEmpty) ||
+      _priorityFilter != null ||
+      (_tagFilter != null &&
+          _tagFilter != '__all__' &&
+          _tagFilter!.trim().isNotEmpty);
+
   List<Job> _filteredJobs(MastersStore store) {
-    var list = store.jobs.where((j) => !j.archived).toList();
+    var list = store.jobs
+        .where((j) => !j.archived && _extraFiltersMatch(j, store))
+        .toList();
     if (_statusIndex > 0) {
-      list = list.where((j) => j.status == JobStatus.values[_statusIndex - 1]).toList();
+      list = list
+          .where((j) => j.status == JobStatus.values[_statusIndex - 1])
+          .toList();
     }
     final q = _query.trim().toLowerCase();
     if (q.isNotEmpty) {
@@ -49,13 +97,12 @@ class _JobsScreenState extends State<JobsScreen> {
 
   Future<void> _openForm({String? jobId}) async {
     if (!mounted) return;
-    Navigator.of(context).push(
-      CupertinoPageRoute(builder: (_) => JobFormScreen(jobId: jobId)),
-    );
+    Navigator.of(context)
+        .push(CupertinoPageRoute(builder: (_) => JobFormScreen(jobId: jobId)));
   }
 
-
-  String _statusLabel() => _statusIndex == 0 ? 'Все' : JobStatus.values[_statusIndex - 1].label;
+  String _statusLabel() =>
+      _statusIndex == 0 ? 'Все' : JobStatus.values[_statusIndex - 1].label;
 
   Future<void> _showStatusPicker() async {
     final result = await showCupertinoModalPopup<int>(
@@ -84,11 +131,194 @@ class _JobsScreenState extends State<JobsScreen> {
     if (result != null && mounted) setState(() => _statusIndex = result);
   }
 
+  Future<void> _pickAssigneeFilter() async {
+    final store = context.read<MastersStore>();
+    final selfId = store.selfEmployee?.id;
+    final result = await showCupertinoModalPopup<String?>(
+      context: context,
+      builder: (dialogContext) => CupertinoActionSheet(
+        title: const Text('Исполнитель'),
+        actions: [
+          CupertinoActionSheetAction(
+            isDefaultAction:
+                _assigneeFilter == null || _assigneeFilter == '__all__',
+            onPressed: () => Navigator.of(dialogContext).pop('__all__'),
+            child: const Text('Все'),
+          ),
+          CupertinoActionSheetAction(
+            isDefaultAction: _assigneeFilter == '__none__',
+            onPressed: () => Navigator.of(dialogContext).pop('__none__'),
+            child: const Text('Без исполнителя'),
+          ),
+          CupertinoActionSheetAction(
+            isDefaultAction: _assigneeFilter == '__self__',
+            onPressed: () => Navigator.of(dialogContext).pop('__self__'),
+            child: const Text('Я'),
+          ),
+          for (final e in store.employees.where(
+            (e) => !e.archived && e.id != selfId,
+          ))
+            CupertinoActionSheetAction(
+              isDefaultAction: _assigneeFilter == e.id,
+              onPressed: () => Navigator.of(dialogContext).pop(e.id),
+              child: Text(e.name),
+            ),
+        ],
+        cancelButton: CupertinoActionSheetAction(
+          onPressed: () => Navigator.of(dialogContext).pop(),
+          child: const Text('Отмена'),
+        ),
+      ),
+    );
+    if (result == null || !mounted) return;
+    setState(() {
+      _assigneeFilter = result == '__all__' ? null : result;
+    });
+  }
+
+  Future<void> _pickPriorityFilter() async {
+    final result = await showCupertinoModalPopup<String?>(
+      context: context,
+      builder: (dialogContext) => CupertinoActionSheet(
+        title: const Text('Приоритет'),
+        actions: [
+          CupertinoActionSheetAction(
+            isDefaultAction: _priorityFilter == null,
+            onPressed: () => Navigator.of(dialogContext).pop('__all__'),
+            child: const Text('Все'),
+          ),
+          for (final p in JobPriority.values)
+            CupertinoActionSheetAction(
+              isDefaultAction: _priorityFilter == p,
+              onPressed: () => Navigator.of(dialogContext).pop(p.name),
+              child: Text(p.label),
+            ),
+        ],
+        cancelButton: CupertinoActionSheetAction(
+          onPressed: () => Navigator.of(dialogContext).pop(),
+          child: const Text('Отмена'),
+        ),
+      ),
+    );
+    if (result == null || !mounted) return;
+    setState(() {
+      if (result == '__all__') {
+        _priorityFilter = null;
+      } else {
+        _priorityFilter = JobPriority.values
+            .where((p) => p.name == result)
+            .firstOrNull;
+      }
+    });
+  }
+
+  List<String> _availableTags(MastersStore store) {
+    final settings = context.read<SettingsController>();
+    final tags = <String>{};
+    for (final j in store.jobs) {
+      for (final t in (j.tags ?? '').split(',')) {
+        final v = t.trim();
+        if (v.isNotEmpty) tags.add(v);
+      }
+    }
+    tags.addAll(settings.jobTags);
+    final list = tags.toList()..sort();
+    return list;
+  }
+
+  Future<void> _pickTagFilter() async {
+    final store = context.read<MastersStore>();
+    final tags = _availableTags(store);
+    if (tags.isEmpty) {
+      if (!mounted) return;
+      await showAppAlert(context, title: 'Теги', message: 'Теги не найдены.');
+      return;
+    }
+    final result = await showCupertinoModalPopup<String?>(
+      context: context,
+      builder: (dialogContext) => CupertinoActionSheet(
+        title: const Text('Тег'),
+        actions: [
+          CupertinoActionSheetAction(
+            isDefaultAction: _tagFilter == null || _tagFilter == '__all__',
+            onPressed: () => Navigator.of(dialogContext).pop('__all__'),
+            child: const Text('Все'),
+          ),
+          for (final t in tags)
+            CupertinoActionSheetAction(
+              isDefaultAction: _tagFilter == t,
+              onPressed: () => Navigator.of(dialogContext).pop(t),
+              child: Text(t),
+            ),
+        ],
+        cancelButton: CupertinoActionSheetAction(
+          onPressed: () => Navigator.of(dialogContext).pop(),
+          child: const Text('Отмена'),
+        ),
+      ),
+    );
+    if (result == null || !mounted) return;
+    setState(() {
+      _tagFilter = result == '__all__' ? null : result;
+    });
+  }
+
+  Future<void> _showFilters() async {
+    if (!mounted) return;
+    await showCupertinoModalPopup<void>(
+      context: context,
+      builder: (dialogContext) => CupertinoActionSheet(
+        title: const Text('Фильтры'),
+        actions: [
+          CupertinoActionSheetAction(
+            onPressed: () {
+              Navigator.of(dialogContext).pop();
+              _pickAssigneeFilter();
+            },
+            child: const Text('Исполнитель'),
+          ),
+          CupertinoActionSheetAction(
+            onPressed: () {
+              Navigator.of(dialogContext).pop();
+              _pickPriorityFilter();
+            },
+            child: const Text('Приоритет'),
+          ),
+          CupertinoActionSheetAction(
+            onPressed: () {
+              Navigator.of(dialogContext).pop();
+              _pickTagFilter();
+            },
+            child: const Text('Тег'),
+          ),
+          CupertinoActionSheetAction(
+            onPressed: () {
+              Navigator.of(dialogContext).pop();
+              setState(() {
+                _assigneeFilter = null;
+                _priorityFilter = null;
+                _tagFilter = null;
+              });
+            },
+            child: const Text('Сбросить'),
+          ),
+        ],
+        cancelButton: CupertinoActionSheetAction(
+          onPressed: () => Navigator.of(dialogContext).pop(),
+          child: const Text('Отмена'),
+        ),
+      ),
+    );
+  }
+
   Future<void> _quickAdd() async {
     final store = context.read<MastersStore>();
     if (store.clients.isEmpty) {
-      await showAppAlert(context,
-          title: 'Нет клиентов', message: 'Сначала создайте клиента на вкладке «Клиенты».');
+      await showAppAlert(
+        context,
+        title: 'Нет клиентов',
+        message: 'Сначала создайте клиента на вкладке «Клиенты».',
+      );
       return;
     }
     await _openForm();
@@ -97,6 +327,7 @@ class _JobsScreenState extends State<JobsScreen> {
   @override
   Widget build(BuildContext context) {
     final store = context.watch<MastersStore>();
+    final colors = context.colors;
 
     return CupertinoPageScaffold(
       navigationBar: CupertinoNavigationBar(
@@ -106,8 +337,18 @@ class _JobsScreenState extends State<JobsScreen> {
           children: [
             CupertinoButton(
               padding: EdgeInsets.zero,
+              onPressed: _showFilters,
+              child: Icon(
+                CupertinoIcons.line_horizontal_3_decrease,
+                color: _hasActiveFilters ? colors.accent : null,
+              ),
+            ),
+            CupertinoButton(
+              padding: EdgeInsets.zero,
               onPressed: () => setState(() => _searchVisible = !_searchVisible),
-              child: Icon(_searchVisible ? CupertinoIcons.xmark : CupertinoIcons.search),
+              child: Icon(
+                _searchVisible ? CupertinoIcons.xmark : CupertinoIcons.search,
+              ),
             ),
             CupertinoButton(
               padding: EdgeInsets.zero,
@@ -152,7 +393,10 @@ class _JobsScreenState extends State<JobsScreen> {
                             _searchController.clear();
                             setState(() => _query = '');
                           },
-                          child: const Icon(CupertinoIcons.xmark_circle_fill, size: 18),
+                          child: const Icon(
+                            CupertinoIcons.xmark_circle_fill,
+                            size: 18,
+                          ),
                         ),
                 ),
               ),
@@ -182,12 +426,18 @@ class _JobsScreenState extends State<JobsScreen> {
                 ),
               ),
               CupertinoButton(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 6,
+                ),
                 onPressed: _showStatusPicker,
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Icon(CupertinoIcons.line_horizontal_3_decrease, size: 18),
+                    const Icon(
+                      CupertinoIcons.line_horizontal_3_decrease,
+                      size: 18,
+                    ),
                     const SizedBox(width: 6),
                     Text(_statusLabel()),
                   ],
@@ -197,60 +447,67 @@ class _JobsScreenState extends State<JobsScreen> {
           ),
         ),
         Expanded(
-          child: Builder(builder: (context) {
-            final jobs = _filteredJobs(store);
-            if (jobs.isEmpty) {
-              return EmptyState(
-                title: 'Нет заказов',
-                message: _query.isEmpty
-                    ? 'Нажмите +, чтобы создать заказ.'
-                    : 'Ничего не найдено.',
-                art: Icon(CupertinoIcons.doc_text,
-                    size: 48, color: colors.tertiaryLabel),
-              );
-            }
-            return ListView.builder(
-              padding: const EdgeInsets.fromLTRB(16, 0, 16, 72),
-              itemCount: jobs.length,
-              itemBuilder: (context, index) {
-                final job = jobs[index];
-                final client = store.clientById(job.clientId);
-                return Padding(
-                  padding: const EdgeInsets.only(bottom: 8),
-                  child: Dismissible(
-                    key: ValueKey(job.id),
-                    direction: DismissDirection.endToStart,
-                    background: Container(
-                      alignment: Alignment.centerRight,
-                      padding: const EdgeInsets.only(right: 16),
-                      decoration: BoxDecoration(
-                        color: colors.red.withValues(alpha: 0.12),
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                      child: Icon(CupertinoIcons.delete, color: colors.red),
-                    ),
-                    confirmDismiss: (_) => showAppConfirm(
-                      context,
-                      title: 'Удалить заказ?',
-                      message: 'Этапы, материалы и время тоже удалятся.',
-                      destructive: true,
-                      confirmLabel: 'Удалить',
-                    ),
-                    onDismissed: (_) => context.read<MastersStore>().deleteJob(job.id),
-                    child: _JobRow(
-                      job: job,
-                      store: store,
-                      clientName: client?.name ?? '—',
-                      onTap: () => Navigator.of(context).push(
-                        CupertinoPageRoute(
-                            builder: (_) => JobDetailScreen(jobId: job.id)),
-                      ),
-                    ),
+          child: Builder(
+            builder: (context) {
+              final jobs = _filteredJobs(store);
+              if (jobs.isEmpty) {
+                return EmptyState(
+                  title: 'Нет заказов',
+                  message: _query.isEmpty
+                      ? 'Нажмите +, чтобы создать заказ.'
+                      : 'Ничего не найдено.',
+                  art: Icon(
+                    CupertinoIcons.doc_text,
+                    size: 48,
+                    color: colors.tertiaryLabel,
                   ),
                 );
-              },
-            );
-          }),
+              }
+              return ListView.builder(
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 72),
+                itemCount: jobs.length,
+                itemBuilder: (context, index) {
+                  final job = jobs[index];
+                  final client = store.clientById(job.clientId);
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: Dismissible(
+                      key: ValueKey(job.id),
+                      direction: DismissDirection.endToStart,
+                      background: Container(
+                        alignment: Alignment.centerRight,
+                        padding: const EdgeInsets.only(right: 16),
+                        decoration: BoxDecoration(
+                          color: colors.red.withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        child: Icon(CupertinoIcons.delete, color: colors.red),
+                      ),
+                      confirmDismiss: (_) => showAppConfirm(
+                        context,
+                        title: 'Удалить заказ?',
+                        message: 'Этапы, материалы и время тоже удалятся.',
+                        destructive: true,
+                        confirmLabel: 'Удалить',
+                      ),
+                      onDismissed: (_) =>
+                          context.read<MastersStore>().deleteJob(job.id),
+                      child: _JobRow(
+                        job: job,
+                        store: store,
+                        clientName: client?.name ?? '—',
+                        onTap: () => Navigator.of(context).push(
+                          CupertinoPageRoute(
+                            builder: (_) => JobDetailScreen(jobId: job.id),
+                          ),
+                        ),
+                      ),
+                    ),
+                  );
+                },
+              );
+            },
+          ),
         ),
       ],
     );
@@ -258,22 +515,45 @@ class _JobsScreenState extends State<JobsScreen> {
 
   Widget _buildProcessView(MastersStore store) {
     final colors = context.colors;
+    final filteredJobs = store.jobs
+        .where((j) => !j.archived && _extraFiltersMatch(j, store))
+        .toList();
     final groups = <_ProcessGroup>[
-      _ProcessGroup(label: 'Новые', status: JobStatus.nuevo, jobs: store.jobs.where((j) => !j.archived && j.status == JobStatus.nuevo).toList()),
-      _ProcessGroup(label: 'В работе', status: JobStatus.inProgress, jobs: store.jobs.where((j) => !j.archived && (j.status == JobStatus.inProgress || j.status == JobStatus.waitingParts)).toList()),
-      _ProcessGroup(label: 'Готовые', status: JobStatus.done, jobs: store.jobs.where((j) => !j.archived && (j.status == JobStatus.done || j.status == JobStatus.closed)).toList()),
+      _ProcessGroup(
+        label: 'Новые',
+        status: JobStatus.nuevo,
+        jobs: filteredJobs.where((j) => j.status == JobStatus.nuevo).toList(),
+      ),
+      _ProcessGroup(
+        label: 'В работе',
+        status: JobStatus.inProgress,
+        jobs: filteredJobs
+            .where(
+              (j) =>
+                  j.status == JobStatus.inProgress ||
+                  j.status == JobStatus.waitingParts,
+            )
+            .toList(),
+      ),
+      _ProcessGroup(
+        label: 'Готовые',
+        status: JobStatus.done,
+        jobs: filteredJobs
+            .where(
+              (j) => j.status == JobStatus.done || j.status == JobStatus.closed,
+            )
+            .toList(),
+      ),
     ];
 
     final size = MediaQuery.of(context).size;
     final isWide = size.width > size.height;
-    final columnWidth = isWide
-        ? (size.width / 4.2).clamp(260.0, 400.0)
-        : (size.width * 0.78).clamp(260.0, 320.0);
 
     Widget buildColumn(_ProcessGroup group, double? width) {
       return DragTarget<Job>(
         onWillAcceptWithDetails: (_) => true,
-        onAcceptWithDetails: (details) => store.setJobStatus(details.data.id, group.status),
+        onAcceptWithDetails: (details) =>
+            store.setJobStatus(details.data.id, group.status),
         builder: (context, candidateData, rejectedData) {
           final highlight = candidateData.isNotEmpty;
           return Container(
@@ -283,24 +563,42 @@ class _JobsScreenState extends State<JobsScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 8,
+                  ),
                   decoration: BoxDecoration(
-                    color: highlight ? colors.accent.withValues(alpha: 0.12) : colors.cardElevated,
+                    color: highlight
+                        ? colors.accent.withValues(alpha: 0.12)
+                        : colors.cardElevated,
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Row(
                     children: [
-                      Text(group.label, style: const TextStyle(fontWeight: FontWeight.w600)),
+                      Text(
+                        group.label,
+                        style: const TextStyle(fontWeight: FontWeight.w600),
+                      ),
                       const SizedBox(width: 6),
-                      Text('${group.jobs.length}',
-                          style: TextStyle(color: colors.secondaryLabel, fontSize: 12)),
+                      Text(
+                        '${group.jobs.length}',
+                        style: TextStyle(
+                          color: colors.secondaryLabel,
+                          fontSize: 12,
+                        ),
+                      ),
                     ],
                   ),
                 ),
                 const SizedBox(height: 8),
                 Expanded(
                   child: group.jobs.isEmpty
-                      ? Center(child: Text('Нет заказов', style: TextStyle(color: colors.tertiaryLabel)))
+                      ? Center(
+                          child: Text(
+                            'Нет заказов',
+                            style: TextStyle(color: colors.tertiaryLabel),
+                          ),
+                        )
                       : ListView.builder(
                           physics: const ClampingScrollPhysics(),
                           itemCount: group.jobs.length,
@@ -338,7 +636,10 @@ class _JobsScreenState extends State<JobsScreen> {
                                   store: store,
                                   clientName: client?.name ?? '—',
                                   onTap: () => Navigator.of(context).push(
-                                    CupertinoPageRoute(builder: (_) => JobDetailScreen(jobId: job.id)),
+                                    CupertinoPageRoute(
+                                      builder: (_) =>
+                                          JobDetailScreen(jobId: job.id),
+                                    ),
                                   ),
                                 ),
                               ),
@@ -356,7 +657,9 @@ class _JobsScreenState extends State<JobsScreen> {
     if (isWide) {
       return Row(
         crossAxisAlignment: CrossAxisAlignment.start,
-        children: [for (final group in groups) Expanded(child: buildColumn(group, null))],
+        children: [
+          for (final group in groups) Expanded(child: buildColumn(group, null)),
+        ],
       );
     }
     return ListView(
@@ -369,11 +672,14 @@ class _JobsScreenState extends State<JobsScreen> {
       ],
     );
   }
-
 }
 
 class _ProcessGroup {
-  const _ProcessGroup({required this.label, required this.status, required this.jobs});
+  const _ProcessGroup({
+    required this.label,
+    required this.status,
+    required this.jobs,
+  });
 
   final String label;
   final JobStatus status;
@@ -422,15 +728,18 @@ class _JobRow extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(job.title,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(fontWeight: FontWeight.w600)),
+                Text(
+                  job.title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(fontWeight: FontWeight.w600),
+                ),
                 const SizedBox(height: 2),
                 Text(
                   [
                     clientName,
-                    if (job.dueDate != null) DateFormat('d MMM', 'ru').format(job.dueDate!),
+                    if (job.dueDate != null)
+                      DateFormat('d MMM', 'ru').format(job.dueDate!),
                     if (totalMin > 0) formatMinutes(totalMin),
                   ].join(' • '),
                   style: TextStyle(color: colors.secondaryLabel, fontSize: 12),
@@ -440,7 +749,11 @@ class _JobRow extends StatelessWidget {
           ),
           if (job.priority == JobPriority.high)
             Icon(CupertinoIcons.exclamationmark, size: 16, color: colors.red),
-          Icon(CupertinoIcons.chevron_forward, size: 16, color: colors.tertiaryLabel),
+          Icon(
+            CupertinoIcons.chevron_forward,
+            size: 16,
+            color: colors.tertiaryLabel,
+          ),
         ],
       ),
     );
@@ -472,41 +785,57 @@ class _JobCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(job.title,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(fontWeight: FontWeight.w600)),
+          Text(
+            job.title,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(fontWeight: FontWeight.w600),
+          ),
           const SizedBox(height: 4),
-          Text(clientName,
-              style: TextStyle(color: colors.secondaryLabel, fontSize: 12)),
+          Text(
+            clientName,
+            style: TextStyle(color: colors.secondaryLabel, fontSize: 12),
+          ),
           const SizedBox(height: 6),
           Row(
             children: [
               if (job.dueDate != null)
-                Text(DateFormat('d MMM', 'ru').format(job.dueDate!),
-                    style: TextStyle(color: colors.secondaryLabel, fontSize: 11)),
+                Text(
+                  DateFormat('d MMM', 'ru').format(job.dueDate!),
+                  style: TextStyle(color: colors.secondaryLabel, fontSize: 11),
+                ),
               const Spacer(),
               if (totalMin > 0)
-                Text(formatMinutes(totalMin),
-                    style: TextStyle(color: colors.secondaryLabel, fontSize: 11)),
+                Text(
+                  formatMinutes(totalMin),
+                  style: TextStyle(color: colors.secondaryLabel, fontSize: 11),
+                ),
               if (stages.isNotEmpty) ...[
                 const SizedBox(width: 6),
-                Text('$done/${stages.length}',
-                    style: TextStyle(color: colors.secondaryLabel, fontSize: 11)),
+                Text(
+                  '$done/${stages.length}',
+                  style: TextStyle(color: colors.secondaryLabel, fontSize: 11),
+                ),
               ],
             ],
           ),
           if (stages.isNotEmpty)
             Padding(
               padding: const EdgeInsets.only(top: 6),
-              child: ProgressBar(value: stages.isEmpty ? 0 : done / stages.length),
+              child: ProgressBar(
+                value: stages.isEmpty ? 0 : done / stages.length,
+              ),
             ),
           if (job.priceCents > 0)
             Padding(
               padding: const EdgeInsets.only(top: 4),
               child: Text(
                 '${(job.priceCents / 100).toStringAsFixed(0)} ₽',
-                style: TextStyle(color: colors.accent, fontSize: 12, fontWeight: FontWeight.w600),
+                style: TextStyle(
+                  color: colors.accent,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
             ),
         ],

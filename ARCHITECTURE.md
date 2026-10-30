@@ -107,7 +107,7 @@ Repository pattern: `getAll`, `byId`, `save`, `delete`/specific queries. Мно�
 Файл: `lib/data/app_database.dart`
 
 ### Версия БД
-**Version 11**.
+**Version 12**.
 
 ### Миграции
 - v1: ядро, money
@@ -121,9 +121,10 @@ Repository pattern: `getAll`, `byId`, `save`, `delete`/specific queries. Мно�
 - v9: period closures
 - v10: recurring payments + payroll periods
 - v11: DB audit triggers
+- v12: job_attachments
 
 ### Таблицы
-`clients`, `objects`, `jobs`, `job_stages`, `materials`, `work_sessions`, `accounts`, `cash_shifts`, `money_transactions`, `inventory_items`, `suppliers`, `purchases`, `purchase_lines`, `stock_movements`, `recipe_lines`, `booking_resources`, `appointments`, `client_reminders`, `employees`, `time_entries`, `employee_payments`, `audit_log`, `period_closures`, `recurring_payments`, `payroll_periods`.
+`clients`, `objects`, `jobs`, `job_stages`, `materials`, `work_sessions`, `accounts`, `cash_shifts`, `money_transactions`, `inventory_items`, `suppliers`, `purchases`, `purchase_lines`, `stock_movements`, `recipe_lines`, `booking_resources`, `appointments`, `client_reminders`, `employees`, `time_entries`, `employee_payments`, `audit_log`, `period_closures`, `recurring_payments`, `payroll_periods`, `job_attachments`.
 
 ### Integrity
 - `integrityIssues()` — `PRAGMA foreign_key_check` + `PRAGMA quick_check`.
@@ -322,6 +323,34 @@ Repository pattern: `getAll`, `byId`, `save`, `delete`/specific queries. Мно�
 
 ---
 
+## 18a. Вложения к заказам (attachments, v12)
+
+- Таблица `job_attachments` (v12): `id`, `job_id`, `file_name`, `file_path`, `mime_type`, `created_at`, `updated_at`, `deleted_at`.
+- Модель `JobAttachment`, репозиторий `JobAttachmentRepository`.
+- `MastersStore.attachmentsForJob`, `addJobAttachment`, `deleteJobAttachment`.
+- Файлы копируются в каталог приложения `job_attachments`, в БД хранится локальный путь; UI в карточке заказа: список, добавление через file picker, удаление, счётчик.
+
+## 18b. Автообновление приложения (UpdateService)
+
+- Сервис `lib/core/update_service.dart` (`UpdateService`) обращается к серверу обновлений (`base` URL).
+- `checkForUpdate()` сравнивает `version_code`, получает `latest_version_code`, `min_supported_version_code`, `apk_url`, `sha256`, `changelog`, флаги доступности/принудительного обновления.
+- `downloadVerifiedApk()` скачивает APK с поддержкой докачки (HTTP Range), кэширует уже проверенный файл и проверяет SHA-256; при несовпадении хеша файл удаляется.
+- `installApk()` открывает APK через `open_filex`.
+- UI обновления находится в настройках: проверка, скачивание с прогрессом, установка.
+
+## 18c. Просмотрщик аудита (audit viewer)
+
+- `MastersStore.auditEntries(limit)`, DB-таблица `audit_log`, app-level и trigger-based записи.
+- Настройки: загрузка и просмотр последних записей, детальный просмотр изменений, ручное действие аудита.
+
+## 18d. Быстрая запись (appointment quick booking)
+
+- Быстрое создание записи из карточки клиента: заголовок, заметка, выбор даты/времени, создание напоминания.
+- `MastersStore.createAppointment` проверяет конфликты по ресурсу и интервалу времени и бросает `StateError` при пересечении.
+- Создание связанных записей (`client_reminder` типа `appointment`) через один сценарий.
+
+---
+
 ## 19. Что осталось по планам
 
 ### A. Sync v2 / multi-device
@@ -394,7 +423,7 @@ adb shell monkey -p com.mastersapp.masters -c android.intent.category.LAUNCHER 1
   - `origin/main`
   - latest pushed commits include app, tests, DB and triggers.
 - Текущий test baseline:
-  - `flutter test`: 12/12.
+  - `flutter test`: 16/16.
   - `flutter analyze --no-pub`: info/warning issues without errors.
 
 ---
@@ -414,4 +443,4 @@ adb shell monkey -p com.mastersapp.masters -c android.intent.category.LAUNCHER 1
 - `web_server/*`: local static server and Yandex proxy
 EOF
 
-## 23. ����������\\n\\n- Web ������ ���� ������� �� Android � �� ��������� �� ����� ���������.\\n- ������� �����: Android-first (�����, ������, ������, ���������/UI ������������, �������� ��������).\\n- ���������/������, ������������ � ����������� �� Android, ����������� �� Web ����� ������������ Android-������.\\n- Web-������ �������� ���������� ������� (SQLite wasm + IndexedDB) � ������������ ��� secondary target ��� preview, �� ����� UX-����������� ���� ������ �����.\\n
+## 23. ����������\\n\\n- Web ������ ���� ������� �� Android � �� ��������� �� ����� ���������.\\n- ������� �����: Android-first (�����, ������, ������, ���������/UI ������������, �������� ��������).\\n- ���������/������, ������������ � ����������� �� Android, ����������� �� Web ����� ������������ Android-������.\\n- Web-������ �������� ���������� ������� (SQLite wasm + IndexedDB) � ������������ ��� secondary target ��� preview, �� ����� UX-����������� ���� ������ �����.\\n

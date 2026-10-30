@@ -14,6 +14,7 @@
 - client/job WhatsApp-Telegram templates
 - job attachments v12 + file picker
 - quick appointment booking from client
+- filters: Jobs assignee/priority/tags merged into single filters control
 - audit viewer
 - auto-update via custom server
 - build speed/caching
@@ -30,11 +31,11 @@
 4. Release notes
    - `RELEASE_SIGNING.md` есть, но нет краткого release checklist текущей версии `0.2.0+2`
 5. Tests/docs hygiene
-   - `flutter test` now 14 tests; update baseline counts in handoff docs
+   - `flutter test` now 16 tests; update baseline counts in handoff docs
 
 ## Рекомендованные doc updates
 - Bump DB version references 11 → 12
 - Добавить sections: attachments, auto-update, audit viewer, appointment quick flow
-- Добавить current baseline: analyze 11 info/warnings, tests 14/14 green
+- Добавить current baseline: analyze 11 info/warnings, tests 16/16 green
 - Track roadmap with `[x]` completed items
 - Add release checklist: pub get, analyze, test, build split-per-abi + universal, copy APK, server publish

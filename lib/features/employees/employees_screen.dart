@@ -18,10 +18,14 @@ class EmployeesScreen extends StatefulWidget {
 
 class _EmployeesScreenState extends State<EmployeesScreen> {
   bool _busy = false;
-
+  String? _selectedEmployeeId;
   String _money(int cents) => '${(cents / 100).toStringAsFixed(0)} ₽';
 
-  Future<String?> _prompt(String title, String placeholder, {String initial = ''}) async {
+  Future<String?> _prompt(
+    String title,
+    String placeholder, {
+    String initial = '',
+  }) async {
     final controller = TextEditingController(text: initial);
     return showCupertinoDialog<String?>(
       context: context,
@@ -29,11 +33,22 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
         title: Text(title),
         content: Padding(
           padding: const EdgeInsets.only(top: 12),
-          child: CupertinoTextField(controller: controller, placeholder: placeholder, autofocus: true),
+          child: CupertinoTextField(
+            controller: controller,
+            placeholder: placeholder,
+            autofocus: true,
+          ),
         ),
         actions: [
-          CupertinoDialogAction(onPressed: () => Navigator.of(dc).pop(), child: const Text('Отмена')),
-          CupertinoDialogAction(isDefaultAction: true, onPressed: () => Navigator.of(dc).pop(controller.text.trim()), child: const Text('ОК')),
+          CupertinoDialogAction(
+            onPressed: () => Navigator.of(dc).pop(),
+            child: const Text('Отмена'),
+          ),
+          CupertinoDialogAction(
+            isDefaultAction: true,
+            onPressed: () => Navigator.of(dc).pop(controller.text.trim()),
+            child: const Text('ОК'),
+          ),
         ],
       ),
     );
@@ -46,12 +61,18 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
     if (payType == null) return;
     final rateStr = await _prompt('Ставка (₽/ч или за услугу)', '0') ?? '0';
     final percentStr = await _prompt('Процент от выручки', '0') ?? '0';
-    final rate = ((double.tryParse(rateStr.replaceAll(',', '.')) ?? 0) * 100).round();
+    final rate = ((double.tryParse(rateStr.replaceAll(',', '.')) ?? 0) * 100)
+        .round();
     final percent = double.tryParse(percentStr.replaceAll(',', '.')) ?? 0;
     if (!mounted) return;
     setState(() => _busy = true);
     try {
-      await context.read<MastersStore>().createEmployee(name: name.trim(), payType: payType, rateCents: rate, percent: percent);
+      await context.read<MastersStore>().createEmployee(
+        name: name.trim(),
+        payType: payType,
+        rateCents: rate,
+        percent: percent,
+      );
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -65,11 +86,26 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
         color: context.colors.card,
         child: Column(
           children: [
-            CupertinoButton(child: const Text('Почасовая'), onPressed: () => Navigator.of(ctx).pop('hourly')),
-            CupertinoButton(child: const Text('Сдельная (за услугу)'), onPressed: () => Navigator.of(ctx).pop('piece')),
-            CupertinoButton(child: const Text('Процент от выручки'), onPressed: () => Navigator.of(ctx).pop('percent')),
-            CupertinoButton(child: const Text('Оклад'), onPressed: () => Navigator.of(ctx).pop('salary')),
-            CupertinoButton(child: const Text('Смешанная'), onPressed: () => Navigator.of(ctx).pop('mixed')),
+            CupertinoButton(
+              child: const Text('Почасовая'),
+              onPressed: () => Navigator.of(ctx).pop('hourly'),
+            ),
+            CupertinoButton(
+              child: const Text('Сдельная (за услугу)'),
+              onPressed: () => Navigator.of(ctx).pop('piece'),
+            ),
+            CupertinoButton(
+              child: const Text('Процент от выручки'),
+              onPressed: () => Navigator.of(ctx).pop('percent'),
+            ),
+            CupertinoButton(
+              child: const Text('Оклад'),
+              onPressed: () => Navigator.of(ctx).pop('salary'),
+            ),
+            CupertinoButton(
+              child: const Text('Смешанная'),
+              onPressed: () => Navigator.of(ctx).pop('mixed'),
+            ),
           ],
         ),
       ),
@@ -99,13 +135,20 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
 
   Future<void> _addPayment(String employeeId, String type, String label) async {
     final amountStr = await _prompt(label, '0');
-    final amount = ((double.tryParse((amountStr ?? '').replaceAll(',', '.')) ?? 0) * 100).round();
+    final amount =
+        ((double.tryParse((amountStr ?? '').replaceAll(',', '.')) ?? 0) * 100)
+            .round();
     if (amount <= 0) return;
     final note = await _prompt('Заметка', '');
     if (!mounted) return;
     setState(() => _busy = true);
     try {
-      await context.read<MastersStore>().addEmployeePayment(employeeId: employeeId, type: type, amountCents: amount, note: note);
+      await context.read<MastersStore>().addEmployeePayment(
+        employeeId: employeeId,
+        type: type,
+        amountCents: amount,
+        note: note,
+      );
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -119,18 +162,34 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
     setState(() => _busy = true);
     try {
       final summary = store.payrollSummary(start, end);
-      final rows = summary.map((r) => <String, Object?>{
-        'employeeName': (r['employee'] as dynamic)?.name?.toString() ?? 'Сотрудник',
-        'earned': r['earned'],
-        'bonus': r['bonus'],
-        'penalty': r['penalty'],
-        'advance': r['advance'],
-        'payout': r['payout'],
-        'net': r['net'],
-      }).toList();
-      final bytes = await DocumentService.buildPayrollPdf(title: 'Ведомость: ${DateFormat('MMMM yyyy', 'ru').format(now)}', summary: rows);
-      final ok = await DocumentService.savePdf(bytes, 'payroll-${now.year}-${now.month}.pdf');
-      if (mounted && ok) await showAppAlert(context, title: 'Готово', message: 'Ведомость сохранена.');
+      final rows = summary
+          .map(
+            (r) => <String, Object?>{
+              'employeeName':
+                  (r['employee'] as dynamic)?.name?.toString() ?? 'Сотрудник',
+              'earned': r['earned'],
+              'bonus': r['bonus'],
+              'penalty': r['penalty'],
+              'advance': r['advance'],
+              'payout': r['payout'],
+              'net': r['net'],
+            },
+          )
+          .toList();
+      final bytes = await DocumentService.buildPayrollPdf(
+        title: 'Ведомость: ${DateFormat('MMMM yyyy', 'ru').format(now)}',
+        summary: rows,
+      );
+      final ok = await DocumentService.savePdf(
+        bytes,
+        'payroll-${now.year}-${now.month}.pdf',
+      );
+      if (mounted && ok)
+        await showAppAlert(
+          context,
+          title: 'Готово',
+          message: 'Ведомость сохранена.',
+        );
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -143,13 +202,18 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
     final end = DateTime(now.year, now.month + 1, 0, 23, 59, 59, 999);
     setState(() => _busy = true);
     try {
-      final period = await store.createPayrollPeriod(name: 'Месяц ${now.month}/${now.year}', startAt: start, endAt: end);
+      final period = await store.createPayrollPeriod(
+        name: 'Месяц ${now.month}/${now.year}',
+        startAt: start,
+        endAt: end,
+      );
       await store.closePayrollPeriod(period.id, at: now);
       if (!mounted) return;
       await showAppAlert(
         context,
         title: 'Период закрыт',
-        message: 'Расчётный период ${DateFormat('MMMM yyyy', 'ru').format(now)} закрыт. Для экспорта используйте кнопку PDF.',
+        message:
+            'Расчётный период ${DateFormat('MMMM yyyy', 'ru').format(now)} закрыт. Для экспорта используйте кнопку PDF.',
       );
     } finally {
       if (mounted) setState(() => _busy = false);
@@ -190,7 +254,10 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
     if (selected == 'current') {
       _exportPayroll();
     } else {
-      final period = store.payrollPeriods.firstWhere((p) => p.id == selected, orElse: () => store.payrollPeriods.first);
+      final period = store.payrollPeriods.firstWhere(
+        (p) => p.id == selected,
+        orElse: () => store.payrollPeriods.first,
+      );
       await _exportPayrollPeriod(period);
     }
   }
@@ -200,19 +267,32 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
     setState(() => _busy = true);
     try {
       final summary = store.payrollSummary(period.startAt, period.endAt);
-      final rows = summary.map((r) => <String, Object?>{
-            'employeeName': (r['employee'] as dynamic)?.name?.toString() ?? 'Сотрудник',
-            'earned': r['earned'],
-            'bonus': r['bonus'],
-            'penalty': r['penalty'],
-            'advance': r['advance'],
-            'payout': r['payout'],
-            'net': r['net'],
-          }).toList();
-      final bytes = await DocumentService.buildPayrollPdf(title: 'Ведомость: ${period.name}', summary: rows);
+      final rows = summary
+          .map(
+            (r) => <String, Object?>{
+              'employeeName':
+                  (r['employee'] as dynamic)?.name?.toString() ?? 'Сотрудник',
+              'earned': r['earned'],
+              'bonus': r['bonus'],
+              'penalty': r['penalty'],
+              'advance': r['advance'],
+              'payout': r['payout'],
+              'net': r['net'],
+            },
+          )
+          .toList();
+      final bytes = await DocumentService.buildPayrollPdf(
+        title: 'Ведомость: ${period.name}',
+        summary: rows,
+      );
       final suggested = 'payroll-${period.id.substring(0, 6)}.pdf';
       final ok = await DocumentService.savePdf(bytes, suggested);
-      if (mounted && ok) await showAppAlert(context, title: 'Готово', message: 'Ведомость сохранена.');
+      if (mounted && ok)
+        await showAppAlert(
+          context,
+          title: 'Готово',
+          message: 'Ведомость сохранена.',
+        );
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -242,7 +322,10 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              const Text('Расчётные периоды', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 17)),
+              const Text(
+                'Расчётные периоды',
+                style: TextStyle(fontWeight: FontWeight.w700, fontSize: 17),
+              ),
               const SizedBox(height: 10),
               Expanded(
                 child: ListView(
@@ -253,32 +336,46 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
                         child: AppCard(
                           child: Row(
                             children: [
-                            Expanded(
-                              child: Row(
-                                children: [
-                                  Text(
-                                    period.name,
-                                    style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                    decoration: BoxDecoration(
-                                      color: period.isClosed ? context.colors.green.withValues(alpha: 0.15) : context.colors.orange.withValues(alpha: 0.15),
-                                      borderRadius: BorderRadius.circular(99),
-                                    ),
-                                    child: Text(
-                                      period.isClosed ? 'Закрыт' : 'Открыт',
-                                      style: TextStyle(
-                                        color: period.isClosed ? context.colors.green : context.colors.orange,
-                                        fontSize: 10,
-                                        fontWeight: FontWeight.w700,
+                              Expanded(
+                                child: Row(
+                                  children: [
+                                    Text(
+                                      period.name,
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.w600,
+                                        fontSize: 13,
                                       ),
                                     ),
-                                  ),
-                                ],
+                                    const SizedBox(width: 8),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 6,
+                                        vertical: 2,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: period.isClosed
+                                            ? context.colors.green.withValues(
+                                                alpha: 0.15,
+                                              )
+                                            : context.colors.orange.withValues(
+                                                alpha: 0.15,
+                                              ),
+                                        borderRadius: BorderRadius.circular(99),
+                                      ),
+                                      child: Text(
+                                        period.isClosed ? 'Закрыт' : 'Открыт',
+                                        style: TextStyle(
+                                          color: period.isClosed
+                                              ? context.colors.green
+                                              : context.colors.orange,
+                                          fontSize: 10,
+                                          fontWeight: FontWeight.w700,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
                               ),
-                            ),
                               if (!period.isClosed)
                                 CupertinoButton(
                                   padding: EdgeInsets.zero,
@@ -286,7 +383,10 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
                                     Navigator.of(sheetContext).pop();
                                     await store.closePayrollPeriod(period.id);
                                   },
-                                  child: const Icon(CupertinoIcons.lock, size: 18),
+                                  child: const Icon(
+                                    CupertinoIcons.lock,
+                                    size: 18,
+                                  ),
                                 ),
                               if (period.isClosed)
                                 CupertinoButton(
@@ -295,7 +395,10 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
                                     Navigator.of(sheetContext).pop();
                                     await store.reopenPayrollPeriod(period.id);
                                   },
-                                  child: const Icon(CupertinoIcons.lock_open, size: 18),
+                                  child: const Icon(
+                                    CupertinoIcons.lock_open,
+                                    size: 18,
+                                  ),
                                 ),
                               CupertinoButton(
                                 padding: EdgeInsets.zero,
@@ -303,7 +406,10 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
                                   Navigator.of(sheetContext).pop();
                                   await _exportPayrollPeriod(period);
                                 },
-                                child: const Icon(CupertinoIcons.doc_text, size: 18),
+                                child: const Icon(
+                                  CupertinoIcons.doc_text,
+                                  size: 18,
+                                ),
                               ),
                               CupertinoButton(
                                 padding: EdgeInsets.zero,
@@ -311,7 +417,11 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
                                   Navigator.of(sheetContext).pop();
                                   await store.deletePayrollPeriod(period.id);
                                 },
-                                child: Icon(CupertinoIcons.trash, size: 18, color: context.colors.red),
+                                child: Icon(
+                                  CupertinoIcons.trash,
+                                  size: 18,
+                                  color: context.colors.red,
+                                ),
                               ),
                             ],
                           ),
@@ -333,7 +443,9 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
 
   Future<void> _editEmployee(Employee e) async {
     final nameController = TextEditingController(text: e.name);
-    final rateController = TextEditingController(text: (e.rateCents / 100).toStringAsFixed(0));
+    final rateController = TextEditingController(
+      text: (e.rateCents / 100).toStringAsFixed(0),
+    );
     final percentController = TextEditingController(text: e.percent.toString());
     String payType = e.payType;
     await showCupertinoModalPopup<void>(
@@ -348,9 +460,15 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                const Text('Редактирование сотрудника', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
+                const Text(
+                  'Редактирование сотрудника',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+                ),
                 const SizedBox(height: 12),
-                CupertinoTextField(controller: nameController, placeholder: 'Имя'),
+                CupertinoTextField(
+                  controller: nameController,
+                  placeholder: 'Имя',
+                ),
                 const SizedBox(height: 10),
                 CupertinoButton(
                   onPressed: () async {
@@ -359,29 +477,74 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
                       builder: (dialogContext) => CupertinoActionSheet(
                         title: const Text('Тип оплаты'),
                         actions: [
-                          for (final t in ['hourly', 'piece', 'percent', 'salary', 'mixed'])
-                            CupertinoActionSheetAction(onPressed: () => Navigator.of(dialogContext).pop(t), child: Text(t)),
+                          for (final t in [
+                            'hourly',
+                            'piece',
+                            'percent',
+                            'salary',
+                            'mixed',
+                          ])
+                            CupertinoActionSheetAction(
+                              onPressed: () =>
+                                  Navigator.of(dialogContext).pop(t),
+                              child: Text(t),
+                            ),
                         ],
-                        cancelButton: CupertinoActionSheetAction(onPressed: () => Navigator.of(dialogContext).pop(), child: const Text('Отмена')),
+                        cancelButton: CupertinoActionSheetAction(
+                          onPressed: () => Navigator.of(dialogContext).pop(),
+                          child: const Text('Отмена'),
+                        ),
                       ),
                     );
-                    if (selected != null) setModalState(() => payType = selected);
+                    if (selected != null)
+                      setModalState(() => payType = selected);
                   },
                   child: Text('Тип: $payType'),
                 ),
                 const SizedBox(height: 10),
-                CupertinoTextField(controller: rateController, placeholder: 'Ставка (₽)', keyboardType: const TextInputType.numberWithOptions(decimal: true)),
+                CupertinoTextField(
+                  controller: rateController,
+                  placeholder: 'Ставка (₽)',
+                  keyboardType: const TextInputType.numberWithOptions(
+                    decimal: true,
+                  ),
+                ),
                 const SizedBox(height: 10),
-                CupertinoTextField(controller: percentController, placeholder: 'Процент', keyboardType: const TextInputType.numberWithOptions(decimal: true)),
+                CupertinoTextField(
+                  controller: percentController,
+                  placeholder: 'Процент',
+                  keyboardType: const TextInputType.numberWithOptions(
+                    decimal: true,
+                  ),
+                ),
                 const SizedBox(height: 16),
                 SecondaryButton(
                   label: 'Сохранить',
                   icon: CupertinoIcons.checkmark,
                   onPressed: () async {
-                    final rate = ((double.tryParse(rateController.text.replaceAll(',', '.')) ?? 0) * 100).round();
-                    final percent = double.tryParse(percentController.text.replaceAll(',', '.')) ?? e.percent;
-                    final name = nameController.text.trim().isEmpty ? e.name : nameController.text.trim();
-                    await context.read<MastersStore>().updateEmployee(e.copyWith(name: name, payType: payType, rateCents: rate, percent: percent));
+                    final rate =
+                        ((double.tryParse(
+                                      rateController.text.replaceAll(',', '.'),
+                                    ) ??
+                                    0) *
+                                100)
+                            .round();
+                    final percent =
+                        double.tryParse(
+                          percentController.text.replaceAll(',', '.'),
+                        ) ??
+                        e.percent;
+                    final name = nameController.text.trim().isEmpty
+                        ? e.name
+                        : nameController.text.trim();
+                    await context.read<MastersStore>().updateEmployee(
+                      e.copyWith(
+                        name: name,
+                        payType: payType,
+                        rateCents: rate,
+                        percent: percent,
+                      ),
+                    );
                     if (modalContext.mounted) Navigator.of(modalContext).pop();
                   },
                 ),
@@ -395,28 +558,262 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
 
   Future<void> _delete(Employee e) async {
     if (e.role == 'owner' && e.name == 'Я') {
-      await showAppAlert(context, title: 'Нельзя удалить профиль «Я»', message: 'Это исполнитель по умолчанию для заказов.');
+      await showAppAlert(
+        context,
+        title: 'Нельзя удалить профиль «Я»',
+        message: 'Это исполнитель по умолчанию для заказов.',
+      );
       return;
     }
-    final ok = await showAppConfirm(context, title: 'Удалить сотрудника?', message: e.name, destructive: true, confirmLabel: 'Удалить');
+    final ok = await showAppConfirm(
+      context,
+      title: 'Удалить сотрудника?',
+      message: e.name,
+      destructive: true,
+      confirmLabel: 'Удалить',
+    );
     if (!ok) return;
     if (!mounted) return;
     await context.read<MastersStore>().deleteEmployee(e.id);
+    if (mounted && _selectedEmployeeId == e.id) {
+      setState(() => _selectedEmployeeId = null);
+    }
+  }
+
+  @override
+  void dispose() {
+    _selectedEmployeeId = null;
+    super.dispose();
+  }
+
+  Widget _buildList(MastersStore store, AppColors colors, bool wide) {
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 72),
+      children: store.employees.map((e) {
+        final earned = store.earnedCents(e.id);
+        final owed = store.employeeBalanceOwed(e.id);
+        final selected = _selectedEmployeeId == e.id;
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 8),
+          child: AppCard(
+            onTap: wide
+                ? () => setState(() => _selectedEmployeeId = e.id)
+                : null,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        e.name,
+                        style: const TextStyle(fontWeight: FontWeight.w600),
+                      ),
+                    ),
+                    if (selected && wide)
+                      Icon(
+                        CupertinoIcons.checkmark_circle_fill,
+                        color: colors.accent,
+                        size: 18,
+                      ),
+                    if (selected && wide) const SizedBox(width: 6),
+                    Text(
+                      e.payTypeLabel,
+                      style: TextStyle(
+                        color: colors.secondaryLabel,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Заработано: ${_money(earned)} • К выплате: ${_money(owed)}',
+                  style: TextStyle(
+                    color: owed > 0 ? colors.orange : colors.secondaryLabel,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 6,
+                  runSpacing: 6,
+                  children: [
+                    SecondaryButton(
+                      label: 'Часы',
+                      icon: CupertinoIcons.clock,
+                      onPressed: () => _addTime(e.id),
+                    ),
+                    SecondaryButton(
+                      label: 'Авансы',
+                      icon: CupertinoIcons.money_dollar,
+                      onPressed: () => _addPayment(e.id, 'advance', 'Авансы'),
+                    ),
+                    SecondaryButton(
+                      label: 'Бонус',
+                      icon: CupertinoIcons.plus,
+                      onPressed: () => _addPayment(e.id, 'bonus', 'Бонус'),
+                    ),
+                    SecondaryButton(
+                      label: 'Штраф',
+                      icon: CupertinoIcons.minus,
+                      onPressed: () => _addPayment(e.id, 'penalty', 'Штраф'),
+                    ),
+                    SecondaryButton(
+                      label: 'Выплата',
+                      icon: CupertinoIcons.arrow_right,
+                      onPressed: () => _addPayment(e.id, 'payout', 'Выплата'),
+                    ),
+                    SecondaryButton(
+                      label: 'Закрыть месяц',
+                      icon: CupertinoIcons.lock,
+                      onPressed: () => _closeCurrentPayrollPeriod(),
+                    ),
+                    SecondaryButton(
+                      label: 'Изменить',
+                      icon: CupertinoIcons.pencil,
+                      onPressed: () => _editEmployee(e),
+                    ),
+                    CupertinoButton(
+                      padding: EdgeInsets.zero,
+                      onPressed: () => _delete(e),
+                      child: Text(
+                        'Удалить',
+                        style: TextStyle(color: colors.red),
+                      ),
+                    ),
+                    SecondaryButton(
+                      label: 'PDF',
+                      icon: CupertinoIcons.doc_text,
+                      onPressed: _exportPayroll,
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        );
+      }).toList(),
+    );
+  }
+
+  Widget _buildDetail(MastersStore store, AppColors colors) {
+    if (_selectedEmployeeId == null) {
+      return EmptyState(
+        title: 'Выберите сотрудника',
+        message: 'Слева список сотрудников; справа — карточка.',
+        art: Icon(
+          CupertinoIcons.person_2,
+          size: 48,
+          color: colors.tertiaryLabel,
+        ),
+      );
+    }
+    Employee? e;
+    for (final item in store.employees) {
+      if (item.id == _selectedEmployeeId) {
+        e = item;
+        break;
+      }
+    }
+    if (e == null) {
+      return EmptyState(
+        title: 'Выберите сотрудника',
+        message: 'Слева список сотрудников; справа — карточка.',
+        art: Icon(
+          CupertinoIcons.person_2,
+          size: 48,
+          color: colors.tertiaryLabel,
+        ),
+      );
+    }
+    final employee = e;
+    final earned = store.earnedCents(employee.id);
+    final owed = store.employeeBalanceOwed(employee.id);
+    return SingleChildScrollView(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 72),
+      child: AppCard(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              employee.name,
+              style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 18),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              '${employee.payTypeLabel} • ставка ${_money(employee.rateCents)}',
+              style: TextStyle(color: colors.secondaryLabel, fontSize: 13),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Заработано: ${_money(earned)}',
+              style: const TextStyle(fontSize: 13),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              'К выплате: ${_money(owed)}',
+              style: TextStyle(
+                color: owed > 0 ? colors.orange : colors.secondaryLabel,
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(height: 12),
+            Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              children: [
+                SecondaryButton(
+                  label: 'Редактировать',
+                  icon: CupertinoIcons.pencil,
+                  onPressed: () => _editEmployee(employee),
+                ),
+                SecondaryButton(
+                  label: 'PDF ведомости',
+                  icon: CupertinoIcons.doc_text,
+                  onPressed: _exportPayroll,
+                ),
+                CupertinoButton(
+                  padding: EdgeInsets.zero,
+                  onPressed: () => _delete(employee),
+                  child: Text('Удалить', style: TextStyle(color: colors.red)),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     final store = context.watch<MastersStore>();
     final colors = context.colors;
+    final isWide = MediaQuery.of(context).size.width >= 720;
     return CupertinoPageScaffold(
       navigationBar: CupertinoNavigationBar(
         middle: const Text('Команда'),
         trailing: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            CupertinoButton(padding: EdgeInsets.zero, onPressed: _managePayrollPeriods, child: const Icon(CupertinoIcons.doc_text)),
-            CupertinoButton(padding: EdgeInsets.zero, onPressed: _closeCurrentPayrollPeriod, child: const Icon(CupertinoIcons.lock)),
-            CupertinoButton(padding: EdgeInsets.zero, onPressed: _newEmployee, child: const Icon(CupertinoIcons.plus, semanticLabel: 'Добавить')),
+            CupertinoButton(
+              padding: EdgeInsets.zero,
+              onPressed: _managePayrollPeriods,
+              child: const Icon(CupertinoIcons.doc_text),
+            ),
+            CupertinoButton(
+              padding: EdgeInsets.zero,
+              onPressed: _closeCurrentPayrollPeriod,
+              child: const Icon(CupertinoIcons.lock),
+            ),
+            CupertinoButton(
+              padding: EdgeInsets.zero,
+              onPressed: _newEmployee,
+              child: const Icon(CupertinoIcons.plus, semanticLabel: 'Добавить'),
+            ),
           ],
         ),
       ),
@@ -427,51 +824,28 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
                   ? EmptyState(
                       title: 'Нет сотрудников',
                       message: 'Добавьте первого сотрудника.',
-                      art: Icon(CupertinoIcons.person_2, size: 48, color: colors.tertiaryLabel),
-                      actions: [PrimaryButton(label: 'Добавить сотрудника', icon: CupertinoIcons.plus, onPressed: _newEmployee)],
+                      art: Icon(
+                        CupertinoIcons.person_2,
+                        size: 48,
+                        color: colors.tertiaryLabel,
+                      ),
+                      actions: [
+                        PrimaryButton(
+                          label: 'Добавить сотрудника',
+                          icon: CupertinoIcons.plus,
+                          onPressed: _newEmployee,
+                        ),
+                      ],
                     )
-                  : ListView(
-                      padding: const EdgeInsets.fromLTRB(16, 12, 16, 72),
-                      children: store.employees.map((e) {
-                        final earned = store.earnedCents(e.id);
-                        final owed = store.employeeBalanceOwed(e.id);
-                        return Padding(
-                          padding: const EdgeInsets.only(bottom: 8),
-                          child: AppCard(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Row(
-                                  children: [
-                                    Expanded(child: Text(e.name, style: const TextStyle(fontWeight: FontWeight.w600))),
-                                    Text(e.payTypeLabel, style: TextStyle(color: colors.secondaryLabel, fontSize: 12)),
-                                  ],
-                                ),
-                                const SizedBox(height: 4),
-                                Text('Заработано: ${_money(earned)} • К выплате: ${_money(owed)}',
-                                    style: TextStyle(color: owed > 0 ? colors.orange : colors.secondaryLabel, fontSize: 12, fontWeight: FontWeight.w600)),
-                                const SizedBox(height: 8),
-                                Wrap(
-                                  spacing: 6,
-                                  runSpacing: 6,
-                                  children: [
-                                    SecondaryButton(label: 'Часы', icon: CupertinoIcons.clock, onPressed: () => _addTime(e.id)),
-                                    SecondaryButton(label: 'Авансы', icon: CupertinoIcons.money_dollar, onPressed: () => _addPayment(e.id, 'advance', 'Авансы')),
-                                    SecondaryButton(label: 'Бонус', icon: CupertinoIcons.plus, onPressed: () => _addPayment(e.id, 'bonus', 'Бонус')),
-                                    SecondaryButton(label: 'Штраф', icon: CupertinoIcons.minus, onPressed: () => _addPayment(e.id, 'penalty', 'Штраф')),
-                                    SecondaryButton(label: 'Выплата', icon: CupertinoIcons.arrow_right, onPressed: () => _addPayment(e.id, 'payout', 'Выплата')),
-                                    SecondaryButton(label: 'Закрыть месяц', icon: CupertinoIcons.lock, onPressed: () => _closeCurrentPayrollPeriod(),),
-                                    SecondaryButton(label: 'Изменить', icon: CupertinoIcons.pencil, onPressed: () => _editEmployee(e)),
-                                    CupertinoButton(padding: EdgeInsets.zero, onPressed: () => _delete(e), child: Text('Удалить', style: TextStyle(color: colors.red))),
-                                    SecondaryButton(label: 'PDF', icon: CupertinoIcons.doc_text, onPressed: _exportPayroll),
-                                  ],
-                                ),
-                              ],
-                            ),
-                          ),
-                        );
-                      }).toList(),
-                    ),
+                  : isWide
+                  ? Row(
+                      children: [
+                        Expanded(child: _buildList(store, colors, true)),
+                        const SizedBox(width: 8),
+                        Expanded(child: _buildDetail(store, colors)),
+                      ],
+                    )
+                  : _buildList(store, colors, false),
             ),
     );
   }
