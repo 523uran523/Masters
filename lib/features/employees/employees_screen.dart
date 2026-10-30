@@ -740,7 +740,7 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
                       ),
                     ),
                     SecondaryButton(
-                      label: 'PDF',
+                      label: 'PDF листок',
                       icon: CupertinoIcons.doc_text,
                       onPressed: _exportPayroll,
                     ),
@@ -832,7 +832,7 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
                   onPressed: () => _editEmployee(employee),
                 ),
                 SecondaryButton(
-                  label: 'PDF ведомости',
+                  label: 'PDF листок',
                   icon: CupertinoIcons.doc_text,
                   onPressed: _exportPayroll,
                 ),
