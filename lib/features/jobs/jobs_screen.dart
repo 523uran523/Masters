@@ -158,18 +158,18 @@ class _JobsScreenState extends State<JobsScreen> {
   }
 
   String _statusLabel() =>
-      _statusIndex == 0 ? '╨Т╤Б╨╡' : JobStatus.values[_statusIndex - 1].label;
+      _statusIndex == 0 ? 'тХи╨втХд╨СтХитХб' : JobStatus.values[_statusIndex - 1].label;
 
   Future<void> _showStatusPicker() async {
     final result = await showCupertinoModalPopup<int>(
       context: context,
       builder: (dialogContext) => CupertinoActionSheet(
-        title: const Text('╨д╨╕╨╗╤М╤В╤А ╨┐╨╛ ╤Б╤В╨░╤В╤Г╤Б╤Г'),
+        title: const Text('тХи╨┤тХитХХтХитХЧтХд╨ЬтХд╨ТтХд╨Р тХитФРтХитХЫ тХд╨СтХд╨ТтХитЦСтХд╨ТтХд╨УтХд╨СтХд╨У'),
         actions: [
           CupertinoActionSheetAction(
             isDefaultAction: _statusIndex == 0,
             onPressed: () => Navigator.of(dialogContext).pop(0),
-            child: const Text('╨Т╤Б╨╡'),
+            child: const Text('тХи╨втХд╨СтХитХб'),
           ),
           for (var i = 0; i < JobStatus.values.length; i++)
             CupertinoActionSheetAction(
@@ -180,7 +180,7 @@ class _JobsScreenState extends State<JobsScreen> {
         ],
         cancelButton: CupertinoActionSheetAction(
           onPressed: () => Navigator.of(dialogContext).pop(),
-          child: const Text('╨Ю╤В╨╝╨╡╨╜╨░'),
+          child: const Text('тХи╨отХд╨ТтХитХЭтХитХбтХитХЬтХитЦС'),
         ),
       ),
     );
@@ -193,23 +193,23 @@ class _JobsScreenState extends State<JobsScreen> {
     final result = await showCupertinoModalPopup<String?>(
       context: context,
       builder: (dialogContext) => CupertinoActionSheet(
-        title: const Text('╨Ш╤Б╨┐╨╛╨╗╨╜╨╕╤В╨╡╨╗╤М'),
+        title: const Text('тХи╨итХд╨СтХитФРтХитХЫтХитХЧтХитХЬтХитХХтХд╨ТтХитХбтХитХЧтХд╨Ь'),
         actions: [
           CupertinoActionSheetAction(
             isDefaultAction:
                 _assigneeFilter == null || _assigneeFilter == '__all__',
             onPressed: () => Navigator.of(dialogContext).pop('__all__'),
-            child: const Text('╨Т╤Б╨╡'),
+            child: const Text('тХи╨втХд╨СтХитХб'),
           ),
           CupertinoActionSheetAction(
             isDefaultAction: _assigneeFilter == '__none__',
             onPressed: () => Navigator.of(dialogContext).pop('__none__'),
-            child: const Text('╨С╨╡╨╖ ╨╕╤Б╨┐╨╛╨╗╨╜╨╕╤В╨╡╨╗╤П'),
+            child: const Text('тХи╨бтХитХбтХитХЦ тХитХХтХд╨СтХитФРтХитХЫтХитХЧтХитХЬтХитХХтХд╨ТтХитХбтХитХЧтХд╨Я'),
           ),
           CupertinoActionSheetAction(
             isDefaultAction: _assigneeFilter == '__self__',
             onPressed: () => Navigator.of(dialogContext).pop('__self__'),
-            child: const Text('╨п'),
+            child: const Text('тХи╨┐'),
           ),
           for (final e in store.employees.where(
             (e) => !e.archived && e.id != selfId,
@@ -222,7 +222,7 @@ class _JobsScreenState extends State<JobsScreen> {
         ],
         cancelButton: CupertinoActionSheetAction(
           onPressed: () => Navigator.of(dialogContext).pop(),
-          child: const Text('╨Ю╤В╨╝╨╡╨╜╨░'),
+          child: const Text('тХи╨отХд╨ТтХитХЭтХитХбтХитХЬтХитЦС'),
         ),
       ),
     );
@@ -236,12 +236,12 @@ class _JobsScreenState extends State<JobsScreen> {
     final result = await showCupertinoModalPopup<String?>(
       context: context,
       builder: (dialogContext) => CupertinoActionSheet(
-        title: const Text('╨Я╤А╨╕╨╛╤А╨╕╤В╨╡╤В'),
+        title: const Text('тХи╨птХд╨РтХитХХтХитХЫтХд╨РтХитХХтХд╨ТтХитХбтХд╨Т'),
         actions: [
           CupertinoActionSheetAction(
             isDefaultAction: _priorityFilter == null,
             onPressed: () => Navigator.of(dialogContext).pop('__all__'),
-            child: const Text('╨Т╤Б╨╡'),
+            child: const Text('тХи╨втХд╨СтХитХб'),
           ),
           for (final p in JobPriority.values)
             CupertinoActionSheetAction(
@@ -252,7 +252,7 @@ class _JobsScreenState extends State<JobsScreen> {
         ],
         cancelButton: CupertinoActionSheetAction(
           onPressed: () => Navigator.of(dialogContext).pop(),
-          child: const Text('╨Ю╤В╨╝╨╡╨╜╨░'),
+          child: const Text('тХи╨отХд╨ТтХитХЭтХитХбтХитХЬтХитЦС'),
         ),
       ),
     );
@@ -289,20 +289,20 @@ class _JobsScreenState extends State<JobsScreen> {
       if (!mounted) return;
       await showAppAlert(
         context,
-        title: '╨в╨╡╨│╨╕',
-        message: '╨в╨╡╨│╨╕ ╨╜╨╡ ╨╜╨░╨╣╨┤╨╡╨╜╤Л.',
+        title: 'тХи╨▓тХитХбтХитФВтХитХХ',
+        message: 'тХи╨▓тХитХбтХитФВтХитХХ тХитХЬтХитХб тХитХЬтХитЦСтХитХгтХитФдтХитХбтХитХЬтХд╨Ы.',
       );
       return;
     }
     final result = await showCupertinoModalPopup<String?>(
       context: context,
       builder: (dialogContext) => CupertinoActionSheet(
-        title: const Text('╨в╨╡╨│'),
+        title: const Text('тХи╨▓тХитХбтХитФВ'),
         actions: [
           CupertinoActionSheetAction(
             isDefaultAction: _tagFilter == null || _tagFilter == '__all__',
             onPressed: () => Navigator.of(dialogContext).pop('__all__'),
-            child: const Text('╨Т╤Б╨╡'),
+            child: const Text('тХи╨втХд╨СтХитХб'),
           ),
           for (final t in tags)
             CupertinoActionSheetAction(
@@ -313,7 +313,7 @@ class _JobsScreenState extends State<JobsScreen> {
         ],
         cancelButton: CupertinoActionSheetAction(
           onPressed: () => Navigator.of(dialogContext).pop(),
-          child: const Text('╨Ю╤В╨╝╨╡╨╜╨░'),
+          child: const Text('тХи╨отХд╨ТтХитХЭтХитХбтХитХЬтХитЦС'),
         ),
       ),
     );
@@ -328,18 +328,18 @@ class _JobsScreenState extends State<JobsScreen> {
     final result = await showCupertinoModalPopup<String?>(
       context: context,
       builder: (dialogContext) => CupertinoActionSheet(
-        title: const Text('╨Ъ╨╗╨╕╨╡╨╜╤В'),
+        title: const Text('тХи╨ктХитХЧтХитХХтХитХбтХитХЬтХд╨Т'),
         actions: [
           CupertinoActionSheetAction(
             isDefaultAction:
                 _clientFilter == null || _clientFilter == '__all__',
             onPressed: () => Navigator.of(dialogContext).pop('__all__'),
-            child: const Text('╨Т╤Б╨╡'),
+            child: const Text('тХи╨втХд╨СтХитХб'),
           ),
           CupertinoActionSheetAction(
             isDefaultAction: _clientFilter == '__none__',
             onPressed: () => Navigator.of(dialogContext).pop('__none__'),
-            child: const Text('╨С╨╡╨╖ ╨║╨╗╨╕╨╡╨╜╤В╨░'),
+            child: const Text('тХи╨бтХитХбтХитХЦ тХитХСтХитХЧтХитХХтХитХбтХитХЬтХд╨ТтХитЦС'),
           ),
           for (final c in [
             ...store.clients,
@@ -352,7 +352,7 @@ class _JobsScreenState extends State<JobsScreen> {
         ],
         cancelButton: CupertinoActionSheetAction(
           onPressed: () => Navigator.of(dialogContext).pop(),
-          child: const Text('╨Ю╤В╨╝╨╡╨╜╨░'),
+          child: const Text('тХи╨отХд╨ТтХитХЭтХитХбтХитХЬтХитЦС'),
         ),
       ),
     );
@@ -377,11 +377,11 @@ class _JobsScreenState extends State<JobsScreen> {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 CupertinoButton(
-                  child: const Text('╨Ю╤В╨╝╨╡╨╜╨░'),
+                  child: const Text('тХи╨отХд╨ТтХитХЭтХитХбтХитХЬтХитЦС'),
                   onPressed: () => Navigator.of(ctx).pop(),
                 ),
                 CupertinoButton(
-                  child: const Text('╨У╨╛╤В╨╛╨▓╨╛'),
+                  child: const Text('тХи╨гтХитХЫтХд╨ТтХитХЫтХитЦУтХитХЫ'),
                   onPressed: () {
                     final picked = DateTime(
                       selected.year,
@@ -417,25 +417,25 @@ class _JobsScreenState extends State<JobsScreen> {
     final action = await showCupertinoModalPopup<String?>(
       context: context,
       builder: (ctx) => CupertinoActionSheet(
-        title: const Text('╨Ф╨░╤В╤Л'),
+        title: const Text('тХи╨дтХитЦСтХд╨ТтХд╨Ы'),
         actions: [
           CupertinoActionSheetAction(
             onPressed: () => Navigator.of(ctx).pop('from'),
-            child: const Text('╨б'),
+            child: const Text('тХи╨▒'),
           ),
           CupertinoActionSheetAction(
             onPressed: () => Navigator.of(ctx).pop('to'),
-            child: const Text('╨Я╨╛'),
+            child: const Text('тХи╨птХитХЫ'),
           ),
           if (_dateFrom != null || _dateTo != null)
             CupertinoActionSheetAction(
               onPressed: () => Navigator.of(ctx).pop('clear'),
-              child: const Text('╨б╨▒╤А╨╛╤Б╨╕╤В╤М'),
+              child: const Text('тХи╨▒тХитЦТтХд╨РтХитХЫтХд╨СтХитХХтХд╨ТтХд╨Ь'),
             ),
         ],
         cancelButton: CupertinoActionSheetAction(
           onPressed: () => Navigator.of(ctx).pop(),
-          child: const Text('╨Ю╤В╨╝╨╡╨╜╨░'),
+          child: const Text('тХи╨отХд╨ТтХитХЭтХитХбтХитХЬтХитЦС'),
         ),
       ),
     );
@@ -458,42 +458,42 @@ class _JobsScreenState extends State<JobsScreen> {
     await showCupertinoModalPopup<void>(
       context: context,
       builder: (dialogContext) => CupertinoActionSheet(
-        title: const Text('╨д╨╕╨╗╤М╤В╤А╤Л'),
+        title: const Text('тХи╨┤тХитХХтХитХЧтХд╨ЬтХд╨ТтХд╨РтХд╨Ы'),
         actions: [
           CupertinoActionSheetAction(
             onPressed: () {
               Navigator.of(dialogContext).pop();
               _pickClientFilter();
             },
-            child: const Text('╨Ъ╨╗╨╕╨╡╨╜╤В'),
+            child: const Text('тХи╨ктХитХЧтХитХХтХитХбтХитХЬтХд╨Т'),
           ),
           CupertinoActionSheetAction(
             onPressed: () {
               Navigator.of(dialogContext).pop();
               _openDateFilter();
             },
-            child: const Text('╨Ф╨░╤В╤Л'),
+            child: const Text('тХи╨дтХитЦСтХд╨ТтХд╨Ы'),
           ),
           CupertinoActionSheetAction(
             onPressed: () {
               Navigator.of(dialogContext).pop();
               _pickAssigneeFilter();
             },
-            child: const Text('╨Ш╤Б╨┐╨╛╨╗╨╜╨╕╤В╨╡╨╗╤М'),
+            child: const Text('тХи╨итХд╨СтХитФРтХитХЫтХитХЧтХитХЬтХитХХтХд╨ТтХитХбтХитХЧтХд╨Ь'),
           ),
           CupertinoActionSheetAction(
             onPressed: () {
               Navigator.of(dialogContext).pop();
               _pickPriorityFilter();
             },
-            child: const Text('╨Я╤А╨╕╨╛╤А╨╕╤В╨╡╤В'),
+            child: const Text('тХи╨птХд╨РтХитХХтХитХЫтХд╨РтХитХХтХд╨ТтХитХбтХд╨Т'),
           ),
           CupertinoActionSheetAction(
             onPressed: () {
               Navigator.of(dialogContext).pop();
               _pickTagFilter();
             },
-            child: const Text('╨в╨╡╨│'),
+            child: const Text('тХи╨▓тХитХбтХитФВ'),
           ),
           CupertinoActionSheetAction(
             onPressed: () {
@@ -507,15 +507,41 @@ class _JobsScreenState extends State<JobsScreen> {
                 _dateTo = null;
               });
             },
-            child: const Text('╨б╨▒╤А╨╛╤Б╨╕╤В╤М'),
+            child: const Text('тХи╨▒тХитЦТтХд╨РтХитХЫтХд╨СтХитХХтХд╨ТтХд╨Ь'),
           ),
         ],
         cancelButton: CupertinoActionSheetAction(
           onPressed: () => Navigator.of(dialogContext).pop(),
-          child: const Text('╨Ю╤В╨╝╨╡╨╜╨░'),
+          child: const Text('тХи╨отХд╨ТтХитХЭтХитХбтХитХЬтХитЦС'),
         ),
       ),
     );
+  }
+
+  Future<void> _showViewPicker() async {
+    final result = await showCupertinoModalPopup<String?>(
+      context: context,
+      builder: (dialogContext) => CupertinoActionSheet(
+        title: const Text('Вид'),
+        actions: [
+          CupertinoActionSheetAction(
+            isDefaultAction: _view == 'list',
+            onPressed: () => Navigator.of(dialogContext).pop('list'),
+            child: const Text('Список'),
+          ),
+          CupertinoActionSheetAction(
+            isDefaultAction: _view == 'process',
+            onPressed: () => Navigator.of(dialogContext).pop('process'),
+            child: const Text('Процесс'),
+          ),
+        ],
+        cancelButton: CupertinoActionSheetAction(
+          onPressed: () => Navigator.of(dialogContext).pop(),
+          child: const Text('Отмена'),
+        ),
+      ),
+    );
+    if (result != null && mounted) setState(() => _view = result);
   }
 
   Future<void> _quickAdd() async {
@@ -523,7 +549,7 @@ class _JobsScreenState extends State<JobsScreen> {
 
     String clientId;
     if (store.clients.isEmpty) {
-      final clientName = await _promptText('Имя клиента', 'Иван');
+      final clientName = await _promptText('╨Ш╨╝╤П ╨║╨╗╨╕╨╡╨╜╤В╨░', '╨Ш╨▓╨░╨╜');
       if (!mounted) return;
       if (clientName == null || clientName.trim().isEmpty) return;
       final client = await store.createClient(name: clientName.trim());
@@ -535,7 +561,7 @@ class _JobsScreenState extends State<JobsScreen> {
       final selected = await showCupertinoModalPopup<String?>(
         context: context,
         builder: (dialogContext) => CupertinoActionSheet(
-          title: const Text('Клиент'),
+          title: const Text('╨Ъ╨╗╨╕╨╡╨╜╤В'),
           actions: [
             for (final c in sorted)
               CupertinoActionSheetAction(
@@ -545,7 +571,7 @@ class _JobsScreenState extends State<JobsScreen> {
           ],
           cancelButton: CupertinoActionSheetAction(
             onPressed: () => Navigator.of(dialogContext).pop(),
-            child: const Text('Отмена'),
+            child: const Text('╨Ю╤В╨╝╨╡╨╜╨░'),
           ),
         ),
       );
@@ -554,7 +580,7 @@ class _JobsScreenState extends State<JobsScreen> {
       clientId = selected;
     }
 
-    final title = await _promptText('Название заказа', 'Заказ');
+    final title = await _promptText('╨Э╨░╨╖╨▓╨░╨╜╨╕╨╡ ╨╖╨░╨║╨░╨╖╨░', '╨Ч╨░╨║╨░╨╖');
     if (!mounted) return;
     if (title == null || title.trim().isEmpty) return;
 
@@ -587,12 +613,12 @@ class _JobsScreenState extends State<JobsScreen> {
         actions: [
           CupertinoDialogAction(
             onPressed: () => Navigator.of(dc).pop(),
-            child: const Text('Отмена'),
+            child: const Text('╨Ю╤В╨╝╨╡╨╜╨░'),
           ),
           CupertinoDialogAction(
             isDefaultAction: true,
             onPressed: () => Navigator.of(dc).pop(controller.text.trim()),
-            child: const Text('ОК'),
+            child: const Text('╨Ю╨Ъ'),
           ),
         ],
       ),
@@ -606,7 +632,7 @@ class _JobsScreenState extends State<JobsScreen> {
 
     return CupertinoPageScaffold(
       navigationBar: CupertinoNavigationBar(
-        middle: const Text('╨Ч╨░╨║╨░╨╖╤Л'),
+        middle: const Text('тХи╨зтХитЦСтХитХСтХитЦСтХитХЦтХд╨Ы'),
         trailing: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -616,7 +642,17 @@ class _JobsScreenState extends State<JobsScreen> {
               child: Icon(
                 CupertinoIcons.line_horizontal_3_decrease,
                 color: _hasActiveFilters ? colors.accent : null,
-                semanticLabel: '╨д╨╕╨╗╤М╤В╤А',
+                semanticLabel: 'тХи╨┤тХитХХтХитХЧтХд╨ЬтХд╨ТтХд╨Р',
+              ),
+            ),
+            CupertinoButton(
+              padding: EdgeInsets.zero,
+              onPressed: _showViewPicker,
+              child: Icon(
+                _view == 'list'
+                    ? CupertinoIcons.list_bullet
+                    : CupertinoIcons.rectangle_grid_2x2,
+                semanticLabel: 'Вид',
               ),
             ),
             CupertinoButton(
@@ -624,7 +660,7 @@ class _JobsScreenState extends State<JobsScreen> {
               onPressed: () => setState(() => _searchVisible = !_searchVisible),
               child: Icon(
                 _searchVisible ? CupertinoIcons.xmark : CupertinoIcons.search,
-                semanticLabel: _searchVisible ? '╨Ч╨░╨║╤А╤Л╤В╤М' : '╨Я╨╛╨╕╤Б╨║',
+                semanticLabel: _searchVisible ? 'тХи╨зтХитЦСтХитХСтХд╨РтХд╨ЫтХд╨ТтХд╨Ь' : 'тХи╨птХитХЫтХитХХтХд╨СтХитХС',
               ),
             ),
             CupertinoButton(
@@ -632,7 +668,7 @@ class _JobsScreenState extends State<JobsScreen> {
               onPressed: _quickAdd,
               child: const Icon(
                 CupertinoIcons.plus,
-                semanticLabel: '╨Ф╨╛╨▒╨░╨▓╨╕╤В╤М',
+                semanticLabel: 'тХи╨дтХитХЫтХитЦТтХитЦСтХитЦУтХитХХтХд╨ТтХд╨Ь',
               ),
             ),
           ],
@@ -641,29 +677,12 @@ class _JobsScreenState extends State<JobsScreen> {
       child: SafeArea(
         child: Column(
           children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
-              child: CupertinoSlidingSegmentedControl<String>(
-                groupValue: _view,
-                onValueChanged: (v) => setState(() => _view = v ?? 'list'),
-                children: const {
-                  'list': Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                    child: Text('╨б╨┐╨╕╤Б╨╛╨║'),
-                  ),
-                  'process': Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                    child: Text('╨Ъ╨░╨╜╨▒╨░╨╜'),
-                  ),
-                },
-              ),
-            ),
             if (_searchVisible)
               Padding(
                 padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
                 child: CupertinoTextField(
                   controller: _searchController,
-                  placeholder: '╨Я╨╛╨╕╤Б╨║',
+                  placeholder: 'тХи╨птХитХЫтХитХХтХд╨СтХитХС',
                   onChanged: (v) => setState(() => _query = v),
                   suffix: _query.isEmpty
                       ? null
@@ -676,7 +695,7 @@ class _JobsScreenState extends State<JobsScreen> {
                           child: const Icon(
                             CupertinoIcons.xmark_circle_fill,
                             size: 18,
-                            semanticLabel: '╨Ю╤З╨╕╤Б╤В╨╕╤В╤М',
+                            semanticLabel: 'тХи╨отХд╨ЧтХитХХтХд╨СтХд╨ТтХитХХтХд╨ТтХд╨Ь',
                           ),
                         ),
                 ),
@@ -702,7 +721,7 @@ class _JobsScreenState extends State<JobsScreen> {
             children: [
               Expanded(
                 child: Text(
-                  '╨б╤В╨░╤В╤Г╤Б: ${_statusLabel()}',
+                  'тХи╨▒тХд╨ТтХитЦСтХд╨ТтХд╨УтХд╨С: ${_statusLabel()}',
                   style: TextStyle(color: colors.secondaryLabel, fontSize: 13),
                 ),
               ),
@@ -733,10 +752,10 @@ class _JobsScreenState extends State<JobsScreen> {
               final jobs = _filteredJobs(store);
               if (jobs.isEmpty) {
                 return EmptyState(
-                  title: '╨Э╨╡╤В ╨╖╨░╨║╨░╨╖╨╛╨▓',
+                  title: 'тХи╨нтХитХбтХд╨Т тХитХЦтХитЦСтХитХСтХитЦСтХитХЦтХитХЫтХитЦУ',
                   message: _query.isEmpty
-                      ? '╨Э╨░╨╢╨╝╨╕╤В╨╡ +, ╤З╤В╨╛╨▒╤Л ╤Б╨╛╨╖╨┤╨░╤В╤М ╨╖╨░╨║╨░╨╖.'
-                      : '╨Э╨╕╤З╨╡╨│╨╛ ╨╜╨╡ ╨╜╨░╨╣╨┤╨╡╨╜╨╛.',
+                      ? 'тХи╨нтХитЦСтХитХвтХитХЭтХитХХтХд╨ТтХитХб +, тХд╨ЧтХд╨ТтХитХЫтХитЦТтХд╨Ы тХд╨СтХитХЫтХитХЦтХитФдтХитЦСтХд╨ТтХд╨Ь тХитХЦтХитЦСтХитХСтХитЦСтХитХЦ.'
+                      : 'тХи╨нтХитХХтХд╨ЧтХитХбтХитФВтХитХЫ тХитХЬтХитХб тХитХЬтХитЦСтХитХгтХитФдтХитХбтХитХЬтХитХЫ.',
                   art: Icon(
                     CupertinoIcons.doc_text,
                     size: 48,
@@ -766,17 +785,17 @@ class _JobsScreenState extends State<JobsScreen> {
                       ),
                       confirmDismiss: (_) => showAppConfirm(
                         context,
-                        title: '╨г╨┤╨░╨╗╨╕╤В╤М ╨╖╨░╨║╨░╨╖?',
-                        message: '╨н╤В╨░╨┐╤Л, ╨╝╨░╤В╨╡╤А╨╕╨░╨╗╤Л ╨╕ ╨▓╤А╨╡╨╝╤П ╤В╨╛╨╢╨╡ ╤Г╨┤╨░╨╗╤П╤В╤Б╤П.',
+                        title: 'тХи╨│тХитФдтХитЦСтХитХЧтХитХХтХд╨ТтХд╨Ь тХитХЦтХитЦСтХитХСтХитЦСтХитХЦ?',
+                        message: 'тХи╨╜тХд╨ТтХитЦСтХитФРтХд╨Ы, тХитХЭтХитЦСтХд╨ТтХитХбтХд╨РтХитХХтХитЦСтХитХЧтХд╨Ы тХитХХ тХитЦУтХд╨РтХитХбтХитХЭтХд╨Я тХд╨ТтХитХЫтХитХвтХитХб тХд╨УтХитФдтХитЦСтХитХЧтХд╨ЯтХд╨ТтХд╨СтХд╨Я.',
                         destructive: true,
-                        confirmLabel: '╨г╨┤╨░╨╗╨╕╤В╤М',
+                        confirmLabel: 'тХи╨│тХитФдтХитЦСтХитХЧтХитХХтХд╨ТтХд╨Ь',
                       ),
                       onDismissed: (_) =>
                           context.read<MastersStore>().deleteJob(job.id),
                       child: _JobRow(
                         job: job,
                         store: store,
-                        clientName: client?.name ?? 'тАФ',
+                        clientName: client?.name ?? '╤В╨Р╨д',
                         onTap: () => Navigator.of(context).push(
                           CupertinoPageRoute(
                             builder: (_) => JobDetailScreen(jobId: job.id),
@@ -801,12 +820,12 @@ class _JobsScreenState extends State<JobsScreen> {
         .toList();
     final groups = <_ProcessGroup>[
       _ProcessGroup(
-        label: '╨Э╨╛╨▓╤Л╨╡',
+        label: 'тХи╨нтХитХЫтХитЦУтХд╨ЫтХитХб',
         status: JobStatus.nuevo,
         jobs: filteredJobs.where((j) => j.status == JobStatus.nuevo).toList(),
       ),
       _ProcessGroup(
-        label: '╨Т ╤А╨░╨▒╨╛╤В╨╡',
+        label: 'тХи╨в тХд╨РтХитЦСтХитЦТтХитХЫтХд╨ТтХитХб',
         status: JobStatus.inProgress,
         jobs: filteredJobs
             .where(
@@ -817,7 +836,7 @@ class _JobsScreenState extends State<JobsScreen> {
             .toList(),
       ),
       _ProcessGroup(
-        label: '╨У╨╛╤В╨╛╨▓╤Л╨╡',
+        label: 'тХи╨гтХитХЫтХд╨ТтХитХЫтХитЦУтХд╨ЫтХитХб',
         status: JobStatus.done,
         jobs: filteredJobs
             .where(
@@ -876,7 +895,7 @@ class _JobsScreenState extends State<JobsScreen> {
                   child: group.jobs.isEmpty
                       ? Center(
                           child: Text(
-                            '╨Э╨╡╤В ╨╖╨░╨║╨░╨╖╨╛╨▓',
+                            'тХи╨нтХитХбтХд╨Т тХитХЦтХитЦСтХитХСтХитЦСтХитХЦтХитХЫтХитЦУ',
                             style: TextStyle(color: colors.tertiaryLabel),
                           ),
                         )
@@ -898,7 +917,7 @@ class _JobsScreenState extends State<JobsScreen> {
                                     child: _JobCard(
                                       job: job,
                                       store: store,
-                                      clientName: client?.name ?? 'тАФ',
+                                      clientName: client?.name ?? '╤В╨Р╨д',
                                       onTap: () {},
                                     ),
                                   ),
@@ -908,14 +927,14 @@ class _JobsScreenState extends State<JobsScreen> {
                                   child: _JobCard(
                                     job: job,
                                     store: store,
-                                    clientName: client?.name ?? 'тАФ',
+                                    clientName: client?.name ?? '╤В╨Р╨д',
                                     onTap: () {},
                                   ),
                                 ),
                                 child: _JobCard(
                                   job: job,
                                   store: store,
-                                  clientName: client?.name ?? 'тАФ',
+                                  clientName: client?.name ?? '╤В╨Р╨д',
                                   onTap: () => Navigator.of(context).push(
                                     CupertinoPageRoute(
                                       builder: (_) =>
@@ -1164,7 +1183,7 @@ class _JobCard extends StatelessWidget {
             Padding(
               padding: const EdgeInsets.only(top: 4),
               child: Text(
-                '${(job.priceCents / 100).toStringAsFixed(0)} тВ╜',
+                '${(job.priceCents / 100).toStringAsFixed(0)} ╤В╨ТтХЬ',
                 style: TextStyle(
                   color: colors.accent,
                   fontSize: 12,
