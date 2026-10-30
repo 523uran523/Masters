@@ -34,6 +34,21 @@ void main() {
     }
   });
 
+  test('schema v12 contains expected core tables and triggers', () async {
+    final appDb = await AppDatabase.open(path: inMemoryDatabasePath);
+    try {
+      final db = appDb.database;
+      final tables = (await db.rawQuery("SELECT name FROM sqlite_master WHERE type='table'")).map((r) => r['name'] as String).toSet();
+      for (final t in ['clients', 'jobs', 'job_attachments', 'money_transactions', 'employees', 'recurring_payments', 'audit_log', 'closed_periods']) {
+        expect(tables.contains(t), isTrue, reason: 'missing table $t');
+      }
+      final version = (await db.rawQuery('PRAGMA user_version'))[0]['user_version'];
+      expect(version, 12);
+    } finally {
+      await appDb.close();
+    }
+  });
+
   test('creates employee and computes zero balance', () async {
     final appDb = await AppDatabase.open(path: inMemoryDatabasePath);
     try {
