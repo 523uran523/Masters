@@ -456,7 +456,10 @@ class ClientDetailScreen extends StatelessWidget {
               icon: CupertinoIcons.plus,
               onPressed: () => Navigator.of(context).push(
                 CupertinoPageRoute(
-                  builder: (_) => JobFormScreen(initialClientId: clientId),
+                  builder: (_) => JobFormScreen(
+                    initialClientId: clientId,
+                    initialObjectId: objects.length == 1 ? objects.first.id : null,
+                  ),
                 ),
               ),
             ),
