@@ -47,8 +47,12 @@ class _JobFormScreenState extends State<JobFormScreen> {
     if (!_isEdit && _assigneeId == null) {
       _assigneeId = context.read<MastersStore>().selfEmployee?.id;
     }
+    _loadJob();
+  }
+
+  void _loadJob() {
+    final store = context.read<MastersStore>();
     if (!_isEdit) {
-      final store = context.read<MastersStore>();
       if (_clientId == null &&
           widget.initialClientId != null &&
           store.clientById(widget.initialClientId!) != null) {
@@ -56,34 +60,31 @@ class _JobFormScreenState extends State<JobFormScreen> {
       }
       if (_objectId == null && widget.initialObjectId != null) {
         final obj = store.objectById(widget.initialObjectId);
-        if (obj != null &&
-            (_clientId == null || obj.clientId == _clientId)) {
+        if (obj != null && (_clientId == null || obj.clientId == _clientId)) {
           _objectId = widget.initialObjectId;
           _clientId ??= obj.clientId;
         }
       }
+      return;
     }
-    if (_isEdit && _titleController.text.isEmpty) {
-      final store = context.read<MastersStore>();
-      final job = store.jobById(widget.jobId!);
-      if (job != null) {
-        _titleController.text = job.title;
-        _clientId = job.clientId;
-        _objectId = job.objectId;
-        _assigneeId = job.assigneeId;
-        _status = job.status;
-        _priority = job.priority;
-        _priceController.text = (job.priceCents / 100)
-            .toStringAsFixed(2)
-            .replaceAll('.00', '');
-        _costController.text = (job.costCents / 100)
-            .toStringAsFixed(2)
-            .replaceAll('.00', '');
-        _noteController.text = job.note ?? '';
-        _tagsController.text = job.tags ?? '';
-        _dueDate = job.dueDate;
-      }
-    }
+    if (_titleController.text.isNotEmpty) return;
+    final job = store.jobById(widget.jobId!);
+    if (job == null) return;
+    _titleController.text = job.title;
+    _clientId = job.clientId;
+    _objectId = job.objectId;
+    _assigneeId = job.assigneeId;
+    _status = job.status;
+    _priority = job.priority;
+    _priceController.text = (job.priceCents / 100)
+        .toStringAsFixed(2)
+        .replaceAll('.00', '');
+    _costController.text = (job.costCents / 100)
+        .toStringAsFixed(2)
+        .replaceAll('.00', '');
+    _noteController.text = job.note ?? '';
+    _tagsController.text = job.tags ?? '';
+    _dueDate = job.dueDate;
   }
 
   @override
@@ -539,16 +540,10 @@ class _JobFormScreenState extends State<JobFormScreen> {
             const SizedBox(height: 16),
             SectionLabel('Приоритет'),
             AppCard(
-              child: Row(
-                children: [
-                  const Text('Приоритет'),
-                  const Spacer(),
-                  CupertinoButton(
-                    padding: EdgeInsets.zero,
-                    onPressed: _pickPriority,
-                    child: Text(_priority.label),
-                  ),
-                ],
+              child: SecondaryButton(
+                label: 'Приоритет: ${_priority.label}',
+                icon: CupertinoIcons.list_bullet,
+                onPressed: _pickPriority,
               ),
             ),
             const SizedBox(height: 16),
