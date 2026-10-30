@@ -34,38 +34,40 @@ class Client {
   }
 
   Map<String, Object?> toMap() => {
-        'id': id,
-        'name': name,
-        'phone': phone,
-        'note': note,
-        'created_at': createdAt.millisecondsSinceEpoch,
-        'updated_at': updatedAt.millisecondsSinceEpoch,
-      };
+    'id': id,
+    'name': name,
+    'phone': phone,
+    'note': note,
+    'created_at': createdAt.millisecondsSinceEpoch,
+    'updated_at': updatedAt.millisecondsSinceEpoch,
+  };
 
   factory Client.fromMap(Map<String, Object?> m) => Client(
-        id: m['id'] as String,
-        name: m['name'] as String,
-        phone: m['phone'] as String? ?? '',
-        note: m['note'] as String?,
-        createdAt: DateTime.fromMillisecondsSinceEpoch(
-            m['created_at'] as int? ?? 0),
-        updatedAt: DateTime.fromMillisecondsSinceEpoch(
-            m['updated_at'] as int? ?? 0),
-      );
+    id: m['id'] as String,
+    name: m['name'] as String,
+    phone: m['phone'] as String? ?? '',
+    note: m['note'] as String?,
+    createdAt: DateTime.fromMillisecondsSinceEpoch(
+      m['created_at'] as int? ?? 0,
+    ),
+    updatedAt: DateTime.fromMillisecondsSinceEpoch(
+      m['updated_at'] as int? ?? 0,
+    ),
+  );
 
   static String normalizePhone(String value) {
     return value.replaceAll(RegExp(r'\D'), '');
   }
 
   static String normalizeName(String value) {
-    return value
-        .trim()
-        .replaceAll(RegExp(r'\s+'), ' ')
-        .toLowerCase();
+    return value.trim().replaceAll(RegExp(r'\s+'), ' ').toLowerCase();
   }
 
   String? get duplicateKey {
-    final digits = normalizePhone(phone);
+    var digits = normalizePhone(phone);
+    if (digits.length == 11 && digits.startsWith('8')) {
+      digits = '7${digits.substring(1)}';
+    }
     if (digits.length >= 7) return digits;
     final normalized = normalizeName(name);
     if (normalized.isEmpty) return null;

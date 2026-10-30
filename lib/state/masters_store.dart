@@ -1,4 +1,4 @@
-﻿import 'dart:io';
+import 'dart:io';
 
 import 'package:sqflite/sqflite.dart';
 import 'package:path_provider/path_provider.dart';
@@ -540,6 +540,7 @@ class MastersStore extends ChangeNotifier {
     objectIds;
     notifyListeners();
   }
+
   // Client duplicate handling
   List<List<Client>> findDuplicateClients() {
     final grouped = <String, List<Client>>{};
@@ -548,12 +549,10 @@ class MastersStore extends ChangeNotifier {
       if (key == null || key.isEmpty) continue;
       grouped.putIfAbsent(key, () => <Client>[]).add(client);
     }
-    final duplicates = grouped.values
+    return grouped.values
         .where((group) => group.length > 1)
         .map((group) => List<Client>.unmodifiable(group))
         .toList();
-    duplicates.sort((a, b) => b.length.compareTo(a.length));
-    return duplicates;
   }
 
   Future<void> mergeClientInto({
@@ -561,21 +560,14 @@ class MastersStore extends ChangeNotifier {
     required String targetId,
   }) async {
     if (sourceId == targetId) {
-      throw ArgumentError('РљР»РёРµРЅС‚С‹ РґРѕР»Р¶РЅС‹ СЂР°Р·Р»РёС‡Р°С‚СЊСЃСЏ.');
+      throw ArgumentError(
+        'РљР»РёРµРЅС‚С‹ РґРѕР»Р¶РЅС‹ СЂР°Р·Р»РёС‡Р°С‚СЊСЃСЏ.',
+      );
     }
     final source = clientById(sourceId);
     final target = clientById(targetId);
     if (source == null || target == null) {
       throw StateError('РљР»РёРµРЅС‚ РЅРµ РЅР°Р№РґРµРЅ.');
-    }
-    final sourceIdentity = Client.normalizePhone(source.phone).isNotEmpty
-        ? Client.normalizePhone(source.phone)
-        : Client.normalizeName(source.name);
-    final targetIdentity = Client.normalizePhone(target.phone).isNotEmpty
-        ? Client.normalizePhone(target.phone)
-        : Client.normalizeName(target.name);
-    if (sourceIdentity.isEmpty || targetIdentity.isEmpty) {
-      throw StateError('Client has an empty normalized identity.');
     }
     ensurePeriodOpen();
 
@@ -595,11 +587,13 @@ class MastersStore extends ChangeNotifier {
     final now = DateTime.now();
     final nowMs = now.millisecondsSinceEpoch;
 
-    final mergedName = target.name.trim().isEmpty ? source.name.trim() : target.name;
-    final mergedPhone = target.phone.trim().isEmpty ? source.phone.trim() : target.phone;
-    final mergedNote = target.note?.trim().isNotEmpty == true
-        ? target.note
-        : source.note?.trim();
+    final mergedName = target.name.trim().isEmpty
+        ? source.name.trim()
+        : target.name;
+    final mergedPhone = target.phone.trim().isEmpty
+        ? source.phone.trim()
+        : target.phone;
+    final mergedNote = _mergeClientNotes(target, source);
 
     final db = _appDatabase.database;
     await db.transaction((txn) async {
@@ -629,11 +623,17 @@ class MastersStore extends ChangeNotifier {
         whereArgs: jobArgs,
       );
 
+      final appointmentWhere = movedObjectIds.isEmpty
+          ? 'client_id = ? AND deleted_at IS NULL'
+          : '(client_id = ? OR object_id IN ($objectPlaceholders)) AND deleted_at IS NULL';
+      final appointmentArgs = movedObjectIds.isEmpty
+          ? <Object?>[sourceId]
+          : <Object?>[sourceId, ...movedObjectIds];
       await txn.update(
         'appointments',
         {'client_id': targetId, 'updated_at': nowMs},
-        where: 'client_id = ? AND deleted_at IS NULL',
-        whereArgs: [sourceId],
+        where: appointmentWhere,
+        whereArgs: appointmentArgs,
       );
 
       final reminderWhere = movedJobIds.isEmpty
@@ -686,7 +686,7 @@ class MastersStore extends ChangeNotifier {
     _sessions = await _sessionRepo.getAll();
     _appointments = await _appointmentRepo.getAll();
     _reminders = await _reminderRepo.getAll(includeDone: true);
-    _moneyTransactions = await _moneyTxRepo.getAll(includeVoided: true);
+    _moneyTransactions = await _moneyTxRepo.getAll();
     _clients = await _clientRepo.getAll();
 
     try {
@@ -1110,7 +1110,8 @@ class MastersStore extends ChangeNotifier {
     String? relatedTransactionId,
     String? receiptPath,
   }) async {
-    if (amountCents <= 0) throw ArgumentError('РЎСѓРјРјР° РґРѕР»Р¶РЅР° Р±С‹С‚СЊ Р±РѕР»СЊС€Рµ 0.');
+    if (amountCents <= 0)
+      throw ArgumentError('РЎСѓРјРјР° РґРѕР»Р¶РЅР° Р±С‹С‚СЊ Р±РѕР»СЊС€Рµ 0.');
     ensurePeriodOpen();
     final tx = MoneyTransaction(
       id: newId(),
@@ -1228,7 +1229,8 @@ class MastersStore extends ChangeNotifier {
     int amountCents, {
     String? note,
   }) async {
-    if (amountCents <= 0) throw ArgumentError('РЎСѓРјРјР° РґРѕР»Р¶РЅР° Р±С‹С‚СЊ Р±РѕР»СЊС€Рµ 0.');
+    if (amountCents <= 0)
+      throw ArgumentError('РЎСѓРјРјР° РґРѕР»Р¶РЅР° Р±С‹С‚СЊ Р±РѕР»СЊС€Рµ 0.');
     ensurePeriodOpen();
     if (fromAccountId == toAccountId)
       throw ArgumentError('РЎС‡РµС‚Р° РґРѕР»Р¶РЅС‹ СЂР°Р·Р»РёС‡Р°С‚СЊСЃСЏ.');
@@ -1468,7 +1470,9 @@ class MastersStore extends ChangeNotifier {
       (a) => a.resourceId == r && !a.endAt.isBefore(s) && !a.startAt.isAfter(e),
     );
     if (conflicts.isNotEmpty) {
-      throw StateError('Р РµСЃСѓСЂСЃ СѓР¶Рµ Р·Р°РЅСЏС‚ РІ СЌС‚Рѕ РІСЂРµРјСЏ. Р’С‹Р±РµСЂРёС‚Рµ РґСЂСѓРіРѕРµ РІСЂРµРјСЏ.');
+      throw StateError(
+        'Р РµСЃСѓСЂСЃ СѓР¶Рµ Р·Р°РЅСЏС‚ РІ СЌС‚Рѕ РІСЂРµРјСЏ. Р’С‹Р±РµСЂРёС‚Рµ РґСЂСѓРіРѕРµ РІСЂРµРјСЏ.',
+      );
     }
     final appt = Appointment(
       id: newId(),
@@ -1682,7 +1686,9 @@ class MastersStore extends ChangeNotifier {
         kind: 'employee_payment',
         direction: 'out',
         amountCents: amountCents < 0 ? 0 : amountCents,
-        category: type == 'advance' ? 'РђРІР°РЅСЃ СЃРѕС‚СЂСѓРґРЅРёРєСѓ' : 'Р’С‹РїР»Р°С‚Р° Р·Р°СЂРїР»Р°С‚С‹',
+        category: type == 'advance'
+            ? 'РђРІР°РЅСЃ СЃРѕС‚СЂСѓРґРЅРёРєСѓ'
+            : 'Р’С‹РїР»Р°С‚Р° Р·Р°СЂРїР»Р°С‚С‹',
         note: note?.trim().isEmpty == true ? p.note : note?.trim(),
         relatedTransactionId: p.id,
         createdAt: p.createdAt,
@@ -1789,7 +1795,11 @@ class MastersStore extends ChangeNotifier {
     final rows = await BackupService.pickSpreadsheet();
     if (rows == null || rows.isEmpty) return 0;
     final header = rows.first.map(_norm).toList();
-    final nameIdx = _col(header, ['name', 'РЅР°Р·РІР°РЅРёРµ', 'РЅР°РёРјРµРЅРѕРІР°РЅРёРµ']);
+    final nameIdx = _col(header, [
+      'name',
+      'РЅР°Р·РІР°РЅРёРµ',
+      'РЅР°РёРјРµРЅРѕРІР°РЅРёРµ',
+    ]);
     if (nameIdx < 0) return 0;
     final kindIdx = _col(header, ['kind', 'С‚РёРї']);
     final unitIdx = _col(header, ['unit']);
@@ -1987,11 +1997,15 @@ class MastersStore extends ChangeNotifier {
 
   Future<void> restoreFromBackup(Map<String, dynamic> data) async {
     if (data['format'] != 'masters-backup') {
-      throw const FormatException('Р­С‚Рѕ РЅРµ СЂРµР·РµСЂРІРЅР°СЏ РєРѕРїРёСЏ В«MastersВ».');
+      throw const FormatException(
+        'Р­С‚Рѕ РЅРµ СЂРµР·РµСЂРІРЅР°СЏ РєРѕРїРёСЏ В«MastersВ».',
+      );
     }
     final version = data['version'];
     if (version is! int || version > 8) {
-      throw const FormatException('РќРµРїРѕРґРґРµСЂР¶РёРІР°РµРјР°СЏ РІРµСЂСЃРёСЏ РєРѕРїРёРё.');
+      throw const FormatException(
+        'РќРµРїРѕРґРґРµСЂР¶РёРІР°РµРјР°СЏ РІРµСЂСЃРёСЏ РєРѕРїРёРё.',
+      );
     }
 
     final clients = <Client>[];
@@ -2283,7 +2297,9 @@ class MastersStore extends ChangeNotifier {
     }
     final version = data['version'];
     if (version is! int || version > 8) {
-      throw const FormatException('РќРµРїРѕРґРґРµСЂР¶РёРІР°РµРјР°СЏ РІРµСЂСЃРёСЏ РєРѕРїРёРё.');
+      throw const FormatException(
+        'РќРµРїРѕРґРґРµСЂР¶РёРІР°РµРјР°СЏ РІРµСЂСЃРёСЏ РєРѕРїРёРё.',
+      );
     }
     final result = await _appDatabase.mergeSnapshot(
       data,
@@ -2352,7 +2368,9 @@ class MastersStore extends ChangeNotifier {
     for (final existing in _closedPeriods) {
       if (periodStart.isBefore(existing.end) &&
           periodEnd.isAfter(existing.start)) {
-        throw ArgumentError('РќРѕРІС‹Р№ РїРµСЂРёРѕРґ РїРµСЂРµСЃРµРєР°РµС‚СЃСЏ СЃ СѓР¶Рµ Р·Р°РєСЂС‹С‚С‹Рј.');
+        throw ArgumentError(
+          'РќРѕРІС‹Р№ РїРµСЂРёРѕРґ РїРµСЂРµСЃРµРєР°РµС‚СЃСЏ СЃ СѓР¶Рµ Р·Р°РєСЂС‹С‚С‹Рј.',
+        );
       }
     }
     final closure = ClosedPeriod(
@@ -2794,7 +2812,10 @@ class MastersStore extends ChangeNotifier {
 
     if (purchaseLines.isEmpty)
       throw ArgumentError('Р—Р°РєСѓРїРєР° РЅРµ СЃРѕРґРµСЂР¶РёС‚ СЃС‚СЂРѕРє.');
-    if (total <= 0) throw ArgumentError('РЎСѓРјРјР° Р·Р°РєСѓРїРєРё РґРѕР»Р¶РЅР° Р±С‹С‚СЊ Р±РѕР»СЊС€Рµ 0.');
+    if (total <= 0)
+      throw ArgumentError(
+        'РЎСѓРјРјР° Р·Р°РєСѓРїРєРё РґРѕР»Р¶РЅР° Р±С‹С‚СЊ Р±РѕР»СЊС€Рµ 0.',
+      );
     final purchase = Purchase(
       id: purchaseId,
       supplierId: supplierId,

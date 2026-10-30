@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../../app/theme/app_theme.dart';
 import '../../app/ui.dart';
 import '../../state/masters_store.dart';
+import '../../data/models/client.dart';
 import 'client_detail_screen.dart';
 
 class ClientsScreen extends StatefulWidget {
@@ -343,8 +344,8 @@ class _ClientsScreenState extends State<ClientsScreen> {
               padding: EdgeInsets.zero,
               onPressed: _mergeDuplicates,
               child: const Icon(
-                CupertinoIcons.person_2,
-                semanticLabel: 'Объединить дубли',
+                CupertinoIcons.person_2_square_stack,
+                semanticLabel: 'Найти дубли',
               ),
             ),
             CupertinoButton(

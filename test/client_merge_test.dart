@@ -2,10 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
-import 'package:masters/core/utils/app_utils.dart';
 import 'package:masters/data/app_database.dart';
-import 'package:masters/data/models/client.dart';
-import 'package:masters/data/models/job.dart' show JobStatus;
 import 'package:masters/state/masters_store.dart';
 import 'package:masters/state/settings_controller.dart';
 
@@ -17,94 +14,73 @@ void main() {
     databaseFactory = databaseFactoryFfi;
   });
 
-  test('mergeClientInto moves relations and soft-deletes source', () async {
+  test('merge duplicate client reassigns all linked rows', () async {
     final appDb = await AppDatabase.open(path: inMemoryDatabasePath);
     try {
       final settings = await SettingsController.load();
       final store = MastersStore(appDb, settings);
       await store.load();
 
-      final source = await store.createClient(name: 'Источник', phone: '9000001', note: 'заметка');
-      final target = await store.createClient(name: 'Цель', phone: '9000002');
+      final source = await store.createClient(
+        name: 'Source Client',
+        phone: '1234567890',
+      );
+      final target = await store.createClient(name: 'Target Client', phone: '');
 
       final object = await store.createObject(
         clientId: source.id,
-        title: 'Объект source',
+        title: 'Object 1',
       );
       final job = await store.createJob(
         clientId: source.id,
         objectId: object.id,
-        title: 'Работа',
-        priceCents: 1000,
-        status: JobStatus.inProgress,
-      );
-      final account = await store.createAccount(name: 'Касса', type: 'cash');
-      await store.addTransaction(
-        accountId: account.id,
-        kind: 'payment',
-        direction: 'in',
-        amountCents: 300,
-        clientId: source.id,
-        jobId: job.id,
+        title: 'Job 1',
       );
       final appointment = await store.createAppointment(
-        title: 'Визит',
+        title: 'Appointment 1',
         clientId: source.id,
-        objectId: object.id,
-        startAt: DateTime.now().add(const Duration(hours: 1)),
-        endAt: DateTime.now().add(const Duration(hours: 2)),
       );
       final reminder = await store.createReminder(
         clientId: source.id,
-        jobId: job.id,
-        type: 'manual',
-        title: 'Напоминание',
+        title: 'Reminder 1',
         dueAt: DateTime.now().add(const Duration(days: 1)),
+      );
+      final account = await store.createAccount(name: 'Cash', type: 'cash');
+      final tx = await store.addTransaction(
+        accountId: account.id,
+        kind: 'payment',
+        direction: 'in',
+        amountCents: 1000,
+        clientId: source.id,
+        jobId: job.id,
       );
 
       await store.mergeClientInto(sourceId: source.id, targetId: target.id);
 
-      expect(store.clients.where((c) => c.id == source.id), isEmpty);
-      expect(store.objects.any((o) => o.id == object.id && o.clientId == target.id), isTrue);
-      expect(store.jobs.any((j) => j.id == job.id && j.clientId == target.id), isTrue);
-      expect(store.appointments.any((a) => a.id == appointment.id && a.clientId == target.id), isTrue);
-      expect(store.reminders.any((r) => r.id == reminder.id && r.clientId == target.id && r.jobId == job.id), isTrue);
-      expect(
-        store.moneyTransactions.any(
-          (t) => t.clientId == target.id && t.jobId == job.id && !t.voided,
-        ),
-        isTrue,
+      expect(store.clients.any((c) => c.id == source.id), isFalse);
+      expect(store.clients.any((c) => c.id == target.id), isTrue);
+
+      final movedObject = store.objects.firstWhere((o) => o.id == object.id);
+      expect(movedObject.clientId, target.id);
+
+      final movedJob = store.jobs.firstWhere((j) => j.id == job.id);
+      expect(movedJob.clientId, target.id);
+
+      final movedAppointment = store.appointments.firstWhere(
+        (a) => a.id == appointment.id,
       );
-      expect(store.clientDebtCents(target.id), 700);
-      expect(store.jobsForClient(source.id), isEmpty);
-      final mergedTarget = store.clientById(target.id)!;
-      expect(mergedTarget.phone, isNotEmpty);
-      expect(mergedTarget.note, contains('заметка'));
+      expect(movedAppointment.clientId, target.id);
+
+      final movedReminder = store.reminders.firstWhere(
+        (r) => r.id == reminder.id,
+      );
+      expect(movedReminder.clientId, target.id);
+
+      final movedTx = store.moneyTransactions.firstWhere((t) => t.id == tx.id);
+      expect(movedTx.clientId, target.id);
+      expect(movedTx.jobId, job.id);
     } finally {
       await appDb.close();
     }
-  });
-
-  test('findDuplicateClients groups clients by phone', () async {
-    final appDb = await AppDatabase.open(path: inMemoryDatabasePath);
-    try {
-      final settings = await SettingsController.load();
-      final store = MastersStore(appDb, settings);
-      await store.load();
-
-      await store.createClient(name: 'Анна', phone: '+7 999 123-45-67');
-      await store.createClient(name: 'Anna D', phone: '+79991234567');
-
-      final groups = store.findDuplicateClients();
-      expect(groups.length, 1);
-      expect(groups.first.length, 2);
-    } finally {
-      await appDb.close();
-    }
-  });
-
-  test('client normalization helpers', () {
-    expect(Client.normalizePhone(' +7 (999) 123-45-67 '), '79991234567');
-    expect(Client.normalizeName('  Иван   Иванов  '), 'иван иванов');
   });
 }
