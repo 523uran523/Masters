@@ -648,10 +648,8 @@ class _JobsScreenState extends State<JobsScreen> {
             CupertinoButton(
               padding: EdgeInsets.zero,
               onPressed: _showViewPicker,
-              child: Icon(
-                _view == 'list'
-                    ? CupertinoIcons.list_bullet
-                    : CupertinoIcons.rectangle_grid_2x2,
+              child: const Icon(
+                CupertinoIcons.square_grid_2x2_fill,
                 semanticLabel: 'Вид',
               ),
             ),
