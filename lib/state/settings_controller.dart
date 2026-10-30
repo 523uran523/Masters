@@ -45,6 +45,8 @@ class SettingsController extends ChangeNotifier {
   static const _reminderMinuteKey = 'reminder_minute';
   static const _dndEnabledKey = 'dnd_enabled';
   static const _hiddenTabsKey = 'hidden_tabs';
+  static const _taxRateKey = 'tax_rate';
+  static const _taxAccountKey = 'tax_account';
   static const _jobTagsKey = 'job_tags';
   static const _appPinHashKey = 'app_pin_hash';
   static const _appPinUnlockedUntilKey = 'app_pin_unlocked_until';
@@ -116,6 +118,8 @@ class SettingsController extends ChangeNotifier {
   List<String> get modules => (_prefs.getString(_modulesKey) ?? '').split(',').where((e) => e.isNotEmpty).toList();
   String get objectTerm => _prefs.getString(_objectTermKey) ?? 'Объект';
   String get clientTerm => _prefs.getString(_clientTermKey) ?? 'Клиент';
+  int get taxRate => _prefs.getInt(_taxRateKey) ?? 0;
+  String? get taxAccountId => _prefs.getString(_taxAccountKey);
   List<String> get jobTags => (_prefs.getStringList(_jobTagsKey) ?? const []).toList();
 
   Future<void> setBusinessType(String value) async {
@@ -135,6 +139,20 @@ class SettingsController extends ChangeNotifier {
 
   Future<void> setClientTerm(String value) async {
     await _prefs.setString(_clientTermKey, value);
+    notifyListeners();
+  }
+
+  Future<void> setTaxRate(int value) async {
+    await _prefs.setInt(_taxRateKey, value.clamp(0, 100));
+    notifyListeners();
+  }
+
+  Future<void> setTaxAccount(String? value) async {
+    if (value == null || value.isEmpty) {
+      await _prefs.remove(_taxAccountKey);
+    } else {
+      await _prefs.setString(_taxAccountKey, value);
+    }
     notifyListeners();
   }
 

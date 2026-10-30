@@ -935,6 +935,39 @@ Future<void> _managePin() async {
                   ),
                 ),
                 const SizedBox(height: 16),
+                SectionLabel('Налоговый карман'),
+                AppCard(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('Ставка: ${settings.taxRate}%'),
+                      const SizedBox(height: 8),
+                      SecondaryButton(
+                        label: 'Изменить ставку',
+                        icon: CupertinoIcons.percent,
+                        onPressed: () async {
+                          final v = await _prompt('Ставка налога, %', settings.taxRate.toString());
+                          final rate = int.tryParse((v ?? '').trim());
+                          if (rate == null) return;
+                          await settings.setTaxRate(rate);
+                          if (mounted) setState(() {});
+                        },
+                      ),
+                      if (settings.taxRate > 0) ...[
+                        const SizedBox(height: 8),
+                        SecondaryButton(
+                          label: 'Выключить карман',
+                          icon: CupertinoIcons.xmark,
+                          onPressed: () async {
+                            await settings.setTaxRate(0);
+                            if (mounted) setState(() {});
+                          },
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 16),
                 SectionLabel('Теги заказов'),
                 AppCard(
                   child: Column(
