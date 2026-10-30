@@ -129,14 +129,14 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
 
   Future<void> _addAttachment() async {
     final files = await FilePicker.pickFiles();
-    if (files == null || files.isEmpty || files.single.path == null) return;
+    if (files.isEmpty) return;
+    final path = files.single.path!;
+    if (path.isEmpty) return;
+    if (!mounted) return;
     final store = context.read<MastersStore>();
     setState(() => _busyAttachment = true);
     try {
-      await store.addJobAttachment(
-        jobId: widget.jobId,
-        sourcePath: files.single.path!,
-      );
+      await store.addJobAttachment(jobId: widget.jobId, sourcePath: path);
       await _loadAttachments();
     } finally {
       if (mounted) setState(() => _busyAttachment = false);
@@ -152,6 +152,7 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
       confirmLabel: 'Удалить',
     );
     if (!ok) return;
+    if (!mounted) return;
     await context.read<MastersStore>().deleteJobAttachment(a.id);
     await _loadAttachments();
   }
@@ -191,6 +192,7 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
         ((double.tryParse((amountStr ?? '0').replaceAll(',', '.')) ?? 0) * 100)
             .round();
     if (amount <= 0) return;
+    if (amount > remaining) return;
     final accountId = await _pickAccount(store);
     if (accountId == null) return;
     await store.addTransaction(
@@ -203,6 +205,102 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
       clientId: job.clientId,
       jobId: job.id,
     );
+  }
+
+  Future<void> _closeJob(MastersStore store, Job job) async {
+    try {
+      var current = store.jobById(job.id) ?? job;
+      var remaining = current.priceCents - store.paidForJob(current.id);
+      if (remaining < 0) remaining = 0;
+
+      if (current.priceCents <= 0 || remaining == 0) {
+        if (current.status != JobStatus.done) {
+          await store.setJobStatus(current.id, JobStatus.done);
+        }
+        await store.setJobStatus(current.id, JobStatus.closed);
+        return;
+      }
+
+      final choice = await showCupertinoModalPopup<String?>(
+        context: context,
+        builder: (ctx) => CupertinoActionSheet(
+          title: const Text('Закрыть заказ?'),
+          message: Text(
+            'Остаток к оплате: ${(remaining / 100).toStringAsFixed(0)} ₽',
+          ),
+          actions: [
+            CupertinoActionSheetAction(
+              isDefaultAction: true,
+              onPressed: () => Navigator.of(ctx).pop('pay'),
+              child: const Text('Принять остаток'),
+            ),
+            CupertinoActionSheetAction(
+              isDestructiveAction: true,
+              onPressed: () => Navigator.of(ctx).pop('debt'),
+              child: const Text('Закрыть с долгом'),
+            ),
+          ],
+          cancelButton: CupertinoActionSheetAction(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text('Отмена'),
+          ),
+        ),
+      );
+
+      if (choice == null || !mounted) return;
+
+      if (choice == 'pay') {
+        final amountStr = await _promptText(
+          'Сумма оплаты',
+          (remaining / 100).toStringAsFixed(0),
+        );
+        if (amountStr == null || !mounted) return;
+        final amount =
+            ((double.tryParse(amountStr.replaceAll(',', '.')) ?? 0) * 100)
+                .round();
+        if (amount <= 0) return;
+        if (amount > remaining) return;
+        final accountId = await _pickAccount(store);
+        if (accountId == null || !mounted) return;
+        await store.addTransaction(
+          accountId: accountId,
+          kind: 'payment',
+          direction: 'in',
+          amountCents: amount,
+          category: 'Оплата заказа',
+          note: current.title,
+          clientId: current.clientId,
+          jobId: current.id,
+        );
+        if (!mounted) return;
+        current = store.jobById(current.id) ?? current;
+        final paid = store.paidForJob(current.id);
+        if (paid >= current.priceCents) {
+          if (current.status != JobStatus.done) {
+            await store.setJobStatus(current.id, JobStatus.done);
+          }
+          await store.setJobStatus(current.id, JobStatus.closed);
+        }
+      } else if (choice == 'debt') {
+        final ok = await showAppConfirm(
+          context,
+          title: 'Закрыть с долгом?',
+          message:
+              'Заказ будет закрыт. Остаток ${(remaining / 100).toStringAsFixed(0)} ₽ останется долгом клиента.',
+          confirmLabel: 'Закрыть',
+          destructive: true,
+        );
+        if (!ok || !mounted) return;
+        if (current.status != JobStatus.done) {
+          await store.setJobStatus(current.id, JobStatus.done);
+        }
+        await store.setJobStatus(current.id, JobStatus.closed);
+      }
+    } catch (e) {
+      if (mounted) {
+        await showAppAlert(context, title: 'Ошибка', message: e.toString());
+      }
+    }
   }
 
   Future<void> _sendMessage(MastersStore store, Job job) async {
@@ -469,6 +567,8 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
                     ),
                     onPressed: selected
                         ? null
+                        : s == JobStatus.closed
+                        ? () => _closeJob(store, job)
                         : () => store.setJobStatus(job.id, s),
                     child: Container(
                       padding: const EdgeInsets.symmetric(
