@@ -64,13 +64,16 @@ class _MastersAppState extends State<MastersApp> with WidgetsBindingObserver {
 
     var unlocked = false;
     while (!unlocked && mounted) {
-      final pin = await showCupertinoDialog<String?>(
+      final pinController = TextEditingController();
+    final pin = await showCupertinoDialog<String?>(
+
         context: context,
         builder: (context) => CupertinoAlertDialog(
           title: const Text('Введите PIN'),
           content: Padding(
             padding: const EdgeInsets.only(top: 12),
             child: CupertinoTextField(
+              controller: pinController,
               obscureText: true,
               autofocus: true,
               keyboardType: TextInputType.number,
@@ -84,7 +87,7 @@ class _MastersAppState extends State<MastersApp> with WidgetsBindingObserver {
             ),
             CupertinoDialogAction(
               isDefaultAction: true,
-              onPressed: () => Navigator.of(context).pop(),
+              onPressed: () => Navigator.of(context).pop(pinController.text.trim()),
               child: const Text('OK'),
             ),
           ],

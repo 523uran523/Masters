@@ -68,17 +68,30 @@ class UpdateService {
     if (info.apkUrl.isEmpty) throw Exception('APK не найден на сервере обновлений.');
     final dir = await getTemporaryDirectory();
     final file = File('${dir.path}/masters-update-${info.latestVersionCode}.apk');
+    // If a fully verified APK is already cached, use it without re-downloading.
+    if (await file.exists() && info.sha256.isNotEmpty) {
+      final digest = sha256.convert(await file.readAsBytes()).toString().toLowerCase();
+      if (digest == info.sha256.toLowerCase()) return file;
+    }
+    final existing = await file.exists() ? await file.length() : 0;
     final request = http.Request('GET', Uri.parse(info.apkUrl));
+    if (existing > 0) request.headers['Range'] = 'bytes=$existing-';
     final streamed = await request.send().timeout(const Duration(seconds: 30));
-    if (streamed.statusCode != 200) {
+    IOSink sink;
+    int received = existing;
+    if (streamed.statusCode == 206) {
+      sink = file.openWrite(mode: FileMode.append);
+    } else if (streamed.statusCode == 200) {
+      if (await file.exists()) await file.delete();
+      sink = file.openWrite();
+      received = 0;
+    } else {
       throw Exception('Не удалось скачать APK (${streamed.statusCode}).');
     }
-    final sink = file.openWrite();
-    var received = 0;
     await for (final chunk in streamed.stream) {
       sink.add(chunk);
       received += chunk.length;
-      onProgress?.call(received, streamed.contentLength);
+      onProgress?.call(received, streamed.contentLength == null ? null : streamed.contentLength! + (streamed.statusCode == 206 ? existing : 0));
     }
     await sink.close();
 

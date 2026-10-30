@@ -846,6 +846,20 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         icon: CupertinoIcons.lock,
                         onPressed: _managePin,
                       ),
+                      if (settings.hasAppPin) ...[
+                        const SizedBox(height: 8),
+                        SecondaryButton(
+                          label: 'Выключить PIN',
+                          icon: CupertinoIcons.lock_open,
+                          onPressed: () async {
+                            final ok = await showAppConfirm(context, title: 'Выключить PIN?', message: 'После этого приложение будет открываться без PIN.', destructive: true, confirmLabel: 'Выключить');
+                            if (!ok || !context.mounted) return;
+                            await context.read<SettingsController>().setAppPin(null);
+                            if (context.mounted) await showAppAlert(context, title: 'Готово', message: 'PIN выключен.');
+                            if (mounted) setState(() {});
+                          },
+                        ),
+                      ],
                       const SizedBox(height: 8),
                       FutureBuilder<bool>(
                         future: AppBiometricService.isAvailable(),
