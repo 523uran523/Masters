@@ -58,14 +58,14 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     if (!store.isLoaded) {
       await store.load();
     }
-    await settings.completeOnboarding();
     if (_addDemoData) {
       try {
-        await store.seedDemoData('auto');
+        await store.seedDemoData(_businessType);
       } catch (_) {
         // Keep onboarding completion even if demo seeding fails.
       }
     }
+    await settings.completeOnboarding();
   }
 
   void _next() {
