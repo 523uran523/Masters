@@ -65,12 +65,13 @@ class _StatsScreenState extends State<StatsScreen> {
   String? _tagFilter;
 
   DateTime _start(DateTime now) {
-    if (_period == 0)
+    if (_period == 0) {
       return DateTime(
         now.year,
         now.month,
         now.day,
       ).subtract(const Duration(days: 7));
+    }
     if (_period == 1) return DateTime(now.year, now.month, 1);
     // quarter
     final qMonth = ((now.month - 1) ~/ 3) * 3 + 1;
@@ -122,7 +123,9 @@ class _StatsScreenState extends State<StatsScreen> {
     final dir = await getTemporaryDirectory();
     final file = File('${dir.path}/masters-pnl.xlsx');
     await file.writeAsBytes(bytes, flush: true);
-    await Share.shareXFiles([XFile(file.path)], text: 'P&L отчёт Masters');
+    await SharePlus.instance.share(
+      ShareParams(files: [XFile(file.path)], text: 'P&L отчёт Masters'),
+    );
   }
 
   Duration _duration(DateTime start, DateTime end) => end.difference(start);
@@ -161,21 +164,26 @@ class _StatsScreenState extends State<StatsScreen> {
     final profitPrev = revenuePrev - expensePrev;
 
     final completedJobs = store.jobs.where((j) {
-      if (j.archived) return false;
+      if (j.archived) {
+        return false;
+      }
       final d = j.finishedAt ?? j.updatedAt;
       if (!(j.status == JobStatus.done || j.status == JobStatus.closed) ||
           d.isBefore(start) ||
-          d.isAfter(now))
+          d.isAfter(now)) {
         return false;
-      if (_employeeFilter != null && j.assigneeId != _employeeFilter)
+      }
+      if (_employeeFilter != null && j.assigneeId != _employeeFilter) {
         return false;
+      }
       if (_tagFilter != null &&
           (_tagFilter!.isEmpty ||
               !(j.tags ?? '')
                   .split(',')
                   .map((e) => e.trim())
-                  .contains(_tagFilter)))
+                  .contains(_tagFilter))) {
         return false;
+      }
       return true;
     }).toList();
     final jobRevenue = completedJobs.fold(0, (s, j) => s + j.priceCents);
@@ -235,6 +243,20 @@ class _StatsScreenState extends State<StatsScreen> {
     }
     final expenseByAccountList = expenseByAccount.entries.toList()
       ..sort((a, b) => b.value.compareTo(a.value));
+    final maxTopClients = sortedClients.isEmpty
+        ? 0
+        : sortedClients.map((e) => e.value).reduce((a, b) => a > b ? a : b);
+    final maxTopServices = topServicesList.isEmpty
+        ? 0
+        : topServicesList.map((e) => e.value).reduce((a, b) => a > b ? a : b);
+    final maxTopStaff = sortedStaff.isEmpty
+        ? 0
+        : sortedStaff.map((e) => e.value).reduce((a, b) => a > b ? a : b);
+    final maxTopAccounts = expenseByAccountList.isEmpty
+        ? 0
+        : expenseByAccountList
+              .map((e) => e.value)
+              .reduce((a, b) => a > b ? a : b);
     final periodTrend = _buildPeriodTrend(start, now, tx);
     final monthlyBuckets = _buildMonthlyBuckets(store.moneyTransactions, now);
     final weekdayProfit = List.generate(
@@ -409,10 +431,11 @@ class _StatsScreenState extends State<StatsScreen> {
                           ),
                         ),
                       );
-                      if (v == '__all__')
+                      if (v == '__all__') {
                         setState(() => _employeeFilter = null);
-                      else if (v != null)
+                      } else if (v != null) {
                         setState(() => _employeeFilter = v);
+                      }
                     },
                   ),
                 ),
@@ -465,10 +488,11 @@ class _StatsScreenState extends State<StatsScreen> {
                           ),
                         ),
                       );
-                      if (v == '__all__')
+                      if (v == '__all__') {
                         setState(() => _tagFilter = null);
-                      else if (v != null)
+                      } else if (v != null) {
                         setState(() => _tagFilter = v);
+                      }
                     },
                   ),
                 ),
@@ -498,21 +522,32 @@ class _StatsScreenState extends State<StatsScreen> {
                         final client = store.clientById(e.key);
                         return Padding(
                           padding: const EdgeInsets.symmetric(vertical: 6),
-                          child: Row(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Expanded(
-                                child: Text(
-                                  client?.name ?? 'Клиент',
-                                  style: const TextStyle(
-                                    fontWeight: FontWeight.w500,
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: Text(
+                                      client?.name ?? 'Клиент',
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    ),
                                   ),
-                                ),
+                                  Text(
+                                    _money(e.value),
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ],
                               ),
-                              Text(
-                                _money(e.value),
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.w600,
-                                ),
+                              const SizedBox(height: 4),
+                              _proportionBar(
+                                e.value.toDouble(),
+                                maxTopClients.toDouble(),
+                                colors.accent.withValues(alpha: 0.16),
                               ),
                             ],
                           ),
@@ -598,21 +633,32 @@ class _StatsScreenState extends State<StatsScreen> {
                           .map(
                             (e) => Padding(
                               padding: const EdgeInsets.symmetric(vertical: 6),
-                              child: Row(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Expanded(
-                                    child: Text(
-                                      e.key,
-                                      style: const TextStyle(
-                                        fontWeight: FontWeight.w500,
+                                  Row(
+                                    children: [
+                                      Expanded(
+                                        child: Text(
+                                          e.key,
+                                          style: const TextStyle(
+                                            fontWeight: FontWeight.w500,
+                                          ),
+                                        ),
                                       ),
-                                    ),
+                                      Text(
+                                        _money(e.value),
+                                        style: const TextStyle(
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                    ],
                                   ),
-                                  Text(
-                                    _money(e.value),
-                                    style: const TextStyle(
-                                      fontWeight: FontWeight.w600,
-                                    ),
+                                  const SizedBox(height: 4),
+                                  _proportionBar(
+                                    e.value.toDouble(),
+                                    maxTopServices.toDouble(),
+                                    colors.purple.withValues(alpha: 0.16),
                                   ),
                                 ],
                               ),
@@ -640,21 +686,32 @@ class _StatsScreenState extends State<StatsScreen> {
                           .map(
                             (e) => Padding(
                               padding: const EdgeInsets.symmetric(vertical: 6),
-                              child: Row(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Expanded(
-                                    child: Text(
-                                      e.key,
-                                      style: const TextStyle(
-                                        fontWeight: FontWeight.w500,
+                                  Row(
+                                    children: [
+                                      Expanded(
+                                        child: Text(
+                                          e.key,
+                                          style: const TextStyle(
+                                            fontWeight: FontWeight.w500,
+                                          ),
+                                        ),
                                       ),
-                                    ),
+                                      Text(
+                                        _money(e.value),
+                                        style: const TextStyle(
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                    ],
                                   ),
-                                  Text(
-                                    _money(e.value),
-                                    style: const TextStyle(
-                                      fontWeight: FontWeight.w600,
-                                    ),
+                                  const SizedBox(height: 4),
+                                  _proportionBar(
+                                    e.value.toDouble(),
+                                    maxTopAccounts.toDouble(),
+                                    colors.red.withValues(alpha: 0.16),
                                   ),
                                 ],
                               ),
@@ -750,22 +807,32 @@ class _StatsScreenState extends State<StatsScreen> {
                             : store.employeeById(e.key)?.name ?? e.key;
                         return Padding(
                           padding: const EdgeInsets.symmetric(vertical: 6),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Expanded(
-                                child: Text(
-                                  name,
-                                  style: const TextStyle(
-                                    fontWeight: FontWeight.w500,
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: Text(
+                                      name,
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    ),
                                   ),
-                                ),
+                                  Text(
+                                    _money(e.value),
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ],
                               ),
-                              Text(
-                                _money(e.value),
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.w600,
-                                ),
+                              const SizedBox(height: 4),
+                              _proportionBar(
+                                e.value.toDouble(),
+                                maxTopStaff.toDouble(),
+                                colors.orange.withValues(alpha: 0.16),
                               ),
                             ],
                           ),
@@ -973,6 +1040,37 @@ class _StatsScreenState extends State<StatsScreen> {
     if (v.abs() >= 1000000) return '${(v / 1000000).toStringAsFixed(1)}M';
     if (v.abs() >= 1000) return '${(v / 1000).toStringAsFixed(1)}k';
     return v.toStringAsFixed(0);
+  }
+
+  Widget _proportionBar(
+    double value,
+    double max,
+    Color color, {
+    double height = 7,
+  }) {
+    final ratio = max <= 0 ? 0.0 : (value / max).clamp(0.0, 1.0);
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        return Container(
+          height: height,
+          decoration: BoxDecoration(
+            color: color.withValues(alpha: 0.08),
+            borderRadius: BorderRadius.circular(height),
+          ),
+          child: Align(
+            alignment: Alignment.centerLeft,
+            child: Container(
+              width: constraints.maxWidth * ratio,
+              height: height,
+              decoration: BoxDecoration(
+                color: color,
+                borderRadius: BorderRadius.circular(height),
+              ),
+            ),
+          ),
+        );
+      },
+    );
   }
 
   Widget _categoryCard(AppColors colors, Map<String, int> cats, Color tint) {
