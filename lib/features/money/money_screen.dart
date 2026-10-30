@@ -1352,7 +1352,7 @@ class _MoneyScreenState extends State<MoneyScreen> {
                             ),
                             CupertinoActionSheetAction(
                               onPressed: () =>
-                                  Navigator.of(dialogContext).pop('inactive'),
+                                  Navigator.of(dialogContext).pop('disabled'),
                               child: const Text(
                                 '\u0412\u044b\u043a\u043b\u044e\u0447\u0435\u043d\u043d\u044b\u0435',
                               ),
