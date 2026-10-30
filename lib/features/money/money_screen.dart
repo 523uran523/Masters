@@ -1369,23 +1369,30 @@ class _MoneyScreenState extends State<MoneyScreen> {
                                 }
                                 final q = _txQuery.trim().toLowerCase();
                                 if (q.isNotEmpty) {
-                                  final clientName = t.clientId == null
+                                  final clientId = t.clientId;
+                                  final jobId = t.jobId;
+                                  final clientName = clientId == null
                                       ? ''
-                                      : (store.clientById(t.clientId!)?.name ??
-                                            '');
+                                      : (store.clientById(clientId)?.name ??
+                                            clientId);
                                   final accountName =
                                       store.accountById(t.accountId)?.name ??
-                                      '';
-                                  final jobTitle = t.jobId == null
+                                      t.accountId;
+                                  final jobTitle = jobId == null
                                       ? ''
-                                      : (store.jobById(t.jobId!)?.title ?? '');
+                                      : (store.jobById(jobId)?.title ?? jobId);
                                   final haystack = [
                                     t.category,
+                                    if (t.category.trim().isEmpty)
+                                      'Без категории',
                                     t.note ?? '',
                                     t.kind,
                                     clientName,
                                     accountName,
                                     jobTitle,
+                                    t.accountId,
+                                    ?clientId,
+                                    ?jobId,
                                   ].join(' ').toLowerCase();
                                   if (!haystack.contains(q)) {
                                     return false;
