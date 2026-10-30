@@ -8,6 +8,7 @@ import '../employees/employees_screen.dart';
 import '../stats/stats_screen.dart';
 import '../../data/models/money_transaction.dart';
 import '../../state/masters_store.dart';
+import '../../state/settings_controller.dart';
 
 
 class MoneyScreen extends StatefulWidget {
@@ -518,12 +519,18 @@ class _MoneyScreenState extends State<MoneyScreen> {
   @override
   Widget build(BuildContext context) {
     final store = context.watch<MastersStore>();
+    final settings = context.watch<SettingsController>();
     final colors = context.colors;
     final now = DateTime.now();
     final todayStart = DateTime(now.year, now.month, now.day);
     final todayTx = store.moneyTransactions.where((t) => !t.voided && t.createdAt.isAfter(todayStart)).toList();
     final todayIncome = todayTx.where((t) => t.direction == 'in').fold(0, (s, t) => s + t.amountCents);
     final todayExpense = todayTx.where((t) => t.direction == 'out').fold(0, (s, t) => s + t.amountCents);
+    final monthStart = DateTime(now.year, now.month, 1);
+    final monthTx = store.moneyTransactions.where((t) => !t.voided && !t.createdAt.isBefore(monthStart)).toList();
+    final monthIncome = monthTx.where((t) => t.direction == 'in').fold(0, (s, t) => s + t.amountCents);
+    final taxRate = settings.taxRate;
+    final reservedTax = taxRate <= 0 ? 0 : (monthIncome * taxRate / 100).round();
     final shift = store.openShift();
 
     // debts
@@ -562,6 +569,10 @@ class _MoneyScreenState extends State<MoneyScreen> {
                         _KV('Прибыль', _money(todayIncome - todayExpense)),
                         _KV('Всего на счетах', _money(store.totalBalanceCents())),
                         _KV('Прогноз на конец месяца', _money(store.forecastCashToEndOfMonth())),
+                        if (taxRate > 0) ...[
+                          _KV('Налоговый резерв', _money(reservedTax)),
+                          _KV('Свободно после резерва', _money(monthIncome - reservedTax)),
+                        ],
                       ],
                     ),
                   ),

@@ -946,7 +946,7 @@ Future<void> _managePin() async {
                         label: 'Изменить ставку',
                         icon: CupertinoIcons.percent,
                         onPressed: () async {
-                          final v = await _prompt('Ставка налога, %', settings.taxRate.toString());
+                          final v = await _promptPin('Ставка налога, %', settings.taxRate.toString());
                           final rate = int.tryParse((v ?? '').trim());
                           if (rate == null) return;
                           await settings.setTaxRate(rate);
