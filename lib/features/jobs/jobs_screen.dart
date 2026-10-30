@@ -521,6 +521,10 @@ class _JobsScreenState extends State<JobsScreen> {
   Future<void> _quickAdd() async {
     final store = context.read<MastersStore>();
 
+    final title = await _promptText('Название заказа', 'Заказ');
+    if (!mounted) return;
+    if (title == null || title.trim().isEmpty) return;
+
     String clientId;
     if (store.clients.isEmpty) {
       final clientName = await _promptText('Имя клиента', 'Иван');
@@ -553,10 +557,6 @@ class _JobsScreenState extends State<JobsScreen> {
       if (selected == null) return;
       clientId = selected;
     }
-
-    final title = await _promptText('Название заказа', 'Заказ');
-    if (!mounted) return;
-    if (title == null || title.trim().isEmpty) return;
 
     final job = await store.createJob(
       title: title.trim(),
