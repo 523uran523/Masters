@@ -185,17 +185,36 @@ class MastersStore extends ChangeNotifier {
   List<RecurringPayment> _recurringPayments = [];
   List<PayrollPeriod> _payrollPeriods = [];
 
-  int forecastCashToEndOfMonth() {
+  ({
+    int dailyNet,
+    int daysToGo,
+    int scheduledNet,
+    int scheduledFutureIncoming,
+    int monthIncomeCents,
+  })
+  _monthEndProjectionPieces() {
     final now = DateTime.now();
     final end = DateTime(now.year, now.month + 1, 0, 23, 59, 59, 999);
     final recentStart = now.subtract(const Duration(days: 30));
+
+    int monthIncomeCents = 0;
+    for (final transaction in _moneyTransactions) {
+      if (transaction.voided || transaction.direction != 'in') continue;
+      if (transaction.createdAt.year != now.year ||
+          transaction.createdAt.month != now.month) {
+        continue;
+      }
+      monthIncomeCents += transaction.amountCents;
+    }
+
     int income = 0;
     int expense = 0;
     for (final transaction in _moneyTransactions) {
       if (transaction.voided ||
           transaction.createdAt.isBefore(recentStart) ||
-          transaction.createdAt.isAfter(now))
+          transaction.createdAt.isAfter(now)) {
         continue;
+      }
       if (transaction.direction == 'in') income += transaction.amountCents;
       if (transaction.direction == 'out') expense += transaction.amountCents;
     }
@@ -205,6 +224,7 @@ class MastersStore extends ChangeNotifier {
     final dailyNet = ((income - expense) / daysSeen).round();
 
     int scheduledNet = 0;
+    int scheduledFutureIncoming = 0;
     for (final payment in _recurringPayments.where((p) => p.active)) {
       final step = payment.intervalDays < 1 ? 1 : payment.intervalDays;
       DateTime cursor = payment.nextDueAt;
@@ -212,6 +232,7 @@ class MastersStore extends ChangeNotifier {
         if (!cursor.isBefore(now)) {
           if (payment.direction == 'in') {
             scheduledNet += payment.amountCents;
+            scheduledFutureIncoming += payment.amountCents;
           } else {
             scheduledNet -= payment.amountCents;
           }
@@ -224,7 +245,36 @@ class MastersStore extends ChangeNotifier {
     final daysToGo = end.difference(now).inDays < 1
         ? 0
         : end.difference(now).inDays;
-    return totalBalanceCents() + dailyNet * daysToGo + scheduledNet;
+    return (
+      dailyNet: dailyNet,
+      daysToGo: daysToGo,
+      scheduledNet: scheduledNet,
+      scheduledFutureIncoming: scheduledFutureIncoming,
+      monthIncomeCents: monthIncomeCents,
+    );
+  }
+
+  int forecastCashToEndOfMonth() {
+    final p = _monthEndProjectionPieces();
+    final taxRate = settings.taxRate;
+    int projectedTaxReserve = 0;
+    if (taxRate > 0) {
+      final projectedMonthIncome =
+          p.monthIncomeCents + p.scheduledFutureIncoming;
+      projectedTaxReserve = (projectedMonthIncome * taxRate / 100).round();
+    }
+    return totalBalanceCents() +
+        p.dailyNet * p.daysToGo +
+        p.scheduledNet -
+        projectedTaxReserve;
+  }
+
+  int forecastTaxReserveToEndOfMonth() {
+    final p = _monthEndProjectionPieces();
+    final taxRate = settings.taxRate;
+    if (taxRate <= 0) return 0;
+    final projectedMonthIncome = p.monthIncomeCents + p.scheduledFutureIncoming;
+    return (projectedMonthIncome * taxRate / 100).round();
   }
 
   @override

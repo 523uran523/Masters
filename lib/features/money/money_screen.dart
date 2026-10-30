@@ -30,7 +30,7 @@ class _MoneyScreenState extends State<MoneyScreen> {
   DateTime? _dateFrom;
   DateTime? _dateTo;
 
-  String _money(int cents) => '${(cents / 100).toStringAsFixed(0)} ₽';
+  String _money(int cents) => '${(cents / 100).toStringAsFixed(0)} в‚Ѕ';
 
   Future<String?> _pickAccount() async {
     final store = context.read<MastersStore>();
@@ -46,7 +46,7 @@ class _MoneyScreenState extends State<MoneyScreen> {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 CupertinoButton(
-                  child: const Text('Отмена'),
+                  child: const Text('РћС‚РјРµРЅР°'),
                   onPressed: () => Navigator.of(ctx).pop(),
                 ),
               ],
@@ -86,11 +86,11 @@ class _MoneyScreenState extends State<MoneyScreen> {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 CupertinoButton(
-                  child: const Text('Отмена'),
+                  child: const Text('РћС‚РјРµРЅР°'),
                   onPressed: () => Navigator.of(ctx).pop(),
                 ),
                 CupertinoButton(
-                  child: const Text('Готово'),
+                  child: const Text('Р“РѕС‚РѕРІРѕ'),
                   onPressed: () {
                     final picked = DateTime(
                       selected.year,
@@ -126,29 +126,29 @@ class _MoneyScreenState extends State<MoneyScreen> {
     final action = await showCupertinoModalPopup<String?>(
       context: context,
       builder: (ctx) => CupertinoActionSheet(
-        title: const Text('Период'),
+        title: const Text('РџРµСЂРёРѕРґ'),
         actions: [
           CupertinoActionSheetAction(
             onPressed: () => Navigator.of(ctx).pop('from'),
-            child: const Text('С даты'),
+            child: const Text('РЎ РґР°С‚С‹'),
           ),
           CupertinoActionSheetAction(
             onPressed: () => Navigator.of(ctx).pop('to'),
-            child: const Text('По дату'),
+            child: const Text('РџРѕ РґР°С‚Сѓ'),
           ),
           if (_dateFrom != null || _dateTo != null)
             CupertinoActionSheetAction(
               onPressed: () => Navigator.of(ctx).pop('clear'),
-              child: const Text('Очистить'),
+              child: const Text('РћС‡РёСЃС‚РёС‚СЊ'),
             ),
           CupertinoActionSheetAction(
             onPressed: () => Navigator.of(ctx).pop('all'),
-            child: const Text('Все'),
+            child: const Text('Р’СЃРµ'),
           ),
         ],
         cancelButton: CupertinoActionSheetAction(
           onPressed: () => Navigator.of(ctx).pop(),
-          child: const Text('Отмена'),
+          child: const Text('РћС‚РјРµРЅР°'),
         ),
       ),
     );
@@ -167,15 +167,15 @@ class _MoneyScreenState extends State<MoneyScreen> {
   String _formatDate() {
     final f = DateFormat('d MMM yyyy', 'ru');
     if (_dateFrom != null && _dateTo != null) {
-      return '${f.format(_dateFrom!)} — ${f.format(_dateTo!)}';
+      return '${f.format(_dateFrom!)} вЂ” ${f.format(_dateTo!)}';
     }
     if (_dateFrom != null) {
-      return 'С ${f.format(_dateFrom!)}';
+      return 'РЎ ${f.format(_dateFrom!)}';
     }
     if (_dateTo != null) {
-      return 'По ${f.format(_dateTo!)}';
+      return 'РџРѕ ${f.format(_dateTo!)}';
     }
-    return 'Период: все';
+    return 'РџРµСЂРёРѕРґ: РІСЃРµ';
   }
 
   Future<void> _quickSale() async => _quickTransactionSheet(isIncome: true);
@@ -187,8 +187,8 @@ class _MoneyScreenState extends State<MoneyScreen> {
     if (store.accounts.isEmpty) {
       await showAppAlert(
         context,
-        title: 'Нет счёта',
-        message: 'Сначала создайте счёт в разделе Деньги.',
+        title: 'РќРµС‚ СЃС‡С‘С‚Р°',
+        message: 'РЎРЅР°С‡Р°Р»Р° СЃРѕР·РґР°Р№С‚Рµ СЃС‡С‘С‚ РІ СЂР°Р·РґРµР»Рµ Р”РµРЅСЊРіРё.',
       );
       return;
     }
@@ -196,7 +196,7 @@ class _MoneyScreenState extends State<MoneyScreen> {
     if (accountId == null || !mounted) return;
     final amountController = TextEditingController();
     final categoryController = TextEditingController(
-      text: isIncome ? 'Продажа' : 'Расход',
+      text: isIncome ? 'РџСЂРѕРґР°Р¶Р°' : 'Р Р°СЃС…РѕРґ',
     );
     final noteController = TextEditingController();
     await showCupertinoModalPopup<void>(
@@ -211,7 +211,9 @@ class _MoneyScreenState extends State<MoneyScreen> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Text(
-                isIncome ? 'Быстрая продажа' : 'Быстрый расход',
+                isIncome
+                    ? 'Р‘С‹СЃС‚СЂР°СЏ РїСЂРѕРґР°Р¶Р°'
+                    : 'Р‘С‹СЃС‚СЂС‹Р№ СЂР°СЃС…РѕРґ',
                 style: const TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.w700,
@@ -220,7 +222,7 @@ class _MoneyScreenState extends State<MoneyScreen> {
               const SizedBox(height: 12),
               CupertinoTextField(
                 controller: amountController,
-                placeholder: 'Сумма 0.00',
+                placeholder: 'РЎСѓРјРјР° 0.00',
                 keyboardType: const TextInputType.numberWithOptions(
                   decimal: true,
                 ),
@@ -228,17 +230,19 @@ class _MoneyScreenState extends State<MoneyScreen> {
               const SizedBox(height: 10),
               CupertinoTextField(
                 controller: categoryController,
-                placeholder: 'Категория',
+                placeholder: 'РљР°С‚РµРіРѕСЂРёСЏ',
               ),
               const SizedBox(height: 10),
               CupertinoTextField(
                 controller: noteController,
-                placeholder: 'Комментарий',
+                placeholder: 'РљРѕРјРјРµРЅС‚Р°СЂРёР№',
                 maxLines: 2,
               ),
               const SizedBox(height: 16),
               SecondaryButton(
-                label: isIncome ? 'Провести приход' : 'Провести расход',
+                label: isIncome
+                    ? 'РџСЂРѕРІРµСЃС‚Рё РїСЂРёС…РѕРґ'
+                    : 'РџСЂРѕРІРµСЃС‚Рё СЂР°СЃС…РѕРґ',
                 icon: isIncome ? CupertinoIcons.plus : CupertinoIcons.minus,
                 onPressed: () async {
                   final amount =
@@ -253,7 +257,7 @@ class _MoneyScreenState extends State<MoneyScreen> {
                           .round();
                   if (amount <= 0) return;
                   final category = categoryController.text.trim().isEmpty
-                      ? (isIncome ? 'Продажа' : 'Расход')
+                      ? (isIncome ? 'РџСЂРѕРґР°Р¶Р°' : 'Р Р°СЃС…РѕРґ')
                       : categoryController.text.trim();
                   final note = noteController.text.trim().isEmpty
                       ? null
@@ -284,12 +288,12 @@ class _MoneyScreenState extends State<MoneyScreen> {
       if (!mounted) return;
       await showAppAlert(
         context,
-        title: 'Перевод',
-        message: 'Нужно минимум 2 счёта.',
+        title: 'РџРµСЂРµРІРѕРґ',
+        message: 'РќСѓР¶РЅРѕ РјРёРЅРёРјСѓРј 2 СЃС‡С‘С‚Р°.',
       );
       return;
     }
-    final amountStr = await _prompt('Сумма перевода', '0');
+    final amountStr = await _prompt('РЎСѓРјРјР° РїРµСЂРµРІРѕРґР°', '0');
     if (amountStr == null) return;
     final amount =
         ((double.tryParse(amountStr.replaceAll(',', '.')) ?? 0) * 100).round();
@@ -299,14 +303,18 @@ class _MoneyScreenState extends State<MoneyScreen> {
     if (fromId == null || !mounted) return;
     final toId = await _pickAccountExcluding(fromId);
     if (toId == null || !mounted) return;
-    final note = await _prompt('Комментарий', '');
+    final note = await _prompt('РљРѕРјРјРµРЅС‚Р°СЂРёР№', '');
 
     setState(() => _busy = true);
     try {
       await store.transferBetweenAccounts(fromId, toId, amount, note: note);
     } catch (e) {
       if (mounted) {
-        await showAppAlert(context, title: 'Ошибка', message: e.toString());
+        await showAppAlert(
+          context,
+          title: 'РћС€РёР±РєР°',
+          message: e.toString(),
+        );
       }
     } finally {
       if (mounted) setState(() => _busy = false);
@@ -329,7 +337,7 @@ class _MoneyScreenState extends State<MoneyScreen> {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 CupertinoButton(
-                  child: const Text('Отмена'),
+                  child: const Text('РћС‚РјРµРЅР°'),
                   onPressed: () => Navigator.of(ctx).pop(),
                 ),
               ],
@@ -363,8 +371,10 @@ class _MoneyScreenState extends State<MoneyScreen> {
       if (!mounted) return;
       await showAppAlert(
         context,
-        title: count > 0 ? 'Импорт завершён' : 'Импорт',
-        message: count > 0 ? 'Добавлено транзакций: $count.' : 'Не удалось добавить записи. Проверьте шаблон Excel (колонка amount обязательна).',
+        title: count > 0 ? 'РРјРїРѕСЂС‚ Р·Р°РІРµСЂС€С‘РЅ' : 'РРјРїРѕСЂС‚',
+        message: count > 0
+            ? 'Р”РѕР±Р°РІР»РµРЅРѕ С‚СЂР°РЅР·Р°РєС†РёР№: $count.'
+            : 'РќРµ СѓРґР°Р»РѕСЃСЊ РґРѕР±Р°РІРёС‚СЊ Р·Р°РїРёСЃРё. РџСЂРѕРІРµСЂСЊС‚Рµ С€Р°Р±Р»РѕРЅ Excel (РєРѕР»РѕРЅРєР° amount РѕР±СЏР·Р°С‚РµР»СЊРЅР°).',
       );
     } finally {
       if (mounted) setState(() => _busy = false);
@@ -376,47 +386,47 @@ class _MoneyScreenState extends State<MoneyScreen> {
     if (store.accounts.isEmpty) {
       await showAppAlert(
         context,
-        title: 'Нет счёта',
-        message: 'Сначала создайте счёт в разделе Деньги.',
+        title: 'РќРµС‚ СЃС‡С‘С‚Р°',
+        message: 'РЎРЅР°С‡Р°Р»Р° СЃРѕР·РґР°Р№С‚Рµ СЃС‡С‘С‚ РІ СЂР°Р·РґРµР»Рµ Р”РµРЅСЊРіРё.',
       );
       return;
     }
     final interval = await showCupertinoModalPopup<int>(
       context: context,
       builder: (dialogContext) => CupertinoActionSheet(
-        title: const Text('Как часто платёж'),
+        title: const Text('РљР°Рє С‡Р°СЃС‚Рѕ РїР»Р°С‚С‘Р¶'),
         actions: [
           CupertinoActionSheetAction(
             onPressed: () => Navigator.of(dialogContext).pop(7),
-            child: const Text('Каждую неделю'),
+            child: const Text('РљР°Р¶РґСѓСЋ РЅРµРґРµР»СЋ'),
           ),
           CupertinoActionSheetAction(
             onPressed: () => Navigator.of(dialogContext).pop(14),
-            child: const Text('Раз в 2 недели'),
+            child: const Text('Р Р°Р· РІ 2 РЅРµРґРµР»Рё'),
           ),
           CupertinoActionSheetAction(
             onPressed: () => Navigator.of(dialogContext).pop(30),
-            child: const Text('Ежемесячно'),
+            child: const Text('Р•Р¶РµРјРµСЃСЏС‡РЅРѕ'),
           ),
           CupertinoActionSheetAction(
             onPressed: () => Navigator.of(dialogContext).pop(90),
-            child: const Text('Раз в квартал'),
+            child: const Text('Р Р°Р· РІ РєРІР°СЂС‚Р°Р»'),
           ),
           CupertinoActionSheetAction(
             onPressed: () => Navigator.of(dialogContext).pop(-1),
-            child: const Text('Свой интервал'),
+            child: const Text('РЎРІРѕР№ РёРЅС‚РµСЂРІР°Р»'),
           ),
         ],
         cancelButton: CupertinoActionSheetAction(
           onPressed: () => Navigator.of(dialogContext).pop(),
-          child: const Text('Отмена'),
+          child: const Text('РћС‚РјРµРЅР°'),
         ),
       ),
     );
     if (interval == null || !mounted) return;
     int step = interval == -1 ? 30 : interval;
     if (interval == -1) {
-      final custom = await _prompt('Интервал, дней', '30');
+      final custom = await _prompt('РРЅС‚РµСЂРІР°Р», РґРЅРµР№', '30');
       final parsed = int.tryParse((custom ?? '').trim());
       if (parsed == null || parsed <= 0 || !mounted) return;
       step = parsed;
@@ -424,32 +434,37 @@ class _MoneyScreenState extends State<MoneyScreen> {
     final direction = await showCupertinoModalPopup<String>(
       context: context,
       builder: (dialogContext) => CupertinoActionSheet(
-        title: const Text('Тип регулярного платежа'),
+        title: const Text('РўРёРї СЂРµРіСѓР»СЏСЂРЅРѕРіРѕ РїР»Р°С‚РµР¶Р°'),
         actions: [
           CupertinoActionSheetAction(
             onPressed: () => Navigator.of(dialogContext).pop('in'),
-            child: const Text('Плановый приход'),
+            child: const Text('РџР»Р°РЅРѕРІС‹Р№ РїСЂРёС…РѕРґ'),
           ),
           CupertinoActionSheetAction(
             onPressed: () => Navigator.of(dialogContext).pop('out'),
-            child: const Text('Плановый расход'),
+            child: const Text('РџР»Р°РЅРѕРІС‹Р№ СЂР°СЃС…РѕРґ'),
           ),
         ],
         cancelButton: CupertinoActionSheetAction(
           onPressed: () => Navigator.of(dialogContext).pop(),
-          child: const Text('Отмена'),
+          child: const Text('РћС‚РјРµРЅР°'),
         ),
       ),
     );
     if (direction == null || !mounted) return;
-    final name = await _prompt('Название платежа', 'Аренда');
+    final name = await _prompt(
+      'РќР°Р·РІР°РЅРёРµ РїР»Р°С‚РµР¶Р°',
+      'РђСЂРµРЅРґР°',
+    );
     if (name == null || name.trim().isEmpty || !mounted) return;
-    final amountStr = await _prompt('Сумма', '0');
+    final amountStr = await _prompt('РЎСѓРјРјР°', '0');
     if (amountStr == null || !mounted) return;
     final amount =
         ((double.tryParse(amountStr.replaceAll(',', '.')) ?? 0) * 100).round();
     if (amount <= 0) return;
-    final category = await _prompt('Категория', 'Регулярно') ?? 'Регулярно';
+    final category =
+        await _prompt('РљР°С‚РµРіРѕСЂРёСЏ', 'Р РµРіСѓР»СЏСЂРЅРѕ') ??
+        'Р РµРіСѓР»СЏСЂРЅРѕ';
     final accountId = await _pickAccount();
     if (accountId == null || !mounted) return;
     final now = DateTime.now();
@@ -473,8 +488,9 @@ class _MoneyScreenState extends State<MoneyScreen> {
       if (mounted) {
         await showAppAlert(
           context,
-          title: 'Готово',
-          message: 'Проведено плановых платежей: $count',
+          title: 'Р“РѕС‚РѕРІРѕ',
+          message:
+              'РџСЂРѕРІРµРґРµРЅРѕ РїР»Р°РЅРѕРІС‹С… РїР»Р°С‚РµР¶РµР№: $count',
         );
       }
     } finally {
@@ -483,7 +499,7 @@ class _MoneyScreenState extends State<MoneyScreen> {
   }
 
   Future<void> _newAccount() async {
-    final name = await _prompt('Название счёта', 'Карта');
+    final name = await _prompt('РќР°Р·РІР°РЅРёРµ СЃС‡С‘С‚Р°', 'РљР°СЂС‚Р°');
     if (name == null || name.trim().isEmpty) return;
     final type = await _pickType();
     if (type == null) return;
@@ -498,8 +514,8 @@ class _MoneyScreenState extends State<MoneyScreen> {
     if (store.employees.isEmpty) {
       return [
         EmptyState(
-          title: 'Нет сотрудников',
-          message: 'Добавьте сотрудника, чтобы видеть начисления и выплаты.',
+          title: 'РќРµС‚ СЃРѕС‚СЂСѓРґРЅРёРєРѕРІ',
+          message: 'Р”РѕР±Р°РІСЊС‚Рµ СЃРѕС‚СЂСѓРґРЅРёРєР°, С‡С‚РѕР±С‹ РІРёРґРµС‚СЊ РЅР°С‡РёСЃР»РµРЅРёСЏ Рё РІС‹РїР»Р°С‚С‹.',
           art: Icon(
             CupertinoIcons.person_2,
             size: 36,
@@ -537,14 +553,14 @@ class _MoneyScreenState extends State<MoneyScreen> {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Text(
-                    'Начислено',
+                    'РќР°С‡РёСЃР»РµРЅРѕ',
                     style: TextStyle(
                       color: colors.secondaryLabel,
                       fontSize: 11,
                     ),
                   ),
                   Text(
-                    'К выплате ${_money(store.employeeBalanceOwed(e.id))}',
+                    'Рљ РІС‹РїР»Р°С‚Рµ ${_money(store.employeeBalanceOwed(e.id))}',
                     style: TextStyle(
                       color: colors.secondaryLabel,
                       fontSize: 11,
@@ -621,19 +637,19 @@ class _MoneyScreenState extends State<MoneyScreen> {
         child: Column(
           children: [
             CupertinoButton(
-              child: const Text('Наличные'),
+              child: const Text('РќР°Р»РёС‡РЅС‹Рµ'),
               onPressed: () => Navigator.of(ctx).pop('cash'),
             ),
             CupertinoButton(
-              child: const Text('Карта'),
+              child: const Text('РљР°СЂС‚Р°'),
               onPressed: () => Navigator.of(ctx).pop('card'),
             ),
             CupertinoButton(
-              child: const Text('Банк'),
+              child: const Text('Р‘Р°РЅРє'),
               onPressed: () => Navigator.of(ctx).pop('bank'),
             ),
             CupertinoButton(
-              child: const Text('Кошелёк'),
+              child: const Text('РљРѕС€РµР»С‘Рє'),
               onPressed: () => Navigator.of(ctx).pop('wallet'),
             ),
           ],
@@ -647,14 +663,17 @@ class _MoneyScreenState extends State<MoneyScreen> {
     if (store.openShift() != null) {
       await showAppAlert(
         context,
-        title: 'Смена уже открыта',
-        message: 'Сначала закройте текущую смену.',
+        title: 'РЎРјРµРЅР° СѓР¶Рµ РѕС‚РєСЂС‹С‚Р°',
+        message: 'РЎРЅР°С‡Р°Р»Р° Р·Р°РєСЂРѕР№С‚Рµ С‚РµРєСѓС‰СѓСЋ СЃРјРµРЅСѓ.',
       );
       return;
     }
     final accountId = await _pickAccount();
     if (accountId == null) return;
-    final openingStr = await _prompt('Начальная сумма в кассе', '0');
+    final openingStr = await _prompt(
+      'РќР°С‡Р°Р»СЊРЅР°СЏ СЃСѓРјРјР° РІ РєР°СЃСЃРµ',
+      '0',
+    );
     final opening =
         ((double.tryParse((openingStr ?? '0').replaceAll(',', '.')) ?? 0) * 100)
             .round();
@@ -667,12 +686,15 @@ class _MoneyScreenState extends State<MoneyScreen> {
     if (shift == null) {
       await showAppAlert(
         context,
-        title: 'Нет открытой смены',
-        message: 'Откройте смену для учёта.',
+        title: 'РќРµС‚ РѕС‚РєСЂС‹С‚РѕР№ СЃРјРµРЅС‹',
+        message: 'РћС‚РєСЂРѕР№С‚Рµ СЃРјРµРЅСѓ РґР»СЏ СѓС‡С‘С‚Р°.',
       );
       return;
     }
-    final closingStr = await _prompt('Фактическая сумма при закрытии', '0');
+    final closingStr = await _prompt(
+      'Р¤Р°РєС‚РёС‡РµСЃРєР°СЏ СЃСѓРјРјР° РїСЂРё Р·Р°РєСЂС‹С‚РёРё',
+      '0',
+    );
     final closing =
         ((double.tryParse((closingStr ?? '0').replaceAll(',', '.')) ?? 0) * 100)
             .round();
@@ -681,10 +703,10 @@ class _MoneyScreenState extends State<MoneyScreen> {
     if (!mounted) return;
     final ok = await showAppConfirm(
       context,
-      title: 'Закрыть смену?',
+      title: 'Р—Р°РєСЂС‹С‚СЊ СЃРјРµРЅСѓ?',
       message:
-          'Ожидается: ${_money(expected)}. Факт: ${_money(closing)}. Расхождение: ${_money(disc)}.',
-      confirmLabel: 'Закрыть',
+          'РћР¶РёРґР°РµС‚СЃСЏ: ${_money(expected)}. Р¤Р°РєС‚: ${_money(closing)}. Р Р°СЃС…РѕР¶РґРµРЅРёРµ: ${_money(disc)}.',
+      confirmLabel: 'Р—Р°РєСЂС‹С‚СЊ',
     );
     if (!ok) return;
     await store.closeCashShift(shift, closing);
@@ -707,12 +729,12 @@ class _MoneyScreenState extends State<MoneyScreen> {
         actions: [
           CupertinoDialogAction(
             onPressed: () => Navigator.of(dc).pop(),
-            child: const Text('Отмена'),
+            child: const Text('РћС‚РјРµРЅР°'),
           ),
           CupertinoDialogAction(
             isDefaultAction: true,
             onPressed: () => Navigator.of(dc).pop(controller.text.trim()),
-            child: const Text('ОК'),
+            child: const Text('РћРљ'),
           ),
         ],
       ),
@@ -761,21 +783,21 @@ class _MoneyScreenState extends State<MoneyScreen> {
                     ),
                   ),
                   const SizedBox(height: 12),
-                  _KV('Счёт', currentAcc?.name ?? '—'),
+                  _KV('РЎС‡С‘С‚', currentAcc?.name ?? 'вЂ”'),
                   _KV(
-                    'Сумма',
+                    'РЎСѓРјРјР°',
                     '${current.direction == 'in' ? '+' : '-'}${_money(current.amountCents)}',
                   ),
-                  _KV('Тип', current.kind),
+                  _KV('РўРёРї', current.kind),
                   _KV(
-                    'Дата',
+                    'Р”Р°С‚Р°',
                     DateFormat(
                       'd MMM yyyy, HH:mm',
                       'ru',
                     ).format(current.createdAt),
                   ),
                   if (current.note != null && current.note!.isNotEmpty)
-                    _KV('Комментарий', current.note!),
+                    _KV('РљРѕРјРјРµРЅС‚Р°СЂРёР№', current.note!),
                   const SizedBox(height: 12),
                   if (current.receiptPath != null &&
                       current.receiptPath!.isNotEmpty) ...[
@@ -795,7 +817,7 @@ class _MoneyScreenState extends State<MoneyScreen> {
                       children: [
                         Expanded(
                           child: SecondaryButton(
-                            label: 'Открыть чек',
+                            label: 'РћС‚РєСЂС‹С‚СЊ С‡РµРє',
                             icon: CupertinoIcons.doc,
                             onPressed: () async {
                               await OpenFilex.open(current.receiptPath!);
@@ -805,15 +827,15 @@ class _MoneyScreenState extends State<MoneyScreen> {
                         const SizedBox(width: 8),
                         Expanded(
                           child: SecondaryButton(
-                            label: 'Удалить чек',
+                            label: 'РЈРґР°Р»РёС‚СЊ С‡РµРє',
                             icon: CupertinoIcons.trash,
                             onPressed: () async {
                               final ok = await showAppConfirm(
                                 context,
-                                title: 'Удалить чек?',
-                                message: 'Файл останется на устройстве.',
+                                title: 'РЈРґР°Р»РёС‚СЊ С‡РµРє?',
+                                message: 'Р¤Р°Р№Р» РѕСЃС‚Р°РЅРµС‚СЃСЏ РЅР° СѓСЃС‚СЂРѕР№СЃС‚РІРµ.',
                                 destructive: true,
-                                confirmLabel: 'Удалить',
+                                confirmLabel: 'РЈРґР°Р»РёС‚СЊ',
                               );
                               if (!ok || !mounted) return;
                               await store.removeReceipt(current.id);
@@ -830,7 +852,7 @@ class _MoneyScreenState extends State<MoneyScreen> {
                     ),
                   ] else
                     SecondaryButton(
-                      label: 'Прикрепить чек',
+                      label: 'РџСЂРёРєСЂРµРїРёС‚СЊ С‡РµРє',
                       icon: CupertinoIcons.paperclip,
                       onPressed: () async {
                         final files = await FilePicker.pickFiles(
@@ -858,15 +880,15 @@ class _MoneyScreenState extends State<MoneyScreen> {
                     ),
                   const SizedBox(height: 16),
                   SecondaryButton(
-                    label: 'Отменить операцию',
+                    label: 'РћС‚РјРµРЅРёС‚СЊ РѕРїРµСЂР°С†РёСЋ',
                     icon: CupertinoIcons.xmark,
                     onPressed: () async {
                       final ok = await showAppConfirm(
                         context,
-                        title: 'Отменить операцию?',
-                        message: 'Сумма вернётся в историю как отменённая.',
+                        title: 'РћС‚РјРµРЅРёС‚СЊ РѕРїРµСЂР°С†РёСЋ?',
+                        message: 'РЎСѓРјРјР° РІРµСЂРЅС‘С‚СЃСЏ РІ РёСЃС‚РѕСЂРёСЋ РєР°Рє РѕС‚РјРµРЅС‘РЅРЅР°СЏ.',
                         destructive: true,
-                        confirmLabel: 'Отменить',
+                        confirmLabel: 'РћС‚РјРµРЅРёС‚СЊ',
                       );
                       if (!ok || !mounted) return;
                       store.voidTransaction(current.id);
@@ -926,14 +948,17 @@ class _MoneyScreenState extends State<MoneyScreen> {
 
     return CupertinoPageScaffold(
       navigationBar: CupertinoNavigationBar(
-        middle: const Text('Деньги'),
+        middle: const Text('Р”РµРЅСЊРіРё'),
         trailing: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
             CupertinoButton(
               padding: EdgeInsets.zero,
               onPressed: _newAccount,
-              child: const Icon(CupertinoIcons.plus, semanticLabel: 'Добавить'),
+              child: const Icon(
+                CupertinoIcons.plus,
+                semanticLabel: 'Р”РѕР±Р°РІРёС‚СЊ',
+              ),
             ),
           ],
         ),
@@ -944,25 +969,36 @@ class _MoneyScreenState extends State<MoneyScreen> {
               child: ListView(
                 padding: const EdgeInsets.fromLTRB(16, 12, 16, 72),
                 children: [
-                  SectionLabel('Сегодня'),
+                  SectionLabel('РЎРµРіРѕРґРЅСЏ'),
                   AppCard(
                     child: Column(
                       children: [
-                        _KV('Выручка', _money(todayIncome)),
-                        _KV('Расходы', _money(todayExpense)),
-                        _KV('Прибыль', _money(todayIncome - todayExpense)),
+                        _KV('Р’С‹СЂСѓС‡РєР°', _money(todayIncome)),
+                        _KV('Р Р°СЃС…РѕРґС‹', _money(todayExpense)),
                         _KV(
-                          'Всего на счетах',
+                          'РџСЂРёР±С‹Р»СЊ',
+                          _money(todayIncome - todayExpense),
+                        ),
+                        _KV(
+                          'Р’СЃРµРіРѕ РЅР° СЃС‡РµС‚Р°С…',
                           _money(store.totalBalanceCents()),
                         ),
                         _KV(
-                          'Прогноз на конец месяца',
+                          'РџСЂРѕРіРЅРѕР· РЅР° РєРѕРЅРµС† РјРµСЃСЏС†Р°',
                           _money(store.forecastCashToEndOfMonth()),
                         ),
-                        if (taxRate > 0) ...[
-                          _KV('Налоговый резерв', _money(reservedTax)),
+                        if (taxRate > 0)
                           _KV(
-                            'Свободно после резерва',
+                            'Налоговый резерв (прогноз)',
+                            _money(store.forecastTaxReserveToEndOfMonth()),
+                          ),
+                        if (taxRate > 0) ...[
+                          _KV(
+                            'РќР°Р»РѕРіРѕРІС‹Р№ СЂРµР·РµСЂРІ',
+                            _money(reservedTax),
+                          ),
+                          _KV(
+                            'РЎРІРѕР±РѕРґРЅРѕ РїРѕСЃР»Рµ СЂРµР·РµСЂРІР°',
                             _money(monthIncome - reservedTax),
                           ),
                         ],
@@ -974,7 +1010,7 @@ class _MoneyScreenState extends State<MoneyScreen> {
                     children: [
                       Expanded(
                         child: SecondaryButton(
-                          label: 'Быстрая продажа',
+                          label: 'Р‘С‹СЃС‚СЂР°СЏ РїСЂРѕРґР°Р¶Р°',
                           icon: CupertinoIcons.plus,
                           onPressed: _quickSale,
                         ),
@@ -982,7 +1018,7 @@ class _MoneyScreenState extends State<MoneyScreen> {
                       const SizedBox(width: 8),
                       Expanded(
                         child: SecondaryButton(
-                          label: 'Расход',
+                          label: 'Р Р°СЃС…РѕРґ',
                           icon: CupertinoIcons.minus,
                           onPressed: _addExpense,
                         ),
@@ -991,41 +1027,41 @@ class _MoneyScreenState extends State<MoneyScreen> {
                   ),
                   const SizedBox(height: 8),
                   SecondaryButton(
-                    label: 'Перевод между счетами',
+                    label: 'РџРµСЂРµРІРѕРґ РјРµР¶РґСѓ СЃС‡РµС‚Р°РјРё',
                     icon: CupertinoIcons.arrow_left_right,
                     onPressed: _transferBetweenAccounts,
                   ),
                   const SizedBox(height: 8),
                   SecondaryButton(
-                    label: 'Импорт транзакций (Excel)',
+                    label: 'РРјРїРѕСЂС‚ С‚СЂР°РЅР·Р°РєС†РёР№ (Excel)',
                     icon: CupertinoIcons.doc_on_doc,
                     onPressed: _importTransactionsExcel,
                   ),
                   const SizedBox(height: 16),
-                  SectionLabel('Смена кассы'),
+                  SectionLabel('РЎРјРµРЅР° РєР°СЃСЃС‹'),
                   AppCard(
                     child: shift == null
                         ? SecondaryButton(
-                            label: 'Открыть смену',
+                            label: 'РћС‚РєСЂС‹С‚СЊ СЃРјРµРЅСѓ',
                             icon: CupertinoIcons.play,
                             onPressed: _openShift,
                           )
                         : Column(
                             children: [
-                              _KV('Статус', 'Открыта'),
+                              _KV('РЎС‚Р°С‚СѓСЃ', 'РћС‚РєСЂС‹С‚Р°'),
                               _KV(
-                                'Начало',
+                                'РќР°С‡Р°Р»Рѕ',
                                 DateFormat(
                                   'd MMM, HH:mm',
                                   'ru',
                                 ).format(shift.openedAt),
                               ),
                               _KV(
-                                'Ожидается',
+                                'РћР¶РёРґР°РµС‚СЃСЏ',
                                 _money(store.expectedForShift(shift)),
                               ),
                               SecondaryButton(
-                                label: 'Закрыть смену',
+                                label: 'Р—Р°РєСЂС‹С‚СЊ СЃРјРµРЅСѓ',
                                 icon: CupertinoIcons.stop,
                                 onPressed: _closeShift,
                               ),
@@ -1033,7 +1069,7 @@ class _MoneyScreenState extends State<MoneyScreen> {
                           ),
                   ),
                   const SizedBox(height: 16),
-                  SectionLabel('Счета (${store.accounts.length})'),
+                  SectionLabel('РЎС‡РµС‚Р° (${store.accounts.length})'),
                   ...store.accounts.map(
                     (a) => Padding(
                       padding: const EdgeInsets.only(bottom: 8),
@@ -1074,12 +1110,12 @@ class _MoneyScreenState extends State<MoneyScreen> {
                   const SizedBox(height: 16),
                   const SizedBox(height: 8),
                   SectionLabel(
-                    'Регулярные платежи (${store.recurringPayments.length})',
+                    'Р РµРіСѓР»СЏСЂРЅС‹Рµ РїР»Р°С‚РµР¶Рё (${store.recurringPayments.length})',
                   ),
                   if (store.recurringPayments.isEmpty)
                     EmptyState(
-                      title: 'Нет регулярных платежей',
-                      message: 'Добавьте регулярные расходы или поступления.',
+                      title: 'РќРµС‚ СЂРµРіСѓР»СЏСЂРЅС‹С… РїР»Р°С‚РµР¶РµР№',
+                      message: 'Р”РѕР±Р°РІСЊС‚Рµ СЂРµРіСѓР»СЏСЂРЅС‹Рµ СЂР°СЃС…РѕРґС‹ РёР»Рё РїРѕСЃС‚СѓРїР»РµРЅРёСЏ.',
                       art: Icon(
                         CupertinoIcons.repeat,
                         size: 36,
@@ -1106,7 +1142,7 @@ class _MoneyScreenState extends State<MoneyScreen> {
                                         ),
                                       ),
                                       Text(
-                                        '${p.direction == "in" ? "+" : "-"} ${_money(p.amountCents)} · каждые ${p.intervalDays} дн · дата ${p.nextDueAt.day}.${p.nextDueAt.month}.${p.nextDueAt.year}',
+                                        '${p.direction == "in" ? "+" : "-"} ${_money(p.amountCents)} В· РєР°Р¶РґС‹Рµ ${p.intervalDays} РґРЅ В· РґР°С‚Р° ${p.nextDueAt.day}.${p.nextDueAt.month}.${p.nextDueAt.year}',
                                         style: TextStyle(
                                           color: colors.secondaryLabel,
                                           fontSize: 12,
@@ -1130,7 +1166,7 @@ class _MoneyScreenState extends State<MoneyScreen> {
                                     CupertinoIcons.trash,
                                     size: 18,
                                     color: colors.red,
-                                    semanticLabel: 'Удалить',
+                                    semanticLabel: 'РЈРґР°Р»РёС‚СЊ',
                                   ),
                                 ),
                               ],
@@ -1141,25 +1177,27 @@ class _MoneyScreenState extends State<MoneyScreen> {
                     ),
                   const SizedBox(height: 8),
                   SecondaryButton(
-                    label: 'Добавить регулярный платёж',
+                    label: 'Р”РѕР±Р°РІРёС‚СЊ СЂРµРіСѓР»СЏСЂРЅС‹Р№ РїР»Р°С‚С‘Р¶',
                     icon: CupertinoIcons.repeat,
                     onPressed: _addRecurringPayment,
                   ),
                   const SizedBox(height: 4),
                   SecondaryButton(
-                    label: 'Провести плановые',
+                    label: 'РџСЂРѕРІРµСЃС‚Рё РїР»Р°РЅРѕРІС‹Рµ',
                     icon: CupertinoIcons.play,
                     onPressed: _runDueRecurring,
                   ),
                   const SizedBox(height: 16),
-                  SectionLabel('Команда'),
+                  SectionLabel('РљРѕРјР°РЅРґР°'),
                   ..._teamCards(store, colors),
                   const SizedBox(height: 16),
-                  SectionLabel('Долги клиентов (${_money(totalDebt)})'),
+                  SectionLabel(
+                    'Р”РѕР»РіРё РєР»РёРµРЅС‚РѕРІ (${_money(totalDebt)})',
+                  ),
                   debtClients.isEmpty
                       ? EmptyState(
-                          title: 'Долгов нет',
-                          message: 'Все расчёты закрыты.',
+                          title: 'Р”РѕР»РіРѕРІ РЅРµС‚',
+                          message: 'Р’СЃРµ СЂР°СЃС‡С‘С‚С‹ Р·Р°РєСЂС‹С‚С‹.',
                           art: Icon(
                             CupertinoIcons.checkmark_seal,
                             size: 36,
@@ -1198,7 +1236,7 @@ class _MoneyScreenState extends State<MoneyScreen> {
                         ),
                   const SizedBox(height: 12),
                   SecondaryButton(
-                    label: 'Команда и зарплата',
+                    label: 'РљРѕРјР°РЅРґР° Рё Р·Р°СЂРїР»Р°С‚Р°',
                     icon: CupertinoIcons.person_2,
                     onPressed: () => Navigator.of(context).push(
                       CupertinoPageRoute(
@@ -1208,7 +1246,7 @@ class _MoneyScreenState extends State<MoneyScreen> {
                   ),
                   const SizedBox(height: 8),
                   SecondaryButton(
-                    label: 'Расширенная аналитика (P&L)',
+                    label: 'Р Р°СЃС€РёСЂРµРЅРЅР°СЏ Р°РЅР°Р»РёС‚РёРєР° (P&L)',
                     icon: CupertinoIcons.chart_bar,
                     onPressed: () => Navigator.of(context).push(
                       CupertinoPageRoute(builder: (_) => const StatsScreen()),
@@ -1218,7 +1256,7 @@ class _MoneyScreenState extends State<MoneyScreen> {
                   const SizedBox(height: 8),
                   CupertinoTextField(
                     controller: _txSearchController,
-                    placeholder: 'Поиск по категории/комментарию',
+                    placeholder: 'РџРѕРёСЃРє РїРѕ РєР°С‚РµРіРѕСЂРёРё/РєРѕРјРјРµРЅС‚Р°СЂРёСЋ',
                     onChanged: (v) => setState(() => _txQuery = v),
                   ),
                   const SizedBox(height: 8),
@@ -1227,37 +1265,37 @@ class _MoneyScreenState extends State<MoneyScreen> {
                       Expanded(
                         child: SecondaryButton(
                           label: _directionFilter == 'all'
-                              ? 'Направление: все'
+                              ? 'РќР°РїСЂР°РІР»РµРЅРёРµ: РІСЃРµ'
                               : (_directionFilter == 'in'
-                                    ? 'Приходы'
-                                    : 'Расходы'),
+                                    ? 'РџСЂРёС…РѕРґС‹'
+                                    : 'Р Р°СЃС…РѕРґС‹'),
                           icon: CupertinoIcons.line_horizontal_3_decrease,
                           onPressed: () async {
                             final v = await showCupertinoModalPopup<String>(
                               context: context,
                               builder: (dialogContext) => CupertinoActionSheet(
-                                title: const Text('Направление'),
+                                title: const Text('РќР°РїСЂР°РІР»РµРЅРёРµ'),
                                 actions: [
                                   CupertinoActionSheetAction(
                                     onPressed: () =>
                                         Navigator.of(dialogContext).pop('all'),
-                                    child: const Text('Все'),
+                                    child: const Text('Р’СЃРµ'),
                                   ),
                                   CupertinoActionSheetAction(
                                     onPressed: () =>
                                         Navigator.of(dialogContext).pop('in'),
-                                    child: const Text('Приходы'),
+                                    child: const Text('РџСЂРёС…РѕРґС‹'),
                                   ),
                                   CupertinoActionSheetAction(
                                     onPressed: () =>
                                         Navigator.of(dialogContext).pop('out'),
-                                    child: const Text('Расходы'),
+                                    child: const Text('Р Р°СЃС…РѕРґС‹'),
                                   ),
                                 ],
                                 cancelButton: CupertinoActionSheetAction(
                                   onPressed: () =>
                                       Navigator.of(dialogContext).pop(),
-                                  child: const Text('Отмена'),
+                                  child: const Text('РћС‚РјРµРЅР°'),
                                 ),
                               ),
                             );
@@ -1269,9 +1307,9 @@ class _MoneyScreenState extends State<MoneyScreen> {
                       Expanded(
                         child: SecondaryButton(
                           label: _accountFilter == null
-                              ? 'Счёт: все'
+                              ? 'РЎС‡С‘С‚: РІСЃРµ'
                               : (store.accountById(_accountFilter!)?.name ??
-                                    'Счёт'),
+                                    'РЎС‡С‘С‚'),
                           icon: CupertinoIcons.money_dollar,
                           onPressed: () async {
                             final v = await showCupertinoModalPopup<String?>(
@@ -1282,7 +1320,7 @@ class _MoneyScreenState extends State<MoneyScreen> {
                                 child: Column(
                                   children: [
                                     CupertinoButton(
-                                      child: const Text('Все счета'),
+                                      child: const Text('Р’СЃРµ СЃС‡РµС‚Р°'),
                                       onPressed: () =>
                                           Navigator.of(dialogContext)
                                               .pop('__all__'),
@@ -1326,11 +1364,13 @@ class _MoneyScreenState extends State<MoneyScreen> {
                     onPressed: _openDateFilter,
                   ),
                   const SizedBox(height: 16),
-                  SectionLabel('Журнал (${store.moneyTransactions.length})'),
+                  SectionLabel(
+                    'Р–СѓСЂРЅР°Р» (${store.moneyTransactions.length})',
+                  ),
                   store.moneyTransactions.isEmpty
                       ? EmptyState(
-                          title: 'Нет операций',
-                          message: 'Добавьте продажу или расход.',
+                          title: 'РќРµС‚ РѕРїРµСЂР°С†РёР№',
+                          message: 'Р”РѕР±Р°РІСЊС‚Рµ РїСЂРѕРґР°Р¶Сѓ РёР»Рё СЂР°СЃС…РѕРґ.',
                           art: Icon(
                             CupertinoIcons.doc_text,
                             size: 36,
@@ -1405,7 +1445,7 @@ class _MoneyScreenState extends State<MoneyScreen> {
                                                     'd MMM, HH:mm',
                                                     'ru',
                                                   ).format(t.createdAt),
-                                                ].join(' • '),
+                                                ].join(' вЂў '),
                                                 style: TextStyle(
                                                   color: colors.secondaryLabel,
                                                   fontSize: 12,
@@ -1431,7 +1471,7 @@ class _MoneyScreenState extends State<MoneyScreen> {
                                             CupertinoIcons.xmark,
                                             size: 14,
                                             color: colors.tertiaryLabel,
-                                            semanticLabel: 'Отменить',
+                                            semanticLabel: 'РћС‚РјРµРЅРёС‚СЊ',
                                           ),
                                         ),
                                       ],
