@@ -358,7 +358,7 @@ class MastersStore extends ChangeNotifier {
 
   Employee? get selfEmployee =>
       _employees
-          .where((e) => e.role == 'owner' && e.name == 'РЇ' && !e.archived)
+          .where((e) => e.role == 'owner' && e.name == 'Я' && !e.archived)
           .cast<Employee?>()
           .firstOrNull ??
       (_employees.isNotEmpty ? _employees.first : null);
@@ -448,11 +448,11 @@ class MastersStore extends ChangeNotifier {
     _purchases = rest[8] as List<Purchase>;
     _employees = rest[9] as List<Employee>;
     if (!_employees.any(
-      (e) => e.role == 'owner' && e.name == 'РЇ' && !e.archived,
+      (e) => e.role == 'owner' && e.name == 'Я' && !e.archived,
     )) {
       final self = Employee(
         id: newId(),
-        name: 'РЇ',
+        name: 'Я',
         role: 'owner',
         payType: 'salary',
         rateCents: 0,
