@@ -20,6 +20,111 @@ class _ClientsScreenState extends State<ClientsScreen> {
   bool _searchVisible = false;
   String? _selectedClientId;
 
+  Future<void> _mergeDuplicates() async {
+    final store = context.read<MastersStore>();
+    final groups = store.findDuplicateClients();
+    if (!mounted) return;
+    if (groups.isEmpty) {
+      await showCupertinoDialog<void>(
+        context: context,
+        builder: (dialogContext) => CupertinoAlertDialog(
+          title: const Text('Дубли не найдены'),
+          content: const Text('Похожих клиентов по телефону или имени нет.'),
+          actions: [
+            CupertinoDialogAction(
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              child: const Text('ОК'),
+            ),
+          ],
+        ),
+      );
+      return;
+    }
+
+    final group = await showCupertinoModalPopup<List<Client>>(
+      context: context,
+      builder: (dialogContext) => CupertinoActionSheet(
+        title: const Text('Объединить дубли'),
+        message: const Text('Выберите группу клиентов для объединения.'),
+        actions: groups
+            .map(
+              (item) => CupertinoActionSheetAction(
+                onPressed: () => Navigator.of(dialogContext).pop(item),
+                child: Text('${item.first.name} (${item.length})'),
+              ),
+            )
+            .toList(),
+        cancelButton: CupertinoActionSheetAction(
+          onPressed: () => Navigator.of(dialogContext).pop(),
+          child: const Text('Отмена'),
+        ),
+      ),
+    );
+    if (group == null || !mounted) return;
+
+    final targetId = await showCupertinoModalPopup<String>(
+      context: context,
+      builder: (dialogContext) => CupertinoActionSheet(
+        title: const Text('Клиент для объединения'),
+        message: const Text(
+          'В какую карточку перенести заказы, объекты и выплаты?',
+        ),
+        actions: group
+            .map(
+              (client) => CupertinoActionSheetAction(
+                onPressed: () => Navigator.of(dialogContext).pop(client.id),
+                child: Text(
+                  client.phone.trim().isEmpty
+                      ? '${client.name} — без телефона'
+                      : '${client.name} — ${client.phone}',
+                ),
+              ),
+            )
+            .toList(),
+        cancelButton: CupertinoActionSheetAction(
+          onPressed: () => Navigator.of(dialogContext).pop(),
+          child: const Text('Отмена'),
+        ),
+      ),
+    );
+    if (targetId == null || !mounted) return;
+
+    final target = store.clientById(targetId);
+    if (target == null) return;
+    final sources = group.where((c) => c.id != targetId).toList();
+    final ok = await showAppConfirm(
+      context,
+      title: 'Объединить клиентов?',
+      message:
+          'Заказы, объекты, напоминания и транзакции ${sources.length} дублей будут перенесены в карточку «${target.name}»; дубли скрыты.',
+      confirmLabel: 'Объединить',
+    );
+    if (ok != true || !mounted) return;
+
+    for (final source in sources) {
+      await store.mergeClientInto(sourceId: source.id, targetId: target.id);
+    }
+    if (!mounted) return;
+    if (_selectedClientId != null &&
+        group.any((c) => c.id == _selectedClientId) &&
+        _selectedClientId != target.id) {
+      setState(() => _selectedClientId = target.id);
+    }
+    await showCupertinoDialog<void>(
+      context: context,
+      builder: (dialogContext) => CupertinoAlertDialog(
+        title: const Text('Готово'),
+        content: Text('Клиенты объединены в «${target.name}».'),
+        actions: [
+          CupertinoDialogAction(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: const Text('ОК'),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   void dispose() {
     _searchController.dispose();
@@ -232,6 +337,14 @@ class _ClientsScreenState extends State<ClientsScreen> {
               child: Icon(
                 _searchVisible ? CupertinoIcons.xmark : CupertinoIcons.search,
                 semanticLabel: _searchVisible ? 'Закрыть' : 'Поиск',
+              ),
+            ),
+            CupertinoButton(
+              padding: EdgeInsets.zero,
+              onPressed: _mergeDuplicates,
+              child: const Icon(
+                CupertinoIcons.person_2,
+                semanticLabel: 'Объединить дубли',
               ),
             ),
             CupertinoButton(

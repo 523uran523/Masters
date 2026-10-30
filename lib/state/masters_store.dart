@@ -1,4 +1,4 @@
-import 'dart:io';
+﻿import 'dart:io';
 
 import 'package:sqflite/sqflite.dart';
 import 'package:path_provider/path_provider.dart';
@@ -358,7 +358,7 @@ class MastersStore extends ChangeNotifier {
 
   Employee? get selfEmployee =>
       _employees
-          .where((e) => e.role == 'owner' && e.name == 'Я' && !e.archived)
+          .where((e) => e.role == 'owner' && e.name == 'РЇ' && !e.archived)
           .cast<Employee?>()
           .firstOrNull ??
       (_employees.isNotEmpty ? _employees.first : null);
@@ -415,7 +415,7 @@ class MastersStore extends ChangeNotifier {
     if (_accounts.isEmpty) {
       final acc = Account(
         id: newId(),
-        name: 'Наличные',
+        name: 'РќР°Р»РёС‡РЅС‹Рµ',
         type: 'cash',
         createdAt: DateTime.now(),
       );
@@ -448,11 +448,11 @@ class MastersStore extends ChangeNotifier {
     _purchases = rest[8] as List<Purchase>;
     _employees = rest[9] as List<Employee>;
     if (!_employees.any(
-      (e) => e.role == 'owner' && e.name == 'Я' && !e.archived,
+      (e) => e.role == 'owner' && e.name == 'РЇ' && !e.archived,
     )) {
       final self = Employee(
         id: newId(),
-        name: 'Я',
+        name: 'РЇ',
         role: 'owner',
         payType: 'salary',
         rateCents: 0,
@@ -477,7 +477,7 @@ class MastersStore extends ChangeNotifier {
     if (_bookingResources.isEmpty) {
       final r = BookingResource(
         id: newId(),
-        name: 'Основной',
+        name: 'РћСЃРЅРѕРІРЅРѕР№',
         createdAt: DateTime.now(),
       );
       await _bookingResourceRepo.save(r);
@@ -539,6 +539,192 @@ class MastersStore extends ChangeNotifier {
     // objects of client removed above; also jobs with those objects already by client
     objectIds;
     notifyListeners();
+  }
+  // Client duplicate handling
+  List<List<Client>> findDuplicateClients() {
+    final grouped = <String, List<Client>>{};
+    for (final client in _clients) {
+      final key = client.duplicateKey;
+      if (key == null || key.isEmpty) continue;
+      grouped.putIfAbsent(key, () => <Client>[]).add(client);
+    }
+    final duplicates = grouped.values
+        .where((group) => group.length > 1)
+        .map((group) => List<Client>.unmodifiable(group))
+        .toList();
+    duplicates.sort((a, b) => b.length.compareTo(a.length));
+    return duplicates;
+  }
+
+  Future<void> mergeClientInto({
+    required String sourceId,
+    required String targetId,
+  }) async {
+    if (sourceId == targetId) {
+      throw ArgumentError('РљР»РёРµРЅС‚С‹ РґРѕР»Р¶РЅС‹ СЂР°Р·Р»РёС‡Р°С‚СЊСЃСЏ.');
+    }
+    final source = clientById(sourceId);
+    final target = clientById(targetId);
+    if (source == null || target == null) {
+      throw StateError('РљР»РёРµРЅС‚ РЅРµ РЅР°Р№РґРµРЅ.');
+    }
+    final sourceIdentity = Client.normalizePhone(source.phone).isNotEmpty
+        ? Client.normalizePhone(source.phone)
+        : Client.normalizeName(source.name);
+    final targetIdentity = Client.normalizePhone(target.phone).isNotEmpty
+        ? Client.normalizePhone(target.phone)
+        : Client.normalizeName(target.name);
+    if (sourceIdentity.isEmpty || targetIdentity.isEmpty) {
+      throw StateError('Client has an empty normalized identity.');
+    }
+    ensurePeriodOpen();
+
+    final movedObjectIds = _objects
+        .where((o) => o.clientId == sourceId)
+        .map((o) => o.id)
+        .toList();
+    final movedJobIds = _jobs
+        .where(
+          (j) =>
+              j.clientId == sourceId ||
+              (j.objectId != null && movedObjectIds.contains(j.objectId)),
+        )
+        .map((j) => j.id)
+        .toList();
+
+    final now = DateTime.now();
+    final nowMs = now.millisecondsSinceEpoch;
+
+    final mergedName = target.name.trim().isEmpty ? source.name.trim() : target.name;
+    final mergedPhone = target.phone.trim().isEmpty ? source.phone.trim() : target.phone;
+    final mergedNote = target.note?.trim().isNotEmpty == true
+        ? target.note
+        : source.note?.trim();
+
+    final db = _appDatabase.database;
+    await db.transaction((txn) async {
+      final jobPlaceholders = List.filled(movedJobIds.length, '?').join(',');
+      final objectPlaceholders = List.filled(
+        movedObjectIds.length,
+        '?',
+      ).join(',');
+
+      await txn.update(
+        'objects',
+        {'client_id': targetId, 'updated_at': nowMs},
+        where: 'client_id = ? AND deleted_at IS NULL',
+        whereArgs: [sourceId],
+      );
+
+      final jobWhere = movedObjectIds.isEmpty
+          ? 'client_id = ? AND deleted_at IS NULL'
+          : '(client_id = ? OR object_id IN ($objectPlaceholders)) AND deleted_at IS NULL';
+      final jobArgs = movedObjectIds.isEmpty
+          ? <Object?>[sourceId]
+          : <Object?>[sourceId, ...movedObjectIds];
+      await txn.update(
+        'jobs',
+        {'client_id': targetId, 'updated_at': nowMs},
+        where: jobWhere,
+        whereArgs: jobArgs,
+      );
+
+      await txn.update(
+        'appointments',
+        {'client_id': targetId, 'updated_at': nowMs},
+        where: 'client_id = ? AND deleted_at IS NULL',
+        whereArgs: [sourceId],
+      );
+
+      final reminderWhere = movedJobIds.isEmpty
+          ? 'deleted_at IS NULL AND client_id = ?'
+          : 'deleted_at IS NULL AND (client_id = ? OR job_id IN ($jobPlaceholders))';
+      final reminderArgs = movedJobIds.isEmpty
+          ? <Object?>[sourceId]
+          : <Object?>[sourceId, ...movedJobIds];
+      await txn.update(
+        'client_reminders',
+        {'client_id': targetId, 'updated_at': nowMs},
+        where: reminderWhere,
+        whereArgs: reminderArgs,
+      );
+
+      final moneySqlWhere = movedJobIds.isEmpty
+          ? 'client_id = ? AND deleted_at IS NULL'
+          : '(client_id = ? OR job_id IN ($jobPlaceholders)) AND deleted_at IS NULL';
+      final moneyArgs = movedJobIds.isEmpty
+          ? <Object?>[sourceId]
+          : <Object?>[sourceId, ...movedJobIds];
+      await txn.update(
+        'money_transactions',
+        {'client_id': targetId, 'updated_at': nowMs},
+        where: moneySqlWhere,
+        whereArgs: moneyArgs,
+      );
+
+      await txn.update(
+        'clients',
+        {
+          'name': mergedName,
+          'phone': mergedPhone,
+          'note': mergedNote,
+          'updated_at': nowMs,
+        },
+        where: 'id = ? AND deleted_at IS NULL',
+        whereArgs: [targetId],
+      );
+    });
+
+    // Soft-delete source client via repository; do not call store-level delete.
+    await _clientRepo.delete(sourceId);
+
+    // Reload affected lists.
+    _objects = await _objectRepo.getAll();
+    _jobs = await _jobRepo.getAll();
+    _stages = await _stageRepo.getAll();
+    _materials = await _materialRepo.getAll();
+    _sessions = await _sessionRepo.getAll();
+    _appointments = await _appointmentRepo.getAll();
+    _reminders = await _reminderRepo.getAll(includeDone: true);
+    _moneyTransactions = await _moneyTxRepo.getAll(includeVoided: true);
+    _clients = await _clientRepo.getAll();
+
+    try {
+      await auditAction(
+        action: 'client.merge',
+        entity: 'client',
+        entityId: targetId,
+        before: {
+          'source_id': sourceId,
+          'target_id': targetId,
+          'source_name': source.name,
+          'target_name': target.name,
+        },
+        after: {
+          'source_id': sourceId,
+          'target_id': targetId,
+          'moved_object_ids': movedObjectIds,
+          'moved_job_ids': movedJobIds,
+          'merged_name': mergedName,
+          'merged_phone': mergedPhone,
+          'merged_note': mergedNote,
+        },
+      );
+    } catch (_) {}
+
+    notifyListeners();
+  }
+
+  String? _mergeClientNotes(Client target, Client source) {
+    final targetNote = target.note?.trim();
+    final sourceNote = source.note?.trim();
+    final hasTarget = targetNote != null && targetNote.isNotEmpty;
+    final hasSource = sourceNote != null && sourceNote.isNotEmpty;
+    if (hasTarget && !hasSource) return targetNote;
+    if (!hasTarget && hasSource) return sourceNote;
+    if (!hasTarget && !hasSource) return null;
+    if (targetNote == sourceNote) return targetNote;
+    return '${targetNote!}\n---\n${sourceNote!}';
   }
 
   // Objects
@@ -659,7 +845,7 @@ class MastersStore extends ChangeNotifier {
         clientId: job.clientId,
         jobId: jobId,
         type: 'warranty',
-        title: 'Проверить гарантию: ${job.title}',
+        title: 'РџСЂРѕРІРµСЂРёС‚СЊ РіР°СЂР°РЅС‚РёСЋ: ${job.title}',
         dueAt: now.add(const Duration(days: 180)),
       );
     }
@@ -741,7 +927,7 @@ class MastersStore extends ChangeNotifier {
     required String jobId,
     required String name,
     double quantity = 1,
-    String unit = 'шт',
+    String unit = 'С€С‚',
     int priceCents = 0,
   }) async {
     final item = MaterialItem(
@@ -749,7 +935,7 @@ class MastersStore extends ChangeNotifier {
       jobId: jobId,
       name: name.trim(),
       quantity: quantity,
-      unit: unit.trim().isEmpty ? 'шт' : unit.trim(),
+      unit: unit.trim().isEmpty ? 'С€С‚' : unit.trim(),
       priceCents: priceCents,
       createdAt: DateTime.now(),
     );
@@ -924,7 +1110,7 @@ class MastersStore extends ChangeNotifier {
     String? relatedTransactionId,
     String? receiptPath,
   }) async {
-    if (amountCents <= 0) throw ArgumentError('Сумма должна быть больше 0.');
+    if (amountCents <= 0) throw ArgumentError('РЎСѓРјРјР° РґРѕР»Р¶РЅР° Р±С‹С‚СЊ Р±РѕР»СЊС€Рµ 0.');
     ensurePeriodOpen();
     final tx = MoneyTransaction(
       id: newId(),
@@ -938,7 +1124,9 @@ class MastersStore extends ChangeNotifier {
       jobId: jobId,
       shiftId: shiftId ?? openShift()?.id,
       relatedTransactionId: relatedTransactionId,
-      receiptPath: receiptPath?.trim().isEmpty == true ? null : receiptPath?.trim(),
+      receiptPath: receiptPath?.trim().isEmpty == true
+          ? null
+          : receiptPath?.trim(),
       createdAt: DateTime.now(),
     );
     await _moneyTxRepo.save(tx);
@@ -1040,16 +1228,16 @@ class MastersStore extends ChangeNotifier {
     int amountCents, {
     String? note,
   }) async {
-    if (amountCents <= 0) throw ArgumentError('Сумма должна быть больше 0.');
+    if (amountCents <= 0) throw ArgumentError('РЎСѓРјРјР° РґРѕР»Р¶РЅР° Р±С‹С‚СЊ Р±РѕР»СЊС€Рµ 0.');
     ensurePeriodOpen();
     if (fromAccountId == toAccountId)
-      throw ArgumentError('Счета должны различаться.');
+      throw ArgumentError('РЎС‡РµС‚Р° РґРѕР»Р¶РЅС‹ СЂР°Р·Р»РёС‡Р°С‚СЊСЃСЏ.');
     final from = await addTransaction(
       accountId: fromAccountId,
       kind: 'transfer',
       direction: 'out',
       amountCents: amountCents,
-      category: 'Перевод',
+      category: 'РџРµСЂРµРІРѕРґ',
       note: note,
       shiftId: openShift()?.id,
     );
@@ -1058,7 +1246,7 @@ class MastersStore extends ChangeNotifier {
       kind: 'transfer',
       direction: 'in',
       amountCents: amountCents,
-      category: 'Перевод',
+      category: 'РџРµСЂРµРІРѕРґ',
       note: note,
       relatedTransactionId: from.id,
       shiftId: openShift()?.id,
@@ -1139,7 +1327,7 @@ class MastersStore extends ChangeNotifier {
   Future<InventoryItem> createInventoryItem({
     required String name,
     String kind = 'good',
-    String unit = 'шт',
+    String unit = 'С€С‚',
     int sellPriceCents = 0,
     int costCents = 0,
     String category = '',
@@ -1152,7 +1340,7 @@ class MastersStore extends ChangeNotifier {
       id: newId(),
       name: name.trim(),
       kind: kind,
-      unit: unit.trim().isEmpty ? 'шт' : unit.trim(),
+      unit: unit.trim().isEmpty ? 'С€С‚' : unit.trim(),
       sellPriceCents: sellPriceCents,
       costCents: costCents,
       category: category.trim(),
@@ -1280,7 +1468,7 @@ class MastersStore extends ChangeNotifier {
       (a) => a.resourceId == r && !a.endAt.isBefore(s) && !a.startAt.isAfter(e),
     );
     if (conflicts.isNotEmpty) {
-      throw StateError('Ресурс уже занят в это время. Выберите другое время.');
+      throw StateError('Р РµСЃСѓСЂСЃ СѓР¶Рµ Р·Р°РЅСЏС‚ РІ СЌС‚Рѕ РІСЂРµРјСЏ. Р’С‹Р±РµСЂРёС‚Рµ РґСЂСѓРіРѕРµ РІСЂРµРјСЏ.');
     }
     final appt = Appointment(
       id: newId(),
@@ -1481,7 +1669,7 @@ class MastersStore extends ChangeNotifier {
     await _paymentRepo.save(p);
     _employeePayments = [p, ..._employeePayments];
 
-    // Платежи наличными отражаются в журнале денег и балансах счетов.
+    // РџР»Р°С‚РµР¶Рё РЅР°Р»РёС‡РЅС‹РјРё РѕС‚СЂР°Р¶Р°СЋС‚СЃСЏ РІ Р¶СѓСЂРЅР°Р»Рµ РґРµРЅРµРі Рё Р±Р°Р»Р°РЅСЃР°С… СЃС‡РµС‚РѕРІ.
     final cashTypes = {'advance', 'payout'};
     if (cashTypes.contains(type) && _accounts.isNotEmpty) {
       final account = _accounts.firstWhere(
@@ -1494,7 +1682,7 @@ class MastersStore extends ChangeNotifier {
         kind: 'employee_payment',
         direction: 'out',
         amountCents: amountCents < 0 ? 0 : amountCents,
-        category: type == 'advance' ? 'Аванс сотруднику' : 'Выплата зарплаты',
+        category: type == 'advance' ? 'РђРІР°РЅСЃ СЃРѕС‚СЂСѓРґРЅРёРєСѓ' : 'Р’С‹РїР»Р°С‚Р° Р·Р°СЂРїР»Р°С‚С‹',
         note: note?.trim().isEmpty == true ? p.note : note?.trim(),
         relatedTransactionId: p.id,
         createdAt: p.createdAt,
@@ -1511,7 +1699,7 @@ class MastersStore extends ChangeNotifier {
     await _paymentRepo.delete(id);
     _employeePayments = _employeePayments.where((p) => p.id != id).toList();
 
-    // Возвращаем связанные денежные транзакции.
+    // Р’РѕР·РІСЂР°С‰Р°РµРј СЃРІСЏР·Р°РЅРЅС‹Рµ РґРµРЅРµР¶РЅС‹Рµ С‚СЂР°РЅР·Р°РєС†РёРё.
     final linked = _moneyTransactions
         .where(
           (t) => t.kind == 'employee_payment' && t.relatedTransactionId == id,
@@ -1601,15 +1789,15 @@ class MastersStore extends ChangeNotifier {
     final rows = await BackupService.pickSpreadsheet();
     if (rows == null || rows.isEmpty) return 0;
     final header = rows.first.map(_norm).toList();
-    final nameIdx = _col(header, ['name', 'название', 'наименование']);
+    final nameIdx = _col(header, ['name', 'РЅР°Р·РІР°РЅРёРµ', 'РЅР°РёРјРµРЅРѕРІР°РЅРёРµ']);
     if (nameIdx < 0) return 0;
-    final kindIdx = _col(header, ['kind', 'тип']);
+    final kindIdx = _col(header, ['kind', 'С‚РёРї']);
     final unitIdx = _col(header, ['unit']);
     final sellIdx = _col(header, ['sell_price', 'sell_price_cents', 'price']);
     final costIdx = _col(header, ['cost_cents', 'cost']);
     final stockIdx = _col(header, ['stock', 'stock_qty', 'qty']);
     final minIdx = _col(header, ['min', 'min_qty', 'min stock']);
-    final categoryIdx = _col(header, ['category', 'категория']);
+    final categoryIdx = _col(header, ['category', 'РєР°С‚РµРіРѕСЂРёСЏ']);
     final now = DateTime.now();
     final created = <InventoryItem>[];
     for (final raw in rows.skip(1)) {
@@ -1622,7 +1810,7 @@ class MastersStore extends ChangeNotifier {
       final minQty = _num(raw, minIdx, 0);
       final kindRaw = _str(raw, kindIdx);
       final kind = kindRaw == 'service' ? 'service' : 'good';
-      final unit = _strDefault(raw, unitIdx, 'шт');
+      final unit = _strDefault(raw, unitIdx, 'С€С‚');
       final category = _str(raw, categoryIdx);
       final item = InventoryItem(
         id: newId(),
@@ -1653,13 +1841,13 @@ class MastersStore extends ChangeNotifier {
     final rows = await BackupService.pickSpreadsheet();
     if (rows == null || rows.isEmpty || _accounts.isEmpty) return 0;
     final header = rows.first.map(_norm).toList();
-    final dateIdx = _col(header, ['date', 'дата']);
-    final accountIdx = _col(header, ['account', 'счёт', 'счет']);
-    final directionIdx = _col(header, ['direction', 'направление']);
-    final amountIdx = _col(header, ['amount', 'amount_cents', 'сумма']);
-    final categoryIdx = _col(header, ['category', 'категория']);
-    final noteIdx = _col(header, ['note', 'примечание']);
-    final kindIdx = _col(header, ['kind', 'тип']);
+    final dateIdx = _col(header, ['date', 'РґР°С‚Р°']);
+    final accountIdx = _col(header, ['account', 'СЃС‡С‘С‚', 'СЃС‡РµС‚']);
+    final directionIdx = _col(header, ['direction', 'РЅР°РїСЂР°РІР»РµРЅРёРµ']);
+    final amountIdx = _col(header, ['amount', 'amount_cents', 'СЃСѓРјРјР°']);
+    final categoryIdx = _col(header, ['category', 'РєР°С‚РµРіРѕСЂРёСЏ']);
+    final noteIdx = _col(header, ['note', 'РїСЂРёРјРµС‡Р°РЅРёРµ']);
+    final kindIdx = _col(header, ['kind', 'С‚РёРї']);
     if (amountIdx < 0) return 0;
 
     final created = <MoneyTransaction>[];
@@ -1682,7 +1870,7 @@ class MastersStore extends ChangeNotifier {
       final direction =
           directionRaw == 'out' ||
               directionRaw == 'expense' ||
-              directionRaw == ' расход'
+              directionRaw == ' СЂР°СЃС…РѕРґ'
           ? 'out'
           : 'in';
       final kindRaw = kindIdx >= 0
@@ -1799,11 +1987,11 @@ class MastersStore extends ChangeNotifier {
 
   Future<void> restoreFromBackup(Map<String, dynamic> data) async {
     if (data['format'] != 'masters-backup') {
-      throw const FormatException('Это не резервная копия «Masters».');
+      throw const FormatException('Р­С‚Рѕ РЅРµ СЂРµР·РµСЂРІРЅР°СЏ РєРѕРїРёСЏ В«MastersВ».');
     }
     final version = data['version'];
     if (version is! int || version > 8) {
-      throw const FormatException('Неподдерживаемая версия копии.');
+      throw const FormatException('РќРµРїРѕРґРґРµСЂР¶РёРІР°РµРјР°СЏ РІРµСЂСЃРёСЏ РєРѕРїРёРё.');
     }
 
     final clients = <Client>[];
@@ -2069,8 +2257,8 @@ class MastersStore extends ChangeNotifier {
         direction: 'out',
         amountCents: payment.amountCents,
         category: payment.type == 'advance'
-            ? 'Аванс сотруднику'
-            : 'Выплата зарплаты',
+            ? 'РђРІР°РЅСЃ СЃРѕС‚СЂСѓРґРЅРёРєСѓ'
+            : 'Р’С‹РїР»Р°С‚Р° Р·Р°СЂРїР»Р°С‚С‹',
         note: payment.note,
         relatedTransactionId: payment.id,
         createdAt: payment.createdAt,
@@ -2091,11 +2279,11 @@ class MastersStore extends ChangeNotifier {
     Set<String>? applyConflictIds,
   }) async {
     if (data['format'] != 'masters-backup') {
-      throw const FormatException('Это не копия Masters.');
+      throw const FormatException('Р­С‚Рѕ РЅРµ РєРѕРїРёСЏ Masters.');
     }
     final version = data['version'];
     if (version is! int || version > 8) {
-      throw const FormatException('Неподдерживаемая версия копии.');
+      throw const FormatException('РќРµРїРѕРґРґРµСЂР¶РёРІР°РµРјР°СЏ РІРµСЂСЃРёСЏ РєРѕРїРёРё.');
     }
     final result = await _appDatabase.mergeSnapshot(
       data,
@@ -2142,10 +2330,12 @@ class MastersStore extends ChangeNotifier {
     return _closedPeriods.any((period) => period.contains(date));
   }
 
+  bool isPeriodOpen([DateTime? at]) => !isPeriodClosed(at);
+
   void ensurePeriodOpen([DateTime? at]) {
     if (isPeriodClosed(at ?? DateTime.now())) {
       throw StateError(
-        'Указанный период закрыт. Измените дату или переоткройте период.',
+        'РЈРєР°Р·Р°РЅРЅС‹Р№ РїРµСЂРёРѕРґ Р·Р°РєСЂС‹С‚. РР·РјРµРЅРёС‚Рµ РґР°С‚Сѓ РёР»Рё РїРµСЂРµРѕС‚РєСЂРѕР№С‚Рµ РїРµСЂРёРѕРґ.',
       );
     }
   }
@@ -2162,7 +2352,7 @@ class MastersStore extends ChangeNotifier {
     for (final existing in _closedPeriods) {
       if (periodStart.isBefore(existing.end) &&
           periodEnd.isAfter(existing.start)) {
-        throw ArgumentError('Новый период пересекается с уже закрытым.');
+        throw ArgumentError('РќРѕРІС‹Р№ РїРµСЂРёРѕРґ РїРµСЂРµСЃРµРєР°РµС‚СЃСЏ СЃ СѓР¶Рµ Р·Р°РєСЂС‹С‚С‹Рј.');
       }
     }
     final closure = ClosedPeriod(
@@ -2313,7 +2503,7 @@ class MastersStore extends ChangeNotifier {
       (a) => !a.archived,
       orElse: () => _accounts.isNotEmpty
           ? _accounts.first
-          : throw StateError('Нет счёта.'),
+          : throw StateError('РќРµС‚ СЃС‡С‘С‚Р°.'),
     );
     return account.id;
   }
@@ -2594,7 +2784,7 @@ class MastersStore extends ChangeNotifier {
           itemId: itemId,
           type: 'in',
           qty: qty,
-          note: note?.trim().isEmpty == true ? 'Закупка' : note?.trim(),
+          note: note?.trim().isEmpty == true ? 'Р—Р°РєСѓРїРєР°' : note?.trim(),
           createdAt: now,
         );
         await _stockMovementRepo.save(movement);
@@ -2603,8 +2793,8 @@ class MastersStore extends ChangeNotifier {
     }
 
     if (purchaseLines.isEmpty)
-      throw ArgumentError('Закупка не содержит строк.');
-    if (total <= 0) throw ArgumentError('Сумма закупки должна быть больше 0.');
+      throw ArgumentError('Р—Р°РєСѓРїРєР° РЅРµ СЃРѕРґРµСЂР¶РёС‚ СЃС‚СЂРѕРє.');
+    if (total <= 0) throw ArgumentError('РЎСѓРјРјР° Р·Р°РєСѓРїРєРё РґРѕР»Р¶РЅР° Р±С‹С‚СЊ Р±РѕР»СЊС€Рµ 0.');
     final purchase = Purchase(
       id: purchaseId,
       supplierId: supplierId,
@@ -2626,7 +2816,7 @@ class MastersStore extends ChangeNotifier {
         kind: 'purchase_payment',
         direction: 'out',
         amountCents: paidCents,
-        category: 'Закупка у поставщика',
+        category: 'Р—Р°РєСѓРїРєР° Сѓ РїРѕСЃС‚Р°РІС‰РёРєР°',
         note: purchase.note,
         relatedTransactionId: purchase.id,
       );
@@ -2690,7 +2880,7 @@ class MastersStore extends ChangeNotifier {
       kind: 'purchase_payment',
       direction: 'out',
       amountCents: amountCents,
-      category: 'Оплата поставщику',
+      category: 'РћРїР»Р°С‚Р° РїРѕСЃС‚Р°РІС‰РёРєСѓ',
       note: note,
       relatedTransactionId: purchaseId,
     );

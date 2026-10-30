@@ -53,5 +53,38 @@ class Client {
             m['updated_at'] as int? ?? 0),
       );
 
+  static String normalizePhone(String value) {
+    return value.replaceAll(RegExp(r'\D'), '');
+  }
+
+  static String normalizeName(String value) {
+    return value
+        .trim()
+        .replaceAll(RegExp(r'\s+'), ' ')
+        .toLowerCase();
+  }
+
+  String? get duplicateKey {
+    final digits = normalizePhone(phone);
+    if (digits.length >= 7) return digits;
+    final normalized = normalizeName(name);
+    if (normalized.isEmpty) return null;
+    return normalized;
+  }
+
+  bool sameIdentity(Client other) {
+    final thisKey = duplicateKey;
+    final otherKey = other.duplicateKey;
+    if (thisKey != null && thisKey == otherKey) return true;
+    final normalizedName = normalizeName(name);
+    final otherName = normalizeName(other.name);
+    if (normalizedName.isNotEmpty &&
+        normalizedName == otherName &&
+        phone.trim() == other.phone.trim()) {
+      return true;
+    }
+    return false;
+  }
+
   static const Object _unset = Object();
 }
