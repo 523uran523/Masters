@@ -16,6 +16,7 @@ class ClientsScreen extends StatefulWidget {
 class _ClientsScreenState extends State<ClientsScreen> {
   final _searchController = TextEditingController();
   String _query = '';
+  String _clientFilter = 'all';
   bool _searchVisible = false;
 
   @override
@@ -80,6 +81,11 @@ class _ClientsScreenState extends State<ClientsScreen> {
               c.phone.toLowerCase().contains(q))
           .toList();
     }
+    if (_clientFilter == 'debt') {
+      clients = clients.where((c) => store.clientDebtCents(c.id) > 0).toList();
+    } else if (_clientFilter == 'paid') {
+      clients = clients.where((c) => store.clientDebtCents(c.id) <= 0).toList();
+    }
 
     return CupertinoPageScaffold(
       navigationBar: CupertinoNavigationBar(
@@ -87,6 +93,25 @@ class _ClientsScreenState extends State<ClientsScreen> {
         trailing: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
+            CupertinoButton(
+              padding: EdgeInsets.zero,
+              onPressed: () async {
+                final v = await showCupertinoModalPopup<String>(
+                  context: context,
+                  builder: (dialogContext) => CupertinoActionSheet(
+                    title: const Text('Фильтр клиентов'),
+                    actions: [
+                      CupertinoActionSheetAction(onPressed: () => Navigator.of(dialogContext).pop('all'), child: const Text('Все')),
+                      CupertinoActionSheetAction(onPressed: () => Navigator.of(dialogContext).pop('debt'), child: const Text('С долгом')),
+                      CupertinoActionSheetAction(onPressed: () => Navigator.of(dialogContext).pop('paid'), child: const Text('Без долга')),
+                    ],
+                    cancelButton: CupertinoActionSheetAction(onPressed: () => Navigator.of(dialogContext).pop(), child: const Text('Отмена')),
+                  ),
+                );
+                if (v != null) setState(() => _clientFilter = v);
+              },
+              child: const Icon(CupertinoIcons.line_horizontal_3_decrease),
+            ),
             CupertinoButton(
               padding: EdgeInsets.zero,
               onPressed: () => setState(() => _searchVisible = !_searchVisible),
