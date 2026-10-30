@@ -1368,12 +1368,28 @@ class _MoneyScreenState extends State<MoneyScreen> {
                                   }
                                 }
                                 final q = _txQuery.trim().toLowerCase();
-                                if (q.isNotEmpty &&
-                                    !(t.category.toLowerCase().contains(q) ||
-                                        (t.note ?? '').toLowerCase().contains(
-                                          q,
-                                        ))) {
-                                  return false;
+                                if (q.isNotEmpty) {
+                                  final clientName = t.clientId == null
+                                      ? ''
+                                      : (store.clientById(t.clientId!)?.name ??
+                                            '');
+                                  final accountName =
+                                      store.accountById(t.accountId)?.name ??
+                                      '';
+                                  final jobTitle = t.jobId == null
+                                      ? ''
+                                      : (store.jobById(t.jobId!)?.title ?? '');
+                                  final haystack = [
+                                    t.category,
+                                    t.note ?? '',
+                                    t.kind,
+                                    clientName,
+                                    accountName,
+                                    jobTitle,
+                                  ].join(' ').toLowerCase();
+                                  if (!haystack.contains(q)) {
+                                    return false;
+                                  }
                                 }
                                 return true;
                               })
