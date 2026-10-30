@@ -401,6 +401,8 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
                   _KV('Время', formatMinutes(totalMin)),
                   if (job.dueDate != null)
                     _KV('Срок', formatFullDate(job.dueDate!)),
+                   if (job.assigneeId != null)
+                     _KV('Исполнитель', store.employeeById(job.assigneeId!)?.name ?? '—'),
                 ],
               ),
             ),
