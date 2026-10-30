@@ -10,7 +10,6 @@ import '../../core/utils/app_utils.dart';
 import '../../state/masters_store.dart';
 import '../../state/settings_controller.dart';
 import 'job_detail_screen.dart';
-import 'job_form_screen.dart';
 
 class JobsScreen extends StatefulWidget {
   const JobsScreen({super.key});
@@ -158,12 +157,6 @@ class _JobsScreenState extends State<JobsScreen> {
     return list;
   }
 
-  Future<void> _openForm({String? jobId}) async {
-    if (!mounted) return;
-    Navigator.of(context)
-        .push(CupertinoPageRoute(builder: (_) => JobFormScreen(jobId: jobId)));
-  }
-
   String _statusLabel() =>
       _statusIndex == 0 ? '╨Т╤Б╨╡' : JobStatus.values[_statusIndex - 1].label;
 
@@ -294,7 +287,11 @@ class _JobsScreenState extends State<JobsScreen> {
     final tags = _availableTags(store);
     if (tags.isEmpty) {
       if (!mounted) return;
-      await showAppAlert(context, title: '╨в╨╡╨│╨╕', message: '╨в╨╡╨│╨╕ ╨╜╨╡ ╨╜╨░╨╣╨┤╨╡╨╜╤Л.');
+      await showAppAlert(
+        context,
+        title: '╨в╨╡╨│╨╕',
+        message: '╨в╨╡╨│╨╕ ╨╜╨╡ ╨╜╨░╨╣╨┤╨╡╨╜╤Л.',
+      );
       return;
     }
     final result = await showCupertinoModalPopup<String?>(
@@ -524,11 +521,7 @@ class _JobsScreenState extends State<JobsScreen> {
   Future<void> _quickAdd() async {
     final store = context.read<MastersStore>();
 
-    final title = await _promptText('Название заказа', 'Заказ');
-    if (!mounted) return;
-    if (title == null || title.trim().isEmpty) return;
-
-    String? clientId;
+    String clientId;
     if (store.clients.isEmpty) {
       final clientName = await _promptText('Имя клиента', 'Иван');
       if (!mounted) return;
@@ -560,7 +553,10 @@ class _JobsScreenState extends State<JobsScreen> {
       if (selected == null) return;
       clientId = selected;
     }
-    if (clientId == null) return;
+
+    final title = await _promptText('Название заказа', 'Заказ');
+    if (!mounted) return;
+    if (title == null || title.trim().isEmpty) return;
 
     final job = await store.createJob(
       title: title.trim(),
@@ -569,9 +565,9 @@ class _JobsScreenState extends State<JobsScreen> {
       priority: JobPriority.medium,
     );
     if (!mounted) return;
-    Navigator.of(context).push(
-      CupertinoPageRoute(builder: (_) => JobDetailScreen(jobId: job.id)),
-    );
+    Navigator.of(
+      context,
+    ).push(CupertinoPageRoute(builder: (_) => JobDetailScreen(jobId: job.id)));
   }
 
   Future<String?> _promptText(String title, String placeholder) async {
@@ -634,7 +630,10 @@ class _JobsScreenState extends State<JobsScreen> {
             CupertinoButton(
               padding: EdgeInsets.zero,
               onPressed: _quickAdd,
-              child: const Icon(CupertinoIcons.plus, semanticLabel: '╨Ф╨╛╨▒╨░╨▓╨╕╤В╤М'),
+              child: const Icon(
+                CupertinoIcons.plus,
+                semanticLabel: '╨Ф╨╛╨▒╨░╨▓╨╕╤В╤М',
+              ),
             ),
           ],
         ),
