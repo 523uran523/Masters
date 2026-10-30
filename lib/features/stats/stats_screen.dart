@@ -137,6 +137,8 @@ class _StatsScreenState extends State<StatsScreen> {
     int jobCost,
     int jobMargin,
     int completedCount,
+    Map<String, int> incomeCats,
+    Map<String, int> expenseCats,
   ) async {
     final bytes = await DocumentService.buildPnlPdf(
       revenue: revenue,
@@ -146,14 +148,12 @@ class _StatsScreenState extends State<StatsScreen> {
       jobCost: jobCost,
       jobMargin: jobMargin,
       completedCount: completedCount,
+      incomeCats: incomeCats,
+      expenseCats: expenseCats,
     );
     final ok = await DocumentService.savePdf(bytes, 'masters-pnl.pdf');
     if (mounted && ok) {
-      await showAppAlert(
-        context,
-        title: 'Готово',
-        message: 'P&L сохранён.',
-      );
+      await showAppAlert(context, title: 'Готово', message: 'P&L сохранён.');
     }
   }
 
@@ -413,6 +413,8 @@ class _StatsScreenState extends State<StatsScreen> {
                             jobCost,
                             jobMargin,
                             completedJobs.length,
+                            incomeCats,
+                            expenseCats,
                           ),
                         ),
                       ),
