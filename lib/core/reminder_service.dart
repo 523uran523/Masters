@@ -12,7 +12,7 @@ class ReminderService {
       // Web doesn't support local notifications
       return;
     }
-    
+
     tzdata.initializeTimeZones();
     const android = AndroidInitializationSettings('@mipmap/ic_launcher');
     const ios = DarwinInitializationSettings();
@@ -22,7 +22,8 @@ class ReminderService {
 
     await _plugin
         .resolvePlatformSpecificImplementation<
-            AndroidFlutterLocalNotificationsPlugin>()
+          AndroidFlutterLocalNotificationsPlugin
+        >()
         ?.requestNotificationsPermission();
   }
 
@@ -31,7 +32,7 @@ class ReminderService {
       // Web doesn't support local notifications
       return;
     }
-    
+
     await _plugin.cancelAll();
     final now = tz.TZDateTime.now(tz.local);
     var scheduled = tz.TZDateTime(
@@ -73,5 +74,65 @@ class ReminderService {
       return;
     }
     await _plugin.cancelAll();
+  }
+
+  static Future<void> scheduleAppointmentReminder(
+    String title,
+    DateTime startAt,
+  ) async {
+    if (kIsWeb) {
+      return;
+    }
+    try {
+      tzdata.initializeTimeZones();
+      final now = DateTime.now();
+      var notifyAt = DateTime(
+        startAt.year,
+        startAt.month,
+        startAt.day,
+        9,
+        0,
+      ).subtract(const Duration(days: 1));
+      if (!notifyAt.isAfter(now)) {
+        notifyAt = startAt.subtract(const Duration(hours: 1));
+      }
+      if (!notifyAt.isAfter(now)) {
+        return;
+      }
+      final scheduled = tz.TZDateTime.from(notifyAt, tz.local);
+      final details = const NotificationDetails(
+        android: AndroidNotificationDetails(
+          'appointment_reminder',
+          'Напоминания о записях',
+          channelDescription: 'Напоминания о предстоящих записях',
+          importance: Importance.defaultImportance,
+          priority: Priority.defaultPriority,
+        ),
+        iOS: DarwinNotificationDetails(),
+      );
+      await _plugin.zonedSchedule(
+        title.hashCode,
+        title,
+        'Напоминание о записи: $title',
+        scheduled,
+        details,
+        androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+        uiLocalNotificationDateInterpretation:
+            UILocalNotificationDateInterpretation.absoluteTime,
+      );
+    } catch (_) {
+      // Never crash on unsupported platforms
+    }
+  }
+
+  static Future<void> cancelAppointmentReminder(String id) async {
+    if (kIsWeb) {
+      return;
+    }
+    try {
+      await _plugin.cancel(id.hashCode);
+    } catch (_) {
+      // ignore
+    }
   }
 }

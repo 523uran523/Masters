@@ -1,9 +1,11 @@
 import 'dart:io';
+
 import 'package:sqflite/sqflite.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:flutter/foundation.dart';
 
 import '../core/backup_service.dart';
+import '../core/reminder_service.dart';
 import '../core/utils/app_utils.dart';
 import '../data/app_database.dart';
 import '../data/models/account.dart';
@@ -61,23 +63,28 @@ class ClosedPeriod {
   factory ClosedPeriod.fromMap(Map<String, Object?> map) {
     return ClosedPeriod(
       id: (map['id'] as String?) ?? '',
-      start: DateTime.fromMillisecondsSinceEpoch((map['start_at'] as num?)?.toInt() ?? 0),
-      end: DateTime.fromMillisecondsSinceEpoch((map['end_at'] as num?)?.toInt() ?? 0),
-      closedAt: DateTime.fromMillisecondsSinceEpoch((map['closed_at'] as num?)?.toInt() ?? 0),
+      start: DateTime.fromMillisecondsSinceEpoch(
+        (map['start_at'] as num?)?.toInt() ?? 0,
+      ),
+      end: DateTime.fromMillisecondsSinceEpoch(
+        (map['end_at'] as num?)?.toInt() ?? 0,
+      ),
+      closedAt: DateTime.fromMillisecondsSinceEpoch(
+        (map['closed_at'] as num?)?.toInt() ?? 0,
+      ),
       note: map['note'] as String?,
     );
   }
 
   Map<String, Object?> toMap() => {
-        'id': id,
-        'start_at': start.millisecondsSinceEpoch,
-        'end_at': end.millisecondsSinceEpoch,
-        'closed_at': closedAt.millisecondsSinceEpoch,
-        'note': note,
-      };
+    'id': id,
+    'start_at': start.millisecondsSinceEpoch,
+    'end_at': end.millisecondsSinceEpoch,
+    'closed_at': closedAt.millisecondsSinceEpoch,
+    'note': note,
+  };
 
-  bool contains(DateTime date) =>
-      !date.isBefore(start) && !date.isAfter(end);
+  bool contains(DateTime date) => !date.isBefore(start) && !date.isAfter(end);
 }
 
 class MastersStore extends ChangeNotifier {
@@ -185,11 +192,16 @@ class MastersStore extends ChangeNotifier {
     int income = 0;
     int expense = 0;
     for (final transaction in _moneyTransactions) {
-      if (transaction.voided || transaction.createdAt.isBefore(recentStart) || transaction.createdAt.isAfter(now)) continue;
+      if (transaction.voided ||
+          transaction.createdAt.isBefore(recentStart) ||
+          transaction.createdAt.isAfter(now))
+        continue;
       if (transaction.direction == 'in') income += transaction.amountCents;
       if (transaction.direction == 'out') expense += transaction.amountCents;
     }
-    final daysSeen = now.difference(recentStart).inDays < 1 ? 1 : now.difference(recentStart).inDays;
+    final daysSeen = now.difference(recentStart).inDays < 1
+        ? 1
+        : now.difference(recentStart).inDays;
     final dailyNet = ((income - expense) / daysSeen).round();
 
     int scheduledNet = 0;
@@ -209,10 +221,11 @@ class MastersStore extends ChangeNotifier {
       }
     }
 
-    final daysToGo = end.difference(now).inDays < 1 ? 0 : end.difference(now).inDays;
+    final daysToGo = end.difference(now).inDays < 1
+        ? 0
+        : end.difference(now).inDays;
     return totalBalanceCents() + dailyNet * daysToGo + scheduledNet;
   }
-
 
   @override
   void notifyListeners() {
@@ -268,24 +281,96 @@ class MastersStore extends ChangeNotifier {
 
   bool get isLoaded => _loaded;
 
-  List<Client> get clients { _ensureViews(); return _clientsView!; }
-  List<WorkObject> get objects { _ensureViews(); return _objectsView!; }
-  List<Job> get jobs { _ensureViews(); return _jobsView!; }
-  List<JobStage> get stages { _ensureViews(); return _stagesView!; }
-  List<MaterialItem> get materials { _ensureViews(); return _materialsView!; }
-  List<WorkSession> get sessions { _ensureViews(); return _sessionsView!; }
-  List<Account> get accounts { _ensureViews(); return _accountsView!; }
-  List<MoneyTransaction> get moneyTransactions { _ensureViews(); return _moneyTransactionsView!; }
-  List<CashShift> get shifts { _ensureViews(); return _shiftsView!; }
-  List<InventoryItem> get inventoryItems { _ensureViews(); return _inventoryItemsView!; }
-  List<StockMovement> get stockMovements { _ensureViews(); return _stockMovementsView!; }
-  List<Appointment> get appointments { _ensureViews(); return _appointmentsView!; }
-  List<BookingResource> get bookingResources { _ensureViews(); return _bookingResourcesView!; }
-  List<ClientReminder> get reminders { _ensureViews(); return _remindersView!; }
-  List<Employee> get employees { _ensureViews(); return _employeesView!; }
-  Employee? get selfEmployee => _employees.where((e) => e.role == 'owner' && e.name == 'Я' && !e.archived).cast<Employee?>().firstOrNull ?? (_employees.isNotEmpty ? _employees.first : null);
-  List<TimeEntry> get timeEntries { _ensureViews(); return _timeEntriesView!; }
-  List<EmployeePayment> get employeePayments { _ensureViews(); return _employeePaymentsView!; }
+  List<Client> get clients {
+    _ensureViews();
+    return _clientsView!;
+  }
+
+  List<WorkObject> get objects {
+    _ensureViews();
+    return _objectsView!;
+  }
+
+  List<Job> get jobs {
+    _ensureViews();
+    return _jobsView!;
+  }
+
+  List<JobStage> get stages {
+    _ensureViews();
+    return _stagesView!;
+  }
+
+  List<MaterialItem> get materials {
+    _ensureViews();
+    return _materialsView!;
+  }
+
+  List<WorkSession> get sessions {
+    _ensureViews();
+    return _sessionsView!;
+  }
+
+  List<Account> get accounts {
+    _ensureViews();
+    return _accountsView!;
+  }
+
+  List<MoneyTransaction> get moneyTransactions {
+    _ensureViews();
+    return _moneyTransactionsView!;
+  }
+
+  List<CashShift> get shifts {
+    _ensureViews();
+    return _shiftsView!;
+  }
+
+  List<InventoryItem> get inventoryItems {
+    _ensureViews();
+    return _inventoryItemsView!;
+  }
+
+  List<StockMovement> get stockMovements {
+    _ensureViews();
+    return _stockMovementsView!;
+  }
+
+  List<Appointment> get appointments {
+    _ensureViews();
+    return _appointmentsView!;
+  }
+
+  List<BookingResource> get bookingResources {
+    _ensureViews();
+    return _bookingResourcesView!;
+  }
+
+  List<ClientReminder> get reminders {
+    _ensureViews();
+    return _remindersView!;
+  }
+
+  List<Employee> get employees {
+    _ensureViews();
+    return _employeesView!;
+  }
+
+  Employee? get selfEmployee =>
+      _employees
+          .where((e) => e.role == 'owner' && e.name == 'Я' && !e.archived)
+          .cast<Employee?>()
+          .firstOrNull ??
+      (_employees.isNotEmpty ? _employees.first : null);
+  List<TimeEntry> get timeEntries {
+    _ensureViews();
+    return _timeEntriesView!;
+  }
+
+  List<EmployeePayment> get employeePayments {
+    _ensureViews();
+    return _employeePaymentsView!;
+  }
 
   Client? clientById(String id) {
     for (final c in _clients) {
@@ -362,8 +447,18 @@ class MastersStore extends ChangeNotifier {
     _suppliers = rest[7] as List<Supplier>;
     _purchases = rest[8] as List<Purchase>;
     _employees = rest[9] as List<Employee>;
-    if (!_employees.any((e) => e.role == 'owner' && e.name == 'Я' && !e.archived)) {
-      final self = Employee(id: newId(), name: 'Я', role: 'owner', payType: 'salary', rateCents: 0, percent: 0, createdAt: DateTime.now());
+    if (!_employees.any(
+      (e) => e.role == 'owner' && e.name == 'Я' && !e.archived,
+    )) {
+      final self = Employee(
+        id: newId(),
+        name: 'Я',
+        role: 'owner',
+        payType: 'salary',
+        rateCents: 0,
+        percent: 0,
+        createdAt: DateTime.now(),
+      );
       await _employeeRepo.save(self);
       _employees = [self, ..._employees];
     }
@@ -372,13 +467,19 @@ class MastersStore extends ChangeNotifier {
     _purchaseLines = [];
     _employeePayments = rest[11] as List<EmployeePayment>;
 
-    _closedPeriods = (await _appDatabase.periodClosures()).map((m) => ClosedPeriod.fromMap(Map<String, Object?>.from(m))).toList();
+    _closedPeriods = (await _appDatabase.periodClosures())
+        .map((m) => ClosedPeriod.fromMap(Map<String, Object?>.from(m)))
+        .toList();
     _recurringPayments = await _recurringRepo.getAll();
     _payrollPeriods = await _payrollRepo.getAll();
     await _reconcileEmployeePayments();
 
     if (_bookingResources.isEmpty) {
-      final r = BookingResource(id: newId(), name: 'Основной', createdAt: DateTime.now());
+      final r = BookingResource(
+        id: newId(),
+        name: 'Основной',
+        createdAt: DateTime.now(),
+      );
       await _bookingResourceRepo.save(r);
       _bookingResources = [r];
     }
@@ -422,9 +523,15 @@ class MastersStore extends ChangeNotifier {
   Future<void> deleteClient(String id) async {
     await _clientRepo.delete(id);
     _clients = _clients.where((c) => c.id != id).toList();
-    final objectIds = _objects.where((o) => o.clientId == id).map((o) => o.id).toSet();
+    final objectIds = _objects
+        .where((o) => o.clientId == id)
+        .map((o) => o.id)
+        .toSet();
     _objects = _objects.where((o) => o.clientId != id).toList();
-    final jobIds = _jobs.where((j) => j.clientId == id).map((j) => j.id).toSet();
+    final jobIds = _jobs
+        .where((j) => j.clientId == id)
+        .map((j) => j.id)
+        .toSet();
     _jobs = _jobs.where((j) => j.clientId != id).toList();
     _stages = _stages.where((s) => !jobIds.contains(s.jobId)).toList();
     _materials = _materials.where((m) => !jobIds.contains(m.jobId)).toList();
@@ -539,13 +646,15 @@ class MastersStore extends ChangeNotifier {
     if (status == JobStatus.inProgress && job.startedAt == null) {
       updated = updated.copyWith(startedAt: now);
     }
-    if ((status == JobStatus.done || status == JobStatus.closed) && job.finishedAt == null) {
+    if ((status == JobStatus.done || status == JobStatus.closed) &&
+        job.finishedAt == null) {
       updated = updated.copyWith(finishedAt: now);
     }
     await _jobRepo.save(updated);
     final index = _jobs.indexWhere((j) => j.id == jobId);
     if (index != -1) _jobs[index] = updated;
-    if (status == JobStatus.done && !_reminders.any((r) => r.jobId == jobId && r.type == 'warranty')) {
+    if (status == JobStatus.done &&
+        !_reminders.any((r) => r.jobId == jobId && r.type == 'warranty')) {
       await createReminder(
         clientId: job.clientId,
         jobId: jobId,
@@ -623,9 +732,10 @@ class MastersStore extends ChangeNotifier {
   List<MaterialItem> materialsForJob(String jobId) =>
       _materials.where((m) => m.jobId == jobId).toList();
 
-  int totalMaterialCents(String jobId) =>
-      _intCache.putIfAbsent('materials:$jobId', () =>
-          materialsForJob(jobId).fold(0, (sum, m) => sum + m.totalCents));
+  int totalMaterialCents(String jobId) => _intCache.putIfAbsent(
+    'materials:$jobId',
+    () => materialsForJob(jobId).fold(0, (sum, m) => sum + m.totalCents),
+  );
 
   Future<MaterialItem> addMaterial({
     required String jobId,
@@ -659,9 +769,10 @@ class MastersStore extends ChangeNotifier {
   List<WorkSession> sessionsForJob(String jobId) =>
       _sessions.where((s) => s.jobId == jobId).toList();
 
-  int totalMinutesForJob(String jobId) =>
-      _intCache.putIfAbsent('minutes:$jobId', () =>
-          sessionsForJob(jobId).fold(0, (sum, s) => sum + s.minutes));
+  int totalMinutesForJob(String jobId) => _intCache.putIfAbsent(
+    'minutes:$jobId',
+    () => sessionsForJob(jobId).fold(0, (sum, s) => sum + s.minutes),
+  );
 
   Future<WorkSession> addSession({
     required String jobId,
@@ -698,15 +809,17 @@ class MastersStore extends ChangeNotifier {
     return null;
   }
 
-  int balanceCents(String accountId) =>
-      _intCache.putIfAbsent('balance:$accountId', () =>
-          _moneyTransactions
-              .where((t) => !t.voided && t.accountId == accountId)
-              .fold(0, (s, t) => s + t.signedAmount));
+  int balanceCents(String accountId) => _intCache.putIfAbsent(
+    'balance:$accountId',
+    () => _moneyTransactions
+        .where((t) => !t.voided && t.accountId == accountId)
+        .fold(0, (s, t) => s + t.signedAmount),
+  );
 
-  int totalBalanceCents() =>
-      _intCache.putIfAbsent('balance:total', () =>
-          _accounts.fold(0, (s, a) => s + balanceCents(a.id)));
+  int totalBalanceCents() => _intCache.putIfAbsent(
+    'balance:total',
+    () => _accounts.fold(0, (s, a) => s + balanceCents(a.id)),
+  );
 
   CashShift? openShift() {
     for (final s in _shifts) {
@@ -720,7 +833,13 @@ class MastersStore extends ChangeNotifier {
     String type = 'cash',
     String color = '#007AFF',
   }) async {
-    final acc = Account(id: newId(), name: name.trim(), type: type, color: color, createdAt: DateTime.now());
+    final acc = Account(
+      id: newId(),
+      name: name.trim(),
+      type: type,
+      color: color,
+      createdAt: DateTime.now(),
+    );
     await _accountRepo.save(acc);
     _accounts = [..._accounts, acc];
     notifyListeners();
@@ -771,7 +890,11 @@ class MastersStore extends ChangeNotifier {
         return shift.openingCents + txSum;
       });
 
-  Future<void> closeCashShift(CashShift shift, int closingCents, {String? note}) async {
+  Future<void> closeCashShift(
+    CashShift shift,
+    int closingCents, {
+    String? note,
+  }) async {
     ensurePeriodOpen();
     final expected = expectedForShift(shift);
     final updated = shift.copyWith(
@@ -838,7 +961,8 @@ class MastersStore extends ChangeNotifier {
   }) async {
     if (amountCents <= 0) throw ArgumentError('Сумма должна быть больше 0.');
     ensurePeriodOpen();
-    if (fromAccountId == toAccountId) throw ArgumentError('Счета должны различаться.');
+    if (fromAccountId == toAccountId)
+      throw ArgumentError('Счета должны различаться.');
     final from = await addTransaction(
       accountId: fromAccountId,
       kind: 'transfer',
@@ -887,7 +1011,7 @@ class MastersStore extends ChangeNotifier {
           'toTransactionId': to.id,
         },
       );
-    } catch(_) {}
+    } catch (_) {}
     notifyListeners();
   }
 
@@ -907,11 +1031,12 @@ class MastersStore extends ChangeNotifier {
     notifyListeners();
   }
 
-  int paidForJob(String jobId) =>
-      _intCache.putIfAbsent('paid:$jobId', () =>
-          _moneyTransactions
-              .where((t) => !t.voided && t.jobId == jobId && t.direction == 'in')
-              .fold(0, (s, t) => s + t.amountCents));
+  int paidForJob(String jobId) => _intCache.putIfAbsent(
+    'paid:$jobId',
+    () => _moneyTransactions
+        .where((t) => !t.voided && t.jobId == jobId && t.direction == 'in')
+        .fold(0, (s, t) => s + t.amountCents),
+  );
 
   int clientDebtCents(String clientId) =>
       _intCache.putIfAbsent('debt:$clientId', () {
@@ -919,7 +1044,9 @@ class MastersStore extends ChangeNotifier {
             .where((j) => j.clientId == clientId && !j.archived)
             .fold(0, (s, j) => s + j.priceCents);
         final paid = _moneyTransactions
-            .where((t) => !t.voided && t.clientId == clientId && t.direction == 'in')
+            .where(
+              (t) => !t.voided && t.clientId == clientId && t.direction == 'in',
+            )
             .fold(0, (s, t) => s + t.amountCents);
         return price - paid;
       });
@@ -988,7 +1115,10 @@ class MastersStore extends ChangeNotifier {
     final idx = _inventoryItems.indexWhere((i) => i.id == itemId);
     if (idx == -1 || qty <= 0) return;
     final item = _inventoryItems[idx];
-    final updated = item.copyWith(stockQty: item.stockQty + qty, updatedAt: DateTime.now());
+    final updated = item.copyWith(
+      stockQty: item.stockQty + qty,
+      updatedAt: DateTime.now(),
+    );
     await _inventoryRepo.save(updated);
     _inventoryItems[idx] = updated;
     final movement = StockMovement(
@@ -1013,7 +1143,10 @@ class MastersStore extends ChangeNotifier {
     if (idx == -1 || qty <= 0) return;
     final item = _inventoryItems[idx];
     final newQty = item.stockQty - qty;
-    final updated = item.copyWith(stockQty: newQty < 0 ? 0 : newQty, updatedAt: DateTime.now());
+    final updated = item.copyWith(
+      stockQty: newQty < 0 ? 0 : newQty,
+      updatedAt: DateTime.now(),
+    );
     await _inventoryRepo.save(updated);
     _inventoryItems[idx] = updated;
     final movement = StockMovement(
@@ -1033,13 +1166,18 @@ class MastersStore extends ChangeNotifier {
       _stockMovements.where((m) => m.itemId == itemId).toList();
 
   // Booking
-  BookingResource? defaultResource() => _bookingResources.isEmpty ? null : _bookingResources.first;
+  BookingResource? defaultResource() =>
+      _bookingResources.isEmpty ? null : _bookingResources.first;
 
   List<Appointment> appointmentsForDay(DateTime day) {
     final start = DateTime(day.year, day.month, day.day);
     final end = start.add(const Duration(days: 1));
     return _appointments
-        .where((a) => a.startAt.isAfter(start.subtract(const Duration(seconds: 1))) && a.startAt.isBefore(end))
+        .where(
+          (a) =>
+              a.startAt.isAfter(start.subtract(const Duration(seconds: 1))) &&
+              a.startAt.isBefore(end),
+        )
         .toList()
       ..sort((a, b) => a.startAt.compareTo(b.startAt));
   }
@@ -1057,10 +1195,9 @@ class MastersStore extends ChangeNotifier {
     final s = startAt ?? now;
     final e = endAt ?? s.add(const Duration(hours: 1));
     final r = resourceId ?? defaultResource()?.id;
-    final conflicts = _appointments.where((a) =>
-        a.resourceId == r &&
-        !a.endAt.isBefore(s) &&
-        !a.startAt.isAfter(e));
+    final conflicts = _appointments.where(
+      (a) => a.resourceId == r && !a.endAt.isBefore(s) && !a.startAt.isAfter(e),
+    );
     if (conflicts.isNotEmpty) {
       throw StateError('Ресурс уже занят в это время. Выберите другое время.');
     }
@@ -1078,11 +1215,18 @@ class MastersStore extends ChangeNotifier {
     );
     await _appointmentRepo.save(appt);
     _appointments = [..._appointments, appt];
+    try {
+      await ReminderService.scheduleAppointmentReminder(
+        appt.title,
+        appt.startAt,
+      );
+    } catch (_) {}
     notifyListeners();
     return appt;
   }
 
   Future<void> updateAppointment(Appointment a) async {
+    await ReminderService.cancelAppointmentReminder(a.id);
     final updated = a.copyWith(updatedAt: DateTime.now());
     await _appointmentRepo.save(updated);
     final idx = _appointments.indexWhere((x) => x.id == updated.id);
@@ -1091,18 +1235,25 @@ class MastersStore extends ChangeNotifier {
     } else {
       _appointments[idx] = updated;
     }
+    await ReminderService.scheduleAppointmentReminder(
+      updated.title,
+      updated.startAt,
+    );
     notifyListeners();
   }
 
   Future<void> deleteAppointment(String id) async {
+    await ReminderService.cancelAppointmentReminder(id);
     await _appointmentRepo.delete(id);
     _appointments = _appointments.where((a) => a.id != id).toList();
     notifyListeners();
   }
 
   // Reminders
-  List<ClientReminder> dueReminders() => _reminders.where((r) => r.isDue).toList();
-  List<ClientReminder> remindersForClient(String clientId) => _reminders.where((r) => r.clientId == clientId).toList();
+  List<ClientReminder> dueReminders() =>
+      _reminders.where((r) => r.isDue).toList();
+  List<ClientReminder> remindersForClient(String clientId) =>
+      _reminders.where((r) => r.clientId == clientId).toList();
 
   Future<ClientReminder> createReminder({
     required String clientId,
@@ -1165,7 +1316,15 @@ class MastersStore extends ChangeNotifier {
     int rateCents = 0,
     double percent = 0,
   }) async {
-    final e = Employee(id: newId(), name: name.trim(), role: role, payType: payType, rateCents: rateCents, percent: percent, createdAt: DateTime.now());
+    final e = Employee(
+      id: newId(),
+      name: name.trim(),
+      role: role,
+      payType: payType,
+      rateCents: rateCents,
+      percent: percent,
+      createdAt: DateTime.now(),
+    );
     await _employeeRepo.save(e);
     _employees = [..._employees, e];
     notifyListeners();
@@ -1187,7 +1346,9 @@ class MastersStore extends ChangeNotifier {
     await _employeeRepo.delete(id);
     _employees = _employees.where((e) => e.id != id).toList();
     _timeEntries = _timeEntries.where((t) => t.employeeId != id).toList();
-    _employeePayments = _employeePayments.where((p) => p.employeeId != id).toList();
+    _employeePayments = _employeePayments
+        .where((p) => p.employeeId != id)
+        .toList();
     notifyListeners();
   }
 
@@ -1199,7 +1360,16 @@ class MastersStore extends ChangeNotifier {
     int minutes = 0,
     String? note,
   }) async {
-    final t = TimeEntry(id: newId(), employeeId: employeeId, jobId: jobId, startedAt: startedAt, endedAt: endedAt, minutes: minutes < 0 ? 0 : minutes, note: note?.trim().isEmpty == true ? null : note?.trim(), createdAt: DateTime.now());
+    final t = TimeEntry(
+      id: newId(),
+      employeeId: employeeId,
+      jobId: jobId,
+      startedAt: startedAt,
+      endedAt: endedAt,
+      minutes: minutes < 0 ? 0 : minutes,
+      note: note?.trim().isEmpty == true ? null : note?.trim(),
+      createdAt: DateTime.now(),
+    );
     await _timeEntryRepo.save(t);
     _timeEntries = [t, ..._timeEntries];
     notifyListeners();
@@ -1219,7 +1389,14 @@ class MastersStore extends ChangeNotifier {
     String? note,
   }) async {
     ensurePeriodOpen();
-    final p = EmployeePayment(id: newId(), employeeId: employeeId, type: type, amountCents: amountCents < 0 ? 0 : amountCents, note: note?.trim().isEmpty == true ? null : note?.trim(), createdAt: DateTime.now());
+    final p = EmployeePayment(
+      id: newId(),
+      employeeId: employeeId,
+      type: type,
+      amountCents: amountCents < 0 ? 0 : amountCents,
+      note: note?.trim().isEmpty == true ? null : note?.trim(),
+      createdAt: DateTime.now(),
+    );
     await _paymentRepo.save(p);
     _employeePayments = [p, ..._employeePayments];
 
@@ -1230,21 +1407,21 @@ class MastersStore extends ChangeNotifier {
         (a) => !a.archived,
         orElse: () => _accounts.first,
       );
-        final tx = MoneyTransaction(
-          id: newId(),
-          accountId: account.id,
-          kind: 'employee_payment',
-          direction: 'out',
-          amountCents: amountCents < 0 ? 0 : amountCents,
-          category: type == 'advance' ? 'Аванс сотруднику' : 'Выплата зарплаты',
-          note: note?.trim().isEmpty == true ? p.note : note?.trim(),
-          relatedTransactionId: p.id,
-          createdAt: p.createdAt,
-          shiftId: openShift()?.id,
-        );
-        await _moneyTxRepo.save(tx);
-        _moneyTransactions = [tx, ..._moneyTransactions];
-      }
+      final tx = MoneyTransaction(
+        id: newId(),
+        accountId: account.id,
+        kind: 'employee_payment',
+        direction: 'out',
+        amountCents: amountCents < 0 ? 0 : amountCents,
+        category: type == 'advance' ? 'Аванс сотруднику' : 'Выплата зарплаты',
+        note: note?.trim().isEmpty == true ? p.note : note?.trim(),
+        relatedTransactionId: p.id,
+        createdAt: p.createdAt,
+        shiftId: openShift()?.id,
+      );
+      await _moneyTxRepo.save(tx);
+      _moneyTransactions = [tx, ..._moneyTransactions];
+    }
     notifyListeners();
     return p;
   }
@@ -1254,7 +1431,11 @@ class MastersStore extends ChangeNotifier {
     _employeePayments = _employeePayments.where((p) => p.id != id).toList();
 
     // Возвращаем связанные денежные транзакции.
-    final linked = _moneyTransactions.where((t) => t.kind == 'employee_payment' && t.relatedTransactionId == id).toList();
+    final linked = _moneyTransactions
+        .where(
+          (t) => t.kind == 'employee_payment' && t.relatedTransactionId == id,
+        )
+        .toList();
     for (final tx in linked) {
       await _moneyTxRepo.voidTransaction(tx.id);
       final idx = _moneyTransactions.indexWhere((t) => t.id == tx.id);
@@ -1265,7 +1446,9 @@ class MastersStore extends ChangeNotifier {
       }
     }
     _moneyTransactions = await _moneyTxRepo.getAll();
-    try { await _appDatabase.audit(action:'employee_payment.delete'); } catch (_) {}
+    try {
+      await _appDatabase.audit(action: 'employee_payment.delete');
+    } catch (_) {}
     notifyListeners();
   }
 
@@ -1275,20 +1458,34 @@ class MastersStore extends ChangeNotifier {
       if (emp == null) return 0;
       int earned = 0;
       // hourly time
-      if (emp.payType == 'hourly' || emp.payType == 'mixed' || emp.payType == 'salary') {
-        final mins = _timeEntries.where((t) => t.employeeId == employeeId).fold(0, (s, t) => s + t.minutes);
+      if (emp.payType == 'hourly' ||
+          emp.payType == 'mixed' ||
+          emp.payType == 'salary') {
+        final mins = _timeEntries
+            .where((t) => t.employeeId == employeeId)
+            .fold(0, (s, t) => s + t.minutes);
         earned += (mins * emp.rateCents / 60).round();
       }
       // piece: fixed per completed job
       if (emp.payType == 'piece' || emp.payType == 'mixed') {
-        final doneJobs = _jobs.where((j) => j.assigneeId == employeeId && (j.status == JobStatus.done || j.status == JobStatus.closed) && !j.archived);
+        final doneJobs = _jobs.where(
+          (j) =>
+              j.assigneeId == employeeId &&
+              (j.status == JobStatus.done || j.status == JobStatus.closed) &&
+              !j.archived,
+        );
         if (emp.payType == 'piece') {
           earned += doneJobs.length * emp.rateCents;
         }
       }
       // percent of job price
       if (emp.payType == 'percent' || emp.payType == 'mixed') {
-        final doneJobs = _jobs.where((j) => j.assigneeId == employeeId && (j.status == JobStatus.done || j.status == JobStatus.closed) && !j.archived);
+        final doneJobs = _jobs.where(
+          (j) =>
+              j.assigneeId == employeeId &&
+              (j.status == JobStatus.done || j.status == JobStatus.closed) &&
+              !j.archived,
+        );
         final price = doneJobs.fold(0, (s, j) => s + j.priceCents);
         earned += (price * emp.percent / 100).round();
       }
@@ -1299,11 +1496,21 @@ class MastersStore extends ChangeNotifier {
   int employeeBalanceOwed(String employeeId) {
     return _balanceCache.putIfAbsent(employeeId, () {
       final earned = earnedCents(employeeId);
-      final payments = _employeePayments.where((p) => p.employeeId == employeeId);
-      final advances = payments.where((p) => p.type == 'advance').fold(0, (s, p) => s + p.amountCents);
-      final payouts = payments.where((p) => p.type == 'payout').fold(0, (s, p) => s + p.amountCents);
-      final bonuses = payments.where((p) => p.type == 'bonus').fold(0, (s, p) => s + p.amountCents);
-      final penalties = payments.where((p) => p.type == 'penalty').fold(0, (s, p) => s + p.amountCents);
+      final payments = _employeePayments.where(
+        (p) => p.employeeId == employeeId,
+      );
+      final advances = payments
+          .where((p) => p.type == 'advance')
+          .fold(0, (s, p) => s + p.amountCents);
+      final payouts = payments
+          .where((p) => p.type == 'payout')
+          .fold(0, (s, p) => s + p.amountCents);
+      final bonuses = payments
+          .where((p) => p.type == 'bonus')
+          .fold(0, (s, p) => s + p.amountCents);
+      final penalties = payments
+          .where((p) => p.type == 'penalty')
+          .fold(0, (s, p) => s + p.amountCents);
       return earned + bonuses - penalties - advances - payouts;
     });
   }
@@ -1380,20 +1587,34 @@ class MastersStore extends ChangeNotifier {
       if (amount <= 0) continue;
       final accountName = accountIdx >= 0 ? _str(raw, accountIdx) : '';
       final account = accountName.isEmpty
-          ? _accounts.firstWhere((a) => !a.archived, orElse: () => _accounts.first)
+          ? _accounts.firstWhere(
+              (a) => !a.archived,
+              orElse: () => _accounts.first,
+            )
           : _accounts.firstWhere(
               (a) => a.name.toLowerCase() == accountName.toLowerCase(),
               orElse: () => _accounts.first,
             );
-      final directionRaw = directionIdx >= 0 ? _str(raw, directionIdx).toLowerCase() : '';
-      final direction = directionRaw == 'out' || directionRaw == 'expense' || directionRaw == ' расход'
+      final directionRaw = directionIdx >= 0
+          ? _str(raw, directionIdx).toLowerCase()
+          : '';
+      final direction =
+          directionRaw == 'out' ||
+              directionRaw == 'expense' ||
+              directionRaw == ' расход'
           ? 'out'
           : 'in';
-      final kindRaw = kindIdx >= 0 ? _str(raw, kindIdx).toLowerCase() : 'income';
-      final kind = kindRaw.isEmpty ? (direction == 'in' ? 'income' : 'expense') : kindRaw;
+      final kindRaw = kindIdx >= 0
+          ? _str(raw, kindIdx).toLowerCase()
+          : 'income';
+      final kind = kindRaw.isEmpty
+          ? (direction == 'in' ? 'income' : 'expense')
+          : kindRaw;
       final note = noteIdx >= 0 ? _str(raw, noteIdx) : null;
       final category = categoryIdx >= 0 ? _str(raw, categoryIdx) : '';
-      final parsedDate = dateIdx >= 0 ? _parseImportDate(_str(raw, dateIdx)) : null;
+      final parsedDate = dateIdx >= 0
+          ? _parseImportDate(_str(raw, dateIdx))
+          : null;
       final tx = MoneyTransaction(
         id: newId(),
         accountId: account.id,
@@ -1415,7 +1636,8 @@ class MastersStore extends ChangeNotifier {
     return created.length;
   }
 
-  static String _norm(dynamic value) => value?.toString().trim().toLowerCase() ?? '';
+  static String _norm(dynamic value) =>
+      value?.toString().trim().toLowerCase() ?? '';
 
   static int _col(List<String> header, List<String> names) {
     for (final name in names) {
@@ -1435,7 +1657,9 @@ class MastersStore extends ChangeNotifier {
 
   static int _moneyCents(List<dynamic> row, int idx, int fallback) {
     if (idx < 0 || idx >= row.length) return fallback;
-    final raw = row[idx]?.toString().trim().replaceAll(' ', '').replaceAll(',', '.') ?? '';
+    final raw =
+        row[idx]?.toString().trim().replaceAll(' ', '').replaceAll(',', '.') ??
+        '';
     final value = double.tryParse(raw);
     if (value == null) return fallback;
     return (value * 100).round();
@@ -1443,7 +1667,9 @@ class MastersStore extends ChangeNotifier {
 
   static double _num(List<dynamic> row, int idx, double fallback) {
     if (idx < 0 || idx >= row.length) return fallback;
-    final raw = row[idx]?.toString().trim().replaceAll(' ', '').replaceAll(',', '.') ?? '';
+    final raw =
+        row[idx]?.toString().trim().replaceAll(' ', '').replaceAll(',', '.') ??
+        '';
     return double.tryParse(raw) ?? fallback;
   }
 
@@ -1508,12 +1734,14 @@ class MastersStore extends ChangeNotifier {
 
     if (data['clients'] is List) {
       for (final item in data['clients'] as List) {
-        if (item is Map) clients.add(Client.fromMap(Map<String, Object?>.from(item)));
+        if (item is Map)
+          clients.add(Client.fromMap(Map<String, Object?>.from(item)));
       }
     }
     if (data['objects'] is List) {
       for (final item in data['objects'] as List) {
-        if (item is Map) objects.add(WorkObject.fromMap(Map<String, Object?>.from(item)));
+        if (item is Map)
+          objects.add(WorkObject.fromMap(Map<String, Object?>.from(item)));
       }
     }
     if (data['jobs'] is List) {
@@ -1523,95 +1751,126 @@ class MastersStore extends ChangeNotifier {
     }
     if (data['stages'] is List) {
       for (final item in data['stages'] as List) {
-        if (item is Map) stages.add(JobStage.fromMap(Map<String, Object?>.from(item)));
+        if (item is Map)
+          stages.add(JobStage.fromMap(Map<String, Object?>.from(item)));
       }
     }
     if (data['materials'] is List) {
       for (final item in data['materials'] as List) {
-        if (item is Map) materials.add(MaterialItem.fromMap(Map<String, Object?>.from(item)));
+        if (item is Map)
+          materials.add(MaterialItem.fromMap(Map<String, Object?>.from(item)));
       }
     }
     if (data['sessions'] is List) {
       for (final item in data['sessions'] as List) {
-        if (item is Map) sessions.add(WorkSession.fromMap(Map<String, Object?>.from(item)));
+        if (item is Map)
+          sessions.add(WorkSession.fromMap(Map<String, Object?>.from(item)));
       }
     }
 
     final accounts = <Account>[];
     if (data['accounts'] is List) {
       for (final item in data['accounts'] as List) {
-        if (item is Map) accounts.add(Account.fromMap(Map<String, Object?>.from(item)));
+        if (item is Map)
+          accounts.add(Account.fromMap(Map<String, Object?>.from(item)));
       }
     }
     final shifts = <CashShift>[];
     if (data['shifts'] is List) {
       for (final item in data['shifts'] as List) {
-        if (item is Map) shifts.add(CashShift.fromMap(Map<String, Object?>.from(item)));
+        if (item is Map)
+          shifts.add(CashShift.fromMap(Map<String, Object?>.from(item)));
       }
     }
     final moneyTransactions = <MoneyTransaction>[];
     if (data['money_transactions'] is List) {
       for (final item in data['money_transactions'] as List) {
-        if (item is Map) moneyTransactions.add(MoneyTransaction.fromMap(Map<String, Object?>.from(item)));
+        if (item is Map)
+          moneyTransactions.add(
+            MoneyTransaction.fromMap(Map<String, Object?>.from(item)),
+          );
       }
     }
 
     final inventoryItems = <InventoryItem>[];
     if (data['inventory_items'] is List) {
       for (final item in data['inventory_items'] as List) {
-        if (item is Map) inventoryItems.add(InventoryItem.fromMap(Map<String, Object?>.from(item)));
+        if (item is Map)
+          inventoryItems.add(
+            InventoryItem.fromMap(Map<String, Object?>.from(item)),
+          );
       }
     }
     final stockMovements = <StockMovement>[];
     if (data['stock_movements'] is List) {
       for (final item in data['stock_movements'] as List) {
-        if (item is Map) stockMovements.add(StockMovement.fromMap(Map<String, Object?>.from(item)));
+        if (item is Map)
+          stockMovements.add(
+            StockMovement.fromMap(Map<String, Object?>.from(item)),
+          );
       }
     }
 
     final appointments = <Appointment>[];
     if (data['appointments'] is List) {
       for (final item in data['appointments'] as List) {
-        if (item is Map) appointments.add(Appointment.fromMap(Map<String, Object?>.from(item)));
+        if (item is Map)
+          appointments.add(
+            Appointment.fromMap(Map<String, Object?>.from(item)),
+          );
       }
     }
     final bookingResources = <BookingResource>[];
     if (data['booking_resources'] is List) {
       for (final item in data['booking_resources'] as List) {
-        if (item is Map) bookingResources.add(BookingResource.fromMap(Map<String, Object?>.from(item)));
+        if (item is Map)
+          bookingResources.add(
+            BookingResource.fromMap(Map<String, Object?>.from(item)),
+          );
       }
     }
 
     final reminders = <ClientReminder>[];
     if (data['client_reminders'] is List) {
       for (final item in data['client_reminders'] as List) {
-        if (item is Map) reminders.add(ClientReminder.fromMap(Map<String, Object?>.from(item)));
+        if (item is Map)
+          reminders.add(
+            ClientReminder.fromMap(Map<String, Object?>.from(item)),
+          );
       }
     }
 
     final employees = <Employee>[];
     if (data['employees'] is List) {
       for (final item in data['employees'] as List) {
-        if (item is Map) employees.add(Employee.fromMap(Map<String, Object?>.from(item)));
+        if (item is Map)
+          employees.add(Employee.fromMap(Map<String, Object?>.from(item)));
       }
     }
     final timeEntries = <TimeEntry>[];
     if (data['time_entries'] is List) {
       for (final item in data['time_entries'] as List) {
-        if (item is Map) timeEntries.add(TimeEntry.fromMap(Map<String, Object?>.from(item)));
+        if (item is Map)
+          timeEntries.add(TimeEntry.fromMap(Map<String, Object?>.from(item)));
       }
     }
     final employeePayments = <EmployeePayment>[];
     final closedPeriods = <ClosedPeriod>[];
     if (data['employee_payments'] is List) {
       for (final item in data['employee_payments'] as List) {
-        if (item is Map) employeePayments.add(EmployeePayment.fromMap(Map<String, Object?>.from(item)));
+        if (item is Map)
+          employeePayments.add(
+            EmployeePayment.fromMap(Map<String, Object?>.from(item)),
+          );
       }
     }
 
     if (data['period_closures'] is List) {
       for (final item in data['period_closures'] as List) {
-        if (item is Map) closedPeriods.add(ClosedPeriod.fromMap(Map<String, Object?>.from(item)));
+        if (item is Map)
+          closedPeriods.add(
+            ClosedPeriod.fromMap(Map<String, Object?>.from(item)),
+          );
       }
     }
 
@@ -1637,9 +1896,15 @@ class MastersStore extends ChangeNotifier {
       await txn.delete('clients');
 
       final batch = txn.batch();
-      for (final c in clients) { batch.insert('clients', c.toMap()); }
-      for (final o in objects) { batch.insert('objects', o.toMap()); }
-      for (final j in jobs) { batch.insert('jobs', j.toMap()); }
+      for (final c in clients) {
+        batch.insert('clients', c.toMap());
+      }
+      for (final o in objects) {
+        batch.insert('objects', o.toMap());
+      }
+      for (final j in jobs) {
+        batch.insert('jobs', j.toMap());
+      }
       for (final s in stages) {
         if (!jobIds.contains(s.jobId)) continue;
         batch.insert('job_stages', s.toMap());
@@ -1652,18 +1917,42 @@ class MastersStore extends ChangeNotifier {
         if (!jobIds.contains(s.jobId)) continue;
         batch.insert('work_sessions', s.toMap());
       }
-      for (final a in accounts) { batch.insert('accounts', a.toMap()); }
-      for (final sh in shifts) { batch.insert('cash_shifts', sh.toMap()); }
-      for (final t in moneyTransactions) { batch.insert('money_transactions', t.toMap()); }
-      for (final i in inventoryItems) { batch.insert('inventory_items', i.toMap()); }
-      for (final m in stockMovements) { batch.insert('stock_movements', m.toMap()); }
-      for (final a in appointments) { batch.insert('appointments', a.toMap()); }
-      for (final r in bookingResources) { batch.insert('booking_resources', r.toMap()); }
-      for (final r in reminders) { batch.insert('client_reminders', r.toMap()); }
-      for (final e in employees) { batch.insert('employees', e.toMap()); }
-      for (final t in timeEntries) { batch.insert('time_entries', t.toMap()); }
-      for (final p in employeePayments) { batch.insert('employee_payments', p.toMap()); }
-      for (final p in closedPeriods) { batch.insert('period_closures', p.toMap()); }
+      for (final a in accounts) {
+        batch.insert('accounts', a.toMap());
+      }
+      for (final sh in shifts) {
+        batch.insert('cash_shifts', sh.toMap());
+      }
+      for (final t in moneyTransactions) {
+        batch.insert('money_transactions', t.toMap());
+      }
+      for (final i in inventoryItems) {
+        batch.insert('inventory_items', i.toMap());
+      }
+      for (final m in stockMovements) {
+        batch.insert('stock_movements', m.toMap());
+      }
+      for (final a in appointments) {
+        batch.insert('appointments', a.toMap());
+      }
+      for (final r in bookingResources) {
+        batch.insert('booking_resources', r.toMap());
+      }
+      for (final r in reminders) {
+        batch.insert('client_reminders', r.toMap());
+      }
+      for (final e in employees) {
+        batch.insert('employees', e.toMap());
+      }
+      for (final t in timeEntries) {
+        batch.insert('time_entries', t.toMap());
+      }
+      for (final p in employeePayments) {
+        batch.insert('employee_payments', p.toMap());
+      }
+      for (final p in closedPeriods) {
+        batch.insert('period_closures', p.toMap());
+      }
       await batch.commit(noResult: true);
     });
 
@@ -1681,7 +1970,11 @@ class MastersStore extends ChangeNotifier {
     for (final payment in List<EmployeePayment>.from(_employeePayments)) {
       if (!cashTypes.contains(payment.type)) continue;
       final already = _moneyTransactions.any(
-          (t) => t.kind == 'employee_payment' && !t.voided && t.relatedTransactionId == payment.id);
+        (t) =>
+            t.kind == 'employee_payment' &&
+            !t.voided &&
+            t.relatedTransactionId == payment.id,
+      );
       if (already) continue;
       if (_accounts.isEmpty) continue;
       final account = _accounts.firstWhere(
@@ -1694,7 +1987,9 @@ class MastersStore extends ChangeNotifier {
         kind: 'employee_payment',
         direction: 'out',
         amountCents: payment.amountCents,
-        category: payment.type == 'advance' ? 'Аванс сотруднику' : 'Выплата зарплаты',
+        category: payment.type == 'advance'
+            ? 'Аванс сотруднику'
+            : 'Выплата зарплаты',
         note: payment.note,
         relatedTransactionId: payment.id,
         createdAt: payment.createdAt,
@@ -1720,7 +2015,11 @@ class MastersStore extends ChangeNotifier {
     final result = await _appDatabase.mergeSnapshot(data);
     await load();
     try {
-      await auditAction(action: 'backup.merge', entity: 'backup', after: {'affected': result.affected});
+      await auditAction(
+        action: 'backup.merge',
+        entity: 'backup',
+        after: {'affected': result.affected},
+      );
     } catch (_) {}
     return result;
   }
@@ -1756,7 +2055,9 @@ class MastersStore extends ChangeNotifier {
 
   void ensurePeriodOpen([DateTime? at]) {
     if (isPeriodClosed(at ?? DateTime.now())) {
-      throw StateError('Указанный период закрыт. Измените дату или переоткройте период.');
+      throw StateError(
+        'Указанный период закрыт. Измените дату или переоткройте период.',
+      );
     }
   }
 
@@ -1767,9 +2068,11 @@ class MastersStore extends ChangeNotifier {
   }) async {
     final now = DateTime.now();
     final periodStart = start ?? DateTime(now.year, now.month, 1);
-    final periodEnd = end ?? DateTime(now.year, now.month + 1, 0, 23, 59, 59, 999);
+    final periodEnd =
+        end ?? DateTime(now.year, now.month + 1, 0, 23, 59, 59, 999);
     for (final existing in _closedPeriods) {
-      if (periodStart.isBefore(existing.end) && periodEnd.isAfter(existing.start)) {
+      if (periodStart.isBefore(existing.end) &&
+          periodEnd.isAfter(existing.start)) {
         throw ArgumentError('Новый период пересекается с уже закрытым.');
       }
     }
@@ -1783,7 +2086,12 @@ class MastersStore extends ChangeNotifier {
     await _appDatabase.insertPeriodClosure(closure.toMap());
     _closedPeriods = [closure, ..._closedPeriods];
     try {
-      await auditAction(action: 'period.close', entity: 'period', entityId: closure.id, after: closure.toMap());
+      await auditAction(
+        action: 'period.close',
+        entity: 'period',
+        entityId: closure.id,
+        after: closure.toMap(),
+      );
     } catch (_) {}
     notifyListeners();
     return closure;
@@ -1794,12 +2102,18 @@ class MastersStore extends ChangeNotifier {
     await _appDatabase.deletePeriodClosure(id);
     _closedPeriods = _closedPeriods.where((p) => p.id != id).toList();
     try {
-      await auditAction(action: 'period.reopen', entity: 'period', entityId: id, before: was.toMap());
+      await auditAction(
+        action: 'period.reopen',
+        entity: 'period',
+        entityId: id,
+        before: was.toMap(),
+      );
     } catch (_) {}
     notifyListeners();
   }
 
-  List<RecurringPayment> get recurringPayments => List.unmodifiable(_recurringPayments);
+  List<RecurringPayment> get recurringPayments =>
+      List.unmodifiable(_recurringPayments);
 
   Future<RecurringPayment> createRecurringPayment({
     required String name,
@@ -1821,14 +2135,21 @@ class MastersStore extends ChangeNotifier {
       category: category.trim(),
       accountId: accountId,
       intervalDays: intervalDays < 1 ? 1 : intervalDays,
-      nextDueAt: nextDueAt ?? now.add(Duration(days: intervalDays < 1 ? 1 : intervalDays)),
+      nextDueAt:
+          nextDueAt ??
+          now.add(Duration(days: intervalDays < 1 ? 1 : intervalDays)),
       note: note?.trim().isEmpty == true ? null : note?.trim(),
       createdAt: now,
       updatedAt: now,
     );
     await _recurringRepo.save(payment);
     _recurringPayments = [payment, ..._recurringPayments];
-    await auditAction(action: 'recurring_payment.create', entity: 'recurring_payment', entityId: payment.id, after: payment.toMap());
+    await auditAction(
+      action: 'recurring_payment.create',
+      entity: 'recurring_payment',
+      entityId: payment.id,
+      after: payment.toMap(),
+    );
     notifyListeners();
     return payment;
   }
@@ -1843,7 +2164,12 @@ class MastersStore extends ChangeNotifier {
     } else {
       _recurringPayments[idx] = updated;
     }
-    await auditAction(action: 'recurring_payment.update', entity: 'recurring_payment', entityId: updated.id, after: updated.toMap());
+    await auditAction(
+      action: 'recurring_payment.update',
+      entity: 'recurring_payment',
+      entityId: updated.id,
+      after: updated.toMap(),
+    );
     notifyListeners();
   }
 
@@ -1851,7 +2177,11 @@ class MastersStore extends ChangeNotifier {
     ensurePeriodOpen();
     await _recurringRepo.delete(id);
     _recurringPayments = _recurringPayments.where((r) => r.id != id).toList();
-    await auditAction(action: 'recurring_payment.delete', entity: 'recurring_payment', entityId: id);
+    await auditAction(
+      action: 'recurring_payment.delete',
+      entity: 'recurring_payment',
+      entityId: id,
+    );
     notifyListeners();
   }
 
@@ -1877,16 +2207,25 @@ class MastersStore extends ChangeNotifier {
       );
       var next = payment.nextDueAt;
       while (!next.isAfter(current)) {
-        next = next.add(Duration(days: payment.intervalDays < 1 ? 1 : payment.intervalDays));
+        next = next.add(
+          Duration(days: payment.intervalDays < 1 ? 1 : payment.intervalDays),
+        );
       }
-      await updateRecurringPayment(payment.copyWith(nextDueAt: next, updatedAt: current));
+      await updateRecurringPayment(
+        payment.copyWith(nextDueAt: next, updatedAt: current),
+      );
       count++;
     }
     return count;
   }
 
   String storeDefaultAccountId() {
-    final account = _accounts.firstWhere((a) => !a.archived, orElse: () => _accounts.isNotEmpty ? _accounts.first : throw StateError('Нет счёта.'));
+    final account = _accounts.firstWhere(
+      (a) => !a.archived,
+      orElse: () => _accounts.isNotEmpty
+          ? _accounts.first
+          : throw StateError('Нет счёта.'),
+    );
     return account.id;
   }
 
@@ -1910,7 +2249,12 @@ class MastersStore extends ChangeNotifier {
     );
     await _payrollRepo.save(period);
     _payrollPeriods = [period, ..._payrollPeriods];
-    await auditAction(action: 'payroll_period.create', entity: 'payroll_period', entityId: period.id, after: period.toMap());
+    await auditAction(
+      action: 'payroll_period.create',
+      entity: 'payroll_period',
+      entityId: period.id,
+      after: period.toMap(),
+    );
     notifyListeners();
     return period;
   }
@@ -1931,7 +2275,11 @@ class MastersStore extends ChangeNotifier {
     await _payrollRepo.save(updated);
     final idx = _payrollPeriods.indexWhere((p) => p.id == id);
     if (idx != -1) _payrollPeriods[idx] = updated;
-    await auditAction(action: 'payroll_period.reopen', entity: 'payroll_period', entityId: id);
+    await auditAction(
+      action: 'payroll_period.reopen',
+      entity: 'payroll_period',
+      entityId: id,
+    );
     notifyListeners();
   }
 
@@ -1951,14 +2299,22 @@ class MastersStore extends ChangeNotifier {
     await _payrollRepo.save(updated);
     final idx = _payrollPeriods.indexWhere((p) => p.id == id);
     if (idx != -1) _payrollPeriods[idx] = updated;
-    await auditAction(action: 'payroll_period.close', entity: 'payroll_period', entityId: id);
+    await auditAction(
+      action: 'payroll_period.close',
+      entity: 'payroll_period',
+      entityId: id,
+    );
     notifyListeners();
   }
 
   Future<void> deletePayrollPeriod(String id) async {
     await _payrollRepo.delete(id);
     _payrollPeriods = _payrollPeriods.where((p) => p.id != id).toList();
-    await auditAction(action: 'payroll_period.delete', entity: 'payroll_period', entityId: id);
+    await auditAction(
+      action: 'payroll_period.delete',
+      entity: 'payroll_period',
+      entityId: id,
+    );
     notifyListeners();
   }
 
@@ -1966,28 +2322,50 @@ class MastersStore extends ChangeNotifier {
     final emp = employeeById(employeeId);
     if (emp == null) return 0;
     int earned = 0;
-    if (emp.payType == 'hourly' || emp.payType == 'mixed' || emp.payType == 'salary') {
+    if (emp.payType == 'hourly' ||
+        emp.payType == 'mixed' ||
+        emp.payType == 'salary') {
       final mins = _timeEntries
-          .where((t) => t.employeeId == employeeId && !t.startedAt.isBefore(start) && !t.startedAt.isAfter(end))
-          .fold(0, (s, t) => s + (t.minutes > 0 ? t.minutes : _durationMinutes(t.startedAt, t.endedAt)));
+          .where(
+            (t) =>
+                t.employeeId == employeeId &&
+                !t.startedAt.isBefore(start) &&
+                !t.startedAt.isAfter(end),
+          )
+          .fold(
+            0,
+            (s, t) =>
+                s +
+                (t.minutes > 0
+                    ? t.minutes
+                    : _durationMinutes(t.startedAt, t.endedAt)),
+          );
       earned += (mins * emp.rateCents / 60).round();
     }
     if (emp.payType == 'piece' || emp.payType == 'mixed') {
-      final doneJobs = _jobs.where((j) =>
-          j.assigneeId == employeeId &&
-          (j.status == JobStatus.done || j.status == JobStatus.closed) &&
-          !j.archived &&
-          (j.finishedAt ?? j.updatedAt).isAfter(start.subtract(const Duration(seconds: 1))) &&
-          !(j.finishedAt ?? j.updatedAt).isAfter(end));
+      final doneJobs = _jobs.where(
+        (j) =>
+            j.assigneeId == employeeId &&
+            (j.status == JobStatus.done || j.status == JobStatus.closed) &&
+            !j.archived &&
+            (j.finishedAt ?? j.updatedAt).isAfter(
+              start.subtract(const Duration(seconds: 1)),
+            ) &&
+            !(j.finishedAt ?? j.updatedAt).isAfter(end),
+      );
       if (emp.payType == 'piece') earned += doneJobs.length * emp.rateCents;
     }
     if (emp.payType == 'percent' || emp.payType == 'mixed') {
-      final doneJobs = _jobs.where((j) =>
-          j.assigneeId == employeeId &&
-          (j.status == JobStatus.done || j.status == JobStatus.closed) &&
-          !j.archived &&
-          (j.finishedAt ?? j.updatedAt).isAfter(start.subtract(const Duration(seconds: 1))) &&
-          !(j.finishedAt ?? j.updatedAt).isAfter(end));
+      final doneJobs = _jobs.where(
+        (j) =>
+            j.assigneeId == employeeId &&
+            (j.status == JobStatus.done || j.status == JobStatus.closed) &&
+            !j.archived &&
+            (j.finishedAt ?? j.updatedAt).isAfter(
+              start.subtract(const Duration(seconds: 1)),
+            ) &&
+            !(j.finishedAt ?? j.updatedAt).isAfter(end),
+      );
       final price = doneJobs.fold(0, (s, j) => s + j.priceCents);
       earned += (price * emp.percent / 100).round();
     }
@@ -1999,7 +2377,11 @@ class MastersStore extends ChangeNotifier {
     return end.difference(start).inMinutes;
   }
 
-  Map<String, int> paymentTotalsForPeriod(String employeeId, DateTime start, DateTime end) {
+  Map<String, int> paymentTotalsForPeriod(
+    String employeeId,
+    DateTime start,
+    DateTime end,
+  ) {
     int bonuses = 0;
     int penalties = 0;
     int advances = 0;
@@ -2020,14 +2402,17 @@ class MastersStore extends ChangeNotifier {
   }
 
   List<Map<String, Object?>> payrollSummary(DateTime start, DateTime end) {
-    final rows = _employees
-        .where((e) => !e.archived)
-        .map((employee) {
+    final rows = _employees.where((e) => !e.archived).map((employee) {
       final earned = earnedCentsForPeriod(employee.id, start, end);
       final totals = paymentTotalsForPeriod(employee.id, start, end);
       final advances = totals['advance'] ?? 0;
       final payouts = totals['payout'] ?? 0;
-      final net = earned + (totals['bonus'] ?? 0) - (totals['penalty'] ?? 0) - advances - payouts;
+      final net =
+          earned +
+          (totals['bonus'] ?? 0) -
+          (totals['penalty'] ?? 0) -
+          advances -
+          payouts;
       return <String, Object?>{
         'employee': employee,
         'earned': earned,
@@ -2037,12 +2422,9 @@ class MastersStore extends ChangeNotifier {
         'payout': payouts,
         'net': net,
       };
-    })
-        .toList();
+    }).toList();
     return rows;
   }
-
-
 
   List<Supplier> get suppliers => List.unmodifiable(_suppliers);
 
@@ -2062,7 +2444,12 @@ class MastersStore extends ChangeNotifier {
     );
     await _supplierRepo.save(supplier);
     _suppliers = [supplier, ..._suppliers];
-    await auditAction(action: 'supplier.create', entity: 'supplier', entityId: supplier.id, after: supplier.toMap());
+    await auditAction(
+      action: 'supplier.create',
+      entity: 'supplier',
+      entityId: supplier.id,
+      after: supplier.toMap(),
+    );
     notifyListeners();
     return supplier;
   }
@@ -2070,7 +2457,11 @@ class MastersStore extends ChangeNotifier {
   Future<void> deleteSupplier(String id) async {
     await _supplierRepo.delete(id);
     _suppliers = _suppliers.where((s) => s.id != id).toList();
-    await auditAction(action: 'supplier.delete', entity: 'supplier', entityId: id);
+    await auditAction(
+      action: 'supplier.delete',
+      entity: 'supplier',
+      entityId: id,
+    );
     notifyListeners();
   }
 
@@ -2103,7 +2494,10 @@ class MastersStore extends ChangeNotifier {
       final idx = _inventoryItems.indexWhere((i) => i.id == itemId);
       if (idx != -1) {
         final item = _inventoryItems[idx];
-        final updated = item.copyWith(stockQty: item.stockQty + qty, updatedAt: now);
+        final updated = item.copyWith(
+          stockQty: item.stockQty + qty,
+          updatedAt: now,
+        );
         await _inventoryRepo.save(updated);
         _inventoryItems[idx] = updated;
         final movement = StockMovement(
@@ -2119,7 +2513,8 @@ class MastersStore extends ChangeNotifier {
       }
     }
 
-    if (purchaseLines.isEmpty) throw ArgumentError('Закупка не содержит строк.');
+    if (purchaseLines.isEmpty)
+      throw ArgumentError('Закупка не содержит строк.');
     if (total <= 0) throw ArgumentError('Сумма закупки должна быть больше 0.');
     final purchase = Purchase(
       id: purchaseId,
@@ -2148,7 +2543,12 @@ class MastersStore extends ChangeNotifier {
       );
     }
 
-    await auditAction(action: 'purchase.create', entity: 'purchase', entityId: purchase.id, after: purchase.toMap());
+    await auditAction(
+      action: 'purchase.create',
+      entity: 'purchase',
+      entityId: purchase.id,
+      after: purchase.toMap(),
+    );
     notifyListeners();
     return purchase;
   }
@@ -2161,15 +2561,19 @@ class MastersStore extends ChangeNotifier {
     }
     int paid = 0;
     for (final transaction in _moneyTransactions) {
-      if (transaction.voided || transaction.kind != 'purchase_payment') continue;
+      if (transaction.voided || transaction.kind != 'purchase_payment')
+        continue;
       if (supplierId != null) {
-        final purchase = _purchases.firstWhere((p) => p.id == transaction.relatedTransactionId, orElse: () => Purchase(
-          id: '',
-          supplierId: null,
-          totalCents: 0,
-          createdAt: DateTime.now(),
-          updatedAt: DateTime.now(),
-        ));
+        final purchase = _purchases.firstWhere(
+          (p) => p.id == transaction.relatedTransactionId,
+          orElse: () => Purchase(
+            id: '',
+            supplierId: null,
+            totalCents: 0,
+            createdAt: DateTime.now(),
+            updatedAt: DateTime.now(),
+          ),
+        );
         if (purchase.supplierId != supplierId) continue;
       }
       paid += transaction.amountCents;
@@ -2201,7 +2605,12 @@ class MastersStore extends ChangeNotifier {
       note: note,
       relatedTransactionId: purchaseId,
     );
-    await auditAction(action: 'supplier_pay', entity: 'supplier', entityId: supplierId, after: {'amountCents': amountCents});
+    await auditAction(
+      action: 'supplier_pay',
+      entity: 'supplier',
+      entityId: supplierId,
+      after: {'amountCents': amountCents},
+    );
     notifyListeners();
   }
 
@@ -2227,13 +2636,18 @@ class MastersStore extends ChangeNotifier {
     return rows.map(JobAttachment.fromMap).toList();
   }
 
-  Future<JobAttachment> addJobAttachment({required String jobId, required String sourcePath}) async {
+  Future<JobAttachment> addJobAttachment({
+    required String jobId,
+    required String sourcePath,
+  }) async {
     ensurePeriodOpen();
     final source = File(sourcePath);
     final dir = await getApplicationDocumentsDirectory();
     final attachDir = Directory('${dir.path}/job_attachments');
     await attachDir.create(recursive: true);
-    final base = source.uri.pathSegments.isEmpty ? 'file' : source.uri.pathSegments.last;
+    final base = source.uri.pathSegments.isEmpty
+        ? 'file'
+        : source.uri.pathSegments.last;
     final name = base.isEmpty ? 'attachment' : base;
     final unique = '${newId()}_$name';
     final dest = File('${attachDir.path}/$unique');
@@ -2246,8 +2660,17 @@ class MastersStore extends ChangeNotifier {
       filePath: dest.path,
       createdAt: now,
     );
-    await _appDatabase.database.insert('job_attachments', attachment.toMap(), conflictAlgorithm: ConflictAlgorithm.replace);
-    await auditAction(action: 'job_attachment.create', entity: 'job_attachment', entityId: attachment.id, after: attachment.toMap());
+    await _appDatabase.database.insert(
+      'job_attachments',
+      attachment.toMap(),
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
+    await auditAction(
+      action: 'job_attachment.create',
+      entity: 'job_attachment',
+      entityId: attachment.id,
+      after: attachment.toMap(),
+    );
     notifyListeners();
     return attachment;
   }
@@ -2255,13 +2678,24 @@ class MastersStore extends ChangeNotifier {
   Future<void> deleteJobAttachment(String id) async {
     ensurePeriodOpen();
     final now = DateTime.now().millisecondsSinceEpoch;
-    await _appDatabase.database.update('job_attachments', {'deleted_at': now, 'updated_at': now}, where: 'id = ?', whereArgs: [id]);
-    await auditAction(action: 'job_attachment.delete', entity: 'job_attachment', entityId: id);
+    await _appDatabase.database.update(
+      'job_attachments',
+      {'deleted_at': now, 'updated_at': now},
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+    await auditAction(
+      action: 'job_attachment.delete',
+      entity: 'job_attachment',
+      entityId: id,
+    );
     notifyListeners();
   }
 
   Future<void> clearAll() async {
-    try { await _appDatabase.audit(action:'data.clearAll'); } catch (_) {}
+    try {
+      await _appDatabase.audit(action: 'data.clearAll');
+    } catch (_) {}
     await _appDatabase.database.transaction((txn) async {
       await txn.delete('appointments');
       await txn.delete('booking_resources');
