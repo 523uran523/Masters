@@ -34,12 +34,13 @@ class MoreScreen extends StatelessWidget {
         subtitle: '${store.inventoryItems.length} позиций',
         screen: const InventoryScreen(),
       ),
-      _MoreTile(
-        icon: CupertinoIcons.person,
-        title: 'Сотрудники и зарплата',
-        subtitle: '${store.employees.length} человек',
-        screen: const EmployeesScreen(),
-      ),
+      if (settings.teamEnabled)
+        _MoreTile(
+          icon: CupertinoIcons.person,
+          title: 'Сотрудники и зарплата',
+          subtitle: '${store.employees.length} человек',
+          screen: const EmployeesScreen(),
+        ),
       _MoreTile(
         icon: CupertinoIcons.calendar,
         title: 'Записи',
@@ -83,11 +84,16 @@ class MoreScreen extends StatelessWidget {
                     CupertinoListTile(
                       leading: Icon(tile.icon, color: colors.accent),
                       title: Text(tile.title),
-                      subtitle: tile.subtitle == null ? null : Text(tile.subtitle!),
-                      trailing: const Icon(CupertinoIcons.chevron_right, size: 16),
-                      onTap: () => Navigator.of(context).push(
-                        CupertinoPageRoute(builder: (_) => tile.screen),
+                      subtitle: tile.subtitle == null
+                          ? null
+                          : Text(tile.subtitle!),
+                      trailing: const Icon(
+                        CupertinoIcons.chevron_right,
+                        size: 16,
                       ),
+                      onTap: () => Navigator.of(
+                        context,
+                      ).push(CupertinoPageRoute(builder: (_) => tile.screen)),
                     ),
                     if (tile != tiles.last) const Hairline(indent: 56),
                   ],
@@ -99,7 +105,9 @@ class MoreScreen extends StatelessWidget {
               child: CupertinoListTile(
                 leading: Icon(CupertinoIcons.gear, color: colors.accent),
                 title: const Text('Настройки'),
-                subtitle: const Text('Аккаунт, деньги, синхронизация, PIN, биометрия'),
+                subtitle: const Text(
+                  'Аккаунт, деньги, синхронизация, PIN, биометрия',
+                ),
                 trailing: const Icon(CupertinoIcons.chevron_right, size: 16),
                 onTap: () => Navigator.of(context).push(
                   CupertinoPageRoute(builder: (_) => const SettingsScreen()),
@@ -114,7 +122,12 @@ class MoreScreen extends StatelessWidget {
 }
 
 class _MoreTile {
-  const _MoreTile({required this.icon, required this.title, this.subtitle, required this.screen});
+  const _MoreTile({
+    required this.icon,
+    required this.title,
+    this.subtitle,
+    required this.screen,
+  });
 
   final IconData icon;
   final String title;

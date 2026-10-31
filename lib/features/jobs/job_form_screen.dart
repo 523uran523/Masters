@@ -518,28 +518,30 @@ class _JobFormScreenState extends State<JobFormScreen> {
                       ),
                     ],
                   ),
-                  const SizedBox(height: 8),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          _assigneeId == null
-                              ? 'Исполнитель не выбран'
-                              : (context
-                                        .read<MastersStore>()
-                                        .employeeById(_assigneeId!)
-                                        ?.name ??
-                                    'Исполнитель'),
-                          style: TextStyle(color: colors.secondaryLabel),
+                  if (settings.teamEnabled) ...[
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            _assigneeId == null
+                                ? 'Исполнитель не выбран'
+                                : (context
+                                          .read<MastersStore>()
+                                          .employeeById(_assigneeId!)
+                                          ?.name ??
+                                      'Исполнитель'),
+                            style: TextStyle(color: colors.secondaryLabel),
+                          ),
                         ),
-                      ),
-                      CupertinoButton(
-                        padding: EdgeInsets.zero,
-                        onPressed: _pickAssignee,
-                        child: const Text('Исполнитель'),
-                      ),
-                    ],
-                  ),
+                        CupertinoButton(
+                          padding: EdgeInsets.zero,
+                          onPressed: _pickAssignee,
+                          child: const Text('Исполнитель'),
+                        ),
+                      ],
+                    ),
+                  ],
                 ],
               ),
             ),
@@ -615,24 +617,26 @@ class _JobFormScreenState extends State<JobFormScreen> {
                 ],
               ),
             ),
-            const SizedBox(height: 12),
-            SecondaryButton(
-              label: 'Калькулятор расходов',
-              icon: CupertinoIcons.money_dollar,
-              onPressed: () async {
-                final result = await Navigator.of(context)
-                    .push<Map<String, int>>(
-                      CupertinoPageRoute(
-                        builder: (_) => const CostCalculatorScreen(),
-                      ),
-                    );
-                if (result == null || !mounted) return;
-                _costController.text = ((result['costCents'] as int) / 100)
-                    .toStringAsFixed(2);
-                _priceController.text = ((result['priceCents'] as int) / 100)
-                    .toStringAsFixed(2);
-              },
-            ),
+            if (settings.calculatorEnabled) ...[
+              const SizedBox(height: 12),
+              SecondaryButton(
+                label: 'Калькулятор расходов',
+                icon: CupertinoIcons.money_dollar,
+                onPressed: () async {
+                  final result = await Navigator.of(context)
+                      .push<Map<String, int>>(
+                        CupertinoPageRoute(
+                          builder: (_) => const CostCalculatorScreen(),
+                        ),
+                      );
+                  if (result == null || !mounted) return;
+                  _costController.text = ((result['costCents'] as int) / 100)
+                      .toStringAsFixed(2);
+                  _priceController.text = ((result['priceCents'] as int) / 100)
+                      .toStringAsFixed(2);
+                },
+              ),
+            ],
             const SizedBox(height: 16),
             SectionLabel('Срок и заметки'),
             AppCard(

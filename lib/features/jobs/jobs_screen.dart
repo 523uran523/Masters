@@ -444,6 +444,7 @@ class _JobsScreenState extends State<JobsScreen> {
 
   Future<void> _showFilters() async {
     if (!mounted) return;
+    final settings = context.read<SettingsController>();
     await showCupertinoModalPopup<void>(
       context: context,
       builder: (dialogContext) => CupertinoActionSheet(
@@ -463,15 +464,16 @@ class _JobsScreenState extends State<JobsScreen> {
             },
             child: const Text('тХи╨дтХитЦСтХд╨ТтХд╨Ы'),
           ),
-          CupertinoActionSheetAction(
-            onPressed: () {
-              Navigator.of(dialogContext).pop();
-              _pickAssigneeFilter();
-            },
-            child: const Text(
-              'тХи╨итХд╨СтХитФРтХитХЫтХитХЧтХитХЬтХитХХтХд╨ТтХитХбтХитХЧтХд╨Ь',
+          if (settings.teamEnabled)
+            CupertinoActionSheetAction(
+              onPressed: () {
+                Navigator.of(dialogContext).pop();
+                _pickAssigneeFilter();
+              },
+              child: const Text(
+                'тХи╨итХд╨СтХитФРтХитХЫтХитХЧтХитХЬтХитХХтХд╨ТтХитХбтХитХЧтХд╨Ь',
+              ),
             ),
-          ),
           CupertinoActionSheetAction(
             onPressed: () {
               Navigator.of(dialogContext).pop();
@@ -578,7 +580,10 @@ class _JobsScreenState extends State<JobsScreen> {
         final name = await _promptText('╨Ш╨╝╤П ╨║╨╗╨╕╨╡╨╜╤В╨░', '╨Ш╨▓╨░╨╜');
         if (!mounted) return;
         if (name == null || name.trim().isEmpty) return;
-        final phone = await _promptText('╨������╡╨������╡╨╜╨░', '╨������╡╨������╡╨╜╨░');
+        final phone = await _promptText(
+          '╨������╡╨������╡╨╜╨░',
+          '╨������╡╨������╡╨╜╨░',
+        );
         final client = await store.createClient(
           name: name.trim(),
           phone: phone?.trim() ?? '',
@@ -848,7 +853,15 @@ class _JobsScreenState extends State<JobsScreen> {
     final filteredJobs =
         store.jobs
             .where((j) => !j.archived && _extraFiltersMatch(j, store))
-            .where((j) => _query.isEmpty || JobSearchFilter.matches(j, _query.trim().toLowerCase(), store))
+            .where(
+              (j) =>
+                  _query.isEmpty ||
+                  JobSearchFilter.matches(
+                    j,
+                    _query.trim().toLowerCase(),
+                    store,
+                  ),
+            )
             .toList()
           ..sort((a, b) {
             if (a.pinned != b.pinned) return a.pinned ? -1 : 1;

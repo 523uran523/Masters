@@ -722,7 +722,7 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
                   _KV('╨Т╤А╨╡╨╝╤П', formatMinutes(totalMin)),
                   if (job.dueDate != null)
                     _KV('╨б╤А╨╛╨║', formatFullDate(job.dueDate!)),
-                  if (job.assigneeId != null)
+                  if (settings.teamEnabled && job.assigneeId != null)
                     _KV(
                       '╨Ш╤Б╨┐╨╛╨╗╨╜╨╕╤В╨╡╨╗╤М',
                       store.employeeById(job.assigneeId!)?.name ?? 'тАФ',
@@ -730,28 +730,30 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
                 ],
               ),
             ),
-            const SizedBox(height: 12),
-            SecondaryButton(
-              label: '╨Ъ╨░╨╗╤М╨║╤Г╨╗╤П╤В╨╛╤А ╤Ж╨╡╨╜╤Л',
-              icon: CupertinoIcons.money_dollar,
-              onPressed: () async {
-                final result = await Navigator.of(context)
-                    .push<Map<String, int>>(
-                      CupertinoPageRoute(
-                        builder: (_) => CostCalculatorScreen(
-                          initialMaterialsCents: materialTotal,
+            if (settings.calculatorEnabled) ...[
+              const SizedBox(height: 12),
+              SecondaryButton(
+                label: '╨Ъ╨░╨╗╤М╨║╤Г╨╗╤П╤В╨╛╤А ╤Ж╨╡╨╜╤Л',
+                icon: CupertinoIcons.money_dollar,
+                onPressed: () async {
+                  final result = await Navigator.of(context)
+                      .push<Map<String, int>>(
+                        CupertinoPageRoute(
+                          builder: (_) => CostCalculatorScreen(
+                            initialMaterialsCents: materialTotal,
+                          ),
                         ),
-                      ),
-                    );
-                if (result == null || !mounted) return;
-                await store.updateJob(
-                  job.copyWith(
-                    priceCents: result['priceCents'] as int,
-                    costCents: result['costCents'] as int,
-                  ),
-                );
-              },
-            ),
+                      );
+                  if (result == null || !mounted) return;
+                  await store.updateJob(
+                    job.copyWith(
+                      priceCents: result['priceCents'] as int,
+                      costCents: result['costCents'] as int,
+                    ),
+                  );
+                },
+              ),
+            ],
             const SizedBox(height: 16),
             SectionLabel(
               '╨н╤В╨░╨┐╤Л (${stages.where((s) => s.done).length}/${stages.length})',

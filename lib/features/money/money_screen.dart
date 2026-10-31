@@ -1585,9 +1585,11 @@ class _MoneyScreenState extends State<MoneyScreen> {
                     onPressed: _runDueRecurring,
                   ),
                   const SizedBox(height: 16),
-                  SectionLabel('Команда'),
-                  ..._teamCards(store, colors),
-                  const SizedBox(height: 16),
+                  if (settings.teamEnabled) ...[
+                    SectionLabel('Команда'),
+                    ..._teamCards(store, colors),
+                    const SizedBox(height: 16),
+                  ],
                   SectionLabel(' клиентов (${_money(totalDebt)})'),
                   debtClients.isEmpty
                       ? EmptyState(
@@ -1629,17 +1631,18 @@ class _MoneyScreenState extends State<MoneyScreen> {
                             }).toList(),
                           ),
                         ),
-                  const SizedBox(height: 12),
-                  SecondaryButton(
-                    label: ' и зарплата',
-                    icon: CupertinoIcons.person_2,
-                    onPressed: () => Navigator.of(context).push(
-                      CupertinoPageRoute(
-                        builder: (_) => const EmployeesScreen(),
+                  if (settings.teamEnabled) ...[
+                    SecondaryButton(
+                      label: ' и зарплата',
+                      icon: CupertinoIcons.person_2,
+                      onPressed: () => Navigator.of(context).push(
+                        CupertinoPageRoute(
+                          builder: (_) => const EmployeesScreen(),
+                        ),
                       ),
                     ),
-                  ),
-                  const SizedBox(height: 8),
+                    const SizedBox(height: 8),
+                  ],
                   SecondaryButton(
                     label: ' аналитика (P&L)',
                     icon: CupertinoIcons.chart_bar,
