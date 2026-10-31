@@ -38,7 +38,7 @@ class AppDatabase {
 
     final database = await openDatabase(
       resolved,
-      version: 16,
+      version: 17,
       onConfigure: (db) async {
         if (!kIsWeb) await db.execute('PRAGMA foreign_keys = ON');
       },
@@ -533,6 +533,7 @@ class AppDatabase {
         job_id TEXT REFERENCES jobs(id) ON DELETE SET NULL,
         shift_id TEXT REFERENCES cash_shifts(id) ON DELETE SET NULL,
         related_transaction_id TEXT,
+        reverses_id TEXT NULL,
         created_at INTEGER NOT NULL,
         voided INTEGER NOT NULL DEFAULT 0,
         receipt_path TEXT
@@ -555,6 +556,9 @@ class AppDatabase {
     );
     await db.execute(
       'CREATE INDEX idx_money_tx_kind ON money_transactions(kind)',
+    );
+    await db.execute(
+      'CREATE INDEX idx_money_tx_reverses_id ON money_transactions(reverses_id)',
     );
   }
 
@@ -711,6 +715,18 @@ class AppDatabase {
         'CREATE INDEX IF NOT EXISTS idx_wsessions_started ON work_sessions(started_at)',
       );
       await _createAuditTriggers(db);
+    }
+    if (oldVersion < 17) {
+      try {
+        await db.execute(
+          'ALTER TABLE money_transactions ADD COLUMN reverses_id TEXT',
+        );
+      } catch (_) {
+        // Column may already exist.
+      }
+      await db.execute(
+        'CREATE INDEX IF NOT EXISTS idx_money_tx_reverses_id ON money_transactions(reverses_id)',
+      );
     }
   }
 
