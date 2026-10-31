@@ -560,6 +560,7 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
     final stages = store.stagesForJob(job.id);
     final materials = store.materialsForJob(job.id);
     final sessions = store.sessionsForJob(job.id);
+    final todaySeconds = store.workSecondsForJobToday(job.id);
     final totalMin = store.totalMinutesForJob(job.id);
     final materialTotal = store.totalMaterialCents(job.id);
     final totalCost = job.costCents + materialTotal;
@@ -887,6 +888,31 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
                     icon: CupertinoIcons.plus,
                     onPressed: () => _addSessionManual(store),
                   ),
+                  if (todaySeconds > 0) ...[
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        Text(
+                          'Наработано за день: ${formatMinutes(todaySeconds ~/ 60)}',
+                          style: TextStyle(
+                            color: colors.secondaryLabel,
+                            fontSize: 13,
+                          ),
+                        ),
+                        if (settings.hourRateCents > 0) ...[
+                          const SizedBox(width: 8),
+                          Text(
+                            '≈ ${((todaySeconds * settings.hourRateCents) / (3600 * 100)).toStringAsFixed(0)} ₽',
+                            style: TextStyle(
+                              color: colors.accent,
+                              fontWeight: FontWeight.w600,
+                              fontSize: 13,
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ],
                   if (sessions.isNotEmpty) ...[
                     const SizedBox(height: 12),
                     ...sessions.map(
