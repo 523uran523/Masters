@@ -31,7 +31,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   bool _updateBusy = false;
   UpdateInfo? _updateInfo;
   String _updateStatus = '';
-  Set<String> _expandedSettings = <String>{};
+  final Set<String> _expandedSettings = <String>{};
 
   static const List<String> _tabLabels = [
     'Сегодня',
