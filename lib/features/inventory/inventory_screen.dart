@@ -54,6 +54,41 @@ class _InventoryScreenState extends State<InventoryScreen> {
     );
   }
 
+  Future<void> _showSearch() async {
+    _searchController.text = _invQuery;
+    if (!mounted) return;
+    final result = await showCupertinoDialog<String?>(
+      context: context,
+      builder: (dialogContext) => CupertinoAlertDialog(
+        title: const Text('Поиск'),
+        content: Padding(
+          padding: const EdgeInsets.only(top: 12),
+          child: CupertinoTextField(
+            controller: _searchController,
+            placeholder: 'Поиск по складу',
+            autofocus: true,
+            onSubmitted: (_) =>
+                Navigator.of(dialogContext).pop(_searchController.text.trim()),
+          ),
+        ),
+        actions: [
+          CupertinoDialogAction(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: const Text('Cancel'),
+          ),
+          CupertinoDialogAction(
+            isDefaultAction: true,
+            onPressed: () =>
+                Navigator.of(dialogContext).pop(_searchController.text.trim()),
+            child: const Text('OK'),
+          ),
+        ],
+      ),
+    );
+    if (result == null || !mounted) return;
+    setState(() => _invQuery = result);
+  }
+
   Future<String?> _pickUnit() async {
     final unit = await showCupertinoModalPopup<String>(
       context: context,
@@ -99,15 +134,20 @@ class _InventoryScreenState extends State<InventoryScreen> {
           .where(
             (i) =>
                 i.name.toLowerCase().contains(q) ||
-                i.unit.toLowerCase().contains(q),
+                i.unit.toLowerCase().contains(q) ||
+                i.category.toLowerCase().contains(q),
           )
           .toList();
     }
-    if (_invFilter == 'good')
+    if (_invFilter == 'good') {
       list = list.where((i) => i.kind == 'good').toList();
-    if (_invFilter == 'service')
+    }
+    if (_invFilter == 'service') {
       list = list.where((i) => i.kind == 'service').toList();
-    if (_invFilter == 'low') list = list.where((i) => i.lowStock).toList();
+    }
+    if (_invFilter == 'low') {
+      list = list.where((i) => i.lowStock).toList();
+    }
     return list;
   }
 
@@ -463,12 +503,13 @@ class _InventoryScreenState extends State<InventoryScreen> {
         purchaseId: purchaseId,
         note: note.trim().isEmpty ? null : note.trim(),
       );
-      if (mounted)
+      if (mounted) {
         await showAppAlert(
           context,
           title: 'Готово',
           message: 'Оплата поставщику проведена.',
         );
+      }
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -900,10 +941,42 @@ class _InventoryScreenState extends State<InventoryScreen> {
                   ),
                   const SizedBox(height: 8),
                   const SizedBox(height: 8),
-                  CupertinoTextField(
-                    controller: _searchController,
-                    placeholder: 'Поиск по складу',
-                    onChanged: (v) => setState(() => _invQuery = v),
+                  Row(
+                    children: [
+                      if (_invQuery.isNotEmpty) ...[
+                        Expanded(
+                          child: Text(
+                            'Поиск: $_invQuery',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              color: colors.secondaryLabel,
+                              fontSize: 13,
+                            ),
+                          ),
+                        ),
+                        CupertinoButton(
+                          padding: EdgeInsets.zero,
+                          onPressed: () => setState(() {
+                            _invQuery = '';
+                            _searchController.clear();
+                          }),
+                          child: const Icon(
+                            CupertinoIcons.xmark,
+                            semanticLabel: 'Очистить',
+                          ),
+                        ),
+                      ] else
+                        const Spacer(),
+                      CupertinoButton(
+                        padding: EdgeInsets.zero,
+                        onPressed: _showSearch,
+                        child: const Icon(
+                          CupertinoIcons.search,
+                          semanticLabel: 'Поиск',
+                        ),
+                      ),
+                    ],
                   ),
                   const SizedBox(height: 8),
                   SecondaryButton(

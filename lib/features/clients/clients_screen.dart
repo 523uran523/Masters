@@ -15,10 +15,9 @@ class ClientsScreen extends StatefulWidget {
 }
 
 class _ClientsScreenState extends State<ClientsScreen> {
-  final _searchController = TextEditingController();
-  String _query = '';
+  final _clientSearchController = TextEditingController();
+  String _clientQuery = '';
   String _clientFilter = 'all';
-  bool _searchVisible = false;
   String? _selectedClientId;
 
   Future<void> _mergeDuplicates() async {
@@ -128,7 +127,7 @@ class _ClientsScreenState extends State<ClientsScreen> {
 
   @override
   void dispose() {
-    _searchController.dispose();
+    _clientSearchController.dispose();
     super.dispose();
   }
 
@@ -175,9 +174,46 @@ class _ClientsScreenState extends State<ClientsScreen> {
     );
   }
 
+  Future<void> _showSearch() async {
+    _clientSearchController.text = _clientQuery;
+    if (!mounted) return;
+    final result = await showCupertinoDialog<String?>(
+      context: context,
+      builder: (dialogContext) => CupertinoAlertDialog(
+        title: const Text('Поиск'),
+        content: Padding(
+          padding: const EdgeInsets.only(top: 12),
+          child: CupertinoTextField(
+            controller: _clientSearchController,
+            placeholder: 'Поиск клиентов',
+            autofocus: true,
+            onSubmitted: (_) => Navigator.of(dialogContext).pop(
+              _clientSearchController.text.trim(),
+            ),
+          ),
+        ),
+        actions: [
+          CupertinoDialogAction(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: const Text('Cancel'),
+          ),
+          CupertinoDialogAction(
+            isDefaultAction: true,
+            onPressed: () => Navigator.of(dialogContext).pop(
+              _clientSearchController.text.trim(),
+            ),
+            child: const Text('OK'),
+          ),
+        ],
+      ),
+    );
+    if (result == null || !mounted) return;
+    setState(() => _clientQuery = result);
+  }
+
   Widget _buildList(MastersStore store, AppColors colors, bool wide) {
     var clients = store.clients;
-    final q = _query.trim().toLowerCase();
+    final q = _clientQuery.trim().toLowerCase();
     if (q.isNotEmpty) {
       clients = clients
           .where(
@@ -334,11 +370,8 @@ class _ClientsScreenState extends State<ClientsScreen> {
             ),
             CupertinoButton(
               padding: EdgeInsets.zero,
-              onPressed: () => setState(() => _searchVisible = !_searchVisible),
-              child: Icon(
-                _searchVisible ? CupertinoIcons.xmark : CupertinoIcons.search,
-                semanticLabel: _searchVisible ? 'Закрыть' : 'Поиск',
-              ),
+              onPressed: _showSearch,
+              child: const Icon(CupertinoIcons.search, semanticLabel: 'Поиск'),
             ),
             CupertinoButton(
               padding: EdgeInsets.zero,
@@ -359,13 +392,34 @@ class _ClientsScreenState extends State<ClientsScreen> {
       child: SafeArea(
         child: Column(
           children: [
-            if (_searchVisible)
+            if (_clientQuery.isNotEmpty)
               Padding(
                 padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
-                child: CupertinoTextField(
-                  controller: _searchController,
-                  placeholder: 'Поиск',
-                  onChanged: (v) => setState(() => _query = v),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        'Поиск: $_clientQuery',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: colors.secondaryLabel,
+                          fontSize: 13,
+                        ),
+                      ),
+                    ),
+                    CupertinoButton(
+                      padding: EdgeInsets.zero,
+                      onPressed: () => setState(() {
+                        _clientQuery = '';
+                        _clientSearchController.clear();
+                      }),
+                      child: const Icon(
+                        CupertinoIcons.xmark,
+                        semanticLabel: 'Очистить',
+                      ),
+                    ),
+                  ],
                 ),
               ),
             Expanded(
