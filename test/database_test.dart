@@ -33,7 +33,7 @@ void main() {
       final ver = (await appDb.database.rawQuery(
         'PRAGMA user_version',
       ))[0]['user_version'];
-      expect(ver, 16);
+      expect(ver, 17);
     } finally {
       await appDb.close();
     }
@@ -72,7 +72,7 @@ void main() {
       final version = (await db.rawQuery(
         'PRAGMA user_version',
       ))[0]['user_version'];
-      expect(version, 16);
+      expect(version, 17);
     } finally {
       await appDb.close();
     }
@@ -98,7 +98,7 @@ void main() {
         final ver = (await reopened.database.rawQuery(
           'PRAGMA user_version',
         ))[0]['user_version'];
-        expect(ver, 16);
+        expect(ver, 17);
         final cols = (await reopened.database.rawQuery(
           'PRAGMA table_info(jobs)',
         )).map((r) => r['name'] as String).toSet();
@@ -157,7 +157,7 @@ void main() {
       final ver = (await db12.database.rawQuery(
         'PRAGMA user_version',
       ))[0]['user_version'];
-      expect(ver, 16);
+      expect(ver, 17);
     } finally {
       await db12.close();
       try {
@@ -198,7 +198,7 @@ void main() {
         final ver = (await db.database.rawQuery(
           'PRAGMA user_version',
         ))[0]['user_version'];
-        expect(ver, 16);
+        expect(ver, 17);
       } finally {
         await db.close();
         try {

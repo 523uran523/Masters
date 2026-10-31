@@ -34,8 +34,16 @@ void main() {
         priceCents: 5000,
         status: JobStatus.inProgress,
       );
-      await store.addSession(jobId: job.id, startedAt: DateTime.now(), minutes: 30);
-      await store.addSession(jobId: job.id, startedAt: DateTime.now(), minutes: 15);
+      await store.addSession(
+        jobId: job.id,
+        startedAt: DateTime.now(),
+        minutes: 30,
+      );
+      await store.addSession(
+        jobId: job.id,
+        startedAt: DateTime.now(),
+        minutes: 15,
+      );
 
       final account = await store.createAccount(name: 'Cash', type: 'cash');
       await store.addTransaction(
@@ -113,7 +121,9 @@ void main() {
       final posted = await store.runDueRecurringPayments();
       expect(posted, 1);
       expect(store.totalBalanceCents(), -1000);
-      final updated = store.recurringPayments.firstWhere((p) => p.id == payment.id);
+      final updated = store.recurringPayments.firstWhere(
+        (p) => p.id == payment.id,
+      );
       expect(updated.nextDueAt.isAfter(DateTime.now()), isTrue);
     } finally {
       await appDb.close();
@@ -152,7 +162,9 @@ void main() {
       final start = DateTime(now.year, now.month, 1);
       final end = DateTime(now.year, now.month + 1, 0, 23, 59, 59, 999);
       final rows = store.payrollSummary(start, end);
-      final row = rows.firstWhere((r) => (r['employee'] as dynamic).id == employee.id);
+      final row = rows.firstWhere(
+        (r) => (r['employee'] as dynamic).id == employee.id,
+      );
       expect(row['earned'], 1500);
       expect(row['bonus'], 200);
       expect(row['advance'], 300);
@@ -191,8 +203,6 @@ void main() {
     }
   });
 
-
-
   test('recurring payment in direction increases balance', () async {
     final appDb = await AppDatabase.open(path: inMemoryDatabasePath);
     try {
@@ -213,7 +223,9 @@ void main() {
       final posted = await store.runDueRecurringPayments();
       expect(posted, 1);
       expect(store.totalBalanceCents(), 1000);
-      final updated = store.recurringPayments.firstWhere((p) => p.id == payment.id);
+      final updated = store.recurringPayments.firstWhere(
+        (p) => p.id == payment.id,
+      );
       expect(updated.nextDueAt.isAfter(DateTime.now()), isTrue);
     } finally {
       await appDb.close();
@@ -248,11 +260,143 @@ void main() {
       );
 
       expect(store.supplierDebtCents(supplier.id), 500);
-      await store.paySupplier(supplierId: supplier.id, amountCents: 200, accountId: account.id, purchaseId: purchase.id);
+      await store.paySupplier(
+        supplierId: supplier.id,
+        amountCents: 200,
+        accountId: account.id,
+        purchaseId: purchase.id,
+      );
       expect(store.supplierDebtCents(supplier.id), 300);
       expect(store.totalBalanceCents(), -200);
     } finally {
       await appDb.close();
     }
+  });
+
+  group('money reversal', () {
+    test(
+      'revertTransaction creates reversal pair with opposite sign',
+      () async {
+        final appDb = await AppDatabase.open(path: inMemoryDatabasePath);
+        try {
+          final settings = await SettingsController.load();
+          final store = MastersStore(appDb, settings);
+          await store.load();
+
+          final account = await store.createAccount(name: 'Cash', type: 'cash');
+
+          final origin = await store.addTransaction(
+            accountId: account.id,
+            kind: 'payment',
+            direction: 'in',
+            amountCents: 1000,
+            note: 'Test income',
+          );
+
+          await store.revertTransaction(origin.id);
+
+          final txs = store.moneyTransactions;
+          expect(txs.length, 2);
+
+          final reversal = txs.firstWhere((t) => t.reversesId == origin.id);
+          expect(reversal.accountId, account.id);
+          expect(reversal.direction, 'out');
+          expect(reversal.amountCents, 1000);
+          expect(reversal.note, 'Возврат: Test income');
+          expect(reversal.reversesId, origin.id);
+
+          final updatedOrigin = txs.firstWhere((t) => t.id == origin.id);
+          expect(updatedOrigin.reversesId, isNull);
+        } finally {
+          await appDb.close();
+        }
+      },
+    );
+
+    test('revertTransaction blocks double reversal', () async {
+      final appDb = await AppDatabase.open(path: inMemoryDatabasePath);
+      try {
+        final settings = await SettingsController.load();
+        final store = MastersStore(appDb, settings);
+        await store.load();
+
+        final account = await store.createAccount(name: 'Cash', type: 'cash');
+
+        final origin = await store.addTransaction(
+          accountId: account.id,
+          kind: 'payment',
+          direction: 'in',
+          amountCents: 1000,
+          note: 'Test income',
+        );
+
+        await store.revertTransaction(origin.id);
+
+        expect(
+          () => store.revertTransaction(origin.id),
+          throwsA(isA<Exception>()),
+        );
+
+        final txs = store.moneyTransactions;
+        expect(txs.length, 2);
+      } finally {
+        await appDb.close();
+      }
+    });
+
+    test('balance nets to zero after reversal', () async {
+      final appDb = await AppDatabase.open(path: inMemoryDatabasePath);
+      try {
+        final settings = await SettingsController.load();
+        final store = MastersStore(appDb, settings);
+        await store.load();
+
+        final account = await store.createAccount(name: 'Cash', type: 'cash');
+
+        final origin = await store.addTransaction(
+          accountId: account.id,
+          kind: 'payment',
+          direction: 'in',
+          amountCents: 1000,
+          note: 'Test income',
+        );
+
+        expect(store.balanceCents(account.id), 1000);
+
+        await store.revertTransaction(origin.id);
+
+        expect(store.balanceCents(account.id), 0);
+        expect(store.totalBalanceCents(), 0);
+      } finally {
+        await appDb.close();
+      }
+    });
+
+    test('reversal of expense restores balance', () async {
+      final appDb = await AppDatabase.open(path: inMemoryDatabasePath);
+      try {
+        final settings = await SettingsController.load();
+        final store = MastersStore(appDb, settings);
+        await store.load();
+
+        final account = await store.createAccount(name: 'Cash', type: 'cash');
+
+        final origin = await store.addTransaction(
+          accountId: account.id,
+          kind: 'expense',
+          direction: 'out',
+          amountCents: 500,
+          note: 'Test expense',
+        );
+
+        expect(store.balanceCents(account.id), -500);
+
+        await store.revertTransaction(origin.id);
+
+        expect(store.balanceCents(account.id), 0);
+      } finally {
+        await appDb.close();
+      }
+    });
   });
 }
