@@ -559,10 +559,12 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
           children: [
             CupertinoButton(
               padding: EdgeInsets.zero,
-              onPressed: () => context.read<MastersStore>().setJobPinned(
-                job.id,
-                !job.pinned,
-              ),
+              onPressed: () async {
+                await context.read<MastersStore>().setJobPinned(
+                  job.id,
+                  !job.pinned,
+                );
+              },
               child: Icon(
                 job.pinned ? CupertinoIcons.star_fill : CupertinoIcons.star,
                 color: job.pinned ? colors.accent : null,
