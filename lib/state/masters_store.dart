@@ -466,7 +466,7 @@ class MastersStore extends ChangeNotifier {
     if (_accounts.isEmpty) {
       final acc = Account(
         id: newId(),
-        name: 'РќР°Р»РёС‡РЅС‹Рµ',
+        name: 'Наличные',
         type: 'cash',
         createdAt: DateTime.now(),
       );
@@ -531,7 +531,7 @@ class MastersStore extends ChangeNotifier {
     if (_bookingResources.isEmpty) {
       final r = BookingResource(
         id: newId(),
-        name: 'РћСЃРЅРѕРІРЅРѕР№',
+        name: 'Основной',
         createdAt: DateTime.now(),
       );
       await _bookingResourceRepo.save(r);
@@ -615,13 +615,13 @@ class MastersStore extends ChangeNotifier {
   }) async {
     if (sourceId == targetId) {
       throw ArgumentError(
-        'РљР»РёРµРЅС‚С‹ РґРѕР»Р¶РЅС‹ СЂР°Р·Р»РёС‡Р°С‚СЊСЃСЏ.',
+        ' должны различаться.',
       );
     }
     final source = clientById(sourceId);
     final target = clientById(targetId);
     if (source == null || target == null) {
-      throw StateError('РљР»РёРµРЅС‚ РЅРµ РЅР°Р№РґРµРЅ.');
+      throw StateError(' не .');
     }
     ensurePeriodOpen();
 
@@ -899,7 +899,7 @@ class MastersStore extends ChangeNotifier {
         clientId: job.clientId,
         jobId: jobId,
         type: 'warranty',
-        title: 'РџСЂРѕРІРµСЂРёС‚СЊ РіР°СЂР°РЅС‚РёСЋ: ${job.title}',
+        title: 'Проверить гарантию: ${job.title}',
         dueAt: now.add(const Duration(days: 180)),
       );
     }
@@ -991,7 +991,7 @@ class MastersStore extends ChangeNotifier {
     required String jobId,
     required String name,
     double quantity = 1,
-    String unit = 'С€С‚',
+    String unit = 'шт',
     int priceCents = 0,
   }) async {
     final item = MaterialItem(
@@ -999,7 +999,7 @@ class MastersStore extends ChangeNotifier {
       jobId: jobId,
       name: name.trim(),
       quantity: quantity,
-      unit: unit.trim().isEmpty ? 'С€С‚' : unit.trim(),
+      unit: unit.trim().isEmpty ? 'шт' : unit.trim(),
       priceCents: priceCents,
       createdAt: DateTime.now(),
     );
@@ -1175,7 +1175,7 @@ class MastersStore extends ChangeNotifier {
     String? receiptPath,
   }) async {
     if (amountCents <= 0)
-      throw ArgumentError('РЎСѓРјРјР° РґРѕР»Р¶РЅР° Р±С‹С‚СЊ Р±РѕР»СЊС€Рµ 0.');
+      throw ArgumentError('  быть больше 0.');
     ensurePeriodOpen();
     final tx = MoneyTransaction(
       id: newId(),
@@ -1294,16 +1294,16 @@ class MastersStore extends ChangeNotifier {
     String? note,
   }) async {
     if (amountCents <= 0)
-      throw ArgumentError('РЎСѓРјРјР° РґРѕР»Р¶РЅР° Р±С‹С‚СЊ Р±РѕР»СЊС€Рµ 0.');
+      throw ArgumentError('  быть больше 0.');
     ensurePeriodOpen();
     if (fromAccountId == toAccountId)
-      throw ArgumentError('РЎС‡РµС‚Р° РґРѕР»Р¶РЅС‹ СЂР°Р·Р»РёС‡Р°С‚СЊСЃСЏ.');
+      throw ArgumentError('Счета должны различаться.');
     final from = await addTransaction(
       accountId: fromAccountId,
       kind: 'transfer',
       direction: 'out',
       amountCents: amountCents,
-      category: 'РџРµСЂРµРІРѕРґ',
+      category: 'Перевод',
       note: note,
       shiftId: openShift()?.id,
     );
@@ -1312,7 +1312,7 @@ class MastersStore extends ChangeNotifier {
       kind: 'transfer',
       direction: 'in',
       amountCents: amountCents,
-      category: 'РџРµСЂРµРІРѕРґ',
+      category: 'Перевод',
       note: note,
       relatedTransactionId: from.id,
       shiftId: openShift()?.id,
@@ -1393,7 +1393,7 @@ class MastersStore extends ChangeNotifier {
   Future<InventoryItem> createInventoryItem({
     required String name,
     String kind = 'good',
-    String unit = 'С€С‚',
+    String unit = 'шт',
     int sellPriceCents = 0,
     int costCents = 0,
     String category = '',
@@ -1406,7 +1406,7 @@ class MastersStore extends ChangeNotifier {
       id: newId(),
       name: name.trim(),
       kind: kind,
-      unit: unit.trim().isEmpty ? 'С€С‚' : unit.trim(),
+      unit: unit.trim().isEmpty ? 'шт' : unit.trim(),
       sellPriceCents: sellPriceCents,
       costCents: costCents,
       category: category.trim(),
@@ -1542,7 +1542,7 @@ class MastersStore extends ChangeNotifier {
     );
     if (conflicts.isNotEmpty) {
       throw StateError(
-        'Р РµСЃСѓСЂСЃ СѓР¶Рµ Р·Р°РЅСЏС‚ РІ СЌС‚Рѕ РІСЂРµРјСЏ. Р’С‹Р±РµСЂРёС‚Рµ РґСЂСѓРіРѕРµ РІСЂРµРјСЏ.',
+        ' уже  в  время. Выберите другое время.',
       );
     }
     final appt = Appointment(
@@ -1744,7 +1744,7 @@ class MastersStore extends ChangeNotifier {
     await _paymentRepo.save(p);
     _employeePayments = [p, ..._employeePayments];
 
-    // РџР»Р°С‚РµР¶Рё РЅР°Р»РёС‡РЅС‹РјРё РѕС‚СЂР°Р¶Р°СЋС‚СЃСЏ РІ Р¶СѓСЂРЅР°Р»Рµ РґРµРЅРµРі Рё Р±Р°Р»Р°РЅСЃР°С… СЃС‡РµС‚РѕРІ.
+    // Платежи наличными отражаются в журнале денег и балансах счетов.
     final cashTypes = {'advance', 'payout'};
     if (cashTypes.contains(type) && _accounts.isNotEmpty) {
       final account = _accounts.firstWhere(
@@ -1758,8 +1758,8 @@ class MastersStore extends ChangeNotifier {
         direction: 'out',
         amountCents: amountCents < 0 ? 0 : amountCents,
         category: type == 'advance'
-            ? 'РђРІР°РЅСЃ СЃРѕС‚СЂСѓРґРЅРёРєСѓ'
-            : 'Р’С‹РїР»Р°С‚Р° Р·Р°СЂРїР»Р°С‚С‹',
+            ? 'Аванс сотруднику'
+            : 'Выплата зарплаты',
         note: note?.trim().isEmpty == true ? p.note : note?.trim(),
         relatedTransactionId: p.id,
         createdAt: p.createdAt,
@@ -1776,7 +1776,7 @@ class MastersStore extends ChangeNotifier {
     await _paymentRepo.delete(id);
     _employeePayments = _employeePayments.where((p) => p.id != id).toList();
 
-    // Р’РѕР·РІСЂР°С‰Р°РµРј СЃРІСЏР·Р°РЅРЅС‹Рµ РґРµРЅРµР¶РЅС‹Рµ С‚СЂР°РЅР·Р°РєС†РёРё.
+    // Возвращаем связанные  транзакции.
     final linked = _moneyTransactions
         .where(
           (t) => t.kind == 'employee_payment' && t.relatedTransactionId == id,
@@ -1868,17 +1868,17 @@ class MastersStore extends ChangeNotifier {
     final header = rows.first.map(_norm).toList();
     final nameIdx = _col(header, [
       'name',
-      'РЅР°Р·РІР°РЅРёРµ',
-      'РЅР°РёРјРµРЅРѕРІР°РЅРёРµ',
+      'название',
+      'наименование',
     ]);
     if (nameIdx < 0) return 0;
-    final kindIdx = _col(header, ['kind', 'С‚РёРї']);
+    final kindIdx = _col(header, ['kind', 'тип']);
     final unitIdx = _col(header, ['unit']);
     final sellIdx = _col(header, ['sell_price', 'sell_price_cents', 'price']);
     final costIdx = _col(header, ['cost_cents', 'cost']);
     final stockIdx = _col(header, ['stock', 'stock_qty', 'qty']);
     final minIdx = _col(header, ['min', 'min_qty', 'min stock']);
-    final categoryIdx = _col(header, ['category', 'РєР°С‚РµРіРѕСЂРёСЏ']);
+    final categoryIdx = _col(header, ['category', 'Категория']);
     final now = DateTime.now();
     final created = <InventoryItem>[];
     for (final raw in rows.skip(1)) {
@@ -1891,7 +1891,7 @@ class MastersStore extends ChangeNotifier {
       final minQty = _num(raw, minIdx, 0);
       final kindRaw = _str(raw, kindIdx);
       final kind = kindRaw == 'service' ? 'service' : 'good';
-      final unit = _strDefault(raw, unitIdx, 'С€С‚');
+      final unit = _strDefault(raw, unitIdx, 'шт');
       final category = _str(raw, categoryIdx);
       final item = InventoryItem(
         id: newId(),
@@ -1922,13 +1922,13 @@ class MastersStore extends ChangeNotifier {
     final rows = await BackupService.pickSpreadsheet();
     if (rows == null || rows.isEmpty || _accounts.isEmpty) return 0;
     final header = rows.first.map(_norm).toList();
-    final dateIdx = _col(header, ['date', 'РґР°С‚Р°']);
-    final accountIdx = _col(header, ['account', 'СЃС‡С‘С‚', 'СЃС‡РµС‚']);
-    final directionIdx = _col(header, ['direction', 'РЅР°РїСЂР°РІР»РµРЅРёРµ']);
-    final amountIdx = _col(header, ['amount', 'amount_cents', 'СЃСѓРјРјР°']);
-    final categoryIdx = _col(header, ['category', 'РєР°С‚РµРіРѕСЂРёСЏ']);
-    final noteIdx = _col(header, ['note', 'РїСЂРёРјРµС‡Р°РЅРёРµ']);
-    final kindIdx = _col(header, ['kind', 'С‚РёРї']);
+    final dateIdx = _col(header, ['date', 'Дата']);
+    final accountIdx = _col(header, ['account', 'счёт', 'счет']);
+    final directionIdx = _col(header, ['direction', 'Направление']);
+    final amountIdx = _col(header, ['amount', 'amount_cents', 'сумма']);
+    final categoryIdx = _col(header, ['category', 'Категория']);
+    final noteIdx = _col(header, ['note', 'Примечание']);
+    final kindIdx = _col(header, ['kind', 'тип']);
     if (amountIdx < 0) return 0;
 
     final created = <MoneyTransaction>[];
@@ -1951,7 +1951,7 @@ class MastersStore extends ChangeNotifier {
       final direction =
           directionRaw == 'out' ||
               directionRaw == 'expense' ||
-              directionRaw == ' СЂР°СЃС…РѕРґ'
+              directionRaw == ' расход'
           ? 'out'
           : 'in';
       final kindRaw = kindIdx >= 0
@@ -2069,13 +2069,13 @@ class MastersStore extends ChangeNotifier {
   Future<void> restoreFromBackup(Map<String, dynamic> data) async {
     if (data['format'] != 'masters-backup') {
       throw const FormatException(
-        'Р­С‚Рѕ РЅРµ СЂРµР·РµСЂРІРЅР°СЏ РєРѕРїРёСЏ В«MastersВ».',
+        'Это не резервная копия Masters.',
       );
     }
     final version = data['version'];
     if (version is! int || version > 8) {
       throw const FormatException(
-        'РќРµРїРѕРґРґРµСЂР¶РёРІР°РµРјР°СЏ РІРµСЂСЃРёСЏ РєРѕРїРёРё.',
+        'Неподдерживаемая версия копии.',
       );
     }
 
@@ -2342,8 +2342,8 @@ class MastersStore extends ChangeNotifier {
         direction: 'out',
         amountCents: payment.amountCents,
         category: payment.type == 'advance'
-            ? 'РђРІР°РЅСЃ СЃРѕС‚СЂСѓРґРЅРёРєСѓ'
-            : 'Р’С‹РїР»Р°С‚Р° Р·Р°СЂРїР»Р°С‚С‹',
+            ? 'Аванс сотруднику'
+            : 'Выплата зарплаты',
         note: payment.note,
         relatedTransactionId: payment.id,
         createdAt: payment.createdAt,
@@ -2364,12 +2364,12 @@ class MastersStore extends ChangeNotifier {
     Set<String>? applyConflictIds,
   }) async {
     if (data['format'] != 'masters-backup') {
-      throw const FormatException('Р­С‚Рѕ РЅРµ РєРѕРїРёСЏ Masters.');
+      throw const FormatException('Это не копия Masters.');
     }
     final version = data['version'];
     if (version is! int || version > 8) {
       throw const FormatException(
-        'РќРµРїРѕРґРґРµСЂР¶РёРІР°РµРјР°СЏ РІРµСЂСЃРёСЏ РєРѕРїРёРё.',
+        'Неподдерживаемая версия копии.',
       );
     }
     final result = await _appDatabase.mergeSnapshot(
@@ -2465,7 +2465,7 @@ class MastersStore extends ChangeNotifier {
   void ensurePeriodOpen([DateTime? at]) {
     if (isPeriodClosed(at ?? DateTime.now())) {
       throw StateError(
-        'РЈРєР°Р·Р°РЅРЅС‹Р№ РїРµСЂРёРѕРґ Р·Р°РєСЂС‹С‚. РР·РјРµРЅРёС‚Рµ РґР°С‚Сѓ РёР»Рё РїРµСЂРµРѕС‚РєСЂРѕР№С‚Рµ РїРµСЂРёРѕРґ.',
+        'Указанный период закрыт. Измените дату или переоткройте период.',
       );
     }
   }
@@ -2483,7 +2483,7 @@ class MastersStore extends ChangeNotifier {
       if (periodStart.isBefore(existing.end) &&
           periodEnd.isAfter(existing.start)) {
         throw ArgumentError(
-          'РќРѕРІС‹Р№ РїРµСЂРёРѕРґ РїРµСЂРµСЃРµРєР°РµС‚СЃСЏ СЃ СѓР¶Рµ Р·Р°РєСЂС‹С‚С‹Рј.',
+          'Новый период пересекается с уже закрытым.',
         );
       }
     }
@@ -2716,7 +2716,7 @@ class MastersStore extends ChangeNotifier {
       (a) => !a.archived,
       orElse: () => _accounts.isNotEmpty
           ? _accounts.first
-          : throw StateError('РќРµС‚ СЃС‡С‘С‚Р°.'),
+          : throw StateError(' счёта.'),
     );
     return account.id;
   }
@@ -3025,7 +3025,7 @@ class MastersStore extends ChangeNotifier {
           itemId: itemId,
           type: 'in',
           qty: qty,
-          note: note?.trim().isEmpty == true ? 'Р—Р°РєСѓРїРєР°' : note?.trim(),
+          note: note?.trim().isEmpty == true ? 'Закупка' : note?.trim(),
           createdAt: now,
         );
         await _stockMovementRepo.save(movement);
@@ -3034,10 +3034,10 @@ class MastersStore extends ChangeNotifier {
     }
 
     if (purchaseLines.isEmpty)
-      throw ArgumentError('Р—Р°РєСѓРїРєР° РЅРµ СЃРѕРґРµСЂР¶РёС‚ СЃС‚СЂРѕРє.');
+      throw ArgumentError(' не содержит .');
     if (total <= 0)
       throw ArgumentError(
-        'РЎСѓРјРјР° Р·Р°РєСѓРїРєРё РґРѕР»Р¶РЅР° Р±С‹С‚СЊ Р±РѕР»СЊС€Рµ 0.',
+        '   быть больше 0.',
       );
     final purchase = Purchase(
       id: purchaseId,
@@ -3060,7 +3060,7 @@ class MastersStore extends ChangeNotifier {
         kind: 'purchase_payment',
         direction: 'out',
         amountCents: paidCents,
-        category: 'Р—Р°РєСѓРїРєР° Сѓ РїРѕСЃС‚Р°РІС‰РёРєР°',
+        category: ' у ',
         note: purchase.note,
         relatedTransactionId: purchase.id,
       );
@@ -3124,7 +3124,7 @@ class MastersStore extends ChangeNotifier {
       kind: 'purchase_payment',
       direction: 'out',
       amountCents: amountCents,
-      category: 'РћРїР»Р°С‚Р° РїРѕСЃС‚Р°РІС‰РёРєСѓ',
+      category: 'Оплата поставщику',
       note: note,
       relatedTransactionId: purchaseId,
     );

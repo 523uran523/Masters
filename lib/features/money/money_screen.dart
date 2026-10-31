@@ -1774,7 +1774,7 @@ class _MoneyScreenState extends State<MoneyScreen> {
                   ),
                   const SizedBox(height: 16),
                   SectionLabel(
-                    'Р–СѓСЂРЅР°Р» (${store.moneyTransactions.length})',
+                    'Журнал (${store.moneyTransactions.length})',
                   ),
                   store.moneyTransactions.isEmpty
                       ? EmptyState(
