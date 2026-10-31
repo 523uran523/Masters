@@ -523,7 +523,7 @@ class MastersStore extends ChangeNotifier {
         .toList();
     _recurringPayments = await _recurringRepo.getAll();
     try {
-      await rescheduleAllRecurringReminders();
+      await _scheduleRecurringReminder();
     } catch (_) {}
     _payrollPeriods = await _payrollRepo.getAll();
     await _reconcileEmployeePayments();
@@ -2516,7 +2516,7 @@ class MastersStore extends ChangeNotifier {
   List<RecurringPayment> get recurringPayments =>
       List.unmodifiable(_recurringPayments);
 
-  Future<void> rescheduleAllRecurringReminders() async {
+  Future<void> _scheduleRecurringReminder() async {
     for (final payment in List<RecurringPayment>.from(_recurringPayments)) {
       try {
         await ReminderService.cancelRecurringReminder(payment.id);
@@ -2535,6 +2535,18 @@ class MastersStore extends ChangeNotifier {
         );
       } catch (_) {}
     }
+  }
+
+  Future<void> rescheduleAllRecurringReminders() async {
+    await _scheduleRecurringReminder();
+  }
+
+  Future<void> scheduleRecurringReminder() async {
+    await _scheduleRecurringReminder();
+  }
+
+  Future<void> syncRecurringReminders() async {
+    await _scheduleRecurringReminder();
   }
 
   Future<RecurringPayment> createRecurringPayment({
