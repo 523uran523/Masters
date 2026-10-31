@@ -228,17 +228,32 @@ class _MoneyScreenState extends State<MoneyScreen> {
                 keyboardType: const TextInputType.numberWithOptions(
                   decimal: true,
                 ),
+                decoration: BoxDecoration(
+                  color: const Color(0x00FFFFFF),
+                  border: Border.all(color: context.colors.separator),
+                  borderRadius: BorderRadius.circular(8),
+                ),
               ),
               const SizedBox(height: 10),
               CupertinoTextField(
                 controller: categoryController,
                 placeholder: 'РљР°С‚РµРіРѕСЂРёСЏ',
+                decoration: BoxDecoration(
+                  color: const Color(0x00FFFFFF),
+                  border: Border.all(color: context.colors.separator),
+                  borderRadius: BorderRadius.circular(8),
+                ),
               ),
               const SizedBox(height: 10),
               CupertinoTextField(
                 controller: noteController,
                 placeholder: 'РљРѕРјРјРµРЅС‚Р°СЂРёР№',
                 maxLines: 2,
+                decoration: BoxDecoration(
+                  color: const Color(0x00FFFFFF),
+                  border: Border.all(color: context.colors.separator),
+                  borderRadius: BorderRadius.circular(8),
+                ),
               ),
               const SizedBox(height: 16),
               SecondaryButton(
@@ -519,6 +534,11 @@ class _MoneyScreenState extends State<MoneyScreen> {
                 CupertinoTextField(
                   controller: nameController,
                   placeholder: 'Название',
+                  decoration: BoxDecoration(
+                    color: const Color(0x00FFFFFF),
+                    border: Border.all(color: context.colors.separator),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
                 ),
                 const SizedBox(height: 10),
                 CupertinoTextField(
@@ -526,6 +546,11 @@ class _MoneyScreenState extends State<MoneyScreen> {
                   placeholder: 'Интервал, дней',
                   keyboardType: const TextInputType.numberWithOptions(
                     decimal: false,
+                  ),
+                  decoration: BoxDecoration(
+                    color: const Color(0x00FFFFFF),
+                    border: Border.all(color: context.colors.separator),
+                    borderRadius: BorderRadius.circular(8),
                   ),
                 ),
                 const SizedBox(height: 10),
@@ -535,11 +560,21 @@ class _MoneyScreenState extends State<MoneyScreen> {
                   keyboardType: const TextInputType.numberWithOptions(
                     decimal: true,
                   ),
+                  decoration: BoxDecoration(
+                    color: const Color(0x00FFFFFF),
+                    border: Border.all(color: context.colors.separator),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
                 ),
                 const SizedBox(height: 10),
                 CupertinoTextField(
                   controller: categoryController,
                   placeholder: 'Категория',
+                  decoration: BoxDecoration(
+                    color: const Color(0x00FFFFFF),
+                    border: Border.all(color: context.colors.separator),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
                 ),
                 const SizedBox(height: 10),
                 Row(

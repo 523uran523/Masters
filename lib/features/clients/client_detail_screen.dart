@@ -458,7 +458,9 @@ class ClientDetailScreen extends StatelessWidget {
                 CupertinoPageRoute(
                   builder: (_) => JobFormScreen(
                     initialClientId: clientId,
-                    initialObjectId: objects.length == 1 ? objects.first.id : null,
+                    initialObjectId: objects.length == 1
+                        ? objects.first.id
+                        : null,
                   ),
                 ),
               ),
@@ -551,18 +553,33 @@ class ClientDetailScreen extends StatelessWidget {
               CupertinoTextField(
                 controller: nameController,
                 placeholder: 'Имя',
+                decoration: BoxDecoration(
+                  color: const Color(0x00FFFFFF),
+                  border: Border.all(color: context.colors.separator),
+                  borderRadius: BorderRadius.circular(8),
+                ),
               ),
               const SizedBox(height: 10),
               CupertinoTextField(
                 controller: phoneController,
                 placeholder: 'Телефон',
                 keyboardType: TextInputType.phone,
+                decoration: BoxDecoration(
+                  color: const Color(0x00FFFFFF),
+                  border: Border.all(color: context.colors.separator),
+                  borderRadius: BorderRadius.circular(8),
+                ),
               ),
               const SizedBox(height: 10),
               CupertinoTextField(
                 controller: noteController,
                 placeholder: 'Заметка',
                 maxLines: 3,
+                decoration: BoxDecoration(
+                  color: const Color(0x00FFFFFF),
+                  border: Border.all(color: context.colors.separator),
+                  borderRadius: BorderRadius.circular(8),
+                ),
               ),
               const SizedBox(height: 16),
               SecondaryButton(
@@ -697,12 +714,22 @@ class ClientDetailScreen extends StatelessWidget {
                 CupertinoTextField(
                   controller: titleController,
                   placeholder: 'Название визита',
+                  decoration: BoxDecoration(
+                    color: const Color(0x00FFFFFF),
+                    border: Border.all(color: context.colors.separator),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
                 ),
                 const SizedBox(height: 10),
                 CupertinoTextField(
                   controller: noteController,
                   placeholder: 'Комментарий',
                   maxLines: 2,
+                  decoration: BoxDecoration(
+                    color: const Color(0x00FFFFFF),
+                    border: Border.all(color: context.colors.separator),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
                 ),
                 const SizedBox(height: 12),
                 Expanded(

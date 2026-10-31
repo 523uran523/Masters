@@ -524,6 +524,11 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
                 CupertinoTextField(
                   controller: nameController,
                   placeholder: 'Имя',
+                  decoration: BoxDecoration(
+                    color: const Color(0x00FFFFFF),
+                    border: Border.all(color: context.colors.separator),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
                 ),
                 const SizedBox(height: 10),
                 CupertinoButton(
@@ -564,6 +569,11 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
                   keyboardType: const TextInputType.numberWithOptions(
                     decimal: true,
                   ),
+                  decoration: BoxDecoration(
+                    color: const Color(0x00FFFFFF),
+                    border: Border.all(color: context.colors.separator),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
                 ),
                 const SizedBox(height: 10),
                 CupertinoTextField(
@@ -571,6 +581,11 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
                   placeholder: 'Процент',
                   keyboardType: const TextInputType.numberWithOptions(
                     decimal: true,
+                  ),
+                  decoration: BoxDecoration(
+                    color: const Color(0x00FFFFFF),
+                    border: Border.all(color: context.colors.separator),
+                    borderRadius: BorderRadius.circular(8),
                   ),
                 ),
                 const SizedBox(height: 16),

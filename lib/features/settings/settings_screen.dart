@@ -509,6 +509,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     controller: filterController,
                     placeholder: 'Фильтр по action/entity',
                     onChanged: (_) => setModalState(() {}),
+                    decoration: BoxDecoration(
+                      color: const Color(0x00FFFFFF),
+                      border: Border.all(color: context.colors.separator),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
                   ),
                   const SizedBox(height: 12),
                   Expanded(
