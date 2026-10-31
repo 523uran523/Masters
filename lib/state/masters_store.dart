@@ -1233,6 +1233,7 @@ class MastersStore extends ChangeNotifier {
     String? jobId,
     String? shiftId,
     String? relatedTransactionId,
+    String? reversesId,
     String? receiptPath,
   }) async {
     if (amountCents <= 0) throw ArgumentError('  быть больше 0.');
@@ -1249,6 +1250,7 @@ class MastersStore extends ChangeNotifier {
       jobId: jobId,
       shiftId: shiftId ?? openShift()?.id,
       relatedTransactionId: relatedTransactionId,
+      reversesId: reversesId,
       receiptPath: receiptPath?.trim().isEmpty == true
           ? null
           : receiptPath?.trim(),
@@ -1266,6 +1268,49 @@ class MastersStore extends ChangeNotifier {
     } catch (_) {}
     notifyListeners();
     return tx;
+  }
+
+  Future<void> revertTransaction(String txId) async {
+    final origin = _moneyTransactions.firstWhere(
+      (t) => t.id == txId,
+      orElse: () => throw Exception('Transaction not found'),
+    );
+
+    // Prevent duplicate reversal
+    if (_moneyTransactions.any((t) => t.reversesId == txId)) {
+      throw Exception('This transaction has already been reversed');
+    }
+
+    ensurePeriodOpen();
+
+    final reversal = await addTransaction(
+      accountId: origin.accountId,
+      kind: origin.kind,
+      direction: origin.direction == 'in' ? 'out' : 'in',
+      amountCents: origin.amountCents,
+      category: origin.category,
+      note: 'Возврат: ${origin.note ?? 'Без комментария'}',
+      clientId: origin.clientId,
+      jobId: origin.jobId,
+      shiftId: origin.shiftId,
+      relatedTransactionId: origin.relatedTransactionId,
+      reversesId: origin.id,
+    );
+
+    try {
+      await auditAction(
+        action: 'money.transaction.revert',
+        entity: 'money_transaction',
+        entityId: origin.id,
+        before: origin.toMap(),
+        after: reversal.toMap(),
+      );
+    } catch (_) {}
+
+    _intCache.clear();
+    _balanceCache.clear();
+    _earnedCache.clear();
+    notifyListeners();
   }
 
   Future<void> attachReceipt(String transactionId, String sourcePath) async {
