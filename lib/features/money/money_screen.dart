@@ -719,7 +719,7 @@ class _MoneyScreenState extends State<MoneyScreen> {
           art: Icon(
             CupertinoIcons.person_2,
             size: 36,
-            color: colors.tertiaryLabel,
+            color: const Color(0xFFB2B2B6),
           ),
         ),
       ];
@@ -1119,25 +1119,72 @@ class _MoneyScreenState extends State<MoneyScreen> {
                         setModalState(() => current = updated);
                       },
                     ),
+                  if (current.reversesId != null) ...[
+                    _KV(
+                      'Возврат операции',
+                      current.reversesId!,
+                      isLink: true,
+                      onTap: () =>
+                          _showTransactionDetailById(current.reversesId!),
+                    ),
+                    const SizedBox(height: 8),
+                  ] else if (store.moneyTransactions.any(
+                    (tx) => tx.reversesId == current.id,
+                  )) ...[
+                    _KV(
+                      'Есть возврат',
+                      'открыть',
+                      isLink: true,
+                      onTap: () {
+                        final reversal = store.moneyTransactions.firstWhere(
+                          (tx) => tx.reversesId == current.id,
+                        );
+                        _showTransactionDetailById(reversal.id);
+                      },
+                    ),
+                    const SizedBox(height: 8),
+                  ],
                   const SizedBox(height: 16),
-                  SecondaryButton(
-                    label: 'Отменить операцию',
-                    icon: CupertinoIcons.xmark,
-                    onPressed: () async {
-                      final ok = await showAppConfirm(
-                        context,
-                        title: 'Отменить операцию?',
-                        message: ' вернётся в историю как отменённая.',
-                        destructive: true,
-                        confirmLabel: 'Отменить',
-                      );
-                      if (!ok || !mounted) return;
-                      store.voidTransaction(current.id);
-                      if (modalContext.mounted) {
-                        Navigator.of(modalContext).pop();
-                      }
-                    },
-                  ),
+                  if (!store.moneyTransactions.any(
+                    (tx) => tx.reversesId == current.id,
+                  ))
+                    SecondaryButton(
+                      label: 'Сделать возврат',
+                      icon: CupertinoIcons.arrow_uturn_left,
+                      onPressed: () async {
+                        final ok = await showAppConfirm(
+                          context,
+                          title: 'Сделать возврат?',
+                          message:
+                              'Будет создана новая операция-возврат на ${_money(current.amountCents)}, исходная станет серой.',
+                          destructive: false,
+                          confirmLabel: 'Возвратить',
+                        );
+                        if (!ok || !mounted) return;
+                        try {
+                          await store.revertTransaction(current.id);
+                        } catch (e) {
+                          if (context.mounted) {
+                            showCupertinoDialog<void>(
+                              context: context,
+                              builder: (ctx) => CupertinoAlertDialog(
+                                title: const Text('Ошибка'),
+                                content: Text(e.toString()),
+                                actions: [
+                                  CupertinoDialogAction(
+                                    child: const Text('ОК'),
+                                    onPressed: () => Navigator.of(ctx).pop(),
+                                  ),
+                                ],
+                              ),
+                            );
+                          }
+                        }
+                        if (modalContext.mounted) {
+                          Navigator.of(modalContext).pop();
+                        }
+                      },
+                    ),
                 ],
               ),
             ),
@@ -1145,6 +1192,15 @@ class _MoneyScreenState extends State<MoneyScreen> {
         },
       ),
     );
+  }
+
+  Future<void> _showTransactionDetailById(String id) async {
+    final store = context.read<MastersStore>();
+    final t = store.moneyTransactions.firstWhere(
+      (tx) => tx.id == id,
+      orElse: () => throw Exception('Transaction not found'),
+    );
+    await _showTransactionDetail(t);
   }
 
   @override
@@ -1427,7 +1483,7 @@ class _MoneyScreenState extends State<MoneyScreen> {
                       art: Icon(
                         CupertinoIcons.repeat,
                         size: 36,
-                        color: colors.tertiaryLabel,
+                        color: const Color(0xFFB2B2B6),
                       ),
                     )
                   else
@@ -1540,7 +1596,7 @@ class _MoneyScreenState extends State<MoneyScreen> {
                           art: Icon(
                             CupertinoIcons.checkmark_seal,
                             size: 36,
-                            color: colors.tertiaryLabel,
+                            color: const Color(0xFFB2B2B6),
                           ),
                         )
                       : AppCard(
@@ -1743,7 +1799,7 @@ class _MoneyScreenState extends State<MoneyScreen> {
                           art: Icon(
                             CupertinoIcons.doc_text,
                             size: 36,
-                            color: colors.tertiaryLabel,
+                            color: const Color(0xFFB2B2B6),
                           ),
                         )
                       : Column(
@@ -1805,6 +1861,12 @@ class _MoneyScreenState extends State<MoneyScreen> {
                               .take(50)
                               .map((t) {
                                 final acc = store.accountById(t.accountId);
+                                final isReversal = t.reversesId != null;
+                                final alreadyReversed = store.moneyTransactions
+                                    .any((tx) => tx.reversesId == t.id);
+                                final rowColor = alreadyReversed || isReversal
+                                    ? colors.tertiaryLabel
+                                    : null;
                                 return Padding(
                                   padding: const EdgeInsets.only(bottom: 8),
                                   child: AppCard(
@@ -1816,13 +1878,64 @@ class _MoneyScreenState extends State<MoneyScreen> {
                                             crossAxisAlignment:
                                                 CrossAxisAlignment.start,
                                             children: [
-                                              Text(
-                                                t.category.isEmpty
-                                                    ? t.kind
-                                                    : t.category,
-                                                style: const TextStyle(
-                                                  fontWeight: FontWeight.w600,
-                                                ),
+                                              Row(
+                                                mainAxisSize: MainAxisSize.min,
+                                                crossAxisAlignment:
+                                                    CrossAxisAlignment.center,
+                                                children: [
+                                                  Text(
+                                                    t.category.isEmpty
+                                                        ? t.kind
+                                                        : t.category,
+                                                    style: TextStyle(
+                                                      fontWeight:
+                                                          FontWeight.w600,
+                                                      color: rowColor,
+                                                    ),
+                                                  ),
+                                                  if (alreadyReversed) ...[
+                                                    const SizedBox(width: 6),
+                                                    const Text(
+                                                      '↩︎',
+                                                      style: TextStyle(
+                                                        fontSize: 14,
+                                                      ),
+                                                    ),
+                                                    const SizedBox(width: 4),
+                                                    Text(
+                                                      'Возвращено',
+                                                      style: TextStyle(
+                                                        fontSize: 11,
+                                                        fontWeight:
+                                                            FontWeight.w600,
+                                                        color: colors
+                                                            .tertiaryLabel,
+                                                      ),
+                                                    ),
+                                                  ],
+                                                  if (isReversal) ...[
+                                                    const SizedBox(width: 6),
+                                                    GestureDetector(
+                                                      onTap: () {
+                                                        final originId =
+                                                            t.reversesId!;
+                                                        Navigator.of(context)
+                                                            .pop();
+                                                        _showTransactionDetailById(
+                                                          originId,
+                                                        );
+                                                      },
+                                                      child: Text(
+                                                        ' → исходная',
+                                                        style: TextStyle(
+                                                          fontSize: 11,
+                                                          color: colors
+                                                              .primaryLabel,
+                                                        ),
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ],
                                               ),
                                               Text(
                                                 [
@@ -1847,22 +1960,83 @@ class _MoneyScreenState extends State<MoneyScreen> {
                                           '${t.direction == 'in' ? '+' : '-'}${_money(t.amountCents)}',
                                           style: TextStyle(
                                             fontWeight: FontWeight.w600,
-                                            color: t.direction == 'in'
-                                                ? colors.green
-                                                : colors.red,
+                                            color: alreadyReversed || isReversal
+                                                ? colors.tertiaryLabel
+                                                : (t.direction == 'in'
+                                                      ? colors.green
+                                                      : colors.red),
                                           ),
                                         ),
-                                        CupertinoButton(
-                                          padding: EdgeInsets.zero,
-                                          onPressed: () =>
-                                              store.voidTransaction(t.id),
-                                          child: Icon(
-                                            CupertinoIcons.xmark,
-                                            size: 14,
-                                            color: colors.tertiaryLabel,
-                                            semanticLabel: 'Отменить',
+                                        if (alreadyReversed)
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(
+                                              horizontal: 8,
+                                              vertical: 2,
+                                            ),
+                                            decoration: BoxDecoration(
+                                              color: colors.tertiaryLabel
+                                                  .withValues(alpha: 0.15),
+                                              borderRadius: BorderRadius.circular(8),
+                                            ),
+                                            child: const Text(
+                                              'Возвращено',
+                                              style: TextStyle(
+                                                fontSize: 11,
+                                                fontWeight: FontWeight.w600,
+                                                color: const Color(0xFFB2B2B6),
+                                              ),
+                                            ),
+                                          )
+                                        else if (isReversal)
+                                          CupertinoButton(
+                                            padding: EdgeInsets.zero,
+                                            onPressed: () {
+                                              final originId = t.reversesId!;
+                                              Navigator.of(context).pop();
+                                              _showTransactionDetailById(
+                                                originId,
+                                              );
+                                            },
+                                            child: const Icon(
+                                              CupertinoIcons
+                                                  .arrow_turn_down_right,
+                                              size: 14,
+                                              color: colors.label,
+                                            ),
+                                          )
+                                        else
+                                          CupertinoButton(
+                                            padding: EdgeInsets.zero,
+                                            onPressed: () async {
+                                              final ok = await showAppConfirm(
+                                                context,
+                                                title: 'Сделать возврат?',
+                                                message:
+                                                    'Будет создана новая операция-возврат на ${_money(t.amountCents)}, исходная станет серой.',
+                                                destructive: false,
+                                                confirmLabel: 'Возвратить',
+                                              );
+                                              if (!ok || !mounted) return;
+                                              try {
+                                                await store.revertTransaction(
+                                                  t.id,
+                                                );
+                                              } catch (e) {
+                                                ScaffoldMessenger.of(
+                                                  context,
+                                                ).showSnackBar(
+                                                  SnackBar(
+                                                    content: Text(e.toString()),
+                                                  ),
+                                                );
+                                              }
+                                            },
+                                            child: const Icon(
+                                              CupertinoIcons.arrow_uturn,
+                                              size: 14,
+                                              color: colors.label,
+                                            ),
                                           ),
-                                        ),
                                       ],
                                     ),
                                   ),
@@ -1878,19 +2052,34 @@ class _MoneyScreenState extends State<MoneyScreen> {
 }
 
 class _KV extends StatelessWidget {
-  const _KV(this.label, this.value);
+  const _KV(this.label, this.value, {this.isLink = false, this.onTap});
   final String label;
   final String value;
+  final bool isLink;
+  final VoidCallback? onTap;
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
+    final valueWidget = isLink && onTap != null
+        ? GestureDetector(
+            onTap: onTap,
+            child: Text(
+              value,
+              style: const TextStyle(
+                fontWeight: FontWeight.w600,
+                color: const Color(0xFF007AFF),
+                decoration: TextDecoration.underline,
+              ),
+            ),
+          )
+        : Text(value, style: const TextStyle(fontWeight: FontWeight.w600));
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 3),
       child: Row(
         children: [
           Text(label, style: TextStyle(color: colors.secondaryLabel)),
           const Spacer(),
-          Text(value, style: const TextStyle(fontWeight: FontWeight.w600)),
+          valueWidget,
         ],
       ),
     );
