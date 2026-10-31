@@ -11,9 +11,10 @@
 | client-debt-unpaid-indicator (№16) | …client-debt-unpaid.md | junior | **принято** (ccaeaaf + syntax-fix 9eaeb20) |
 | jobs-search-qa (№1/№2) | …jobs-search-qa.md | junior | **принято** (3a67de6/bc1b664) |
 | money-reversal (возврат вместо void, №15) | …money-reversal.md | senior | **принято** (e853c2e/beeec51/9f92933/0bf7bc1/b893765, DB v17, pushed) |
-| settings-config (соло/тумблеры/пресеты, №8,13,21,23) | …settings-config.md | senior | **выдано** |
-| unified-booking (№19) | план §Б6 | — | не выпущено (большой блок) |
-| release-03811 | — | — | после settings-config: bump 0.3.8+11 → analyze+test → build → publish → verify |
+| settings-config (соло/тумблеры/пресеты, №8,13,21,23) | …settings-config.md | senior | **принято** (651e097/088a7f7/0f38737: ключи+пресеты в controller, UI-gating team/calculator, 4 блока settings + тумблеры + пресеты-карта + terms card; B6/calendar-записи нет в спеке) |
+| unified-booking-RESEARCH (№19, read-only+дизайн) | docs/specs/2026-11-01-unified-booking-design.md | senior | **принято** (адаптер UnifiedEvent, гибрид kanban/calendar, workMode, миграция v18 non-destructive) |
+| unified-booking-code (№19, реализация) | docs/specs/2026-11-01-unified-booking-design.md | senior | не выпущено (ждёт settings-config — флаги workMode) |
+| release-03811 | docs/specs/2026-11-01-release-03811.md | senior | не выпущено: после settings-config (+ по решению unified-booking-code): bump 0.3.8+11 → analyze+test → build → publish → verify |
 
 ## Правила
 - Одна задача = один выпуск; дубль по slug запрещён.
