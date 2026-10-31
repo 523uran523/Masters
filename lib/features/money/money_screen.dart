@@ -169,7 +169,7 @@ class _MoneyScreenState extends State<MoneyScreen> {
   String _formatDate() {
     final f = DateFormat('d MMM yyyy', 'ru');
     if (_dateFrom != null && _dateTo != null) {
-      return '${f.format(_dateFrom!)} вЂ” ${f.format(_dateTo!)}';
+      return '${f.format(_dateFrom!)} — ${f.format(_dateTo!)}';
     }
     if (_dateFrom != null) {
       return 'С ${f.format(_dateFrom!)}';
@@ -213,9 +213,7 @@ class _MoneyScreenState extends State<MoneyScreen> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Text(
-                isIncome
-                    ? ' продажа'
-                    : 'Быстрый расход',
+                isIncome ? ' продажа' : 'Быстрый расход',
                 style: const TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.w700,
@@ -257,9 +255,7 @@ class _MoneyScreenState extends State<MoneyScreen> {
               ),
               const SizedBox(height: 16),
               SecondaryButton(
-                label: isIncome
-                    ? 'Провести '
-                    : 'Провести ',
+                label: isIncome ? 'Провести ' : 'Провести ',
                 icon: isIncome ? CupertinoIcons.plus : CupertinoIcons.minus,
                 onPressed: () async {
                   final amount =
@@ -327,11 +323,7 @@ class _MoneyScreenState extends State<MoneyScreen> {
       await store.transferBetweenAccounts(fromId, toId, amount, note: note);
     } catch (e) {
       if (mounted) {
-        await showAppAlert(
-          context,
-          title: 'Архив',
-          message: e.toString(),
-        );
+        await showAppAlert(context, title: 'Архив', message: e.toString());
       }
     } finally {
       if (mounted) setState(() => _busy = false);
@@ -389,9 +381,7 @@ class _MoneyScreenState extends State<MoneyScreen> {
       await showAppAlert(
         context,
         title: count > 0 ? 'Импорт завершён' : 'Импорт',
-        message: count > 0
-            ? ' транзакций: $count.'
-            : 'Не удалось добавить записи. Проверьте шаблон Excel (колонка amount обязательна).',
+        message: count > 0 ? ' транзакций: $count.' : 'Не удалось добавить записи. Проверьте шаблон Excel (колонка amount обязательна).',
       );
     } finally {
       if (mounted) setState(() => _busy = false);
@@ -469,19 +459,14 @@ class _MoneyScreenState extends State<MoneyScreen> {
       ),
     );
     if (direction == null || !mounted) return;
-    final name = await _prompt(
-      'Название платежа',
-      'ошибка',
-    );
+    final name = await _prompt('Название платежа', 'ошибка');
     if (name == null || name.trim().isEmpty || !mounted) return;
     final amountStr = await _prompt('Сумма', '0');
     if (amountStr == null || !mounted) return;
     final amount =
         ((double.tryParse(amountStr.replaceAll(',', '.')) ?? 0) * 100).round();
     if (amount <= 0) return;
-    final category =
-        await _prompt('Категория', 'регулярно') ??
-        'регулярно';
+    final category = await _prompt('Категория', 'регулярно') ?? 'регулярно';
     final accountId = await _pickAccount();
     if (accountId == null || !mounted) return;
     final now = DateTime.now();
@@ -705,8 +690,7 @@ class _MoneyScreenState extends State<MoneyScreen> {
         await showAppAlert(
           context,
           title: 'Готово',
-          message:
-              'Проведено плановых платежей: $count',
+          message: 'Проведено плановых платежей: $count',
         );
       }
     } finally {
@@ -886,10 +870,7 @@ class _MoneyScreenState extends State<MoneyScreen> {
     }
     final accountId = await _pickAccount();
     if (accountId == null) return;
-    final openingStr = await _prompt(
-      'Начальная сумма в кассе',
-      '0',
-    );
+    final openingStr = await _prompt('Начальная сумма в кассе', '0');
     final opening =
         ((double.tryParse((openingStr ?? '0').replaceAll(',', '.')) ?? 0) * 100)
             .round();
@@ -907,10 +888,7 @@ class _MoneyScreenState extends State<MoneyScreen> {
       );
       return;
     }
-    final closingStr = await _prompt(
-      ' сумма при закрытии',
-      '0',
-    );
+    final closingStr = await _prompt(' сумма при закрытии', '0');
     final closing =
         ((double.tryParse((closingStr ?? '0').replaceAll(',', '.')) ?? 0) * 100)
             .round();
@@ -1046,7 +1024,7 @@ class _MoneyScreenState extends State<MoneyScreen> {
                     ),
                   ),
                   const SizedBox(height: 12),
-                  _KV('Счёт', currentAcc?.name ?? 'вЂ”'),
+                  _KV('Счёт', currentAcc?.name ?? '—'),
                   _KV(
                     'Сумма',
                     '${current.direction == 'in' ? '+' : '-'}${_money(current.amountCents)}',
@@ -1231,10 +1209,7 @@ class _MoneyScreenState extends State<MoneyScreen> {
             CupertinoButton(
               padding: EdgeInsets.zero,
               onPressed: _newAccount,
-              child: const Icon(
-                CupertinoIcons.plus,
-                semanticLabel: 'Добавить',
-              ),
+              child: const Icon(CupertinoIcons.plus, semanticLabel: 'Добавить'),
             ),
           ],
         ),
@@ -1251,23 +1226,14 @@ class _MoneyScreenState extends State<MoneyScreen> {
                       children: [
                         _KV('выручка', _money(todayIncome)),
                         _KV('расходы', _money(todayExpense)),
-                        _KV(
-                          'Прибыль',
-                          _money(todayIncome - todayExpense),
-                        ),
-                        _KV(
-                          '  счетах',
-                          _money(store.totalBalanceCents()),
-                        ),
+                        _KV('Прибыль', _money(todayIncome - todayExpense)),
+                        _KV('  счетах', _money(store.totalBalanceCents())),
                         _KV(
                           'Прогноз   месяца',
                           _money(store.forecastCashToEndOfMonth()),
                         ),
                         if (taxRate > 0) ...[
-                          _KV(
-                            'Налоговый резерв',
-                            _money(reservedTax),
-                          ),
+                          _KV('Налоговый резерв', _money(reservedTax)),
                           _KV(
                             'Налоговый резерв ()',
                             _money(store.forecastTaxReserveToEndOfMonth()),
@@ -1403,9 +1369,7 @@ class _MoneyScreenState extends State<MoneyScreen> {
                   ),
                   const SizedBox(height: 16),
                   const SizedBox(height: 8),
-                  SectionLabel(
-                    ' платежи (${recurringFiltered.length})',
-                  ),
+                  SectionLabel(' платежи (${recurringFiltered.length})'),
                   const SizedBox(height: 6),
                   SecondaryButton(
                     label: _recurringStatusFilter == 'all'
@@ -1568,9 +1532,7 @@ class _MoneyScreenState extends State<MoneyScreen> {
                   SectionLabel('Команда'),
                   ..._teamCards(store, colors),
                   const SizedBox(height: 16),
-                  SectionLabel(
-                    ' клиентов (${_money(totalDebt)})',
-                  ),
+                  SectionLabel(' клиентов (${_money(totalDebt)})'),
                   debtClients.isEmpty
                       ? EmptyState(
                           title: 'Долгов Нет',
@@ -1773,9 +1735,7 @@ class _MoneyScreenState extends State<MoneyScreen> {
                     onPressed: _openDateFilter,
                   ),
                   const SizedBox(height: 16),
-                  SectionLabel(
-                    'Журнал (${store.moneyTransactions.length})',
-                  ),
+                  SectionLabel('Журнал (${store.moneyTransactions.length})'),
                   store.moneyTransactions.isEmpty
                       ? EmptyState(
                           title: ' операций',
@@ -1874,7 +1834,7 @@ class _MoneyScreenState extends State<MoneyScreen> {
                                                     'd MMM, HH:mm',
                                                     'ru',
                                                   ).format(t.createdAt),
-                                                ].join(' вЂў '),
+                                                ].join(' • '),
                                                 style: TextStyle(
                                                   color: colors.secondaryLabel,
                                                   fontSize: 12,

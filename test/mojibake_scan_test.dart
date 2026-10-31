@@ -4,52 +4,12 @@ import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 
 // Signatures of UTF-8-read-as-cp866 double encoding (mojibake) in Russian text.
-// Every damaged two-char sequence starts with 'Р' or 'С' followed by a non-Cyrillic
-// byte, plus the symbol-level damage 'в‚₽' (₽) and 'вЂ—' (—).
-// Keep in sync with the actual damage patterns fixed in lib/.
 const List<String> _mojibakeSignatures = <String>[
-  'Р',
-  'Р­',
-  'Р°',
-  'Р±',
-  'Рµ',
-  'Р¶',
-  'Р·',
-  'Р»',
-  'РЅ',
-  'РІ',
-  'РЈ',
-  'РЎ',
-  'Рё',
-  'Рђ',
-  'Рє',
-  'Рѕ',
-  'Рі',
-  'Рї',
-  'Рј',
-  'Рћ',
-  'Рќ',
-  'Рџ',
-  'Рґ',
-  'Р—',
-  'Р’',
-  'Р№',
-  'СЂ',
-  'СЃ',
-  'СЊ',
-  'СЋ',
-  'СЏ',
-  'Сѓ',
-  'С‘',
-  'С‚',
-  'С†',
-  'С‡',
-  'С…',
-  'С‰',
-  'С‹',
-  'С€',
-  'вЂ—',
-  'в‚Ѕ',
+  'Р', 'Р­', 'Р°', 'Р±', 'Рµ', 'Р¶', 'Р·', 'Р»', 'РЅ', 'РІ',
+  'РЈ', 'РЎ', 'Рё', 'Р�', 'Рє', 'Рѕ', 'Рі', 'Рї', 'Рј', 'Рћ',
+  'Рќ', 'Рџ', 'Рґ', 'Р—', 'Р’', 'Р№', 'СЂ', 'СЃ', 'СЊ', 'СЋ',
+  'СЏ', 'Сѓ', 'С‘', 'С‚', 'С†', 'С‡', 'С…', 'С‰', 'С‹', 'С€',
+  'вЂ', 'в‚', 'вЂў', 'вЂ—', 'в‚Ѕ',
 ];
 
 bool _textHasMojibake(String text) {
@@ -81,18 +41,13 @@ String _readUtf8(File f) {
 void main() {
   test('lib contains no mojibake (double-encoded Cyrillic)', () {
     final problems = <String>[];
-    for (final f in _dartFiles(Directory('lib'))) {
+    final libDir = Directory('lib');
+    for (final f in _dartFiles(libDir)) {
       final text = _readUtf8(f);
       if (_textHasMojibake(text)) {
-        for (final sig in _mojibakeSignatures) {
-          if (text.contains(sig)) problems.add('${f.path}: $sig');
-        }
+        problems.add('${f.path}: Mojibake detected');
       }
     }
-    expect(
-      problems,
-      isEmpty,
-      reason: 'Mojibake double-encoding found in lib: ${problems.join(', ')}',
-    );
+    expect(problems, isEmpty, reason: 'Found mojibake in: ${problems.join(", ")}');
   });
 }
