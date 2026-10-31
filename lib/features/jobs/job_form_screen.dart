@@ -176,6 +176,11 @@ class _JobFormScreenState extends State<JobFormScreen> {
             controller: controller,
             placeholder: placeholder,
             autofocus: true,
+            decoration: BoxDecoration(
+              color: context.colors.card,
+              border: Border.all(color: context.colors.separator),
+              borderRadius: BorderRadius.circular(8),
+            ),
           ),
         ),
         actions: [

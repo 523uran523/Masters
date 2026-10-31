@@ -157,6 +157,11 @@ class _ClientsScreenState extends State<ClientsScreen> {
             controller: controller,
             placeholder: placeholder,
             autofocus: true,
+            decoration: BoxDecoration(
+              color: context.colors.card,
+              border: Border.all(color: context.colors.separator),
+              borderRadius: BorderRadius.circular(8),
+            ),
           ),
         ),
         actions: [
@@ -190,6 +195,11 @@ class _ClientsScreenState extends State<ClientsScreen> {
             onSubmitted: (_) =>
                 Navigator.of(dialogContext)
                     .pop(_clientSearchController.text.trim()),
+            decoration: BoxDecoration(
+              color: context.colors.card,
+              border: Border.all(color: context.colors.separator),
+              borderRadius: BorderRadius.circular(8),
+            ),
           ),
         ),
         actions: [

@@ -40,7 +40,9 @@ class _MastersAppState extends State<MastersApp> with WidgetsBindingObserver {
     widget.store.addListener(_updateWidget);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _updateWidget();
-      WidgetsBinding.instance.addPostFrameCallback((_) => _ensureAppPinIfNeeded().then((_) => _tryAutoSync()));
+      WidgetsBinding.instance.addPostFrameCallback(
+        (_) => _ensureAppPinIfNeeded().then((_) => _tryAutoSync()),
+      );
     });
   }
 
@@ -65,8 +67,7 @@ class _MastersAppState extends State<MastersApp> with WidgetsBindingObserver {
     var unlocked = false;
     while (!unlocked && mounted) {
       final pinController = TextEditingController();
-    final pin = await showCupertinoDialog<String?>(
-
+      final pin = await showCupertinoDialog<String?>(
         context: context,
         builder: (context) => CupertinoAlertDialog(
           title: const Text('Введите PIN'),
@@ -77,6 +78,11 @@ class _MastersAppState extends State<MastersApp> with WidgetsBindingObserver {
               obscureText: true,
               autofocus: true,
               keyboardType: TextInputType.number,
+              decoration: BoxDecoration(
+                color: context.colors.card,
+                border: Border.all(color: context.colors.separator),
+                borderRadius: BorderRadius.circular(8),
+              ),
               onSubmitted: (value) => Navigator.of(context).pop(value.trim()),
             ),
           ),
@@ -87,7 +93,8 @@ class _MastersAppState extends State<MastersApp> with WidgetsBindingObserver {
             ),
             CupertinoDialogAction(
               isDefaultAction: true,
-              onPressed: () => Navigator.of(context).pop(pinController.text.trim()),
+              onPressed: () =>
+                  Navigator.of(context).pop(pinController.text.trim()),
               child: const Text('OK'),
             ),
           ],
@@ -137,7 +144,9 @@ class _MastersAppState extends State<MastersApp> with WidgetsBindingObserver {
         context: context,
         builder: (context) => CupertinoAlertDialog(
           title: const Text('Нашлось обновление на Яндекс Диске'),
-          content: const Text('В облаке новее резервная копия. Заменить локальные данные?'),
+          content: const Text(
+            'В облаке новее резервная копия. Заменить локальные данные?',
+          ),
           actions: [
             CupertinoDialogAction(
               child: const Text('Пропустить'),
@@ -200,10 +209,7 @@ class _MastersAppState extends State<MastersApp> with WidgetsBindingObserver {
             debugShowCheckedModeBanner: false,
             theme: buildCupertinoTheme(brightness),
             locale: const Locale('ru', 'RU'),
-            supportedLocales: const [
-              Locale('ru', 'RU'),
-              Locale('en', 'US'),
-            ],
+            supportedLocales: const [Locale('ru', 'RU'), Locale('en', 'US')],
             localizationsDelegates: const [
               GlobalCupertinoLocalizations.delegate,
               GlobalMaterialLocalizations.delegate,
