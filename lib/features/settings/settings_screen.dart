@@ -31,8 +31,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   bool _updateBusy = false;
   UpdateInfo? _updateInfo;
   String _updateStatus = '';
-  final Set<String> _expandedSettings = <String>{};
-
+  final Set<String> _expanded = {'interface', 'data'};
   static const List<String> _tabLabels = [
     'Сегодня',
     'Заказы',
@@ -855,7 +854,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Widget _settingsGroup(String key, String title, List<Widget> children) {
-    final expanded = _expandedSettings.contains(key);
+    final expanded = _expanded.contains(key);
     return AppCard(
       padding: EdgeInsets.zero,
       child: Column(
@@ -865,9 +864,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
             padding: const EdgeInsets.all(16),
             onPressed: () => setState(() {
               if (expanded) {
-                _expandedSettings.remove(key);
+                _expanded.remove(key);
               } else {
-                _expandedSettings.add(key);
+                _expanded.add(key);
               }
             }),
             child: Row(
@@ -983,394 +982,57 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     ),
                   ),
                   const SizedBox(height: 16),
-                  const SizedBox(height: 16),
                   AppCard(
                     child: Column(
-                      children: [
-                        CupertinoListTile(
-                          title: Text(
-                            settings.hasAppPin
-                                ? 'PIN-код активен'
-                                : 'PIN-код не установлен',
-                          ),
-                          subtitle: const Text(
-                            'Экран блокируется при запуске. Биометрия — в плане.',
-                          ),
-                        ),
-                        SecondaryButton(
-                          label: settings.hasAppPin
-                              ? 'Сменить или убрать PIN'
-                              : 'Установить PIN',
-                          icon: CupertinoIcons.lock,
-                          onPressed: _managePin,
-                        ),
-                        if (settings.hasAppPin) ...[
-                          const SizedBox(height: 8),
-                          SecondaryButton(
-                            label: 'Выключить PIN',
-                            icon: CupertinoIcons.lock_open,
-                            onPressed: () async {
-                              final ok = await showAppConfirm(
-                                context,
-                                title: 'Выключить PIN?',
-                                message: 'После этого приложение будет открываться без PIN.',
-                                destructive: true,
-                                confirmLabel: 'Выключить',
-                              );
-                              if (!ok || !context.mounted) return;
-                              await context
-                                  .read<SettingsController>()
-                                  .setAppPin(null);
-                              if (context.mounted)
-                                await showAppAlert(
-                                  context,
-                                  title: 'Готово',
-                                  message: 'PIN выключен.',
-                                );
-                              if (mounted) setState(() {});
-                            },
-                          ),
-                        ],
-                        const SizedBox(height: 8),
-                        FutureBuilder<bool>(
-                          future: AppBiometricService.isAvailable(),
-                          builder: (context, snapshot) {
-                            final available = snapshot.data ?? false;
-                            if (!available) return const SizedBox.shrink();
-                            return Row(
-                              children: [
-                                const Expanded(
-                                  child: Text('Биометрия (разблокировка)'),
-                                ),
-                                CupertinoSwitch(
-                                  value: settings.biometricEnabled,
-                                  onChanged: (v) async {
-                                    await context
-                                        .read<SettingsController>()
-                                        .setBiometricEnabled(v);
-                                    if (!context.mounted) return;
-                                    setState(() {});
-                                  },
-                                ),
-                              ],
-                            );
-                          },
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                ]),
-                _settingsGroup('privacy', 'Безопасность', [
-                  AppCard(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text('Записей: ${_auditEntries.length}'),
-                        const SizedBox(height: 8),
-                        SecondaryButton(
-                          label: _auditBusy
-                              ? 'Загрузка...'
-                              : 'Показать журнал аудита',
-                          icon: CupertinoIcons.doc_text_search,
-                          onPressed: _auditBusy ? () {} : _showAuditLog,
-                        ),
-                      ],
-                    ),
-                  ),
-                  AppCard(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Текущая версия: ${_updateInfo?.currentVersionCode ?? '...'}',
-                        ),
-                        if (_updateStatus.isNotEmpty) ...[
-                          const SizedBox(height: 4),
-                          Text(
-                            _updateStatus,
-                            style: TextStyle(
-                              color: context.colors.secondaryLabel,
-                              fontSize: 12,
-                            ),
-                          ),
-                        ],
-                        const SizedBox(height: 8),
-                        SecondaryButton(
-                          label: _updateBusy
-                              ? 'Проверка...'
-                              : 'Проверить обновления',
-                          icon: CupertinoIcons.cloud_download,
-                          onPressed: _updateBusy ? () {} : _checkForUpdates,
-                        ),
-                        if (_updateInfo != null &&
-                            _updateInfo!.updateAvailable) ...[
-                          const SizedBox(height: 8),
-                          SecondaryButton(
-                            label:
-                                'Скачать и установить ${_updateInfo!.latestVersionName}',
-                            icon: CupertinoIcons.arrow_down_circle,
-                            onPressed: _updateBusy
-                                ? () {}
-                                : () => _downloadAndInstallUpdate(_updateInfo!),
-                          ),
-                        ],
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                ]),
-                _settingsGroup('money', 'Деньги', [
-                  AppCard(
-                    child: Column(
-                      children: [
-                        _ActionTile(
-                          icon: CupertinoIcons.list_bullet,
-                          label: 'Журнал действий',
-                          onTap: _showAuditLog,
-                        ),
-                        Hairline(indent: 0),
-                        _ActionTile(
-                          icon: CupertinoIcons.cloud_download,
-                          label: 'Экспорт JSON',
-                          onTap: _exportBackup,
-                        ),
-                        Hairline(indent: 0),
-                        _ActionTile(
-                          icon: CupertinoIcons.cloud_upload,
-                          label: 'Восстановить JSON',
-                          onTap: _importBackup,
-                        ),
-                        Hairline(indent: 0),
-                        _ActionTile(
-                          icon: CupertinoIcons.table,
-                          label: 'Экспорт CSV',
-                          onTap: _exportExcel,
-                        ),
-                        Hairline(indent: 0),
-                        _ActionTile(
-                          icon: CupertinoIcons.trash,
-                          label: 'Очистить данные',
-                          destructive: true,
-                          onTap: _clearData,
-                        ),
-                        Hairline(indent: 0),
-                        _ActionTile(
-                          icon: CupertinoIcons.shield_fill,
-                          label: 'Проверить целостность данных',
-                          onTap: _checkDataIntegrity,
-                        ),
-                        Hairline(indent: 0),
-                        _ActionTile(
-                          icon: CupertinoIcons.lock_shield,
-                          label: 'Закрыть текущий месяц',
-                          onTap: _closeCurrentPeriod,
-                        ),
-                        Hairline(indent: 0),
-                        _ActionTile(
-                          icon: CupertinoIcons.lock_open,
-                          label: 'Переоткрыть последний период',
-                          onTap: _reopenLastClosedPeriod,
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  SectionLabel('Яндекс Диск (бэкап и синхронизация)'),
-                  AppCard(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        if (!settings.yandexConnected) ...[
-                          Text(
-                            'Вход выполняется на сайте Яндекса в браузере. '
-                            'Приложение не видит ваш пароль и хранит только токен доступа.',
-                            style: TextStyle(
-                              color: colors.secondaryLabel,
-                              fontSize: 12,
-                            ),
-                          ),
-                          const SizedBox(height: 10),
-                          SecondaryButton(
-                            label: 'Войти через Яндекс',
-                            icon: CupertinoIcons.person_badge_plus,
-                            onPressed: _connectYandex,
-                          ),
-                          if (_awaitingCode) ...[
-                            const SizedBox(height: 8),
-                            CupertinoTextField(
-                              controller: _yandexCodeController,
-                              placeholder: 'Код со страницы Яндекса',
-                              onSubmitted: (_) => _submitYandexCode(),
-                            ),
-                            const SizedBox(height: 8),
-                            SecondaryButton(
-                              label: 'Подтвердить код',
-                              icon: CupertinoIcons.checkmark,
-                              onPressed: _submitYandexCode,
-                            ),
-                          ],
-                        ] else ...[
-                          Row(
-                            children: [
-                              Icon(
-                                CupertinoIcons.checkmark_seal_fill,
-                                color: colors.accent,
-                                size: 18,
-                              ),
-                              const SizedBox(width: 8),
-                              const Expanded(
-                                child: Text('Яндекс Диск подключён'),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 8),
-                          if (settings.yandexLastCloudModified != null)
-                            Text(
-                              'Облако обновлено: ${settings.yandexLastCloudModified!.toLocal()}',
-                              style: TextStyle(
-                                color: colors.secondaryLabel,
-                                fontSize: 12,
-                              ),
-                            ),
-                          Row(
-                            children: [
-                              const Expanded(
-                                child: Text('Автобэкап при запуске'),
-                              ),
-                              CupertinoSwitch(
-                                value: settings.yandexAutoBackup,
-                                onChanged: (v) async {
-                                  await context
-                                      .read<SettingsController>()
-                                      .setYandexAutoBackup(v);
-                                  if (!context.mounted) return;
-                                  setState(() {});
-                                },
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            'Бэкап хранится в папке «Masters» на Диске в формате JSON. '
-                            'Этот же файл использует приложение на Android.',
-                            style: TextStyle(
-                              color: colors.secondaryLabel,
-                              fontSize: 12,
-                            ),
-                          ),
-                          const SizedBox(height: 10),
-                          SecondaryButton(
-                            label: 'Проверить подключение',
-                            icon: CupertinoIcons.checkmark,
-                            onPressed: _testYandex,
-                          ),
-                          const SizedBox(height: 8),
-                          SecondaryButton(
-                            label: 'Синхронизировать',
-                            icon: CupertinoIcons.refresh,
-                            onPressed: _syncYandex,
-                          ),
-                          const SizedBox(height: 8),
-                          SecondaryButton(
-                            label: 'Загрузить бэкап сейчас',
-                            icon: CupertinoIcons.cloud_upload,
-                            onPressed: _uploadYandex,
-                          ),
-                          const SizedBox(height: 8),
-                          SecondaryButton(
-                            label: 'Восстановить из Яндекс Диска',
-                            icon: CupertinoIcons.cloud_download,
-                            onPressed: _restoreYandex,
-                          ),
-                          const SizedBox(height: 8),
-                          SecondaryButton(
-                            label: 'Отключить',
-                            icon: CupertinoIcons.person_badge_minus,
-                            onPressed: _disconnectYandex,
-                          ),
-                        ],
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  AppCard(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Row(
                           children: [
-                            const Expanded(
-                              child: Text('Показывать теги в заказах'),
-                            ),
+                            const Text('Ежедневное напоминание'),
+                            const Spacer(),
                             CupertinoSwitch(
-                              value: settings.jobTagsEnabled,
-                              onChanged: (value) async {
-                                await settings.setJobTagsEnabled(value);
-                                if (mounted) setState(() {});
+                              value: settings.reminderEnabled,
+                              onChanged: (v) async {
+                                if (v) {
+                                  await settings.setReminder(true);
+                                  await ReminderService.scheduleDaily(
+                                    settings.reminderHour,
+                                    settings.reminderMinute,
+                                  );
+                                } else {
+                                  await settings.setReminder(false);
+                                  await ReminderService.cancel();
+                                }
+                                setState(() {});
                               },
                             ),
                           ],
                         ),
-                        const SizedBox(height: 8),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: CupertinoTextField(
-                                controller: _tagController,
-                                placeholder: 'Новый тег',
+                        if (settings.reminderEnabled) ...[
+                          const SizedBox(height: 10),
+                          Row(
+                            children: [
+                              Text(
+                                'Время',
+                                style: TextStyle(color: colors.secondaryLabel),
                               ),
-                            ),
-                            CupertinoButton(
-                              padding: EdgeInsets.zero,
-                              child: const Icon(
-                                CupertinoIcons.plus,
-                                semanticLabel: 'Добавить',
-                              ),
-                              onPressed: () async {
-                                await context
-                                    .read<SettingsController>()
-                                    .addJobTag(_tagController.text);
-                                _tagController.clear();
-                                if (mounted) setState(() {});
-                              },
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 8),
-                        Wrap(
-                          spacing: 8,
-                          runSpacing: 8,
-                          children: [
-                            for (final tag
-                                in context.watch<SettingsController>().jobTags)
-                              GestureDetector(
-                                onTap: () async {
-                                  await context
-                                      .read<SettingsController>()
-                                      .removeJobTag(tag);
-                                  if (mounted) setState(() {});
-                                },
-                                child: Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 10,
-                                    vertical: 6,
+                              const Spacer(),
+                              CupertinoButton(
+                                padding: EdgeInsets.zero,
+                                onPressed: () => _pickReminderTime(settings),
+                                child: Text(
+                                  '${settings.reminderHour.toString().padLeft(2, '0')}:${settings.reminderMinute.toString().padLeft(2, '0')}',
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.w600,
                                   ),
-                                  decoration: BoxDecoration(
-                                    color: context.colors.cardElevated,
-                                    borderRadius: BorderRadius.circular(99),
-                                  ),
-                                  child: Text(tag),
                                 ),
                               ),
-                          ],
-                        ),
+                            ],
+                          ),
+                        ],
                       ],
                     ),
                   ),
                   const SizedBox(height: 16),
-                ]),
-                _settingsGroup('app', 'Приложение', [
                   AppCard(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1489,6 +1151,393 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
+                        Row(
+                          children: [
+                            const Expanded(
+                              child: Text('Показывать теги в заказах'),
+                            ),
+                            CupertinoSwitch(
+                              value: settings.jobTagsEnabled,
+                              onChanged: (value) async {
+                                await settings.setJobTagsEnabled(value);
+                                if (mounted) setState(() {});
+                              },
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: CupertinoTextField(
+                                controller: _tagController,
+                                placeholder: 'Новый тег',
+                              ),
+                            ),
+                            CupertinoButton(
+                              padding: EdgeInsets.zero,
+                              child: const Icon(
+                                CupertinoIcons.plus,
+                                semanticLabel: 'Добавить',
+                              ),
+                              onPressed: () async {
+                                await context
+                                    .read<SettingsController>()
+                                    .addJobTag(_tagController.text);
+                                _tagController.clear();
+                                if (mounted) setState(() {});
+                              },
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          children: [
+                            for (final tag
+                                in context.watch<SettingsController>().jobTags)
+                              GestureDetector(
+                                onTap: () async {
+                                  await context
+                                      .read<SettingsController>()
+                                      .removeJobTag(tag);
+                                  if (mounted) setState(() {});
+                                },
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 10,
+                                    vertical: 6,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: context.colors.cardElevated,
+                                    borderRadius: BorderRadius.circular(99),
+                                  ),
+                                  child: Text(tag),
+                                ),
+                              ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                ]),
+                _settingsGroup('data', 'Данные и Яндекс', [
+                  AppCard(
+                    child: Column(
+                      children: [
+                        _ActionTile(
+                          icon: CupertinoIcons.list_bullet,
+                          label: 'Журнал действий',
+                          onTap: _showAuditLog,
+                        ),
+                        Hairline(indent: 0),
+                        _ActionTile(
+                          icon: CupertinoIcons.cloud_download,
+                          label: 'Экспорт JSON',
+                          onTap: _exportBackup,
+                        ),
+                        Hairline(indent: 0),
+                        _ActionTile(
+                          icon: CupertinoIcons.cloud_upload,
+                          label: 'Восстановить JSON',
+                          onTap: _importBackup,
+                        ),
+                        Hairline(indent: 0),
+                        _ActionTile(
+                          icon: CupertinoIcons.table,
+                          label: 'Экспорт CSV',
+                          onTap: _exportExcel,
+                        ),
+                        Hairline(indent: 0),
+                        _ActionTile(
+                          icon: CupertinoIcons.trash,
+                          label: 'Очистить данные',
+                          destructive: true,
+                          onTap: _clearData,
+                        ),
+                        Hairline(indent: 0),
+                        _ActionTile(
+                          icon: CupertinoIcons.shield_fill,
+                          label: 'Проверить целостность данных',
+                          onTap: _checkDataIntegrity,
+                        ),
+                        Hairline(indent: 0),
+                        _ActionTile(
+                          icon: CupertinoIcons.lock_shield,
+                          label: 'Закрыть текущий месяц',
+                          onTap: _closeCurrentPeriod,
+                        ),
+                        Hairline(indent: 0),
+                        _ActionTile(
+                          icon: CupertinoIcons.lock_open,
+                          label: 'Переоткрыть последний период',
+                          onTap: _reopenLastClosedPeriod,
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  AppCard(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        if (!settings.yandexConnected) ...[
+                          Text(
+                            'Вход выполняется на сайте Яндекса в браузере. '
+                            'Приложение не видит ваш пароль и хранит только токен доступа.',
+                            style: TextStyle(
+                              color: colors.secondaryLabel,
+                              fontSize: 12,
+                            ),
+                          ),
+                          const SizedBox(height: 10),
+                          SecondaryButton(
+                            label: 'Войти через Яндекс',
+                            icon: CupertinoIcons.person_badge_plus,
+                            onPressed: _connectYandex,
+                          ),
+                          if (_awaitingCode) ...[
+                            const SizedBox(height: 8),
+                            CupertinoTextField(
+                              controller: _yandexCodeController,
+                              placeholder: 'Код со страницы Яндекса',
+                              onSubmitted: (_) => _submitYandexCode(),
+                            ),
+                            const SizedBox(height: 8),
+                            SecondaryButton(
+                              label: 'Подтвердить код',
+                              icon: CupertinoIcons.checkmark,
+                              onPressed: _submitYandexCode,
+                            ),
+                          ],
+                        ] else ...[
+                          Row(
+                            children: [
+                              Icon(
+                                CupertinoIcons.checkmark_seal_fill,
+                                color: colors.accent,
+                                size: 18,
+                              ),
+                              const SizedBox(width: 8),
+                              const Expanded(
+                                child: Text('Яндекс Диск подключён'),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          if (settings.yandexLastCloudModified != null)
+                            Text(
+                              'Облако обновлено: ${settings.yandexLastCloudModified!.toLocal()}',
+                              style: TextStyle(
+                                color: colors.secondaryLabel,
+                                fontSize: 12,
+                              ),
+                            ),
+                          Row(
+                            children: [
+                              const Expanded(
+                                child: Text('Автобэкап при запуске'),
+                              ),
+                              CupertinoSwitch(
+                                value: settings.yandexAutoBackup,
+                                onChanged: (v) async {
+                                  await context
+                                      .read<SettingsController>()
+                                      .setYandexAutoBackup(v);
+                                  if (!context.mounted) return;
+                                  setState(() {});
+                                },
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            'Бэкап хранится в папке «Masters» на Диске в формате JSON. '
+                            'Этот же файл использует приложение на Android.',
+                            style: TextStyle(
+                              color: colors.secondaryLabel,
+                              fontSize: 12,
+                            ),
+                          ),
+                          const SizedBox(height: 10),
+                          SecondaryButton(
+                            label: 'Проверить подключение',
+                            icon: CupertinoIcons.checkmark,
+                            onPressed: _testYandex,
+                          ),
+                          const SizedBox(height: 8),
+                          SecondaryButton(
+                            label: 'Синхронизировать',
+                            icon: CupertinoIcons.refresh,
+                            onPressed: _syncYandex,
+                          ),
+                          const SizedBox(height: 8),
+                          SecondaryButton(
+                            label: 'Загрузить бэкап сейчас',
+                            icon: CupertinoIcons.cloud_upload,
+                            onPressed: _uploadYandex,
+                          ),
+                          const SizedBox(height: 8),
+                          SecondaryButton(
+                            label: 'Восстановить из Яндекс Диска',
+                            icon: CupertinoIcons.cloud_download,
+                            onPressed: _restoreYandex,
+                          ),
+                          const SizedBox(height: 8),
+                          SecondaryButton(
+                            label: 'Отключить',
+                            icon: CupertinoIcons.person_badge_minus,
+                            onPressed: _disconnectYandex,
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                ]),
+                _settingsGroup('security', 'Безопасность и аудит', [
+                  AppCard(
+                    child: Column(
+                      children: [
+                        CupertinoListTile(
+                          title: Text(
+                            settings.hasAppPin
+                                ? 'PIN-код активен'
+                                : 'PIN-код не установлен',
+                          ),
+                          subtitle: const Text(
+                            'Экран блокируется при запуске. Биометрия — в плане.',
+                          ),
+                        ),
+                        SecondaryButton(
+                          label: settings.hasAppPin
+                              ? 'Сменить или убрать PIN'
+                              : 'Установить PIN',
+                          icon: CupertinoIcons.lock,
+                          onPressed: _managePin,
+                        ),
+                        if (settings.hasAppPin) ...[
+                          const SizedBox(height: 8),
+                          SecondaryButton(
+                            label: 'Выключить PIN',
+                            icon: CupertinoIcons.lock_open,
+                            onPressed: () async {
+                              final ok = await showAppConfirm(
+                                context,
+                                title: 'Выключить PIN?',
+                                message: 'После этого приложение будет открываться без PIN.',
+                                destructive: true,
+                                confirmLabel: 'Выключить',
+                              );
+                              if (!ok || !context.mounted) return;
+                              await context
+                                  .read<SettingsController>()
+                                  .setAppPin(null);
+                              if (context.mounted)
+                                await showAppAlert(
+                                  context,
+                                  title: 'Готово',
+                                  message: 'PIN выключен.',
+                                );
+                              if (mounted) setState(() {});
+                            },
+                          ),
+                        ],
+                        const SizedBox(height: 8),
+                        FutureBuilder<bool>(
+                          future: AppBiometricService.isAvailable(),
+                          builder: (context, snapshot) {
+                            final available = snapshot.data ?? false;
+                            if (!available) return const SizedBox.shrink();
+                            return Row(
+                              children: [
+                                const Expanded(
+                                  child: Text('Биометрия (разблокировка)'),
+                                ),
+                                CupertinoSwitch(
+                                  value: settings.biometricEnabled,
+                                  onChanged: (v) async {
+                                    await context
+                                        .read<SettingsController>()
+                                        .setBiometricEnabled(v);
+                                    if (!context.mounted) return;
+                                    setState(() {});
+                                  },
+                                ),
+                              ],
+                            );
+                          },
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  AppCard(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('Записей: ${_auditEntries.length}'),
+                        const SizedBox(height: 8),
+                        SecondaryButton(
+                          label: _auditBusy
+                              ? 'Загрузка...'
+                              : 'Показать журнал аудита',
+                          icon: CupertinoIcons.doc_text_search,
+                          onPressed: _auditBusy ? () {} : _showAuditLog,
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                ]),
+                _settingsGroup('app', 'Приложение и обновления', [
+                  AppCard(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Текущая версия: ${_updateInfo?.currentVersionCode ?? '...'}',
+                        ),
+                        if (_updateStatus.isNotEmpty) ...[
+                          const SizedBox(height: 4),
+                          Text(
+                            _updateStatus,
+                            style: TextStyle(
+                              color: context.colors.secondaryLabel,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ],
+                        const SizedBox(height: 8),
+                        SecondaryButton(
+                          label: _updateBusy
+                              ? 'Проверка...'
+                              : 'Проверить обновления',
+                          icon: CupertinoIcons.cloud_download,
+                          onPressed: _updateBusy ? () {} : _checkForUpdates,
+                        ),
+                        if (_updateInfo != null &&
+                            _updateInfo!.updateAvailable) ...[
+                          const SizedBox(height: 8),
+                          SecondaryButton(
+                            label:
+                                'Скачать и установить ${_updateInfo!.latestVersionName}',
+                            icon: CupertinoIcons.arrow_down_circle,
+                            onPressed: _updateBusy
+                                ? () {}
+                                : () => _downloadAndInstallUpdate(_updateInfo!),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  AppCard(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
                         const Text(
                           'Masters',
                           style: TextStyle(fontWeight: FontWeight.w600),
@@ -1509,58 +1558,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
                             fontSize: 12,
                           ),
                         ),
-                      ],
-                    ),
-                  ),
-                ]),
-                _settingsGroup('reminders', 'Напоминания', [
-                  AppCard(
-                    child: Column(
-                      children: [
-                        Row(
-                          children: [
-                            const Text('Ежедневное напоминание'),
-                            const Spacer(),
-                            CupertinoSwitch(
-                              value: settings.reminderEnabled,
-                              onChanged: (v) async {
-                                if (v) {
-                                  await settings.setReminder(true);
-                                  await ReminderService.scheduleDaily(
-                                    settings.reminderHour,
-                                    settings.reminderMinute,
-                                  );
-                                } else {
-                                  await settings.setReminder(false);
-                                  await ReminderService.cancel();
-                                }
-                                setState(() {});
-                              },
-                            ),
-                          ],
-                        ),
-                        if (settings.reminderEnabled) ...[
-                          const SizedBox(height: 10),
-                          Row(
-                            children: [
-                              Text(
-                                'Время',
-                                style: TextStyle(color: colors.secondaryLabel),
-                              ),
-                              const Spacer(),
-                              CupertinoButton(
-                                padding: EdgeInsets.zero,
-                                onPressed: () => _pickReminderTime(settings),
-                                child: Text(
-                                  '${settings.reminderHour.toString().padLeft(2, '0')}:${settings.reminderMinute.toString().padLeft(2, '0')}',
-                                  style: const TextStyle(
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
                       ],
                     ),
                   ),
