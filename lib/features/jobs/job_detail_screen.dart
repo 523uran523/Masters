@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:math';
 
 import 'package:flutter/cupertino.dart';
 import 'package:file_picker/file_picker.dart';
@@ -627,15 +626,27 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
                       ),
                     ),
                   ],
-                  if (settings.jobTagsEnabled &&
-                      job.tags != null &&
-                      job.tags!.trim().isNotEmpty) ...[
-                    const SizedBox(height: 8),
-                    Text(
-                      '╨в╨╡╨│╨╕: ${job.tags}',
-                      style: TextStyle(color: colors.accent, fontSize: 12),
-                    ),
-                  ],
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 6,
+                    runSpacing: 4,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    children: [
+                      Pill(
+                        job.priority.label,
+                        color: _priorityColor(context, job.priority),
+                      ),
+                      if (settings.jobTagsEnabled &&
+                          job.tags != null &&
+                          job.tags!.trim().isNotEmpty)
+                        for (final tag
+                            in job.tags!
+                                .split(',')
+                                .map((e) => e.trim())
+                                .where((e) => e.isNotEmpty))
+                          Pill(tag, color: _tagColor(tag)),
+                    ],
+                  ),
                 ],
               ),
             ),
@@ -1126,4 +1137,31 @@ class _ActionTile extends StatelessWidget {
       ),
     );
   }
+}
+
+Color _priorityColor(BuildContext context, JobPriority priority) {
+  final colors = context.colors;
+  return switch (priority) {
+    JobPriority.low => const Color(0xFF6B7A8F),
+    JobPriority.medium => colors.orange,
+    JobPriority.high => colors.red,
+  };
+}
+
+Color _tagColor(String tag) {
+  const palette = <Color>[
+    Color(0xFF007AFF),
+    Color(0xFF34C759),
+    Color(0xFFFF9500),
+    Color(0xFFAF52DE),
+    Color(0xFFFF2D55),
+    Color(0xFF5AC8FA),
+    Color(0xFFFFCC00),
+    Color(0xFF8E8E93),
+  ];
+  final hash = tag.trim().codeUnits.fold<int>(
+    0,
+    (value, unit) => value * 31 + unit,
+  );
+  return palette[hash.abs() % palette.length];
 }

@@ -1083,6 +1083,16 @@ class _JobRow extends StatelessWidget {
                   runSpacing: 4,
                   crossAxisAlignment: WrapCrossAlignment.center,
                   children: [
+                    Pill(
+                      job.priority.label,
+                      color: _priorityColor(context, job.priority),
+                    ),
+                    for (final tag
+                        in (job.tags ?? '')
+                            .split(',')
+                            .map((e) => e.trim())
+                            .where((e) => e.isNotEmpty))
+                      Pill(tag, color: _tagColor(tag)),
                     Text(
                       clientName,
                       style: TextStyle(
@@ -1177,10 +1187,20 @@ class _JobCard extends StatelessWidget {
           ),
           const SizedBox(height: 6),
           Wrap(
-            spacing: 6,
-            runSpacing: 4,
+            spacing: 4,
+            runSpacing: 2,
             crossAxisAlignment: WrapCrossAlignment.center,
             children: [
+              Pill(
+                job.priority.label,
+                color: _priorityColor(context, job.priority),
+              ),
+              for (final tag
+                  in (job.tags ?? '')
+                      .split(',')
+                      .map((e) => e.trim())
+                      .where((e) => e.isNotEmpty))
+                Pill(tag, color: _tagColor(tag)),
               if (job.dueDate != null)
                 Pill(
                   job.dueDate!.year == DateTime.now().year
@@ -1226,6 +1246,33 @@ class _JobCard extends StatelessWidget {
       ),
     );
   }
+}
+
+Color _priorityColor(BuildContext context, JobPriority priority) {
+  final colors = context.colors;
+  return switch (priority) {
+    JobPriority.low => const Color(0xFF6B7A8F),
+    JobPriority.medium => colors.orange,
+    JobPriority.high => colors.red,
+  };
+}
+
+Color _tagColor(String tag) {
+  const palette = <Color>[
+    Color(0xFF007AFF),
+    Color(0xFF34C759),
+    Color(0xFFFF9500),
+    Color(0xFFAF52DE),
+    Color(0xFFFF2D55),
+    Color(0xFF5AC8FA),
+    Color(0xFFFFCC00),
+    Color(0xFF8E8E93),
+  ];
+  final hash = tag.trim().codeUnits.fold<int>(
+    0,
+    (value, unit) => value * 31 + unit,
+  );
+  return palette[hash.abs() % palette.length];
 }
 
 Color _dueColor(BuildContext context, Job job) {
