@@ -608,8 +608,17 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
                     Text(
                       job.note!,
                       style: TextStyle(
-                        color: colors.secondaryLabel,
+                        color:
+                            job.status == JobStatus.done ||
+                                job.status == JobStatus.closed
+                            ? colors.tertiaryLabel
+                            : colors.secondaryLabel,
                         fontSize: 14,
+                        decoration:
+                            job.status == JobStatus.done ||
+                                job.status == JobStatus.closed
+                            ? TextDecoration.lineThrough
+                            : null,
                       ),
                     ),
                   ],
