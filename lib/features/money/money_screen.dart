@@ -24,8 +24,7 @@ class MoneyScreen extends StatefulWidget {
 
 class _MoneyScreenState extends State<MoneyScreen> {
   bool _busy = false;
-  late final TextEditingController _txSearchController =
-      TextEditingController(text: _txQuery);
+  final _txSearchController = TextEditingController();
   String _directionFilter = 'all';
   String? _accountFilter;
   String _txQuery = '';
