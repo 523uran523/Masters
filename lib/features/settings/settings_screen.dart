@@ -923,27 +923,48 @@ class _SettingsScreenState extends State<SettingsScreen> {
               padding: const EdgeInsets.fromLTRB(16, 12, 16, 72),
               children: [
                 _settingsGroup('interface', 'Интерфейс', [
-                  AppCard(
-                    child: Row(
-                      children: [
-                        const Text('Тема'),
-                        const Spacer(),
-                        CupertinoSegmentedControl<AppThemeMode>(
-                          groupValue: settings.themeMode,
-                          onValueChanged: settings.setThemeMode,
-                          children: {
-                            for (final m in AppThemeMode.values)
-                              m: Padding(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 6,
-                                  vertical: 6,
-                                ),
-                                child: Text(m.shortLabel),
-                              ),
-                          },
+                  SecondaryButton(
+                    label: 'Тема: ${settings.themeName}',
+                    icon: CupertinoIcons.moon_stars,
+                    onPressed: () async {
+                      final choice = await showCupertinoModalPopup<String?>(
+                        context: context,
+                        builder: (dialogContext) => CupertinoActionSheet(
+                          actions: [
+                            CupertinoActionSheetAction(
+                              onPressed: () =>
+                                  Navigator.of(dialogContext).pop('system'),
+                              child: const Text('System'),
+                            ),
+                            CupertinoActionSheetAction(
+                              onPressed: () =>
+                                  Navigator.of(dialogContext).pop('light'),
+                              child: const Text('Light'),
+                            ),
+                            CupertinoActionSheetAction(
+                              onPressed: () =>
+                                  Navigator.of(dialogContext).pop('dark'),
+                              child: const Text('Dark'),
+                            ),
+                          ],
+                          cancelButton: CupertinoActionSheetAction(
+                            onPressed: () => Navigator.of(dialogContext).pop(),
+                            child: const Text('Отмена'),
+                          ),
                         ),
-                      ],
-                    ),
+                      );
+                      if (choice != null) {
+                        await settings.setThemeMode(
+                          AppThemeMode.values.firstWhere(
+                            (mode) => mode.name == choice,
+                            orElse: () => settings.themeMode,
+                          ),
+                        );
+                        if (mounted) {
+                          setState(() {});
+                        }
+                      }
+                    },
                   ),
                   const SizedBox(height: 16),
                   AppCard(
@@ -1615,4 +1636,12 @@ class _ActionTile extends StatelessWidget {
       ),
     );
   }
+}
+
+extension _MastersSettingsThemeName on SettingsController {
+  String get themeName => switch (themeMode) {
+    AppThemeMode.system => 'System',
+    AppThemeMode.light => 'Light',
+    AppThemeMode.dark => 'Dark',
+  };
 }
