@@ -47,6 +47,7 @@ class SettingsController extends ChangeNotifier {
   static const _hiddenTabsKey = 'hidden_tabs';
   static const _taxRateKey = 'tax_rate';
   static const _taxAccountKey = 'tax_account';
+  static const _hourRateCentsKey = 'hour_rate_cents';
   static const _jobTagsKey = 'job_tags';
   static const _jobTagsEnabledKey = 'job_tags_enabled';
   static const _appPinHashKey = 'app_pin_hash';
@@ -192,6 +193,13 @@ class SettingsController extends ChangeNotifier {
     } else {
       await _prefs.setString(_taxAccountKey, value);
     }
+    notifyListeners();
+  }
+
+  int get hourRateCents => _prefs.getInt(_hourRateCentsKey) ?? 0;
+
+  Future<void> setHourRateCents(int value) async {
+    await _prefs.setInt(_hourRateCentsKey, value.clamp(0, 10_000_000));
     notifyListeners();
   }
 

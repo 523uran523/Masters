@@ -1178,6 +1178,37 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       ],
                     ),
                   ),
+                  const SizedBox(height: 8),
+                  AppCard(
+                    child: Row(
+                      children: [
+                        const Expanded(child: Text('Ставка за час, ₽')),
+                        Text(
+                          '${(settings.hourRateCents / 100).toStringAsFixed(0)}',
+                          style: const TextStyle(fontWeight: FontWeight.w600),
+                        ),
+                        const Text(
+                          ' ₽',
+                          style: TextStyle(fontWeight: FontWeight.w600),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  SecondaryButton(
+                    label: 'Изменить ставку за час',
+                    icon: CupertinoIcons.clock,
+                    onPressed: () async {
+                      final v = await _promptPin(
+                        'Ставка за час, ₽',
+                        settings.hourRateCents.toString(),
+                      );
+                      if (v == null || !mounted) return;
+                      final cents = int.tryParse(v.trim()) ?? 0;
+                      await settings.setHourRateCents(cents);
+                      if (mounted) setState(() {});
+                    },
+                  ),
                   const SizedBox(height: 16),
                   AppCard(
                     child: Column(
