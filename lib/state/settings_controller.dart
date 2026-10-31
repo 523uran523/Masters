@@ -55,6 +55,8 @@ class SettingsController extends ChangeNotifier {
   static const _appBiometricEnabledKey = 'app_biometric_enabled';
   static const _cashShiftEnabledKey = 'cash_shift_enabled';
   static const _kanbanColumnsKey = 'kanban_columns';
+  static const _teamEnabledKey = 'team_enabled';
+  static const _calculatorEnabledKey = 'calculator_enabled';
 
   static Future<SettingsController> load() async {
     tzdata.initializeTimeZones();
@@ -159,6 +161,46 @@ class SettingsController extends ChangeNotifier {
   Future<void> setKanbanColumns(List<String> value) async {
     final next = value.where((e) => e.isNotEmpty).toList();
     await _prefs.setStringList(_kanbanColumnsKey, next);
+    notifyListeners();
+  }
+
+  /// Включена ли «команда» (сотрудники, зарплаты, назначение исполнителей).
+  /// По умолчанию — включена; при выключении соответствующие элементы
+  /// интерфейса скрываются (данные не удаляются).
+  bool get teamEnabled => _prefs.getBool(_teamEnabledKey) ?? true;
+
+  Future<void> setTeamEnabled(bool value) async {
+    await _prefs.setBool(_teamEnabledKey, value);
+    notifyListeners();
+  }
+
+  /// Включён ли калькулятор цен. По умолчанию — включён.
+  bool get calculatorEnabled => _prefs.getBool(_calculatorEnabledKey) ?? true;
+
+  Future<void> setCalculatorEnabled(bool value) async {
+    await _prefs.setBool(_calculatorEnabledKey, value);
+    notifyListeners();
+  }
+
+  /// Презеты стандартной конфигурации: выставляют набор ключей одним действием.
+  Future<void> applyConfigPreset(String preset) async {
+    switch (preset) {
+      case 'solo':
+        await setTeamEnabled(false);
+        await setCalculatorEnabled(true);
+        await setJobTagsEnabled(true);
+      case 'team':
+        await setTeamEnabled(true);
+        await setCalculatorEnabled(true);
+        await setJobTagsEnabled(true);
+        await setKanbanColumns(const []);
+      case 'clients':
+        await setTeamEnabled(false);
+        await setKanbanColumns(const []);
+        await setReminder(true);
+      default:
+        return;
+    }
     notifyListeners();
   }
 
