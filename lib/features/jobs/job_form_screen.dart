@@ -561,26 +561,54 @@ class _JobFormScreenState extends State<JobFormScreen> {
                     child: CupertinoTextField(
                       controller: _priceController,
                       placeholder: 'Цена',
+                      style: TextStyle(color: colors.label),
                       keyboardType: const TextInputType.numberWithOptions(
                         decimal: true,
                       ),
-                      prefix: const Padding(
-                        padding: EdgeInsets.only(left: 8),
-                        child: Text('₽'),
+                      prefix: Padding(
+                        padding: const EdgeInsets.only(left: 6),
+                        child: Text(
+                          '+',
+                          style: TextStyle(
+                            color: colors.green,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                      suffix: Padding(
+                        padding: const EdgeInsets.only(right: 6),
+                        child: Text(
+                          '₽',
+                          style: TextStyle(color: colors.secondaryLabel),
+                        ),
                       ),
                     ),
                   ),
-                  const SizedBox(width: 12),
+                  const SizedBox(width: 8),
                   Expanded(
                     child: CupertinoTextField(
                       controller: _costController,
                       placeholder: 'Расход',
+                      style: TextStyle(color: colors.label),
                       keyboardType: const TextInputType.numberWithOptions(
                         decimal: true,
                       ),
-                      prefix: const Padding(
-                        padding: EdgeInsets.only(left: 8),
-                        child: Text('₽'),
+                      prefix: Padding(
+                        padding: const EdgeInsets.only(left: 6),
+                        child: Text(
+                          '-',
+                          style: TextStyle(
+                            color: colors.red,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                      suffix: Padding(
+                        padding: const EdgeInsets.only(right: 6),
+                        child: Text(
+                          '₽',
+                          style: TextStyle(color: colors.secondaryLabel),
+                        ),
                       ),
                     ),
                   ),
