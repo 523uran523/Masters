@@ -405,9 +405,12 @@ class ClientDetailScreen extends StatelessWidget {
                 : Column(
                     children: jobs
                         .map(
-                          (job) => Padding(
-                            padding: const EdgeInsets.only(bottom: 8),
-                            child: AppCard(
+                          (job) {
+                            final unpaidCents =
+                                job.priceCents - store.paidForJob(job.id);
+                            return Padding(
+                              padding: const EdgeInsets.only(bottom: 8),
+                              child: AppCard(
                               onTap: () => Navigator.of(context).push(
                                 CupertinoPageRoute(
                                   builder: (_) =>
@@ -435,6 +438,16 @@ class ClientDetailScreen extends StatelessWidget {
                                             fontSize: 12,
                                           ),
                                         ),
+                                        if (job.status == JobStatus.closed &&
+                                            unpaidCents > 0)
+                                          Padding(
+                                            padding: const EdgeInsets.only(
+                                                top: 6),
+                                            child: Pill(
+                                              'Не оплачен ${(unpaidCents / 100).toStringAsFixed(0)} ₽',
+                                              color: context.colors.red,
+                                            ),
+                                          ),
                                       ],
                                     ),
                                   ),
