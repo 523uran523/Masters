@@ -1929,8 +1929,7 @@ class _MoneyScreenState extends State<MoneyScreen> {
                                                         ' → исходная',
                                                         style: TextStyle(
                                                           fontSize: 11,
-                                                          color: colors
-                                                              .primaryLabel,
+                                                          color: colors.accent,
                                                         ),
                                                       ),
                                                     ),
@@ -1976,14 +1975,15 @@ class _MoneyScreenState extends State<MoneyScreen> {
                                             decoration: BoxDecoration(
                                               color: colors.tertiaryLabel
                                                   .withValues(alpha: 0.15),
-                                              borderRadius: BorderRadius.circular(8),
+                                              borderRadius:
+                                                  BorderRadius.circular(8),
                                             ),
                                             child: const Text(
                                               'Возвращено',
                                               style: TextStyle(
                                                 fontSize: 11,
                                                 fontWeight: FontWeight.w600,
-                                                color: const Color(0xFFB2B2B6),
+                                                color: Color(0xFFB2B2B6),
                                               ),
                                             ),
                                           )
@@ -1997,7 +1997,7 @@ class _MoneyScreenState extends State<MoneyScreen> {
                                                 originId,
                                               );
                                             },
-                                            child: const Icon(
+                                            child: Icon(
                                               CupertinoIcons
                                                   .arrow_turn_down_right,
                                               size: 14,
@@ -2022,17 +2022,35 @@ class _MoneyScreenState extends State<MoneyScreen> {
                                                   t.id,
                                                 );
                                               } catch (e) {
-                                                ScaffoldMessenger.of(
-                                                  context,
-                                                ).showSnackBar(
-                                                  SnackBar(
-                                                    content: Text(e.toString()),
-                                                  ),
-                                                );
+                                                if (context.mounted) {
+                                                  showCupertinoDialog<void>(
+                                                    context: context,
+                                                    builder: (ctx) =>
+                                                        CupertinoAlertDialog(
+                                                          title: const Text(
+                                                            'Ошибка',
+                                                          ),
+                                                          content: Text(
+                                                            e.toString(),
+                                                          ),
+                                                          actions: [
+                                                            CupertinoDialogAction(
+                                                              child: const Text(
+                                                                'ОК',
+                                                              ),
+                                                              onPressed: () =>
+                                                                  Navigator.of(
+                                                                    ctx,
+                                                                  ).pop(),
+                                                            ),
+                                                          ],
+                                                        ),
+                                                  );
+                                                }
                                               }
                                             },
-                                            child: const Icon(
-                                              CupertinoIcons.arrow_uturn,
+                                            child: Icon(
+                                              CupertinoIcons.arrow_uturn_left,
                                               size: 14,
                                               color: colors.label,
                                             ),
@@ -2067,7 +2085,7 @@ class _KV extends StatelessWidget {
               value,
               style: const TextStyle(
                 fontWeight: FontWeight.w600,
-                color: const Color(0xFF007AFF),
+                color: Color(0xFF007AFF),
                 decoration: TextDecoration.underline,
               ),
             ),
