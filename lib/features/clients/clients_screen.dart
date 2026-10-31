@@ -187,9 +187,9 @@ class _ClientsScreenState extends State<ClientsScreen> {
             controller: _clientSearchController,
             placeholder: 'Поиск клиентов',
             autofocus: true,
-            onSubmitted: (_) => Navigator.of(dialogContext).pop(
-              _clientSearchController.text.trim(),
-            ),
+            onSubmitted: (_) =>
+                Navigator.of(dialogContext)
+                    .pop(_clientSearchController.text.trim()),
           ),
         ),
         actions: [
@@ -199,9 +199,9 @@ class _ClientsScreenState extends State<ClientsScreen> {
           ),
           CupertinoDialogAction(
             isDefaultAction: true,
-            onPressed: () => Navigator.of(dialogContext).pop(
-              _clientSearchController.text.trim(),
-            ),
+            onPressed: () =>
+                Navigator.of(dialogContext)
+                    .pop(_clientSearchController.text.trim()),
             child: const Text('OK'),
           ),
         ],
