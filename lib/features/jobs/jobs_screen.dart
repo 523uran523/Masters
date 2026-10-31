@@ -7,6 +7,7 @@ import '../../app/theme/app_theme.dart';
 import '../../app/ui.dart';
 import '../../data/models/job.dart';
 import '../../core/utils/app_utils.dart';
+import 'job_constants.dart';
 import '../../state/masters_store.dart';
 import '../../state/settings_controller.dart';
 import 'job_detail_screen.dart';
@@ -849,6 +850,7 @@ class _JobsScreenState extends State<JobsScreen> {
 
   Widget _buildProcessView(MastersStore store) {
     final colors = context.colors;
+    final settings = context.watch<SettingsController>();
     final filteredJobs =
         store.jobs
             .where((j) => !j.archived && _extraFiltersMatch(j, store))
@@ -858,31 +860,17 @@ class _JobsScreenState extends State<JobsScreen> {
             return b.updatedAt.compareTo(a.updatedAt);
           });
     final groups = <_ProcessGroup>[
-      _ProcessGroup(
-        label: 'тХи╨нтХитХЫтХитЦУтХд╨ЫтХитХб',
-        status: JobStatus.nuevo,
-        jobs: filteredJobs.where((j) => j.status == JobStatus.nuevo).toList(),
-      ),
-      _ProcessGroup(
-        label: 'тХи╨в тХд╨РтХитЦСтХитЦТтХитХЫтХд╨ТтХитХб',
-        status: JobStatus.inProgress,
-        jobs: filteredJobs
-            .where(
-              (j) =>
-                  j.status == JobStatus.inProgress ||
-                  j.status == JobStatus.waitingParts,
-            )
-            .toList(),
-      ),
-      _ProcessGroup(
-        label: 'тХи╨гтХитХЫтХд╨ТтХитХЫтХитЦУтХд╨ЫтХитХб',
-        status: JobStatus.done,
-        jobs: filteredJobs
-            .where(
-              (j) => j.status == JobStatus.done || j.status == JobStatus.closed,
-            )
-            .toList(),
-      ),
+      for (final col in kanbanColumns.where(
+        (c) => settings.kanbanColumnEnabled(c.key),
+      ))
+        _ProcessGroup(
+          key: col.key,
+          label: col.label,
+          statuses: col.statuses,
+          jobs: filteredJobs
+              .where((j) => col.statuses.contains(j.status))
+              .toList(),
+        ),
     ];
 
     final size = MediaQuery.of(context).size;
@@ -892,7 +880,7 @@ class _JobsScreenState extends State<JobsScreen> {
       return DragTarget<Job>(
         onWillAcceptWithDetails: (_) => true,
         onAcceptWithDetails: (details) =>
-            store.setJobStatus(details.data.id, group.status),
+            store.setJobStatus(details.data.id, group.statuses.first),
         builder: (context, candidateData, rejectedData) {
           final highlight = candidateData.isNotEmpty;
           return Container(
@@ -1015,13 +1003,15 @@ class _JobsScreenState extends State<JobsScreen> {
 
 class _ProcessGroup {
   const _ProcessGroup({
+    required this.key,
     required this.label,
-    required this.status,
+    required this.statuses,
     required this.jobs,
   });
 
+  final String key;
   final String label;
-  final JobStatus status;
+  final List<JobStatus> statuses;
   final List<Job> jobs;
 }
 

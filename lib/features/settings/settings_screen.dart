@@ -16,6 +16,7 @@ import '../../data/models/job.dart';
 import '../../data/app_database.dart';
 import '../../state/masters_store.dart';
 import '../../state/settings_controller.dart';
+import '../jobs/job_constants.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -1254,6 +1255,38 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ),
                   const SizedBox(height: 16),
                 ]),
+                _settingsGroup('orders', 'Заказы', [
+                  for (var i = 0; i < kanbanColumns.length; i++) ...[
+                    if (i > 0) const SizedBox(height: 16),
+                    AppCard(
+                      child: Row(
+                        children: [
+                          Expanded(child: Text(kanbanColumns[i].label)),
+                          CupertinoCheckbox(
+                            value: settings.kanbanColumnEnabled(
+                              kanbanColumns[i].key,
+                            ),
+                            onChanged: (value) async {
+                              final next = <String>[...settings.kanbanColumns];
+                              if (value == true) {
+                                if (!next.contains(kanbanColumns[i].key)) {
+                                  next.add(kanbanColumns[i].key);
+                                }
+                              } else {
+                                next.remove(kanbanColumns[i].key);
+                              }
+                              await context
+                                  .read<SettingsController>()
+                                  .setKanbanColumns(next);
+                              if (mounted) setState(() {});
+                            },
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ]),
+                const SizedBox(height: 16),
                 _settingsGroup('data', 'Данные и Яндекс', [
                   AppCard(
                     child: Column(

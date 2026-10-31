@@ -53,6 +53,7 @@ class SettingsController extends ChangeNotifier {
   static const _appPinUnlockedUntilKey = 'app_pin_unlocked_until';
   static const _appBiometricEnabledKey = 'app_biometric_enabled';
   static const _cashShiftEnabledKey = 'cash_shift_enabled';
+  static const _kanbanColumnsKey = 'kanban_columns';
 
   static Future<SettingsController> load() async {
     tzdata.initializeTimeZones();
@@ -142,6 +143,21 @@ class SettingsController extends ChangeNotifier {
 
   Future<void> setCashShiftEnabled(bool value) async {
     await _prefs.setBool(_cashShiftEnabledKey, value);
+    notifyListeners();
+  }
+
+  /// Ключи включённых kanban-колонок экрана «Заказы».
+  /// Пусто (или ключ не задан) — все колонки включены.
+  List<String> get kanbanColumns =>
+      (_prefs.getStringList(_kanbanColumnsKey) ?? const []).toList();
+
+  /// Включена ли kanban-колонка с ключом [key]. По умолчанию — включена.
+  bool kanbanColumnEnabled(String key) =>
+      kanbanColumns.isEmpty || kanbanColumns.contains(key);
+
+  Future<void> setKanbanColumns(List<String> value) async {
+    final next = value.where((e) => e.isNotEmpty).toList();
+    await _prefs.setStringList(_kanbanColumnsKey, next);
     notifyListeners();
   }
 
