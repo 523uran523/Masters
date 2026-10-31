@@ -128,30 +128,7 @@ class _JobsScreenState extends State<JobsScreen> {
     }
     final q = _query.trim().toLowerCase();
     if (q.isNotEmpty) {
-      list = list.where((j) {
-        final title = (j.title).toLowerCase();
-        final note = (j.note ?? '').toLowerCase();
-        final tags = (j.tags ?? '').toLowerCase();
-        var clientName = '';
-        final client = store.clientById(j.clientId);
-        if (client != null) clientName = client.name;
-        var assigneeName = '';
-        final assigneeId = j.assigneeId;
-        if (assigneeId != null && assigneeId.trim().isNotEmpty) {
-          if (assigneeId == '__self__') {
-            final self = store.selfEmployee;
-            if (self != null) assigneeName = self.name;
-          } else {
-            final employee = store.employeeById(assigneeId);
-            if (employee != null) assigneeName = employee.name;
-          }
-        }
-        return title.contains(q) ||
-            note.contains(q) ||
-            tags.contains(q) ||
-            clientName.toLowerCase().contains(q) ||
-            assigneeName.toLowerCase().contains(q);
-      }).toList();
+      list = list.where((j) => JobSearchFilter.matches(j, q, store)).toList();
     }
     list.sort((a, b) {
       if (a.pinned != b.pinned) return a.pinned ? -1 : 1;
@@ -584,6 +561,10 @@ class _JobsScreenState extends State<JobsScreen> {
                 onPressed: () => Navigator.of(dialogContext).pop(c.id),
                 child: Text(c.name),
               ),
+            CupertinoActionSheetAction(
+              onPressed: () => Navigator.of(dialogContext).pop('__new__'),
+              child: const Text('╨Ю╤В╨╝╨╡╨╜╨░ ╨║╨╗╨╕╨╡╨╜╤В╨░'),
+            ),
           ],
           cancelButton: CupertinoActionSheetAction(
             onPressed: () => Navigator.of(dialogContext).pop(),
@@ -593,7 +574,20 @@ class _JobsScreenState extends State<JobsScreen> {
       );
       if (!mounted) return;
       if (selected == null) return;
-      clientId = selected;
+      if (selected == '__new__') {
+        final name = await _promptText('╨Ш╨╝╤П ╨║╨╗╨╕╨╡╨╜╤В╨░', '╨Ш╨▓╨░╨╜');
+        if (!mounted) return;
+        if (name == null || name.trim().isEmpty) return;
+        final phone = await _promptText('╨������╡╨������╡╨╜╨░', '╨������╡╨������╡╨╜╨░');
+        final client = await store.createClient(
+          name: name.trim(),
+          phone: phone?.trim() ?? '',
+        );
+        if (!mounted) return;
+        clientId = client.id;
+      } else {
+        clientId = selected;
+      }
     }
 
     final title = await _promptText(
@@ -854,6 +848,7 @@ class _JobsScreenState extends State<JobsScreen> {
     final filteredJobs =
         store.jobs
             .where((j) => !j.archived && _extraFiltersMatch(j, store))
+            .where((j) => _query.isEmpty || JobSearchFilter.matches(j, _query.trim().toLowerCase(), store))
             .toList()
           ..sort((a, b) {
             if (a.pinned != b.pinned) return a.pinned ? -1 : 1;
@@ -998,6 +993,32 @@ class _JobsScreenState extends State<JobsScreen> {
         ],
       ],
     );
+  }
+}
+
+/// Чистая (без UI) фильтрация заказов по текстовому запросу из лупы.
+/// Регистронезависимый поиск по названию, заметкам, тегам,
+/// имени клиента и имени исполнителя.
+class JobSearchFilter {
+  const JobSearchFilter._();
+
+  static bool matches(Job job, String query, MastersStore store) {
+    final q = query.toLowerCase();
+    if (job.title.toLowerCase().contains(q)) return true;
+    if ((job.note ?? '').toLowerCase().contains(q)) return true;
+    if ((job.tags ?? '').toLowerCase().contains(q)) return true;
+    final client = store.clientById(job.clientId);
+    if (client != null && client.name.toLowerCase().contains(q)) return true;
+    final assigneeId = job.assigneeId;
+    if (assigneeId != null && assigneeId.trim().isNotEmpty) {
+      final assigneeName = assigneeId == '__self__'
+          ? store.selfEmployee?.name
+          : store.employeeById(assigneeId)?.name;
+      if (assigneeName != null && assigneeName.toLowerCase().contains(q)) {
+        return true;
+      }
+    }
+    return false;
   }
 }
 
