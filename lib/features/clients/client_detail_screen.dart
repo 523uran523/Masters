@@ -411,13 +411,13 @@ class ClientDetailScreen extends StatelessWidget {
                             return Padding(
                               padding: const EdgeInsets.only(bottom: 8),
                               child: AppCard(
-                              onTap: () => Navigator.of(context).push(
-                                CupertinoPageRoute(
-                                  builder: (_) =>
-                                      JobDetailScreen(jobId: job.id),
+                                onTap: () => Navigator.of(context).push(
+                                  CupertinoPageRoute(
+                                    builder: (_) =>
+                                        JobDetailScreen(jobId: job.id),
+                                  ),
                                 ),
-                              ),
-                              child: Row(
+                                child: Row(
                                 children: [
                                   Expanded(
                                     child: Column(
@@ -459,7 +459,7 @@ class ClientDetailScreen extends StatelessWidget {
                                 ],
                               ),
                             ),
-                          ),
+                          },
                         )
                         .toList(),
                   ),

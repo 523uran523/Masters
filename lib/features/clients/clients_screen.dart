@@ -5,6 +5,7 @@ import '../../app/theme/app_theme.dart';
 import '../../app/ui.dart';
 import '../../state/masters_store.dart';
 import '../../data/models/client.dart';
+import '../../data/models/job.dart';
 import 'client_detail_screen.dart';
 
 class ClientsScreen extends StatefulWidget {
@@ -251,10 +252,16 @@ class _ClientsScreenState extends State<ClientsScreen> {
       itemCount: clients.length,
       itemBuilder: (context, index) {
         final c = clients[index];
-        final jobsCount = store.jobsForClient(c.id).length;
+        final clientJobs = store.jobsForClient(c.id);
+        final jobsCount = clientJobs.length;
         final objectsCount = store.objects
             .where((o) => o.clientId == c.id)
             .length;
+        final debt = store.clientDebtCents(c.id);
+        final hasUnpaidClosed = clientJobs.any((j) {
+          return j.status == JobStatus.closed &&
+              j.priceCents - store.paidForJob(j.id) > 0;
+        });
         final selected = _selectedClientId == c.id;
         return Padding(
           padding: const EdgeInsets.only(bottom: 8),
@@ -320,6 +327,11 @@ class _ClientsScreenState extends State<ClientsScreen> {
                     Icon(
                       CupertinoIcons.checkmark_circle_fill,
                       color: colors.accent,
+                    ),
+                  if (hasUnpaidClosed)
+                    Pill(
+                      'Не оплачен ${(debt / 100).toStringAsFixed(0)} ₽',
+                      color: colors.red,
                     ),
                 ],
               ),
