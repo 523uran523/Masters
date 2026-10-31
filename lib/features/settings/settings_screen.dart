@@ -31,16 +31,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
   bool _updateBusy = false;
   UpdateInfo? _updateInfo;
   String _updateStatus = '';
-  final Set<String> _expandedSections = <String>{'interface', 'data'};
+  Set<String> _expandedSettings = <String>{};
 
   static const List<String> _tabLabels = [
-    '╨б╨╡╨│╨╛╨┤╨╜╤П',
-    '╨Ч╨░╨║╨░╨╖╤Л',
-    '╨Ъ╨╗╨╕╨╡╨╜╤В╤Л',
-    '╨Ф╨╡╨╜╤М╨│╨╕',
-    '╨б╨║╨╗╨░╨┤',
-    '╨С╤А╨╛╨╜╤М',
-    '╨Э╨░╤Б╤В╤А╨╛╨╣╨║╨╕',
+    'Сегодня',
+    'Заказы',
+    'Клиенты',
+    'Деньги',
+    'Склад',
+    'Бронь',
+    'Настройки',
   ];
   bool _awaitingCode = false;
   final _yandexCodeController = TextEditingController();
@@ -62,7 +62,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Future<void> _checkForUpdates() async {
     setState(() {
       _updateBusy = true;
-      _updateStatus = '╨Я╤А╨╛╨▓╨╡╤А╨║╨░ ╨╛╨▒╨╜╨╛╨▓╨╗╨╡╨╜╨╕╨╣...';
+      _updateStatus = 'Проверка обновлений...';
     });
     try {
       final update = await UpdateService().checkForUpdate();
@@ -70,21 +70,21 @@ class _SettingsScreenState extends State<SettingsScreen> {
       setState(() {
         _updateInfo = update;
         _updateStatus = update.updateAvailable
-            ? '╨Ф╨╛╤Б╤В╤Г╨┐╨╜╨╛ ╨╛╨▒╨╜╨╛╨▓╨╗╨╡╨╜╨╕╨╡: ${update.latestVersionName} (╨║╨╛╨┤ ${update.latestVersionCode})'
-            : '╨г ╨▓╨░╤Б ╨░╨║╤В╤Г╨░╨╗╤М╨╜╨░╤П ╨▓╨╡╤А╤Б╨╕╤П.';
+            ? 'Доступно обновление: ${update.latestVersionName} (код ${update.latestVersionCode})'
+            : 'У вас актуальная версия.';
       });
       if (update.updateAvailable) {
         final proceed = await showAppConfirm(
           context,
-          title: '╨Ф╨╛╤Б╤В╤Г╨┐╨╜╨╛ ╨╛╨▒╨╜╨╛╨▓╨╗╨╡╨╜╨╕╨╡',
-          message: '${update.changelog}\n\n╨г╤Б╤В╨░╨╜╨╛╨▓╨╕╤В╤М ╤Б╨╡╨╣╤З╨░╤Б?',
-          confirmLabel: '╨б╨║╨░╤З╨░╤В╤М ╨╕ ╤Г╤Б╤В╨░╨╜╨╛╨▓╨╕╤В╤М',
+          title: 'Доступно обновление',
+          message: '${update.changelog}\n\nУстановить сейчас?',
+          confirmLabel: 'Скачать и установить',
         );
         if (proceed && mounted) await _downloadAndInstallUpdate(update);
       }
     } catch (e) {
       if (!mounted) return;
-      setState(() => _updateStatus = '╨Ю╤И╨╕╨▒╨║╨░ ╨╛╨▒╨╜╨╛╨▓╨╗╨╡╨╜╨╕╤П: $e');
+      setState(() => _updateStatus = 'Ошибка обновления: $e');
     } finally {
       if (mounted) setState(() => _updateBusy = false);
     }
@@ -93,7 +93,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Future<void> _downloadAndInstallUpdate(UpdateInfo update) async {
     setState(() {
       _updateBusy = true;
-      _updateStatus = '╨б╨║╨░╤З╨╕╨▓╨░╨╜╨╕╨╡ APK...';
+      _updateStatus = 'Скачивание APK...';
     });
     try {
       final file = await UpdateService().downloadVerifiedApk(
@@ -101,22 +101,20 @@ class _SettingsScreenState extends State<SettingsScreen> {
         onProgress: (received, total) {
           if (!mounted) return;
           final mb = (received / (1024 * 1024)).toStringAsFixed(1);
-          setState(() => _updateStatus = '╨б╨║╨░╤З╨╕╨▓╨░╨╜╨╕╨╡ APK: $mb ╨Ь╨С');
+          setState(() => _updateStatus = 'Скачивание APK: $mb МБ');
         },
       );
       if (!mounted) return;
-      setState(
-        () => _updateStatus =
-            '╨Я╤А╨╛╨▓╨╡╤А╨║╨░ ╨╕ ╨╖╨░╨┐╤Г╤Б╨║ ╤Г╤Б╤В╨░╨╜╨╛╨▓╤Й╨╕╨║╨░...',
-      );
+      setState(() => _updateStatus = 'Проверка и запуск установщика...');
       await UpdateService().installApk(file);
       if (mounted)
         setState(
-          () => _updateStatus = '╨г╤Б╤В╨░╨╜╨╛╨▓╤Й╨╕╨║ ╨╖╨░╨┐╤Г╤Й╨╡╨╜. ╨Я╨╛╨┤╤В╨▓╨╡╤А╨┤╨╕╤В╨╡ ╤Г╤Б╤В╨░╨╜╨╛╨▓╨║╤Г Android.',
+          () => _updateStatus =
+              'Установщик запущен. Подтвердите установку Android.',
         );
     } catch (e) {
       if (!mounted) return;
-      setState(() => _updateStatus = '╨Ю╤И╨╕╨▒╨║╨░ ╤Г╤Б╤В╨░╨╜╨╛╨▓╨║╨╕: $e');
+      setState(() => _updateStatus = 'Ошибка установки: $e');
     } finally {
       if (mounted) setState(() => _updateBusy = false);
     }
@@ -149,11 +147,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 CupertinoButton(
-                  child: const Text('╨Ю╤В╨╝╨╡╨╜╨░'),
+                  child: const Text('Отмена'),
                   onPressed: () => Navigator.of(modalContext).pop(),
                 ),
                 CupertinoButton(
-                  child: const Text('╨У╨╛╤В╨╛╨▓╨╛'),
+                  child: const Text('Готово'),
                   onPressed: () async {
                     await settings.setReminder(
                       true,
@@ -193,8 +191,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
       if (mounted && ok) {
         await showAppAlert(
           context,
-          title: '╨У╨╛╤В╨╛╨▓╨╛',
-          message: '╨а╨╡╨╖╨╡╤А╨▓╨╜╨░╤П ╨║╨╛╨┐╨╕╤П ╤Б╨╛╤Е╤А╨░╨╜╨╡╨╜╨░.',
+          title: 'Готово',
+          message: 'Резервная копия сохранена.',
         );
       }
     } finally {
@@ -206,25 +204,23 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final choice = await showCupertinoDialog<String>(
       context: context,
       builder: (dialogContext) => CupertinoAlertDialog(
-        title: const Text(
-          '╨Т╨╛╤Б╤Б╤В╨░╨╜╨╛╨▓╨╕╤В╤М ╤А╨╡╨╖╨╡╤А╨▓╨╜╤Г╤О ╨║╨╛╨┐╨╕╤О?',
-        ),
+        title: const Text('Восстановить резервную копию?'),
         content: const Text(
-          '╨Я╨╛╨╗╨╜╨░╤П ╨╖╨░╨╝╨╡╨╜╨░ ╤Г╨┤╨░╨╗╨╕╤В ╤В╨╡╨║╤Г╤Й╨╕╨╡ ╨┤╨░╨╜╨╜╤Л╨╡. ╨Ю╨▒╤К╨╡╨┤╨╕╨╜╨╡╨╜╨╕╨╡ ╤Б╨╛╤Е╤А╨░╨╜╨╕╤В ╨╗╨╛╨║╨░╨╗╤М╨╜╤Л╨╡ ╨╕╨╖╨╝╨╡╨╜╨╡╨╜╨╕╤П ╨╕ ╨┤╨╛╨▒╨░╨▓╨╕╤В ╨╜╨╡╨┤╨╛╤Б╤В╨░╤О╤Й╨╕╨╡ ╨╖╨░╨┐╨╕╤Б╨╕ ╨╕╨╖ ╤Д╨░╨╣╨╗╨░.',
+          'Полная замена удалит текущие данные. Объединение сохранит локальные изменения и добавит недостающие записи из файла.',
         ),
         actions: [
           CupertinoDialogAction(
             onPressed: () => Navigator.of(dialogContext).pop('cancel'),
-            child: const Text('╨Ю╤В╨╝╨╡╨╜╨░'),
+            child: const Text('Отмена'),
           ),
           CupertinoDialogAction(
             onPressed: () => Navigator.of(dialogContext).pop('merge'),
-            child: const Text('╨Ю╨▒╤К╨╡╨┤╨╕╨╜╨╕╤В╤М'),
+            child: const Text('Объединить'),
           ),
           CupertinoDialogAction(
             isDestructiveAction: true,
             onPressed: () => Navigator.of(dialogContext).pop('replace'),
-            child: const Text('╨Ч╨░╨╝╨╡╨╜╨╕╤В╤М ╨▓╤Б╤С'),
+            child: const Text('Заменить всё'),
           ),
         ],
       ),
@@ -241,9 +237,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
         if (mounted) {
           await showAppAlert(
             context,
-            title: '╨У╨╛╤В╨╛╨▓╨╛',
-            message:
-                '╨Ъ╨╛╨┐╨╕╤П ╨┐╨╛╨╗╨╜╨╛╤Б╤В╤М╤О ╨▓╨╛╤Б╤Б╤В╨░╨╜╨╛╨▓╨╗╨╡╨╜╨░.',
+            title: 'Готово',
+            message: 'Копия полностью восстановлена.',
           );
         }
       } else {
@@ -262,9 +257,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
         if (preview.conflicts.isEmpty) {
           await showAppAlert(
             context,
-            title: '╨Ю╨▒╤К╨╡╨┤╨╕╨╜╨╡╨╜╨╕╨╡ ╨╖╨░╨▓╨╡╤А╤И╨╡╨╜╨╛',
+            title: 'Объединение завершено',
             message:
-                '╨Ф╨╛╨▒╨░╨▓╨╗╨╡╨╜╨╛/╨╛╨▒╨╜╨╛╨▓╨╗╨╡╨╜╨╛: ${preview.affected}, ╤Б╨╛╤Е╤А╨░╨╜╨╡╨╜╨╛ ╨╗╨╛╨║╨░╨╗╤М╨╜╨╛: ${preview.keptLocal}',
+                'Добавлено/обновлено: ${preview.affected}, сохранено локально: ${preview.keptLocal}',
           );
         } else {
           final selected = await _showImportConflictsModal(preview.conflicts);
@@ -272,8 +267,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
             if (mounted) {
               await showAppAlert(
                 context,
-                title: '╨Ю╨▒╤К╨╡╨┤╨╕╨╜╨╡╨╜╨╕╨╡ ╨╖╨░╨▓╨╡╤А╤И╨╡╨╜╨╛',
-                message: '╨Ш╨╖╨╝╨╡╨╜╨╡╨╜╨╕╤П ╨╜╨╡ ╨┐╤А╨╕╨╝╨╡╨╜╨╡╨╜╤Л',
+                title: 'Объединение завершено',
+                message: 'Изменения не применены',
               );
             }
           } else {
@@ -286,16 +281,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
               if (mounted) {
                 await showAppAlert(
                   context,
-                  title: '╨Ю╨▒╤К╨╡╨┤╨╕╨╜╨╡╨╜╨╕╨╡ ╨╖╨░╨▓╨╡╤А╤И╨╡╨╜╨╛',
+                  title: 'Объединение завершено',
                   message:
-                      '╨Ф╨╛╨▒╨░╨▓╨╗╨╡╨╜╨╛/╨╛╨▒╨╜╨╛╨▓╨╗╨╡╨╜╨╛: ${applied.affected}, ╤Б╨╛╤Е╤А╨░╨╜╨╡╨╜╨╛ ╨╗╨╛╨║╨░╨╗╤М╨╜╨╛: ${applied.keptLocal}',
+                      'Добавлено/обновлено: ${applied.affected}, сохранено локально: ${applied.keptLocal}',
                 );
               }
             } catch (e) {
               if (mounted) {
                 await showAppAlert(
                   context,
-                  title: '╨Ю╤И╨╕╨▒╨║╨░',
+                  title: 'Ошибка',
                   message: e.toString(),
                 );
               }
@@ -307,11 +302,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       }
     } catch (e) {
       if (mounted)
-        await showAppAlert(
-          context,
-          title: '╨Ю╤И╨╕╨▒╨║╨░',
-          message: e.toString(),
-        );
+        await showAppAlert(context, title: 'Ошибка', message: e.toString());
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -323,15 +314,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
       context: context,
       builder: (dialogContext) => StatefulBuilder(
         builder: (context, setModalState) => CupertinoAlertDialog(
-          title: const Text('╨Ю╨▒╨╜╨░╤А╤Г╨╢╨╡╨╜╤Л ╨║╨╛╨╜╤Д╨╗╨╕╨║╤В╤Л'),
+          title: const Text('Обнаружены конфликты'),
           content: SingleChildScrollView(
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  '╨Ъ╨╛╨╜╤Д╨╗╨╕╨║╤В╤Л (╤Б╨╛╨▓╨┐╨░╨╗╨╕ ╨┐╨╛ ╨┤╨░╤В╨╡): ${conflicts.length}.',
-                ),
+                Text('Конфликты (совпали по дате): ${conflicts.length}.'),
                 const SizedBox(height: 8),
                 for (final conflict in conflicts)
                   Row(
@@ -357,15 +346,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
               isDefaultAction: true,
               onPressed: () =>
                   Navigator.of(dialogContext).pop(Set<String>.from(selected)),
-              child: const Text('╨Я╤А╨╕╨╝╨╡╨╜╨╕╤В╤М ╨▓╤Л╨▒╤А╨░╨╜╨╜╤Л╨╡'),
+              child: const Text('Применить выбранные'),
             ),
             CupertinoDialogAction(
               onPressed: () => Navigator.of(dialogContext).pop(<String>{}),
-              child: const Text('╨Ю╤Б╤В╨░╨▓╨╕╤В╤М ╨╗╨╛╨║╨░╨╗╤М╨╜╤Л╨╡'),
+              child: const Text('Оставить локальные'),
             ),
             CupertinoDialogAction(
               onPressed: () => Navigator.of(dialogContext).pop(),
-              child: const Text('╨Ю╤В╨╝╨╡╨╜╨░'),
+              child: const Text('Отмена'),
             ),
           ],
         ),
@@ -379,13 +368,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
     try {
       final rows = <List<dynamic>>[
         [
-          '╨Ч╨░╨║╨░╨╖',
-          '╨Ъ╨╗╨╕╨╡╨╜╤В',
-          '╨б╤В╨░╤В╤Г╤Б',
-          '╨ж╨╡╨╜╨░',
-          '╨а╨░╤Б╤Е╨╛╨┤',
-          '╨Т╤А╨╡╨╝╤П (╨╝╨╕╨╜)',
-          '╨Ф╨╡╨┤╨╗╨░╨╣╨╜',
+          'Заказ',
+          'Клиент',
+          'Статус',
+          'Цена',
+          'Расход',
+          'Время (мин)',
+          'Дедлайн',
         ],
         for (final job in store.jobs)
           [
@@ -408,8 +397,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
       if (mounted && ok) {
         await showAppAlert(
           context,
-          title: '╨У╨╛╤В╨╛╨▓╨╛',
-          message: 'Excel-╤В╨░╨▒╨╗╨╕╤Ж╨░ ╤Б╨╛╤Е╤А╨░╨╜╨╡╨╜╨░.',
+          title: 'Готово',
+          message: 'Excel-таблица сохранена.',
         );
       }
     } finally {
@@ -423,11 +412,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
     await showAppAlert(
       context,
       title: issues.isEmpty
-          ? '\u041f╤А╨╛╨▓╨╡╤А╨║╨░ ╨╖╨░╨▓╨╡╤А╤И╨╡╨╜╨░'
-          : '╨Э╨░╤А╤Г╤И╨╡╨╜╨╕╤П ╤Ж╨╡╨╗╨╛╤Б╤В╨╜╨╛╤Б╤В╨╕',
-      message: issues.isEmpty
-          ? '╨Э╨░╤А╤Г╤И╨╡╨╜╨╕╨╣ ╨╜╨╡ ╨╜╨░╨╣╨┤╨╡╨╜╨╛.'
-          : issues.join('\n'),
+          ? '\u041fроверка завершена'
+          : 'Нарушения целостности',
+      message: issues.isEmpty ? 'Нарушений не найдено.' : issues.join('\n'),
     );
   }
 
@@ -438,19 +425,19 @@ class _SettingsScreenState extends State<SettingsScreen> {
       await store.closePeriod(
         start: DateTime(now.year, now.month, 1),
         end: DateTime(now.year, now.month + 1, 0, 23, 59, 59, 999),
-        note: '╨Ч╨░╨║╤А╤Л╤В╨╕╨╡ ╤В╨╡╨║╤Г╤Й╨╡╨│╨╛ ╨╝╨╡╤Б╤П╤Ж╨░ ╨╕╨╖ ╨╜╨░╤Б╤В╤А╨╛╨╡╨║',
+        note: 'Закрытие текущего месяца из настроек',
       );
       if (!mounted) return;
       await showAppAlert(
         context,
-        title: '╨Я╨╡╤А╨╕╨╛╨┤ ╨╖╨░╨║╤А╤Л╤В',
-        message: '╨в╨╡╨║╤Г╤Й╨╕╨╣ ╨╝╨╡╤Б╤П╤Ж ╨╖╨░╨║╤А╤Л╤В ╨┤╨╗╤П ╤А╨╡╨┤╨░╨║╤В╨╕╤А╨╛╨▓╨░╨╜╨╕╤П. ╨Ч╨░╨┐╨╕╤Б╨╕ ╨╖╨░ ╤Н╤В╨╛╤В ╨┐╨╡╤А╨╕╨╛╨┤ ╤Б╨╛╤Е╤А╨░╨╜╤П╤О╤В╤Б╤П ╨╕ ╨╝╨╛╨│╤Г╤В ╨▒╤Л╤В╤М ╨┐╨╡╤А╨╡╨╛╤В╨║╤А╤Л╤В╤Л.',
+        title: 'Период закрыт',
+        message: 'Текущий месяц закрыт для редактирования. Записи за этот период сохраняются и могут быть переоткрыты.',
       );
     } catch (e) {
       if (!mounted) return;
       await showAppAlert(
         context,
-        title: '╨Э╨╡ ╤Г╨┤╨░╨╗╨╛╤Б╤М ╨╖╨░╨║╤А╤Л╤В╤М ╨┐╨╡╤А╨╕╨╛╨┤',
+        title: 'Не удалось закрыть период',
         message: '$e',
       );
     }
@@ -462,8 +449,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
       if (!mounted) return;
       await showAppAlert(
         context,
-        title: '╨Ч╨░╨║╤А╤Л╤В╤Л╤Е ╨┐╨╡╤А╨╕╨╛╨┤╨╛╨▓ ╨╜╨╡╤В',
-        message: '╨б╨╜╨░╤З╨░╨╗╨░ ╨╖╨░╨║╤А╨╛╨╣╤В╨╡ ╨┐╨╡╤А╨╕╨╛╨┤.',
+        title: 'Закрытых периодов нет',
+        message: 'Сначала закройте период.',
       );
       return;
     }
@@ -473,14 +460,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
       if (!mounted) return;
       await showAppAlert(
         context,
-        title: '╨Я╨╡╤А╨╕╨╛╨┤ ╨╛╤В╨║╤А╤Л╤В',
-        message: '╨Я╨╛╤Б╨╗╨╡╨┤╨╜╨╕╨╣ ╨╖╨░╨║╤А╤Л╤В╤Л╨╣ ╨┐╨╡╤А╨╕╨╛╨┤ ╤Б╨╜╨╛╨▓╨░ ╨┤╨╛╤Б╤В╤Г╨┐╨╡╨╜ ╨┤╨╗╤П ╤А╨╡╨┤╨░╨║╤В╨╕╤А╨╛╨▓╨░╨╜╨╕╤П.',
+        title: 'Период открыт',
+        message: 'Последний закрытый период снова доступен для редактирования.',
       );
     } catch (e) {
       if (!mounted) return;
       await showAppAlert(
         context,
-        title: '╨Э╨╡ ╤Г╨┤╨░╨╗╨╛╤Б╤М ╨╛╤В╨║╤А╤Л╤В╤М ╨┐╨╡╤А╨╕╨╛╨┤',
+        title: 'Не удалось открыть период',
         message: '$e',
       );
     }
@@ -515,13 +502,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   const Text(
-                    '╨Ц╤Г╤А╨╜╨░╨╗ ╨░╤Г╨┤╨╕╤В╨░',
+                    'Журнал аудита',
                     style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
                   ),
                   const SizedBox(height: 12),
                   CupertinoTextField(
                     controller: filterController,
-                    placeholder: '╨д╨╕╨╗╤М╤В╤А ╨┐╨╛ action/entity',
+                    placeholder: 'Фильтр по action/entity',
                     onChanged: (_) => setModalState(() {}),
                   ),
                   const SizedBox(height: 12),
@@ -570,7 +557,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     ),
                   ),
                   SecondaryButton(
-                    label: '╨Ч╨░╨║╤А╤Л╤В╤М',
+                    label: 'Закрыть',
                     icon: CupertinoIcons.xmark,
                     onPressed: () => Navigator.of(modalContext).pop(),
                   ),
@@ -591,16 +578,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
     await showCupertinoDialog<void>(
       context: context,
       builder: (context) => CupertinoAlertDialog(
-        title: Text(e['action']?.toString() ?? '╨Ф╨╡╤В╨░╨╗╨╕ ╨░╤Г╨┤╨╕╤В╨░'),
+        title: Text(e['action']?.toString() ?? 'Детали аудита'),
         content: SingleChildScrollView(
           child: Text(
             'entity: ${e['entity']}\n'
-            'entity_id: ${e['entity_id'] ?? 'тАФ'}\n'
-            'actor: ${e['actor'] ?? 'тАФ'}\n'
-            'device: ${e['device_id'] ?? 'тАФ'}\n'
+            'entity_id: ${e['entity_id'] ?? '—'}\n'
+            'actor: ${e['actor'] ?? '—'}\n'
+            'device: ${e['device_id'] ?? '—'}\n'
             'time: ${at.toLocal()}\n\n'
-            'before:\n${e['before_json'] ?? 'тАФ'}\n\n'
-            'after:\n${e['after_json'] ?? 'тАФ'}',
+            'before:\n${e['before_json'] ?? '—'}\n\n'
+            'after:\n${e['after_json'] ?? '—'}',
           ),
         ),
         actions: [
@@ -616,34 +603,22 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Future<void> _managePin() async {
     final settings = context.read<SettingsController>();
     if (settings.hasAppPin) {
-      final current = await _promptPin(
-        '╨в╨╡╨║╤Г╤Й╨╕╨╣ PIN (4-6 ╤Ж╨╕╤Д╤А)',
-        '****',
-      );
+      final current = await _promptPin('Текущий PIN (4-6 цифр)', '****');
       if (!mounted) return;
       if (current == null || !settings.verifyAppPin(current)) {
-        await showAppAlert(
-          context,
-          title: '╨Ю╤И╨╕╨▒╨║╨░',
-          message: 'PIN ╨╜╨╡ ╤Б╨╛╨▓╨┐╨░╨╗.',
-        );
+        await showAppAlert(context, title: 'Ошибка', message: 'PIN не совпал.');
         return;
       }
     }
-    final next = await _promptPin(
-      '╨Э╨╛╨▓╤Л╨╣ PIN (╨┐╤Г╤Б╤В╨╛ - ╤Г╨▒╤А╨░╤В╤М)',
-      '****',
-    );
+    final next = await _promptPin('Новый PIN (пусто - убрать)', '****');
     if (!mounted) return;
     if (next == null) return;
     await settings.setAppPin(next.trim().isEmpty ? null : next.trim());
     if (mounted) {
       await showAppAlert(
         context,
-        title: '╨У╨╛╤В╨╛╨▓╨╛',
-        message: next.trim().isEmpty
-            ? 'PIN ╨╛╤В╨║╨╗╤О╤З╤С╨╜.'
-            : 'PIN ╤Г╤Б╤В╨░╨╜╨╛╨▓╨╗╨╡╨╜.',
+        title: 'Готово',
+        message: next.trim().isEmpty ? 'PIN отключён.' : 'PIN установлен.',
       );
     }
   }
@@ -667,7 +642,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         actions: [
           CupertinoDialogAction(
             onPressed: () => Navigator.of(dialogContext).pop(),
-            child: const Text('╨Ю╤В╨╝╨╡╨╜╨░'),
+            child: const Text('Отмена'),
           ),
           CupertinoDialogAction(
             isDefaultAction: true,
@@ -684,30 +659,26 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final store = context.read<MastersStore>();
     final ok = await showAppConfirm(
       context,
-      title: '╨Ю╤З╨╕╤Б╤В╨╕╤В╤М ╨┤╨░╨╜╨╜╤Л╨╡?',
-      message: '╨Т╤Б╨╡ ╨╖╨░╨║╨░╨╖╤Л, ╨║╨╗╨╕╨╡╨╜╤В╤Л, ╨╛╨▒╤К╨╡╨║╤В╤Л ╨▒╤Г╨┤╤Г╤В ╤Г╨┤╨░╨╗╨╡╨╜╤Л.',
+      title: 'Очистить данные?',
+      message: 'Все заказы, клиенты, объекты будут удалены.',
       destructive: true,
-      confirmLabel: '╨Ю╤З╨╕╤Б╤В╨╕╤В╤М',
+      confirmLabel: 'Очистить',
     );
     if (!ok) return;
     await store.clearAll();
     if (mounted)
-      await showAppAlert(
-        context,
-        title: '╨У╨╛╤В╨╛╨▓╨╛',
-        message: '╨Ф╨░╨╜╨╜╤Л╨╡ ╨╛╤З╨╕╤Й╨╡╨╜╤Л.',
-      );
+      await showAppAlert(context, title: 'Готово', message: 'Данные очищены.');
   }
 
   Future<void> _connectYandex() async {
     if (!YandexOAuth.isConfigured) {
       await showAppAlert(
         context,
-        title: '╨Т╤Е╨╛╨┤ ╨╜╨╡ ╨╜╨░╤Б╤В╤А╨╛╨╡╨╜',
+        title: 'Вход не настроен',
         message:
-            '╨Я╤А╨╕╨╗╨╛╨╢╨╡╨╜╨╕╨╡ ╨╜╨╡ ╨╖╨░╤А╨╡╨│╨╕╤Б╤В╤А╨╕╤А╨╛╨▓╨░╨╜╨╛ ╨▓ ╨п╨╜╨┤╨╡╨║╤Б ID.\n\n'
-            '╨б╨╛╨╖╨┤╨░╨╣╤В╨╡ OAuth-╨┐╤А╨╕╨╗╨╛╨╢╨╡╨╜╨╕╨╡ ╨╜╨░ oauth.yandex.ru, ╨┤╨╛╨▒╨░╨▓╤М╤В╨╡ redirect URI '
-            '${YandexOAuth.redirectUri} ╨╕ ╤Б╨╛╨▒╨╡╤А╨╕╤В╨╡ ╨┐╤А╨╛╨╡╨║╤В ╤Б '
+            'Приложение не зарегистрировано в Яндекс ID.\n\n'
+            'Создайте OAuth-приложение на oauth.yandex.ru, добавьте redirect URI '
+            '${YandexOAuth.redirectUri} и соберите проект с '
             '--dart-define=YANDEX_CLIENT_ID=<id>.',
       );
       return;
@@ -717,14 +688,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
       final uri = await YandexOAuth.buildAuthorizeUri();
       final opened = await launchUrl(
         uri,
-        // ╨Э╨░ web ╤Г╤Е╨╛╨┤╨╕╨╝ ╨▓ ╤В╨╛╨╣ ╨╢╨╡ ╨▓╨║╨╗╨░╨┤╨║╨╡, ╤З╤В╨╛╨▒╤Л ╨▓╨╡╤А╨╜╤Г╤В╤М╤Б╤П ╨▓ ╨┐╤А╨╕╨╗╨╛╨╢╨╡╨╜╨╕╨╡.
+        // На web уходим в той же вкладке, чтобы вернуться в приложение.
         webOnlyWindowName: kIsWeb ? '_self' : '_blank',
       );
       if (!opened && mounted) {
         await showAppAlert(
           context,
-          title: '╨Ю╤И╨╕╨▒╨║╨░',
-          message: '╨Э╨╡ ╤Г╨┤╨░╨╗╨╛╤Б╤М ╨╛╤В╨║╤А╤Л╤В╤М ╨▒╤А╨░╤Г╨╖╨╡╤А.',
+          title: 'Ошибка',
+          message: 'Не удалось открыть браузер.',
         );
       }
       if (!kIsWeb && mounted) setState(() => _awaitingCode = true);
@@ -743,8 +714,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
       if (token == null) {
         await showAppAlert(
           context,
-          title: '╨Ю╤И╨╕╨▒╨║╨░',
-          message: '╨Ъ╨╛╨┤ ╨╜╨╡ ╨┐╤А╨╕╨╜╤П╤В. ╨Я╨╛╨┐╤А╨╛╨▒╤Г╨╣╤В╨╡ ╨▓╨╛╨╣╤В╨╕ ╨╖╨░╨╜╨╛╨▓╨╛.',
+          title: 'Ошибка',
+          message: 'Код не принят. Попробуйте войти заново.',
         );
         return;
       }
@@ -758,8 +729,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
         setState(() => _awaitingCode = false);
         await showAppAlert(
           context,
-          title: '╨У╨╛╤В╨╛╨▓╨╛',
-          message: '╨п╨╜╨┤╨╡╨║╤Б ╨Ф╨╕╤Б╨║ ╨┐╨╛╨┤╨║╨╗╤О╤З╤С╨╜.',
+          title: 'Готово',
+          message: 'Яндекс Диск подключён.',
         );
       }
     } finally {
@@ -776,7 +747,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       if (mounted) {
         await showAppAlert(
           context,
-          title: '╨б╨╕╨╜╤Е╤А╨╛╨╜╨╕╨╖╨░╤Ж╨╕╤П',
+          title: 'Синхронизация',
           message: result.message,
         );
       }
@@ -788,10 +759,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Future<void> _disconnectYandex() async {
     final ok = await showAppConfirm(
       context,
-      title: '╨Ю╤В╨║╨╗╤О╤З╨╕╤В╤М ╨п╨╜╨┤╨╡╨║╤Б ╨Ф╨╕╤Б╨║?',
-      message: '╨в╨╛╨║╨╡╨╜ ╨▒╤Г╨┤╨╡╤В ╤Г╨┤╨░╨╗╤С╨╜ ╤Б ╤Г╤Б╤В╤А╨╛╨╣╤Б╤В╨▓╨░. ╨Ф╨░╨╜╨╜╤Л╨╡ ╨╜╨░ ╨┤╨╕╤Б╨║╨╡ ╨╛╤Б╤В╨░╨╜╤Г╤В╤Б╤П.',
+      title: 'Отключить Яндекс Диск?',
+      message: 'Токен будет удалён с устройства. Данные на диске останутся.',
       destructive: true,
-      confirmLabel: '╨Ю╤В╨║╨╗╤О╤З╨╕╤В╤М',
+      confirmLabel: 'Отключить',
     );
     if (!ok || !mounted) return;
     await context.read<SettingsController>().disconnectYandex();
@@ -807,8 +778,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
       if (mounted) {
         await showAppAlert(
           context,
-          title: ok ? '╨г╤Б╨┐╨╡╤И╨╜╨╛' : '╨Ю╤И╨╕╨▒╨║╨░',
-          message: ok ? '╨Я╨╛╨┤╨║╨╗╤О╤З╨╡╨╜╨╕╨╡ ╤А╨░╨▒╨╛╤В╨░╨╡╤В.' : '╨Э╨╡ ╤Г╨┤╨░╨╗╨╛╤Б╤М ╨┐╨╛╨╗╤Г╤З╨╕╤В╤М ╨┤╨╛╤Б╤В╤Г╨┐ ╨║ ╨Ф╨╕╤Б╨║╤Г. ╨Т╨╛╨╣╨┤╨╕╤В╨╡ ╨╖╨░╨╜╨╛╨▓╨╛.',
+          title: ok ? 'Успешно' : 'Ошибка',
+          message: ok
+              ? 'Подключение работает.'
+              : 'Не удалось получить доступ к Диску. Войдите заново.',
         );
       }
     } finally {
@@ -830,10 +803,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
       if (mounted) {
         await showAppAlert(
           context,
-          title: ok ? '╨У╨╛╤В╨╛╨▓╨╛' : '╨Ю╤И╨╕╨▒╨║╨░',
+          title: ok ? 'Готово' : 'Ошибка',
           message: ok
-              ? '╨С╤Н╨║╨░╨┐ ╨╖╨░╨│╤А╤Г╨╢╨╡╨╜ ╨╜╨░ ╨п╨╜╨┤╨╡╨║╤Б ╨Ф╨╕╤Б╨║.'
-              : '╨Э╨╡ ╤Г╨┤╨░╨╗╨╛╤Б╤М ╨╖╨░╨│╤А╤Г╨╖╨╕╤В╤М ╨▒╤Н╨║╨░╨┐.',
+              ? 'Бэкап загружен на Яндекс Диск.'
+              : 'Не удалось загрузить бэкап.',
         );
       }
     } finally {
@@ -848,10 +821,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
     if (token == null || !mounted) return;
     final okc = await showAppConfirm(
       context,
-      title: '╨Т╨╛╤Б╤Б╤В╨░╨╜╨╛╨▓╨╕╤В╤М ╨┤╨░╨╜╨╜╤Л╨╡?',
-      message: '╨Ы╨╛╨║╨░╨╗╤М╨╜╤Л╨╡ ╨┤╨░╨╜╨╜╤Л╨╡ ╨▒╤Г╨┤╤Г╤В ╨╖╨░╨╝╨╡╨╜╨╡╨╜╤Л ╨▒╤Н╨║╨░╨┐╨╛╨╝ ╤Б ╨п╨╜╨┤╨╡╨║╤Б ╨Ф╨╕╤Б╨║╨░.',
+      title: 'Восстановить данные?',
+      message: 'Локальные данные будут заменены бэкапом с Яндекс Диска.',
       destructive: true,
-      confirmLabel: '╨Т╨╛╤Б╤Б╤В╨░╨╜╨╛╨▓╨╕╤В╤М',
+      confirmLabel: 'Восстановить',
     );
     if (!okc) return;
     setState(() => _busy = true);
@@ -861,9 +834,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
         if (mounted)
           await showAppAlert(
             context,
-            title: '╨Ю╤И╨╕╨▒╨║╨░',
-            message:
-                '╨Э╨╡ ╨╜╨░╨╣╨┤╨╡╨╜ ╨▒╤Н╨║╨░╨┐ ╨╜╨░ ╨п╨╜╨┤╨╡╨║╤Б ╨Ф╨╕╤Б╨║╨╡.',
+            title: 'Ошибка',
+            message: 'Не найден бэкап на Яндекс Диске.',
           );
         return;
       }
@@ -871,38 +843,31 @@ class _SettingsScreenState extends State<SettingsScreen> {
       if (mounted)
         await showAppAlert(
           context,
-          title: '╨У╨╛╤В╨╛╨▓╨╛',
-          message: '╨Ф╨░╨╜╨╜╤Л╨╡ ╨▓╨╛╤Б╤Б╤В╨░╨╜╨╛╨▓╨╗╨╡╨╜╤Л.',
+          title: 'Готово',
+          message: 'Данные восстановлены.',
         );
     } catch (e) {
       if (mounted)
-        await showAppAlert(
-          context,
-          title: '╨Ю╤И╨╕╨▒╨║╨░',
-          message: e.toString(),
-        );
+        await showAppAlert(context, title: 'Ошибка', message: e.toString());
     } finally {
       if (mounted) setState(() => _busy = false);
     }
   }
 
-  Widget _settingsSection({
-    required String sectionKey,
-    required String title,
-    required List<Widget> children,
-  }) {
-    final expanded = _expandedSections.contains(sectionKey);
+  Widget _settingsGroup(String key, String title, List<Widget> children) {
+    final expanded = _expandedSettings.contains(key);
     return AppCard(
+      padding: EdgeInsets.zero,
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           CupertinoButton(
-            padding: EdgeInsets.zero,
+            padding: const EdgeInsets.all(16),
             onPressed: () => setState(() {
               if (expanded) {
-                _expandedSections.remove(sectionKey);
+                _expandedSettings.remove(key);
               } else {
-                _expandedSections.add(sectionKey);
+                _expandedSettings.add(key);
               }
             }),
             child: Row(
@@ -911,7 +876,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   child: Text(
                     title,
                     style: const TextStyle(
-                      fontSize: 17,
+                      fontSize: 16,
                       fontWeight: FontWeight.w600,
                     ),
                   ),
@@ -921,26 +886,24 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       ? CupertinoIcons.chevron_up
                       : CupertinoIcons.chevron_down,
                   size: 18,
+                  color: context.colors.tertiaryLabel,
                 ),
               ],
             ),
           ),
           if (expanded) ...[
-            const SizedBox(height: 8),
-            ..._intersperse(children, const SizedBox(height: 12)),
+            const Hairline(),
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: children,
+              ),
+            ),
           ],
         ],
       ),
     );
-  }
-
-  List<Widget> _intersperse(List<Widget> items, Widget separator) {
-    final result = <Widget>[];
-    for (var i = 0; i < items.length; i++) {
-      if (i > 0) result.add(separator);
-      result.add(items[i]);
-    }
-    return result;
   }
 
   @override
@@ -949,693 +912,660 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final settings = context.watch<SettingsController>();
 
     return CupertinoPageScaffold(
-      navigationBar: const CupertinoNavigationBar(
-        middle: Text('╨Э╨░╤Б╤В╤А╨╛╨╣╨║╨╕'),
-      ),
+      navigationBar: const CupertinoNavigationBar(middle: Text('Настройки')),
       child: _busy
           ? const Center(child: CupertinoActivityIndicator())
           : ListView(
               padding: const EdgeInsets.fromLTRB(16, 12, 16, 72),
               children: [
-                _settingsSection(
-                  sectionKey: 'interface',
-                  title: 'Интерфейс и доступ',
-                  children: [
-                    AppCard(
-                      child: Row(
-                        children: [
-                          const Text('╨в╨╡╨╝╨░'),
-                          const Spacer(),
-                          CupertinoSegmentedControl<AppThemeMode>(
-                            groupValue: settings.themeMode,
-                            onValueChanged: settings.setThemeMode,
-                            children: {
-                              for (final m in AppThemeMode.values)
-                                m: Padding(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 6,
-                                    vertical: 6,
-                                  ),
-                                  child: Text(m.shortLabel),
+                _settingsGroup('interface', 'Интерфейс', [
+                  AppCard(
+                    child: Row(
+                      children: [
+                        const Text('Тема'),
+                        const Spacer(),
+                        CupertinoSegmentedControl<AppThemeMode>(
+                          groupValue: settings.themeMode,
+                          onValueChanged: settings.setThemeMode,
+                          children: {
+                            for (final m in AppThemeMode.values)
+                              m: Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 6,
+                                  vertical: 6,
                                 ),
-                            },
-                          ),
-                        ],
-                      ),
-                    ),
-                    AppCard(
-                      child: Row(
-                        children: [
-                          const Expanded(
-                            child: Text(
-                              '╨Я╨╛╨║╨░╨╖╤Л╨▓╨░╤В╤М ╤Б╨╝╨╡╨╜╤Г ╨║╨░╤Б╤Б╤Л',
-                            ),
-                          ),
-                          CupertinoSwitch(
-                            value: settings.cashShiftEnabled,
-                            onChanged: (v) async {
-                              await settings.setCashShiftEnabled(v);
-                              if (mounted) setState(() {});
-                            },
-                          ),
-                        ],
-                      ),
-                    ),
-                    AppCard(
-                      child: Column(
-                        children: [
-                          Row(
-                            children: [
-                              const Text(
-                                '╨Х╨╢╨╡╨┤╨╜╨╡╨▓╨╜╨╛╨╡ ╨╜╨░╨┐╨╛╨╝╨╕╨╜╨░╨╜╨╕╨╡',
+                                child: Text(m.shortLabel),
                               ),
-                              const Spacer(),
-                              CupertinoSwitch(
-                                value: settings.reminderEnabled,
-                                onChanged: (v) async {
-                                  if (v) {
-                                    await settings.setReminder(true);
-                                    await ReminderService.scheduleDaily(
-                                      settings.reminderHour,
-                                      settings.reminderMinute,
-                                    );
-                                  } else {
-                                    await settings.setReminder(false);
-                                    await ReminderService.cancel();
-                                  }
-                                  setState(() {});
-                                },
-                              ),
-                            ],
-                          ),
-                          if (settings.reminderEnabled) ...[
-                            const SizedBox(height: 10),
+                          },
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  AppCard(
+                    child: Row(
+                      children: [
+                        const Expanded(child: Text('Показывать смену кассы')),
+                        CupertinoSwitch(
+                          value: settings.cashShiftEnabled,
+                          onChanged: (v) async {
+                            await settings.setCashShiftEnabled(v);
+                            if (mounted) setState(() {});
+                          },
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  AppCard(
+                    child: Column(
+                      children: [
+                        for (var i = 0; i < 7; i++) ...[
+                          if (i != 6)
                             Row(
                               children: [
-                                Text(
-                                  '╨Т╤А╨╡╨╝╤П',
-                                  style: TextStyle(
-                                    color: colors.secondaryLabel,
-                                  ),
-                                ),
-                                const Spacer(),
-                                CupertinoButton(
-                                  padding: EdgeInsets.zero,
-                                  onPressed: () => _pickReminderTime(settings),
-                                  child: Text(
-                                    '${settings.reminderHour.toString().padLeft(2, '0')}:${settings.reminderMinute.toString().padLeft(2, '0')}',
-                                    style: const TextStyle(
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ],
-                        ],
-                      ),
-                    ),
-                    AppCard(
-                      child: Column(
-                        children: [
-                          for (var i = 0; i < 7; i++) ...[
-                            if (i != 6)
-                              Row(
-                                children: [
-                                  Expanded(child: Text(_tabLabels[i])),
-                                  CupertinoSwitch(
-                                    value: settings.isTabVisible(i),
-                                    onChanged: (v) async {
-                                      await context
-                                          .read<SettingsController>()
-                                          .toggleTabVisible(i, visible: v);
-                                      if (!context.mounted) return;
-                                      setState(() {});
-                                    },
-                                  ),
-                                ],
-                              ),
-                            if (i != 6 && i != 5) const SizedBox(height: 8),
-                          ],
-                        ],
-                      ),
-                    ),
-                    AppCard(
-                      child: Column(
-                        children: [
-                          CupertinoListTile(
-                            title: Text(
-                              settings.hasAppPin
-                                  ? 'PIN-╨║╨╛╨┤ ╨░╨║╤В╨╕╨▓╨╡╨╜'
-                                  : 'PIN-╨║╨╛╨┤ ╨╜╨╡ ╤Г╤Б╤В╨░╨╜╨╛╨▓╨╗╨╡╨╜',
-                            ),
-                            subtitle: const Text(
-                              '╨н╨║╤А╨░╨╜ ╨▒╨╗╨╛╨║╨╕╤А╤Г╨╡╤В╤Б╤П ╨┐╤А╨╕ ╨╖╨░╨┐╤Г╤Б╨║╨╡. ╨С╨╕╨╛╨╝╨╡╤В╤А╨╕╤П тАФ ╨▓ ╨┐╨╗╨░╨╜╨╡.',
-                            ),
-                          ),
-                          SecondaryButton(
-                            label: settings.hasAppPin
-                                ? '╨б╨╝╨╡╨╜╨╕╤В╤М ╨╕╨╗╨╕ ╤Г╨▒╤А╨░╤В╤М PIN'
-                                : '╨г╤Б╤В╨░╨╜╨╛╨▓╨╕╤В╤М PIN',
-                            icon: CupertinoIcons.lock,
-                            onPressed: _managePin,
-                          ),
-                          if (settings.hasAppPin) ...[
-                            const SizedBox(height: 8),
-                            SecondaryButton(
-                              label: '╨Т╤Л╨║╨╗╤О╤З╨╕╤В╤М PIN',
-                              icon: CupertinoIcons.lock_open,
-                              onPressed: () async {
-                                final ok = await showAppConfirm(
-                                  context,
-                                  title: '╨Т╤Л╨║╨╗╤О╤З╨╕╤В╤М PIN?',
-                                  message: '╨Я╨╛╤Б╨╗╨╡ ╤Н╤В╨╛╨│╨╛ ╨┐╤А╨╕╨╗╨╛╨╢╨╡╨╜╨╕╨╡ ╨▒╤Г╨┤╨╡╤В ╨╛╤В╨║╤А╤Л╨▓╨░╤В╤М╤Б╤П ╨▒╨╡╨╖ PIN.',
-                                  destructive: true,
-                                  confirmLabel: '╨Т╤Л╨║╨╗╤О╤З╨╕╤В╤М',
-                                );
-                                if (!ok || !context.mounted) return;
-                                await context
-                                    .read<SettingsController>()
-                                    .setAppPin(null);
-                                if (context.mounted)
-                                  await showAppAlert(
-                                    context,
-                                    title: '╨У╨╛╤В╨╛╨▓╨╛',
-                                    message: 'PIN ╨▓╤Л╨║╨╗╤О╤З╨╡╨╜.',
-                                  );
-                                if (mounted) setState(() {});
-                              },
-                            ),
-                          ],
-                          const SizedBox(height: 8),
-                          FutureBuilder<bool>(
-                            future: AppBiometricService.isAvailable(),
-                            builder: (context, snapshot) {
-                              final available = snapshot.data ?? false;
-                              if (!available) return const SizedBox.shrink();
-                              return Row(
-                                children: [
-                                  const Expanded(
-                                    child: Text(
-                                      '╨С╨╕╨╛╨╝╨╡╤В╤А╨╕╤П (╤А╨░╨╖╨▒╨╗╨╛╨║╨╕╤А╨╛╨▓╨║╨░)',
-                                    ),
-                                  ),
-                                  CupertinoSwitch(
-                                    value: settings.biometricEnabled,
-                                    onChanged: (v) async {
-                                      await context
-                                          .read<SettingsController>()
-                                          .setBiometricEnabled(v);
-                                      if (!context.mounted) return;
-                                      setState(() {});
-                                    },
-                                  ),
-                                ],
-                              );
-                            },
-                          ),
-                        ],
-                      ),
-                    ),
-                    AppCard(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              const Expanded(
-                                child: Text(
-                                  '╨Я╨╛╨║╨░╨╖╤Л╨▓╨░╤В╤М ╤В╨╡╨│╨╕ ╨▓ ╨╖╨░╨║╨░╨╖╨░╤Е',
-                                ),
-                              ),
-                              CupertinoSwitch(
-                                value: settings.jobTagsEnabled,
-                                onChanged: (value) async {
-                                  await settings.setJobTagsEnabled(value);
-                                  if (mounted) setState(() {});
-                                },
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 8),
-                          Row(
-                            children: [
-                              Expanded(
-                                child: CupertinoTextField(
-                                  controller: _tagController,
-                                  placeholder: '╨Э╨╛╨▓╤Л╨╣ ╤В╨╡╨│',
-                                ),
-                              ),
-                              CupertinoButton(
-                                padding: EdgeInsets.zero,
-                                child: const Icon(
-                                  CupertinoIcons.plus,
-                                  semanticLabel: '╨Ф╨╛╨▒╨░╨▓╨╕╤В╤М',
-                                ),
-                                onPressed: () async {
-                                  await context
-                                      .read<SettingsController>()
-                                      .addJobTag(_tagController.text);
-                                  _tagController.clear();
-                                  if (mounted) setState(() {});
-                                },
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 8),
-                          Wrap(
-                            spacing: 8,
-                            runSpacing: 8,
-                            children: [
-                              for (final tag
-                                  in context
-                                      .watch<SettingsController>()
-                                      .jobTags)
-                                GestureDetector(
-                                  onTap: () async {
-                                    await context
-                                        .read<SettingsController>()
-                                        .removeJobTag(tag);
-                                    if (mounted) setState(() {});
-                                  },
-                                  child: Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 10,
-                                      vertical: 6,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color: context.colors.cardElevated,
-                                      borderRadius: BorderRadius.circular(99),
-                                    ),
-                                    child: Text(tag),
-                                  ),
-                                ),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 16),
-                _settingsSection(
-                  sectionKey: 'data',
-                  title: 'Налоги и данные',
-                  children: [
-                    AppCard(
-                      child: Column(
-                        children: [
-                          _ActionTile(
-                            icon: CupertinoIcons.list_bullet,
-                            label: '╨Ц╤Г╤А╨╜╨░╨╗ ╨┤╨╡╨╣╤Б╤В╨▓╨╕╨╣',
-                            onTap: _showAuditLog,
-                          ),
-                          Hairline(indent: 0),
-                          _ActionTile(
-                            icon: CupertinoIcons.cloud_download,
-                            label: '╨н╨║╤Б╨┐╨╛╤А╤В JSON',
-                            onTap: _exportBackup,
-                          ),
-                          Hairline(indent: 0),
-                          _ActionTile(
-                            icon: CupertinoIcons.cloud_upload,
-                            label: '╨Т╨╛╤Б╤Б╤В╨░╨╜╨╛╨▓╨╕╤В╤М JSON',
-                            onTap: _importBackup,
-                          ),
-                          Hairline(indent: 0),
-                          _ActionTile(
-                            icon: CupertinoIcons.table,
-                            label: '╨н╨║╤Б╨┐╨╛╤А╤В CSV',
-                            onTap: _exportExcel,
-                          ),
-                          Hairline(indent: 0),
-                          _ActionTile(
-                            icon: CupertinoIcons.trash,
-                            label: '╨Ю╤З╨╕╤Б╤В╨╕╤В╤М ╨┤╨░╨╜╨╜╤Л╨╡',
-                            destructive: true,
-                            onTap: _clearData,
-                          ),
-                          Hairline(indent: 0),
-                          _ActionTile(
-                            icon: CupertinoIcons.shield_fill,
-                            label: '╨Я╤А╨╛╨▓╨╡╤А╨╕╤В╤М ╤Ж╨╡╨╗╨╛╤Б╤В╨╜╨╛╤Б╤В╤М ╨┤╨░╨╜╨╜╤Л╤Е',
-                            onTap: _checkDataIntegrity,
-                          ),
-                          Hairline(indent: 0),
-                          _ActionTile(
-                            icon: CupertinoIcons.lock_shield,
-                            label: '╨Ч╨░╨║╤А╤Л╤В╤М ╤В╨╡╨║╤Г╤Й╨╕╨╣ ╨╝╨╡╤Б╤П╤Ж',
-                            onTap: _closeCurrentPeriod,
-                          ),
-                          Hairline(indent: 0),
-                          _ActionTile(
-                            icon: CupertinoIcons.lock_open,
-                            label: '╨Я╨╡╤А╨╡╨╛╤В╨║╤А╤Л╤В╤М ╨┐╨╛╤Б╨╗╨╡╨┤╨╜╨╕╨╣ ╨┐╨╡╤А╨╕╨╛╨┤',
-                            onTap: _reopenLastClosedPeriod,
-                          ),
-                        ],
-                      ),
-                    ),
-                    AppCard(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text('╨б╤В╨░╨▓╨║╨░: ${settings.taxRate}%'),
-                          const SizedBox(height: 8),
-                          Wrap(
-                            spacing: 8,
-                            runSpacing: 8,
-                            children: [
-                              for (final preset in const [
-                                ('╨б╨░╨╝╨╛╨╖╨░╨╜╤П╤В╤Л╨╣ 6%', 6),
-                                ('╨г╨б╨Э 6%', 6),
-                                ('╨г╨б╨Э 15%', 15),
-                                ('╨С╨╡╨╖ ╨╜╨░╨╗╨╛╨│╨░', 0),
-                              ])
-                                SecondaryButton(
-                                  label: preset.$1,
-                                  onPressed: () async {
-                                    await settings.setTaxRate(preset.$2);
-                                    if (mounted) setState(() {});
-                                  },
-                                ),
-                            ],
-                          ),
-                          const SizedBox(height: 8),
-                          SecondaryButton(
-                            label: '╨Ш╨╖╨╝╨╡╨╜╨╕╤В╤М ╤Б╤В╨░╨▓╨║╤Г',
-                            icon: CupertinoIcons.percent,
-                            onPressed: () async {
-                              final v = await _promptPin(
-                                '╨б╤В╨░╨▓╨║╨░ ╨╜╨░╨╗╨╛╨│╨░, %',
-                                settings.taxRate.toString(),
-                              );
-                              final rate = int.tryParse((v ?? '').trim());
-                              if (rate == null) return;
-                              await settings.setTaxRate(rate);
-                              if (mounted) setState(() {});
-                            },
-                          ),
-                          const SizedBox(height: 8),
-                          Builder(
-                            builder: (context) {
-                              final taxPocketId = settings.taxAccountId;
-                              final store = context.read<MastersStore>();
-                              return SecondaryButton(
-                                label: taxPocketId == null
-                                    ? '╨б╤З╤С╤В-╨║╨░╤А╨╝╨░╨╜: ╨╜╨╡ ╨▓╤Л╨▒╤А╨░╨╜'
-                                    : '╨б╤З╤С╤В-╨║╨░╤А╨╝╨░╨╜: ${store.accountById(taxPocketId)?.name ?? '╨╜╨╡╨╕╨╖╨▓╨╡╤Б╤В╨╜╤Л╨╣ ╤Б╤З╤С╤В'}',
-                                icon: CupertinoIcons.money_dollar_circle,
-                                onPressed: () async {
-                                  final choice =
-                                      await showCupertinoModalPopup<String?>(
-                                        context: context,
-                                        builder: (dialogContext) =>
-                                            CupertinoActionSheet(
-                                              actions: [
-                                                CupertinoActionSheetAction(
-                                                  onPressed: () => Navigator.of(
-                                                    dialogContext,
-                                                  ).pop('__none__'),
-                                                  child: const Text(
-                                                    '╨С╨╡╨╖ ╨║╨░╤А╨╝╨░╨╜╨░',
-                                                  ),
-                                                ),
-                                                for (final account
-                                                    in store.accounts.where(
-                                                      (a) => !a.archived,
-                                                    ))
-                                                  CupertinoActionSheetAction(
-                                                    onPressed: () =>
-                                                        Navigator.of(
-                                                          dialogContext,
-                                                        ).pop(account.id),
-                                                    child: Text(account.name),
-                                                  ),
-                                              ],
-                                              cancelButton:
-                                                  CupertinoActionSheetAction(
-                                                    onPressed: () =>
-                                                        Navigator.of(
-                                                          dialogContext,
-                                                        ).pop(),
-                                                    child: const Text(
-                                                      '╨Ю╤В╨╝╨╡╨╜╨░',
-                                                    ),
-                                                  ),
-                                            ),
-                                      );
-                                  if (choice == '__none__') {
-                                    await context
-                                        .read<SettingsController>()
-                                        .setTaxAccount(null);
-                                  } else if (choice != null) {
-                                    await context
-                                        .read<SettingsController>()
-                                        .setTaxAccount(choice);
-                                  }
-                                  if (mounted) setState(() {});
-                                },
-                              );
-                            },
-                          ),
-                          if (settings.taxRate > 0) ...[
-                            const SizedBox(height: 8),
-                            SecondaryButton(
-                              label: '╨Т╤Л╨║╨╗╤О╤З╨╕╤В╤М ╨║╨░╤А╨╝╨░╨╜',
-                              icon: CupertinoIcons.xmark,
-                              onPressed: () async {
-                                await settings.setTaxRate(0);
-                                if (mounted) setState(() {});
-                              },
-                            ),
-                          ],
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 16),
-                _settingsSection(
-                  sectionKey: 'backup',
-                  title: 'Резерв и синхронизация',
-                  children: [
-                    AppCard(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          if (!settings.yandexConnected) ...[
-                            Text(
-                              '╨Т╤Е╨╛╨┤ ╨▓╤Л╨┐╨╛╨╗╨╜╤П╨╡╤В╤Б╤П ╨╜╨░ ╤Б╨░╨╣╤В╨╡ ╨п╨╜╨┤╨╡╨║╤Б╨░ ╨▓ ╨▒╤А╨░╤Г╨╖╨╡╤А╨╡. '
-                              '╨Я╤А╨╕╨╗╨╛╨╢╨╡╨╜╨╕╨╡ ╨╜╨╡ ╨▓╨╕╨┤╨╕╤В ╨▓╨░╤И ╨┐╨░╤А╨╛╨╗╤М ╨╕ ╤Е╤А╨░╨╜╨╕╤В ╤В╨╛╨╗╤М╨║╨╛ ╤В╨╛╨║╨╡╨╜ ╨┤╨╛╤Б╤В╤Г╨┐╨░.',
-                              style: TextStyle(
-                                color: colors.secondaryLabel,
-                                fontSize: 12,
-                              ),
-                            ),
-                            const SizedBox(height: 10),
-                            SecondaryButton(
-                              label: '╨Т╨╛╨╣╤В╨╕ ╤З╨╡╤А╨╡╨╖ ╨п╨╜╨┤╨╡╨║╤Б',
-                              icon: CupertinoIcons.person_badge_plus,
-                              onPressed: _connectYandex,
-                            ),
-                            if (_awaitingCode) ...[
-                              const SizedBox(height: 8),
-                              CupertinoTextField(
-                                controller: _yandexCodeController,
-                                placeholder: '╨Ъ╨╛╨┤ ╤Б╨╛ ╤Б╤В╤А╨░╨╜╨╕╤Ж╤Л ╨п╨╜╨┤╨╡╨║╤Б╨░',
-                                onSubmitted: (_) => _submitYandexCode(),
-                              ),
-                              const SizedBox(height: 8),
-                              SecondaryButton(
-                                label: '╨Я╨╛╨┤╤В╨▓╨╡╤А╨┤╨╕╤В╤М ╨║╨╛╨┤',
-                                icon: CupertinoIcons.checkmark,
-                                onPressed: _submitYandexCode,
-                              ),
-                            ],
-                          ] else ...[
-                            Row(
-                              children: [
-                                Icon(
-                                  CupertinoIcons.checkmark_seal_fill,
-                                  color: colors.accent,
-                                  size: 18,
-                                ),
-                                const SizedBox(width: 8),
-                                const Expanded(
-                                  child: Text(
-                                    '╨п╨╜╨┤╨╡╨║╤Б ╨Ф╨╕╤Б╨║ ╨┐╨╛╨┤╨║╨╗╤О╤З╤С╨╜',
-                                  ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 8),
-                            if (settings.yandexLastCloudModified != null)
-                              Text(
-                                '╨Ю╨▒╨╗╨░╨║╨╛ ╨╛╨▒╨╜╨╛╨▓╨╗╨╡╨╜╨╛: ${settings.yandexLastCloudModified!.toLocal()}',
-                                style: TextStyle(
-                                  color: colors.secondaryLabel,
-                                  fontSize: 12,
-                                ),
-                              ),
-                            Row(
-                              children: [
-                                const Expanded(
-                                  child: Text(
-                                    '╨Р╨▓╤В╨╛╨▒╤Н╨║╨░╨┐ ╨┐╤А╨╕ ╨╖╨░╨┐╤Г╤Б╨║╨╡',
-                                  ),
-                                ),
+                                Expanded(child: Text(_tabLabels[i])),
                                 CupertinoSwitch(
-                                  value: settings.yandexAutoBackup,
+                                  value: settings.isTabVisible(i),
                                   onChanged: (v) async {
                                     await context
                                         .read<SettingsController>()
-                                        .setYandexAutoBackup(v);
+                                        .toggleTabVisible(i, visible: v);
                                     if (!context.mounted) return;
                                     setState(() {});
                                   },
                                 ),
                               ],
                             ),
+                          if (i != 6 && i != 5) const SizedBox(height: 8),
+                        ],
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  const SizedBox(height: 16),
+                  AppCard(
+                    child: Column(
+                      children: [
+                        CupertinoListTile(
+                          title: Text(
+                            settings.hasAppPin
+                                ? 'PIN-код активен'
+                                : 'PIN-код не установлен',
+                          ),
+                          subtitle: const Text(
+                            'Экран блокируется при запуске. Биометрия — в плане.',
+                          ),
+                        ),
+                        SecondaryButton(
+                          label: settings.hasAppPin
+                              ? 'Сменить или убрать PIN'
+                              : 'Установить PIN',
+                          icon: CupertinoIcons.lock,
+                          onPressed: _managePin,
+                        ),
+                        if (settings.hasAppPin) ...[
+                          const SizedBox(height: 8),
+                          SecondaryButton(
+                            label: 'Выключить PIN',
+                            icon: CupertinoIcons.lock_open,
+                            onPressed: () async {
+                              final ok = await showAppConfirm(
+                                context,
+                                title: 'Выключить PIN?',
+                                message: 'После этого приложение будет открываться без PIN.',
+                                destructive: true,
+                                confirmLabel: 'Выключить',
+                              );
+                              if (!ok || !context.mounted) return;
+                              await context
+                                  .read<SettingsController>()
+                                  .setAppPin(null);
+                              if (context.mounted)
+                                await showAppAlert(
+                                  context,
+                                  title: 'Готово',
+                                  message: 'PIN выключен.',
+                                );
+                              if (mounted) setState(() {});
+                            },
+                          ),
+                        ],
+                        const SizedBox(height: 8),
+                        FutureBuilder<bool>(
+                          future: AppBiometricService.isAvailable(),
+                          builder: (context, snapshot) {
+                            final available = snapshot.data ?? false;
+                            if (!available) return const SizedBox.shrink();
+                            return Row(
+                              children: [
+                                const Expanded(
+                                  child: Text('Биометрия (разблокировка)'),
+                                ),
+                                CupertinoSwitch(
+                                  value: settings.biometricEnabled,
+                                  onChanged: (v) async {
+                                    await context
+                                        .read<SettingsController>()
+                                        .setBiometricEnabled(v);
+                                    if (!context.mounted) return;
+                                    setState(() {});
+                                  },
+                                ),
+                              ],
+                            );
+                          },
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                ]),
+                _settingsGroup('privacy', 'Безопасность', [
+                  AppCard(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('Записей: ${_auditEntries.length}'),
+                        const SizedBox(height: 8),
+                        SecondaryButton(
+                          label: _auditBusy
+                              ? 'Загрузка...'
+                              : 'Показать журнал аудита',
+                          icon: CupertinoIcons.doc_text_search,
+                          onPressed: _auditBusy ? () {} : _showAuditLog,
+                        ),
+                      ],
+                    ),
+                  ),
+                  AppCard(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Текущая версия: ${_updateInfo?.currentVersionCode ?? '...'}',
+                        ),
+                        if (_updateStatus.isNotEmpty) ...[
+                          const SizedBox(height: 4),
+                          Text(
+                            _updateStatus,
+                            style: TextStyle(
+                              color: context.colors.secondaryLabel,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ],
+                        const SizedBox(height: 8),
+                        SecondaryButton(
+                          label: _updateBusy
+                              ? 'Проверка...'
+                              : 'Проверить обновления',
+                          icon: CupertinoIcons.cloud_download,
+                          onPressed: _updateBusy ? () {} : _checkForUpdates,
+                        ),
+                        if (_updateInfo != null &&
+                            _updateInfo!.updateAvailable) ...[
+                          const SizedBox(height: 8),
+                          SecondaryButton(
+                            label:
+                                'Скачать и установить ${_updateInfo!.latestVersionName}',
+                            icon: CupertinoIcons.arrow_down_circle,
+                            onPressed: _updateBusy
+                                ? () {}
+                                : () => _downloadAndInstallUpdate(_updateInfo!),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                ]),
+                _settingsGroup('money', 'Деньги', [
+                  AppCard(
+                    child: Column(
+                      children: [
+                        _ActionTile(
+                          icon: CupertinoIcons.list_bullet,
+                          label: 'Журнал действий',
+                          onTap: _showAuditLog,
+                        ),
+                        Hairline(indent: 0),
+                        _ActionTile(
+                          icon: CupertinoIcons.cloud_download,
+                          label: 'Экспорт JSON',
+                          onTap: _exportBackup,
+                        ),
+                        Hairline(indent: 0),
+                        _ActionTile(
+                          icon: CupertinoIcons.cloud_upload,
+                          label: 'Восстановить JSON',
+                          onTap: _importBackup,
+                        ),
+                        Hairline(indent: 0),
+                        _ActionTile(
+                          icon: CupertinoIcons.table,
+                          label: 'Экспорт CSV',
+                          onTap: _exportExcel,
+                        ),
+                        Hairline(indent: 0),
+                        _ActionTile(
+                          icon: CupertinoIcons.trash,
+                          label: 'Очистить данные',
+                          destructive: true,
+                          onTap: _clearData,
+                        ),
+                        Hairline(indent: 0),
+                        _ActionTile(
+                          icon: CupertinoIcons.shield_fill,
+                          label: 'Проверить целостность данных',
+                          onTap: _checkDataIntegrity,
+                        ),
+                        Hairline(indent: 0),
+                        _ActionTile(
+                          icon: CupertinoIcons.lock_shield,
+                          label: 'Закрыть текущий месяц',
+                          onTap: _closeCurrentPeriod,
+                        ),
+                        Hairline(indent: 0),
+                        _ActionTile(
+                          icon: CupertinoIcons.lock_open,
+                          label: 'Переоткрыть последний период',
+                          onTap: _reopenLastClosedPeriod,
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  SectionLabel('Яндекс Диск (бэкап и синхронизация)'),
+                  AppCard(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        if (!settings.yandexConnected) ...[
+                          Text(
+                            'Вход выполняется на сайте Яндекса в браузере. '
+                            'Приложение не видит ваш пароль и хранит только токен доступа.',
+                            style: TextStyle(
+                              color: colors.secondaryLabel,
+                              fontSize: 12,
+                            ),
+                          ),
+                          const SizedBox(height: 10),
+                          SecondaryButton(
+                            label: 'Войти через Яндекс',
+                            icon: CupertinoIcons.person_badge_plus,
+                            onPressed: _connectYandex,
+                          ),
+                          if (_awaitingCode) ...[
                             const SizedBox(height: 8),
+                            CupertinoTextField(
+                              controller: _yandexCodeController,
+                              placeholder: 'Код со страницы Яндекса',
+                              onSubmitted: (_) => _submitYandexCode(),
+                            ),
+                            const SizedBox(height: 8),
+                            SecondaryButton(
+                              label: 'Подтвердить код',
+                              icon: CupertinoIcons.checkmark,
+                              onPressed: _submitYandexCode,
+                            ),
+                          ],
+                        ] else ...[
+                          Row(
+                            children: [
+                              Icon(
+                                CupertinoIcons.checkmark_seal_fill,
+                                color: colors.accent,
+                                size: 18,
+                              ),
+                              const SizedBox(width: 8),
+                              const Expanded(
+                                child: Text('Яндекс Диск подключён'),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          if (settings.yandexLastCloudModified != null)
                             Text(
-                              '╨С╤Н╨║╨░╨┐ ╤Е╤А╨░╨╜╨╕╤В╤Б╤П ╨▓ ╨┐╨░╨┐╨║╨╡ ┬лMasters┬╗ ╨╜╨░ ╨Ф╨╕╤Б╨║╨╡ ╨▓ ╤Д╨╛╤А╨╝╨░╤В╨╡ JSON. '
-                              '╨н╤В╨╛╤В ╨╢╨╡ ╤Д╨░╨╣╨╗ ╨╕╤Б╨┐╨╛╨╗╤М╨╖╤Г╨╡╤В ╨┐╤А╨╕╨╗╨╛╨╢╨╡╨╜╨╕╨╡ ╨╜╨░ Android.',
+                              'Облако обновлено: ${settings.yandexLastCloudModified!.toLocal()}',
                               style: TextStyle(
                                 color: colors.secondaryLabel,
                                 fontSize: 12,
                               ),
                             ),
-                            const SizedBox(height: 10),
-                            SecondaryButton(
-                              label:
-                                  '╨Я╤А╨╛╨▓╨╡╤А╨╕╤В╤М ╨┐╨╛╨┤╨║╨╗╤О╤З╨╡╨╜╨╕╨╡',
-                              icon: CupertinoIcons.checkmark,
-                              onPressed: _testYandex,
-                            ),
-                            const SizedBox(height: 8),
-                            SecondaryButton(
-                              label: '╨б╨╕╨╜╤Е╤А╨╛╨╜╨╕╨╖╨╕╤А╨╛╨▓╨░╤В╤М',
-                              icon: CupertinoIcons.refresh,
-                              onPressed: _syncYandex,
-                            ),
-                            const SizedBox(height: 8),
-                            SecondaryButton(
-                              label:
-                                  '╨Ч╨░╨│╤А╤Г╨╖╨╕╤В╤М ╨▒╤Н╨║╨░╨┐ ╤Б╨╡╨╣╤З╨░╤Б',
-                              icon: CupertinoIcons.cloud_upload,
-                              onPressed: _uploadYandex,
-                            ),
-                            const SizedBox(height: 8),
-                            SecondaryButton(
-                              label: '╨Т╨╛╤Б╤Б╤В╨░╨╜╨╛╨▓╨╕╤В╤М ╨╕╨╖ ╨п╨╜╨┤╨╡╨║╤Б ╨Ф╨╕╤Б╨║╨░',
-                              icon: CupertinoIcons.cloud_download,
-                              onPressed: _restoreYandex,
-                            ),
-                            const SizedBox(height: 8),
-                            SecondaryButton(
-                              label: '╨Ю╤В╨║╨╗╤О╤З╨╕╤В╤М',
-                              icon: CupertinoIcons.person_badge_minus,
-                              onPressed: _disconnectYandex,
-                            ),
-                          ],
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 16),
-                _settingsSection(
-                  sectionKey: 'diagnostics',
-                  title: 'Диагностика и обновления',
-                  children: [
-                    AppCard(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text('╨Ч╨░╨┐╨╕╤Б╨╡╨╣: ${_auditEntries.length}'),
-                          const SizedBox(height: 8),
-                          SecondaryButton(
-                            label: _auditBusy
-                                ? '╨Ч╨░╨│╤А╤Г╨╖╨║╨░...'
-                                : '╨Я╨╛╨║╨░╨╖╨░╤В╤М ╨╢╤Г╤А╨╜╨░╨╗ ╨░╤Г╨┤╨╕╤В╨░',
-                            icon: CupertinoIcons.doc_text_search,
-                            onPressed: _auditBusy ? () {} : _showAuditLog,
-                          ),
-                        ],
-                      ),
-                    ),
-                    AppCard(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            '╨в╨╡╨║╤Г╤Й╨░╤П ╨▓╨╡╤А╤Б╨╕╤П: ${_updateInfo?.currentVersionCode ?? '...'}',
-                          ),
-                          if (_updateStatus.isNotEmpty) ...[
-                            const SizedBox(height: 4),
-                            Text(
-                              _updateStatus,
-                              style: TextStyle(
-                                color: context.colors.secondaryLabel,
-                                fontSize: 12,
+                          Row(
+                            children: [
+                              const Expanded(
+                                child: Text('Автобэкап при запуске'),
                               ),
-                            ),
-                          ],
+                              CupertinoSwitch(
+                                value: settings.yandexAutoBackup,
+                                onChanged: (v) async {
+                                  await context
+                                      .read<SettingsController>()
+                                      .setYandexAutoBackup(v);
+                                  if (!context.mounted) return;
+                                  setState(() {});
+                                },
+                              ),
+                            ],
+                          ),
                           const SizedBox(height: 8),
-                          SecondaryButton(
-                            label: _updateBusy
-                                ? '╨Я╤А╨╛╨▓╨╡╤А╨║╨░...'
-                                : '╨Я╤А╨╛╨▓╨╡╤А╨╕╤В╤М ╨╛╨▒╨╜╨╛╨▓╨╗╨╡╨╜╨╕╤П',
-                            icon: CupertinoIcons.cloud_download,
-                            onPressed: _updateBusy ? () {} : _checkForUpdates,
-                          ),
-                          if (_updateInfo != null &&
-                              _updateInfo!.updateAvailable) ...[
-                            const SizedBox(height: 8),
-                            SecondaryButton(
-                              label:
-                                  '╨б╨║╨░╤З╨░╤В╤М ╨╕ ╤Г╤Б╤В╨░╨╜╨╛╨▓╨╕╤В╤М ${_updateInfo!.latestVersionName}',
-                              icon: CupertinoIcons.arrow_down_circle,
-                              onPressed: _updateBusy
-                                  ? () {}
-                                  : () =>
-                                        _downloadAndInstallUpdate(_updateInfo!),
-                            ),
-                          ],
-                        ],
-                      ),
-                    ),
-                    AppCard(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text(
-                            'Masters',
-                            style: TextStyle(fontWeight: FontWeight.w600),
-                          ),
-                          const SizedBox(height: 4),
                           Text(
-                            '╨Ы╨╛╨║╨░╨╗╤М╨╜╤Л╨╣ ╤В╤А╨╡╨║╨╡╤А ╨╝╨░╤Б╤В╨╡╤А╨░/╨▒╤А╨╕╨│╨░╨┤╤Л. ╨Т╤Б╨╡ ╨┤╨░╨╜╨╜╤Л╨╡ ╤Е╤А╨░╨╜╤П╤В╤Б╤П ╨╜╨░ ╤Г╤Б╤В╤А╨╛╨╣╤Б╤В╨▓╨╡.',
+                            'Бэкап хранится в папке «Masters» на Диске в формате JSON. '
+                            'Этот же файл использует приложение на Android.',
                             style: TextStyle(
                               color: colors.secondaryLabel,
-                              fontSize: 13,
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            '╨Т╨╡╤А╤Б╨╕╤П 0.1.0',
-                            style: TextStyle(
-                              color: colors.tertiaryLabel,
                               fontSize: 12,
                             ),
                           ),
+                          const SizedBox(height: 10),
+                          SecondaryButton(
+                            label: 'Проверить подключение',
+                            icon: CupertinoIcons.checkmark,
+                            onPressed: _testYandex,
+                          ),
+                          const SizedBox(height: 8),
+                          SecondaryButton(
+                            label: 'Синхронизировать',
+                            icon: CupertinoIcons.refresh,
+                            onPressed: _syncYandex,
+                          ),
+                          const SizedBox(height: 8),
+                          SecondaryButton(
+                            label: 'Загрузить бэкап сейчас',
+                            icon: CupertinoIcons.cloud_upload,
+                            onPressed: _uploadYandex,
+                          ),
+                          const SizedBox(height: 8),
+                          SecondaryButton(
+                            label: 'Восстановить из Яндекс Диска',
+                            icon: CupertinoIcons.cloud_download,
+                            onPressed: _restoreYandex,
+                          ),
+                          const SizedBox(height: 8),
+                          SecondaryButton(
+                            label: 'Отключить',
+                            icon: CupertinoIcons.person_badge_minus,
+                            onPressed: _disconnectYandex,
+                          ),
                         ],
-                      ),
+                      ],
                     ),
-                  ],
-                ),
-                const SizedBox(height: 16),
+                  ),
+                  const SizedBox(height: 16),
+                  AppCard(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            const Expanded(
+                              child: Text('Показывать теги в заказах'),
+                            ),
+                            CupertinoSwitch(
+                              value: settings.jobTagsEnabled,
+                              onChanged: (value) async {
+                                await settings.setJobTagsEnabled(value);
+                                if (mounted) setState(() {});
+                              },
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: CupertinoTextField(
+                                controller: _tagController,
+                                placeholder: 'Новый тег',
+                              ),
+                            ),
+                            CupertinoButton(
+                              padding: EdgeInsets.zero,
+                              child: const Icon(
+                                CupertinoIcons.plus,
+                                semanticLabel: 'Добавить',
+                              ),
+                              onPressed: () async {
+                                await context
+                                    .read<SettingsController>()
+                                    .addJobTag(_tagController.text);
+                                _tagController.clear();
+                                if (mounted) setState(() {});
+                              },
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          children: [
+                            for (final tag
+                                in context.watch<SettingsController>().jobTags)
+                              GestureDetector(
+                                onTap: () async {
+                                  await context
+                                      .read<SettingsController>()
+                                      .removeJobTag(tag);
+                                  if (mounted) setState(() {});
+                                },
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 10,
+                                    vertical: 6,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: context.colors.cardElevated,
+                                    borderRadius: BorderRadius.circular(99),
+                                  ),
+                                  child: Text(tag),
+                                ),
+                              ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                ]),
+                _settingsGroup('app', 'Приложение', [
+                  AppCard(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('Ставка: ${settings.taxRate}%'),
+                        const SizedBox(height: 8),
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          children: [
+                            for (final preset in const [
+                              ('Самозанятый 6%', 6),
+                              ('УСН 6%', 6),
+                              ('УСН 15%', 15),
+                              ('Без налога', 0),
+                            ])
+                              SecondaryButton(
+                                label: preset.$1,
+                                onPressed: () async {
+                                  await settings.setTaxRate(preset.$2);
+                                  if (mounted) setState(() {});
+                                },
+                              ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        SecondaryButton(
+                          label: 'Изменить ставку',
+                          icon: CupertinoIcons.percent,
+                          onPressed: () async {
+                            final v = await _promptPin(
+                              'Ставка налога, %',
+                              settings.taxRate.toString(),
+                            );
+                            final rate = int.tryParse((v ?? '').trim());
+                            if (rate == null) return;
+                            await settings.setTaxRate(rate);
+                            if (mounted) setState(() {});
+                          },
+                        ),
+                        const SizedBox(height: 8),
+                        Builder(
+                          builder: (context) {
+                            final taxPocketId = settings.taxAccountId;
+                            final store = context.read<MastersStore>();
+                            return SecondaryButton(
+                              label: taxPocketId == null
+                                  ? 'Счёт-карман: не выбран'
+                                  : 'Счёт-карман: ${store.accountById(taxPocketId)?.name ?? 'неизвестный счёт'}',
+                              icon: CupertinoIcons.money_dollar_circle,
+                              onPressed: () async {
+                                final choice =
+                                    await showCupertinoModalPopup<String?>(
+                                      context: context,
+                                      builder: (dialogContext) =>
+                                          CupertinoActionSheet(
+                                            actions: [
+                                              CupertinoActionSheetAction(
+                                                onPressed: () =>
+                                                    Navigator.of(dialogContext)
+                                                        .pop('__none__'),
+                                                child: const Text(
+                                                  'Без кармана',
+                                                ),
+                                              ),
+                                              for (final account
+                                                  in store.accounts.where(
+                                                    (a) => !a.archived,
+                                                  ))
+                                                CupertinoActionSheetAction(
+                                                  onPressed: () => Navigator.of(
+                                                    dialogContext,
+                                                  ).pop(account.id),
+                                                  child: Text(account.name),
+                                                ),
+                                            ],
+                                            cancelButton:
+                                                CupertinoActionSheetAction(
+                                                  onPressed: () => Navigator.of(
+                                                    dialogContext,
+                                                  ).pop(),
+                                                  child: const Text('Отмена'),
+                                                ),
+                                          ),
+                                    );
+                                if (choice == '__none__') {
+                                  await context
+                                      .read<SettingsController>()
+                                      .setTaxAccount(null);
+                                } else if (choice != null) {
+                                  await context
+                                      .read<SettingsController>()
+                                      .setTaxAccount(choice);
+                                }
+                                if (mounted) setState(() {});
+                              },
+                            );
+                          },
+                        ),
+                        if (settings.taxRate > 0) ...[
+                          const SizedBox(height: 8),
+                          SecondaryButton(
+                            label: 'Выключить карман',
+                            icon: CupertinoIcons.xmark,
+                            onPressed: () async {
+                              await settings.setTaxRate(0);
+                              if (mounted) setState(() {});
+                            },
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  AppCard(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'Masters',
+                          style: TextStyle(fontWeight: FontWeight.w600),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          'Локальный трекер мастера/бригады. Все данные хранятся на устройстве.',
+                          style: TextStyle(
+                            color: colors.secondaryLabel,
+                            fontSize: 13,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          'Версия 0.1.0',
+                          style: TextStyle(
+                            color: colors.tertiaryLabel,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ]),
+                _settingsGroup('reminders', 'Напоминания', [
+                  AppCard(
+                    child: Column(
+                      children: [
+                        Row(
+                          children: [
+                            const Text('Ежедневное напоминание'),
+                            const Spacer(),
+                            CupertinoSwitch(
+                              value: settings.reminderEnabled,
+                              onChanged: (v) async {
+                                if (v) {
+                                  await settings.setReminder(true);
+                                  await ReminderService.scheduleDaily(
+                                    settings.reminderHour,
+                                    settings.reminderMinute,
+                                  );
+                                } else {
+                                  await settings.setReminder(false);
+                                  await ReminderService.cancel();
+                                }
+                                setState(() {});
+                              },
+                            ),
+                          ],
+                        ),
+                        if (settings.reminderEnabled) ...[
+                          const SizedBox(height: 10),
+                          Row(
+                            children: [
+                              Text(
+                                'Время',
+                                style: TextStyle(color: colors.secondaryLabel),
+                              ),
+                              const Spacer(),
+                              CupertinoButton(
+                                padding: EdgeInsets.zero,
+                                onPressed: () => _pickReminderTime(settings),
+                                child: Text(
+                                  '${settings.reminderHour.toString().padLeft(2, '0')}:${settings.reminderMinute.toString().padLeft(2, '0')}',
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                ]),
               ],
             ),
     );
