@@ -615,9 +615,7 @@ class MastersStore extends ChangeNotifier {
     required String targetId,
   }) async {
     if (sourceId == targetId) {
-      throw ArgumentError(
-        ' должны различаться.',
-      );
+      throw ArgumentError(' должны различаться.');
     }
     final source = clientById(sourceId);
     final target = clientById(targetId);
@@ -1025,6 +1023,40 @@ class MastersStore extends ChangeNotifier {
     () => sessionsForJob(jobId).fold(0, (sum, s) => sum + s.minutes),
   );
 
+  /// Currently running (not finished) work session, if any.
+  WorkSession? get openWorkSession {
+    for (final s in _sessions) {
+      if (s.endedAt == null) return s;
+    }
+    return null;
+  }
+
+  /// Worked seconds for [jobId] today (local day by started_at).
+  int workSecondsForJobToday(String jobId) {
+    final now = DateTime.now();
+    final key = dayKey(now);
+    return _sessions
+        .where((s) => s.jobId == jobId && dayKey(s.startedAt) == key)
+        .fold(0, (sum, s) => sum + workSeconds(s));
+  }
+
+  /// Worked seconds today across all jobs (local day by started_at).
+  int workSecondsToday() {
+    final now = DateTime.now();
+    final key = dayKey(now);
+    return _sessions
+        .where((s) => dayKey(s.startedAt) == key)
+        .fold(0, (sum, s) => sum + workSeconds(s));
+  }
+
+  /// Total worked seconds for a single session (running sessions use now).
+  int workSeconds(WorkSession session) {
+    final end = session.endedAt ?? DateTime.now();
+    final seconds =
+        end.difference(session.startedAt).inSeconds - session.pausedSeconds;
+    return seconds.clamp(0, seconds < 0 ? 0 : seconds);
+  }
+
   Future<WorkSession> addSession({
     required String jobId,
     required DateTime startedAt,
@@ -1033,20 +1065,48 @@ class MastersStore extends ChangeNotifier {
     String? note,
   }) async {
     final session = WorkSession(
-      id: newId(),
+      id: 0,
       jobId: jobId,
       startedAt: startedAt,
       endedAt: endedAt,
       minutes: minutes < 0 ? 0 : minutes,
+      pausedSeconds: 0,
       note: note?.trim().isEmpty == true ? null : note?.trim(),
     );
-    await _sessionRepo.save(session);
-    _sessions = [session, ..._sessions];
+    final assigned = await _sessionRepo.insertSession(session);
+    final stored = session.copyWith(id: assigned);
+    _sessions = [stored, ..._sessions];
     notifyListeners();
-    return session;
+    return stored;
   }
 
-  Future<void> deleteSession(String id) async {
+  /// Start a new work session (optionally linked to a job, or without one).
+  Future<void> startWorkSession({String? jobId}) async {
+    final session = WorkSession(
+      id: 0,
+      jobId: jobId,
+      startedAt: DateTime.now(),
+      pausedSeconds: 0,
+    );
+    final assigned = await _sessionRepo.insertSession(session);
+    final stored = session.copyWith(id: assigned);
+    _sessions = [stored, ..._sessions];
+    notifyListeners();
+  }
+
+  /// Finish the running session with [id].
+  Future<void> stopWorkSession(int id) async {
+    final idx = _sessions.indexWhere((s) => s.id == id);
+    if (idx == -1) return;
+    final session = _sessions[idx];
+    if (session.endedAt != null) return;
+    final updated = session.copyWith(endedAt: DateTime.now());
+    await _sessionRepo.save(updated);
+    _sessions = [..._sessions]..[idx] = updated;
+    notifyListeners();
+  }
+
+  Future<void> deleteSession(int id) async {
     await _sessionRepo.delete(id);
     _sessions = _sessions.where((s) => s.id != id).toList();
     notifyListeners();
@@ -1175,8 +1235,7 @@ class MastersStore extends ChangeNotifier {
     String? relatedTransactionId,
     String? receiptPath,
   }) async {
-    if (amountCents <= 0)
-      throw ArgumentError('  быть больше 0.');
+    if (amountCents <= 0) throw ArgumentError('  быть больше 0.');
     ensurePeriodOpen();
     final tx = MoneyTransaction(
       id: newId(),
@@ -1294,8 +1353,7 @@ class MastersStore extends ChangeNotifier {
     int amountCents, {
     String? note,
   }) async {
-    if (amountCents <= 0)
-      throw ArgumentError('  быть больше 0.');
+    if (amountCents <= 0) throw ArgumentError('  быть больше 0.');
     ensurePeriodOpen();
     if (fromAccountId == toAccountId)
       throw ArgumentError('Счета должны различаться.');
@@ -1515,13 +1573,16 @@ class MastersStore extends ChangeNotifier {
   void saveCalculatorState(String jobId, String json) {
     _calculatorState[jobId] = json;
     _calculatorDebounce[jobId]?.cancel();
-    _calculatorDebounce[jobId] = Timer(const Duration(milliseconds: 400), () async {
-      _calculatorDebounce.remove(jobId);
-      final pending = _calculatorState.remove(jobId);
-      if (pending != null) {
-        await _appDatabase.saveCalculatorState(jobId, pending);
-      }
-    });
+    _calculatorDebounce[jobId] = Timer(
+      const Duration(milliseconds: 400),
+      () async {
+        _calculatorDebounce.remove(jobId);
+        final pending = _calculatorState.remove(jobId);
+        if (pending != null) {
+          await _appDatabase.saveCalculatorState(jobId, pending);
+        }
+      },
+    );
   }
 
   /// Persist any unsaved calculator state for [jobId] immediately.
@@ -1578,9 +1639,7 @@ class MastersStore extends ChangeNotifier {
       (a) => a.resourceId == r && !a.endAt.isBefore(s) && !a.startAt.isAfter(e),
     );
     if (conflicts.isNotEmpty) {
-      throw StateError(
-        ' уже  в  время. Выберите другое время.',
-      );
+      throw StateError(' уже  в  время. Выберите другое время.');
     }
     final appt = Appointment(
       id: newId(),
@@ -1794,9 +1853,7 @@ class MastersStore extends ChangeNotifier {
         kind: 'employee_payment',
         direction: 'out',
         amountCents: amountCents < 0 ? 0 : amountCents,
-        category: type == 'advance'
-            ? 'Аванс сотруднику'
-            : 'Выплата зарплаты',
+        category: type == 'advance' ? 'Аванс сотруднику' : 'Выплата зарплаты',
         note: note?.trim().isEmpty == true ? p.note : note?.trim(),
         relatedTransactionId: p.id,
         createdAt: p.createdAt,
@@ -1903,11 +1960,7 @@ class MastersStore extends ChangeNotifier {
     final rows = await BackupService.pickSpreadsheet();
     if (rows == null || rows.isEmpty) return 0;
     final header = rows.first.map(_norm).toList();
-    final nameIdx = _col(header, [
-      'name',
-      'название',
-      'наименование',
-    ]);
+    final nameIdx = _col(header, ['name', 'название', 'наименование']);
     if (nameIdx < 0) return 0;
     final kindIdx = _col(header, ['kind', 'тип']);
     final unitIdx = _col(header, ['unit']);
@@ -2105,15 +2158,11 @@ class MastersStore extends ChangeNotifier {
 
   Future<void> restoreFromBackup(Map<String, dynamic> data) async {
     if (data['format'] != 'masters-backup') {
-      throw const FormatException(
-        'Это не резервная копия Masters.',
-      );
+      throw const FormatException('Это не резервная копия Masters.');
     }
     final version = data['version'];
     if (version is! int || version > 8) {
-      throw const FormatException(
-        'Неподдерживаемая версия копии.',
-      );
+      throw const FormatException('Неподдерживаемая версия копии.');
     }
 
     final clients = <Client>[];
@@ -2405,9 +2454,7 @@ class MastersStore extends ChangeNotifier {
     }
     final version = data['version'];
     if (version is! int || version > 8) {
-      throw const FormatException(
-        'Неподдерживаемая версия копии.',
-      );
+      throw const FormatException('Неподдерживаемая версия копии.');
     }
     final result = await _appDatabase.mergeSnapshot(
       data,
@@ -2519,9 +2566,7 @@ class MastersStore extends ChangeNotifier {
     for (final existing in _closedPeriods) {
       if (periodStart.isBefore(existing.end) &&
           periodEnd.isAfter(existing.start)) {
-        throw ArgumentError(
-          'Новый период пересекается с уже закрытым.',
-        );
+        throw ArgumentError('Новый период пересекается с уже закрытым.');
       }
     }
     final closure = ClosedPeriod(
@@ -2751,9 +2796,8 @@ class MastersStore extends ChangeNotifier {
   String storeDefaultAccountId() {
     final account = _accounts.firstWhere(
       (a) => !a.archived,
-      orElse: () => _accounts.isNotEmpty
-          ? _accounts.first
-          : throw StateError(' счёта.'),
+      orElse: () =>
+          _accounts.isNotEmpty ? _accounts.first : throw StateError(' счёта.'),
     );
     return account.id;
   }
@@ -3070,12 +3114,8 @@ class MastersStore extends ChangeNotifier {
       }
     }
 
-    if (purchaseLines.isEmpty)
-      throw ArgumentError(' не содержит .');
-    if (total <= 0)
-      throw ArgumentError(
-        '   быть больше 0.',
-      );
+    if (purchaseLines.isEmpty) throw ArgumentError(' не содержит .');
+    if (total <= 0) throw ArgumentError('   быть больше 0.');
     final purchase = Purchase(
       id: purchaseId,
       supplierId: supplierId,
