@@ -33,7 +33,7 @@ void main() {
       final ver = (await appDb.database.rawQuery(
         'PRAGMA user_version',
       ))[0]['user_version'];
-      expect(ver, 15);
+      expect(ver, 16);
     } finally {
       await appDb.close();
     }
@@ -55,6 +55,7 @@ void main() {
         'recurring_payments',
         'audit_log',
         'period_closures',
+        'work_sessions',
       ]) {
         expect(tables.contains(t), isTrue, reason: 'missing table $t');
       }
@@ -71,39 +72,46 @@ void main() {
       final version = (await db.rawQuery(
         'PRAGMA user_version',
       ))[0]['user_version'];
-      expect(version, 15);
+      expect(version, 16);
     } finally {
       await appDb.close();
     }
   });
 
-  test('migrates jobs.calculator_state from v14 to v15', () async {
-    // Create a fresh database at the new version, then rewind it to v14
-    // (drop the new column and user_version) to simulate an existing v14 db.
-    final appDb = await AppDatabase.open(path: inMemoryDatabasePath);
-    try {
-      final db = appDb.database;
-      await db.execute('ALTER TABLE jobs DROP COLUMN calculator_state');
-      await db.execute('PRAGMA user_version = 14');
-    } finally {
-      await appDb.close();
-    }
+  test(
+    'migrates v14 database to v16 (calculator_state + work_sessions)',
+    () async {
+      // Create a fresh database at the new version, then rewind it to v14
+      // (drop the new column and user_version) to simulate an existing v14 db.
+      final appDb = await AppDatabase.open(path: inMemoryDatabasePath);
+      try {
+        final db = appDb.database;
+        await db.execute('ALTER TABLE jobs DROP COLUMN calculator_state');
+        await db.execute('PRAGMA user_version = 14');
+      } finally {
+        await appDb.close();
+      }
 
-    // Reopening must run the v14→v15 upgrade and restore the column.
-    final reopened = await AppDatabase.open(path: inMemoryDatabasePath);
-    try {
-      final ver = (await reopened.database.rawQuery(
-        'PRAGMA user_version',
-      ))[0]['user_version'];
-      expect(ver, 15);
-      final cols = (await reopened.database.rawQuery(
-        'PRAGMA table_info(jobs)',
-      )).map((r) => r['name'] as String).toSet();
-      expect(cols.contains('calculator_state'), isTrue);
-    } finally {
-      await reopened.close();
-    }
-  });
+      // Reopening must run the full upgrade chain and restore the column.
+      final reopened = await AppDatabase.open(path: inMemoryDatabasePath);
+      try {
+        final ver = (await reopened.database.rawQuery(
+          'PRAGMA user_version',
+        ))[0]['user_version'];
+        expect(ver, 16);
+        final cols = (await reopened.database.rawQuery(
+          'PRAGMA table_info(jobs)',
+        )).map((r) => r['name'] as String).toSet();
+        expect(cols.contains('calculator_state'), isTrue);
+        final tables = (await reopened.database.rawQuery(
+          "SELECT name FROM sqlite_master WHERE type='table'",
+        )).map((r) => r['name'] as String).toSet();
+        expect(tables.contains('work_sessions'), isTrue);
+      } finally {
+        await reopened.close();
+      }
+    },
+  );
 
   test('creates employee and computes zero balance', () async {
     final appDb = await AppDatabase.open(path: inMemoryDatabasePath);
@@ -126,7 +134,7 @@ void main() {
     }
   });
 
-  test('migrates v11 database to v15 (job_attachments + calculator_state)', () async {
+  test('migrates v11 database to v16 (job_attachments + calculator_state + work_sessions)', () async {
     final dbPath = p.join(
       Directory.systemTemp.path,
       'masters_migration_test.db',
@@ -149,7 +157,7 @@ void main() {
       final ver = (await db12.database.rawQuery(
         'PRAGMA user_version',
       ))[0]['user_version'];
-      expect(ver, 15);
+      expect(ver, 16);
     } finally {
       await db12.close();
       try {
@@ -158,40 +166,45 @@ void main() {
     }
   });
 
-  test('migrates v13 database to v15 (pinned + calculator_state)', () async {
-    final dbPath = p.join(
-      Directory.systemTemp.path,
-      'masters_migration_v14_test.db',
-    );
-    try {
-      await File(dbPath).delete();
-    } catch (_) {}
-    final db14 = await AppDatabase.open(path: dbPath);
-    final raw = db14.database;
-    try {
-      await raw.execute('ALTER TABLE jobs DROP COLUMN pinned');
-    } catch (_) {}
-    await raw.execute('PRAGMA user_version = 13');
-    await db14.close();
-
-    final db = await AppDatabase.open(path: dbPath);
-    try {
-      final cols = (await db.database.rawQuery('PRAGMA table_info(jobs)'))
-          .map((r) => r['name'] as String)
-          .toSet();
-      expect(cols.contains('pinned'), isTrue, reason: 'missing jobs.pinned');
-      expect(
-        cols.contains('calculator_state'),
-        isTrue,
-        reason: 'missing jobs.calculator_state',
+  test(
+    'migrates v13 database to v16 (pinned + calculator_state + work_sessions)',
+    () async {
+      final dbPath = p.join(
+        Directory.systemTemp.path,
+        'masters_migration_v14_test.db',
       );
-      final ver = (await db.database.rawQuery('PRAGMA user_version'))[0]['user_version'];
-      expect(ver, 15);
-    } finally {
-      await db.close();
       try {
         await File(dbPath).delete();
       } catch (_) {}
-    }
-  });
+      final db14 = await AppDatabase.open(path: dbPath);
+      final raw = db14.database;
+      try {
+        await raw.execute('ALTER TABLE jobs DROP COLUMN pinned');
+      } catch (_) {}
+      await raw.execute('PRAGMA user_version = 13');
+      await db14.close();
+
+      final db = await AppDatabase.open(path: dbPath);
+      try {
+        final cols = (await db.database.rawQuery('PRAGMA table_info(jobs)'))
+            .map((r) => r['name'] as String)
+            .toSet();
+        expect(cols.contains('pinned'), isTrue, reason: 'missing jobs.pinned');
+        expect(
+          cols.contains('calculator_state'),
+          isTrue,
+          reason: 'missing jobs.calculator_state',
+        );
+        final ver = (await db.database.rawQuery(
+          'PRAGMA user_version',
+        ))[0]['user_version'];
+        expect(ver, 16);
+      } finally {
+        await db.close();
+        try {
+          await File(dbPath).delete();
+        } catch (_) {}
+      }
+    },
+  );
 }

@@ -38,7 +38,7 @@ class AppDatabase {
 
     final database = await openDatabase(
       resolved,
-      version: 15,
+      version: 16,
       onConfigure: (db) async {
         if (!kIsWeb) await db.execute('PRAGMA foreign_keys = ON');
       },
@@ -130,17 +130,20 @@ class AppDatabase {
 
     await db.execute('''
       CREATE TABLE work_sessions (
-        id TEXT PRIMARY KEY,
-        job_id TEXT NOT NULL REFERENCES jobs(id) ON DELETE CASCADE,
-        started_at INTEGER NOT NULL,
+        id INTEGER PRIMARY KEY,
+        job_id TEXT NULL,
+        started_at INTEGER,
+        paused_seconds INTEGER NOT NULL DEFAULT 0,
         ended_at INTEGER,
         minutes INTEGER NOT NULL DEFAULT 0,
         note TEXT
       )
     ''');
-    await db.execute('CREATE INDEX idx_wsessions_job ON work_sessions(job_id)');
     await db.execute(
-      'CREATE INDEX idx_wsessions_started ON work_sessions(started_at)',
+      'CREATE INDEX IF NOT EXISTS idx_wsessions_job ON work_sessions(job_id)',
+    );
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_wsessions_started ON work_sessions(started_at)',
     );
 
     await _createMoneySchema(db);
@@ -670,10 +673,44 @@ class AppDatabase {
       final hasColumn = (await db.rawQuery('PRAGMA table_info(jobs)'))
           .any((row) => row['name'] == 'calculator_state');
       if (!hasColumn) {
-        await db.execute(
-          'ALTER TABLE jobs ADD COLUMN calculator_state TEXT',
-        );
+        await db.execute('ALTER TABLE jobs ADD COLUMN calculator_state TEXT');
       }
+    }
+    if (oldVersion < 16) {
+      // v16: work_sessions timer — integer id, nullable job_id, paused seconds.
+      await db.execute('ALTER TABLE work_sessions RENAME TO work_sessions_v15');
+      await db.execute('''
+        CREATE TABLE work_sessions (
+          id INTEGER PRIMARY KEY,
+          job_id TEXT NULL,
+          started_at INTEGER,
+          paused_seconds INTEGER NOT NULL DEFAULT 0,
+          ended_at INTEGER,
+          minutes INTEGER NOT NULL DEFAULT 0,
+          note TEXT,
+          updated_at INTEGER,
+          deleted_at INTEGER,
+          device_id TEXT
+        )
+      ''');
+      await db.execute('''
+        INSERT INTO work_sessions (
+          id, job_id, started_at, paused_seconds, ended_at, minutes, note,
+          updated_at, deleted_at, device_id
+        )
+        SELECT
+          id, job_id, started_at, 0, ended_at, minutes, note,
+          updated_at, deleted_at, device_id
+        FROM work_sessions_v15
+      ''');
+      await db.execute('DROP TABLE work_sessions_v15');
+      await db.execute(
+        'CREATE INDEX IF NOT EXISTS idx_wsessions_job ON work_sessions(job_id)',
+      );
+      await db.execute(
+        'CREATE INDEX IF NOT EXISTS idx_wsessions_started ON work_sessions(started_at)',
+      );
+      await _createAuditTriggers(db);
     }
   }
 
