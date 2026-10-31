@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:sqflite/sqflite.dart';
@@ -1496,6 +1497,42 @@ class MastersStore extends ChangeNotifier {
 
   List<StockMovement> movementsForItem(String itemId) =>
       stockMovementsByItem(itemId);
+
+  // Calculator state persistence (per job, JSON blob in jobs.calculator_state).
+  final Map<String, String> _calculatorState = <String, String>{};
+  final Map<String, Timer> _calculatorDebounce = <String, Timer>{};
+
+  /// Last saved calculator state JSON for [jobId], or `null` if none.
+  /// Reads in-memory value first (includes unsaved debounced changes), then DB.
+  Future<String?> calculatorStateForJob(String jobId) async {
+    final mem = _calculatorState[jobId];
+    if (mem != null) return mem;
+    return _appDatabase.getCalculatorState(jobId);
+  }
+
+  /// Debounced save of calculator state JSON for [jobId] (400 ms).
+  /// Call [flushCalculatorState] to persist immediately (e.g. on close).
+  void saveCalculatorState(String jobId, String json) {
+    _calculatorState[jobId] = json;
+    _calculatorDebounce[jobId]?.cancel();
+    _calculatorDebounce[jobId] = Timer(const Duration(milliseconds: 400), () async {
+      _calculatorDebounce.remove(jobId);
+      final pending = _calculatorState.remove(jobId);
+      if (pending != null) {
+        await _appDatabase.saveCalculatorState(jobId, pending);
+      }
+    });
+  }
+
+  /// Persist any unsaved calculator state for [jobId] immediately.
+  Future<void> flushCalculatorState(String jobId) async {
+    _calculatorDebounce[jobId]?.cancel();
+    _calculatorDebounce.remove(jobId);
+    final json = _calculatorState.remove(jobId);
+    if (json != null) {
+      await _appDatabase.saveCalculatorState(jobId, json);
+    }
+  }
 
   List<StockMovement> stockMovementsByItem(String itemId) {
     final list = _stockMovements.where((m) => m.itemId == itemId).toList()
