@@ -1186,7 +1186,13 @@ class _KV extends StatelessWidget {
       padding: const EdgeInsets.symmetric(vertical: 3),
       child: Row(
         children: [
-          Text(label, style: TextStyle(color: colors.secondaryLabel)),
+          Expanded(
+            child: Text(
+              label,
+              style: TextStyle(color: colors.secondaryLabel),
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
           const Spacer(),
           Text(value, style: const TextStyle(fontWeight: FontWeight.w600)),
         ],
