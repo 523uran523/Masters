@@ -32,7 +32,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   bool _updateBusy = false;
   UpdateInfo? _updateInfo;
   String _updateStatus = '';
-  final Set<String> _expanded = {'interface', 'data'};
+  final Set<String> _expanded = {'features', 'orders', 'money', 'app'};
   static const List<String> _tabLabels = [
     'Сегодня',
     'Заказы',
@@ -916,6 +916,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
+  Future<void> _applyConfigPreset(String preset) async {
+    await context.read<SettingsController>().applyConfigPreset(preset);
+    if (mounted) setState(() {});
+  }
+
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
@@ -928,59 +933,90 @@ class _SettingsScreenState extends State<SettingsScreen> {
           : ListView(
               padding: const EdgeInsets.fromLTRB(16, 12, 16, 72),
               children: [
-                _settingsGroup('interface', 'Интерфейс', [
-                  SecondaryButton(
-                    label: 'Тема: ${settings.themeName}',
-                    icon: CupertinoIcons.moon_stars,
-                    onPressed: () async {
-                      final choice = await showCupertinoModalPopup<String?>(
-                        context: context,
-                        builder: (dialogContext) => CupertinoActionSheet(
-                          actions: [
-                            CupertinoActionSheetAction(
-                              onPressed: () =>
-                                  Navigator.of(dialogContext).pop('system'),
-                              child: const Text('System'),
+                _settingsGroup('features', 'Общие возможности', [
+                  AppCard(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            const Expanded(
+                              child: Text('Показывать теги в заказах'),
                             ),
-                            CupertinoActionSheetAction(
-                              onPressed: () =>
-                                  Navigator.of(dialogContext).pop('light'),
-                              child: const Text('Light'),
-                            ),
-                            CupertinoActionSheetAction(
-                              onPressed: () =>
-                                  Navigator.of(dialogContext).pop('dark'),
-                              child: const Text('Dark'),
+                            CupertinoSwitch(
+                              value: settings.jobTagsEnabled,
+                              onChanged: (value) async {
+                                await settings.setJobTagsEnabled(value);
+                                if (mounted) setState(() {});
+                              },
                             ),
                           ],
-                          cancelButton: CupertinoActionSheetAction(
-                            onPressed: () => Navigator.of(dialogContext).pop(),
-                            child: const Text('Отмена'),
-                          ),
                         ),
-                      );
-                      if (choice != null) {
-                        await settings.setThemeMode(
-                          AppThemeMode.values.firstWhere(
-                            (mode) => mode.name == choice,
-                            orElse: () => settings.themeMode,
-                          ),
-                        );
-                        if (mounted) {
-                          setState(() {});
-                        }
-                      }
-                    },
+                        const SizedBox(height: 8),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: CupertinoTextField(
+                                controller: _tagController,
+                                placeholder: 'Новый тег',
+                              ),
+                            ),
+                            CupertinoButton(
+                              padding: EdgeInsets.zero,
+                              child: const Icon(
+                                CupertinoIcons.plus,
+                                semanticLabel: 'Добавить',
+                              ),
+                              onPressed: () async {
+                                await context
+                                    .read<SettingsController>()
+                                    .addJobTag(_tagController.text);
+                                _tagController.clear();
+                                if (mounted) setState(() {});
+                              },
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          children: [
+                            for (final tag
+                                in context.watch<SettingsController>().jobTags)
+                              GestureDetector(
+                                onTap: () async {
+                                  await context
+                                      .read<SettingsController>()
+                                      .removeJobTag(tag);
+                                  if (mounted) setState(() {});
+                                },
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 10,
+                                    vertical: 6,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: context.colors.cardElevated,
+                                    borderRadius: BorderRadius.circular(99),
+                                  ),
+                                  child: Text(tag),
+                                ),
+                              ),
+                          ],
+                        ),
+                      ],
+                    ),
                   ),
                   const SizedBox(height: 16),
                   AppCard(
                     child: Row(
                       children: [
-                        const Expanded(child: Text('Показывать смену кассы')),
+                        const Expanded(child: Text('Калькулятор цен')),
                         CupertinoSwitch(
-                          value: settings.cashShiftEnabled,
+                          value: settings.calculatorEnabled,
                           onChanged: (v) async {
-                            await settings.setCashShiftEnabled(v);
+                            await settings.setCalculatorEnabled(v);
                             if (mounted) setState(() {});
                           },
                         ),
@@ -989,82 +1025,114 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ),
                   const SizedBox(height: 16),
                   AppCard(
-                    child: Column(
+                    child: Row(
                       children: [
-                        for (var i = 0; i < 7; i++) ...[
-                          if (i != 6)
-                            Row(
-                              children: [
-                                Expanded(child: Text(_tabLabels[i])),
-                                CupertinoSwitch(
-                                  value: settings.isTabVisible(i),
-                                  onChanged: (v) async {
-                                    await context
-                                        .read<SettingsController>()
-                                        .toggleTabVisible(i, visible: v);
-                                    if (!context.mounted) return;
-                                    setState(() {});
-                                  },
-                                ),
-                              ],
-                            ),
-                          if (i != 6 && i != 5) const SizedBox(height: 8),
-                        ],
+                        const Expanded(child: Text('Сотрудники и зарплата')),
+                        CupertinoSwitch(
+                          value: settings.teamEnabled,
+                          onChanged: (v) async {
+                            await settings.setTeamEnabled(v);
+                            if (mounted) setState(() {});
+                          },
+                        ),
                       ],
                     ),
                   ),
+                  const SizedBox(height: 16),
+                  for (var i = 0; i < kanbanColumns.length; i++) ...[
+                    if (i > 0) const SizedBox(height: 16),
+                    AppCard(
+                      child: Row(
+                        children: [
+                          Expanded(child: Text(kanbanColumns[i].label)),
+                          CupertinoCheckbox(
+                            value: settings.kanbanColumnEnabled(
+                              kanbanColumns[i].key,
+                            ),
+                            onChanged: (value) async {
+                              final next = <String>[...settings.kanbanColumns];
+                              if (value == true) {
+                                if (!next.contains(kanbanColumns[i].key)) {
+                                  next.add(kanbanColumns[i].key);
+                                }
+                              } else {
+                                next.remove(kanbanColumns[i].key);
+                              }
+                              await context
+                                  .read<SettingsController>()
+                                  .setKanbanColumns(next);
+                              if (mounted) setState(() {});
+                            },
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                   const SizedBox(height: 16),
                   AppCard(
                     child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Row(
-                          children: [
-                            const Text('Ежедневное напоминание'),
-                            const Spacer(),
-                            CupertinoSwitch(
-                              value: settings.reminderEnabled,
-                              onChanged: (v) async {
-                                if (v) {
-                                  await settings.setReminder(true);
-                                  await ReminderService.scheduleDaily(
-                                    settings.reminderHour,
-                                    settings.reminderMinute,
-                                  );
-                                } else {
-                                  await settings.setReminder(false);
-                                  await ReminderService.cancel();
-                                }
-                                setState(() {});
-                              },
-                            ),
-                          ],
+                        const Text(
+                          'Типичные конфигурации',
+                          style: TextStyle(fontWeight: FontWeight.w600),
                         ),
-                        if (settings.reminderEnabled) ...[
-                          const SizedBox(height: 10),
-                          Row(
-                            children: [
-                              Text(
-                                'Время',
-                                style: TextStyle(color: colors.secondaryLabel),
-                              ),
-                              const Spacer(),
-                              CupertinoButton(
-                                padding: EdgeInsets.zero,
-                                onPressed: () => _pickReminderTime(settings),
-                                child: Text(
-                                  '${settings.reminderHour.toString().padLeft(2, '0')}:${settings.reminderMinute.toString().padLeft(2, '0')}',
-                                  style: const TextStyle(
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
+                        const SizedBox(height: 8),
+                        SecondaryButton(
+                          label: 'Соло-мастер',
+                          onPressed: () => _applyConfigPreset('solo'),
+                        ),
+                        const SizedBox(height: 8),
+                        SecondaryButton(
+                          label: 'Мастер + бригада',
+                          onPressed: () => _applyConfigPreset('team'),
+                        ),
+                        const SizedBox(height: 8),
+                        SecondaryButton(
+                          label: 'Мастер + клиенты',
+                          onPressed: () => _applyConfigPreset('clients'),
+                        ),
                       ],
                     ),
                   ),
+                ]),
+                const SizedBox(height: 16),
+                _settingsGroup('orders', 'Заказы', [
+                  _TermsCard(),
                   const SizedBox(height: 16),
+                  AppCard(
+                    child: Row(
+                      children: [
+                        const Expanded(child: Text('Ставка за час, ₽')),
+                        Text(
+                          '${(settings.hourRateCents / 100).toStringAsFixed(0)}',
+                          style: const TextStyle(fontWeight: FontWeight.w600),
+                        ),
+                        const Text(
+                          ' ₽',
+                          style: TextStyle(fontWeight: FontWeight.w600),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  SecondaryButton(
+                    label: 'Изменить ставку за час',
+                    icon: CupertinoIcons.clock,
+                    onPressed: () async {
+                      final v = await _promptPin(
+                        'Ставка за час, ₽',
+                        settings.hourRateCents.toString(),
+                      );
+                      if (v == null || !mounted) return;
+                      final cents = int.tryParse(v.trim()) ?? 0;
+                      await settings.setHourRateCents(cents);
+                      if (mounted) setState(() {});
+                    },
+                  ),
+                ]),
+                const SizedBox(height: 16),
+                _settingsGroup('money', 'Деньги', [
                   AppCard(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1178,147 +1246,238 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       ],
                     ),
                   ),
-                  const SizedBox(height: 8),
+                  const SizedBox(height: 16),
                   AppCard(
                     child: Row(
                       children: [
-                        const Expanded(child: Text('Ставка за час, ₽')),
-                        Text(
-                          '${(settings.hourRateCents / 100).toStringAsFixed(0)}',
-                          style: const TextStyle(fontWeight: FontWeight.w600),
-                        ),
-                        const Text(
-                          ' ₽',
-                          style: TextStyle(fontWeight: FontWeight.w600),
+                        const Expanded(child: Text('Показывать смену кассы')),
+                        CupertinoSwitch(
+                          value: settings.cashShiftEnabled,
+                          onChanged: (v) async {
+                            await settings.setCashShiftEnabled(v);
+                            if (mounted) setState(() {});
+                          },
                         ),
                       ],
                     ),
                   ),
-                  const SizedBox(height: 8),
+                ]),
+                const SizedBox(height: 16),
+                _settingsGroup('app', 'Приложение', [
                   SecondaryButton(
-                    label: 'Изменить ставку за час',
-                    icon: CupertinoIcons.clock,
+                    label: 'Тема: ${settings.themeName}',
+                    icon: CupertinoIcons.moon_stars,
                     onPressed: () async {
-                      final v = await _promptPin(
-                        'Ставка за час, ₽',
-                        settings.hourRateCents.toString(),
+                      final choice = await showCupertinoModalPopup<String?>(
+                        context: context,
+                        builder: (dialogContext) => CupertinoActionSheet(
+                          actions: [
+                            CupertinoActionSheetAction(
+                              onPressed: () =>
+                                  Navigator.of(dialogContext).pop('system'),
+                              child: const Text('System'),
+                            ),
+                            CupertinoActionSheetAction(
+                              onPressed: () =>
+                                  Navigator.of(dialogContext).pop('light'),
+                              child: const Text('Light'),
+                            ),
+                            CupertinoActionSheetAction(
+                              onPressed: () =>
+                                  Navigator.of(dialogContext).pop('dark'),
+                              child: const Text('Dark'),
+                            ),
+                          ],
+                          cancelButton: CupertinoActionSheetAction(
+                            onPressed: () => Navigator.of(dialogContext).pop(),
+                            child: const Text('Отмена'),
+                          ),
+                        ),
                       );
-                      if (v == null || !mounted) return;
-                      final cents = int.tryParse(v.trim()) ?? 0;
-                      await settings.setHourRateCents(cents);
-                      if (mounted) setState(() {});
+                      if (choice != null) {
+                        await settings.setThemeMode(
+                          AppThemeMode.values.firstWhere(
+                            (mode) => mode.name == choice,
+                            orElse: () => settings.themeMode,
+                          ),
+                        );
+                        if (mounted) {
+                          setState(() {});
+                        }
+                      }
                     },
+                  ),
+                  const SizedBox(height: 16),
+                  AppCard(
+                    child: Column(
+                      children: [
+                        for (var i = 0; i < 7; i++) ...[
+                          if (i != 6)
+                            Row(
+                              children: [
+                                Expanded(child: Text(_tabLabels[i])),
+                                CupertinoSwitch(
+                                  value: settings.isTabVisible(i),
+                                  onChanged: (v) async {
+                                    await context
+                                        .read<SettingsController>()
+                                        .toggleTabVisible(i, visible: v);
+                                    if (!context.mounted) return;
+                                    setState(() {});
+                                  },
+                                ),
+                              ],
+                            ),
+                          if (i != 6 && i != 5) const SizedBox(height: 8),
+                        ],
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  AppCard(
+                    child: Column(
+                      children: [
+                        Row(
+                          children: [
+                            const Text('Ежедневное напоминание'),
+                            const Spacer(),
+                            CupertinoSwitch(
+                              value: settings.reminderEnabled,
+                              onChanged: (v) async {
+                                if (v) {
+                                  await settings.setReminder(true);
+                                  await ReminderService.scheduleDaily(
+                                    settings.reminderHour,
+                                    settings.reminderMinute,
+                                  );
+                                } else {
+                                  await settings.setReminder(false);
+                                  await ReminderService.cancel();
+                                }
+                                setState(() {});
+                              },
+                            ),
+                          ],
+                        ),
+                        if (settings.reminderEnabled) ...[
+                          const SizedBox(height: 10),
+                          Row(
+                            children: [
+                              Text(
+                                'Время',
+                                style: TextStyle(color: colors.secondaryLabel),
+                              ),
+                              const Spacer(),
+                              CupertinoButton(
+                                padding: EdgeInsets.zero,
+                                onPressed: () => _pickReminderTime(settings),
+                                child: Text(
+                                  '${settings.reminderHour.toString().padLeft(2, '0')}:${settings.reminderMinute.toString().padLeft(2, '0')}',
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  AppCard(
+                    child: Column(
+                      children: [
+                        CupertinoListTile(
+                          title: Text(
+                            settings.hasAppPin
+                                ? 'PIN-код активен'
+                                : 'PIN-код не установлен',
+                          ),
+                          subtitle: const Text(
+                            'Экран блокируется при запуске. Биометрия — в плане.',
+                          ),
+                        ),
+                        SecondaryButton(
+                          label: settings.hasAppPin
+                              ? 'Сменить или убрать PIN'
+                              : 'Установить PIN',
+                          icon: CupertinoIcons.lock,
+                          onPressed: _managePin,
+                        ),
+                        if (settings.hasAppPin) ...[
+                          const SizedBox(height: 8),
+                          SecondaryButton(
+                            label: 'Выключить PIN',
+                            icon: CupertinoIcons.lock_open,
+                            onPressed: () async {
+                              final ok = await showAppConfirm(
+                                context,
+                                title: 'Выключить PIN?',
+                                message: 'После этого приложение будет открываться без PIN.',
+                                destructive: true,
+                                confirmLabel: 'Выключить',
+                              );
+                              if (!ok || !context.mounted) return;
+                              await context
+                                  .read<SettingsController>()
+                                  .setAppPin(null);
+                              if (context.mounted)
+                                await showAppAlert(
+                                  context,
+                                  title: 'Готово',
+                                  message: 'PIN выключен.',
+                                );
+                              if (mounted) setState(() {});
+                            },
+                          ),
+                        ],
+                        const SizedBox(height: 8),
+                        FutureBuilder<bool>(
+                          future: AppBiometricService.isAvailable(),
+                          builder: (context, snapshot) {
+                            final available = snapshot.data ?? false;
+                            if (!available) return const SizedBox.shrink();
+                            return Row(
+                              children: [
+                                const Expanded(
+                                  child: Text('Биометрия (разблокировка)'),
+                                ),
+                                CupertinoSwitch(
+                                  value: settings.biometricEnabled,
+                                  onChanged: (v) async {
+                                    await context
+                                        .read<SettingsController>()
+                                        .setBiometricEnabled(v);
+                                    if (!context.mounted) return;
+                                    setState(() {});
+                                  },
+                                ),
+                              ],
+                            );
+                          },
+                        ),
+                      ],
+                    ),
                   ),
                   const SizedBox(height: 16),
                   AppCard(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Row(
-                          children: [
-                            const Expanded(
-                              child: Text('Показывать теги в заказах'),
-                            ),
-                            CupertinoSwitch(
-                              value: settings.jobTagsEnabled,
-                              onChanged: (value) async {
-                                await settings.setJobTagsEnabled(value);
-                                if (mounted) setState(() {});
-                              },
-                            ),
-                          ],
-                        ),
+                        Text('Записей: ${_auditEntries.length}'),
                         const SizedBox(height: 8),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: CupertinoTextField(
-                                controller: _tagController,
-                                placeholder: 'Новый тег',
-                              ),
-                            ),
-                            CupertinoButton(
-                              padding: EdgeInsets.zero,
-                              child: const Icon(
-                                CupertinoIcons.plus,
-                                semanticLabel: 'Добавить',
-                              ),
-                              onPressed: () async {
-                                await context
-                                    .read<SettingsController>()
-                                    .addJobTag(_tagController.text);
-                                _tagController.clear();
-                                if (mounted) setState(() {});
-                              },
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 8),
-                        Wrap(
-                          spacing: 8,
-                          runSpacing: 8,
-                          children: [
-                            for (final tag
-                                in context.watch<SettingsController>().jobTags)
-                              GestureDetector(
-                                onTap: () async {
-                                  await context
-                                      .read<SettingsController>()
-                                      .removeJobTag(tag);
-                                  if (mounted) setState(() {});
-                                },
-                                child: Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 10,
-                                    vertical: 6,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: context.colors.cardElevated,
-                                    borderRadius: BorderRadius.circular(99),
-                                  ),
-                                  child: Text(tag),
-                                ),
-                              ),
-                          ],
+                        SecondaryButton(
+                          label: _auditBusy
+                              ? 'Загрузка...'
+                              : 'Показать журнал аудита',
+                          icon: CupertinoIcons.doc_text_search,
+                          onPressed: _auditBusy ? () {} : _showAuditLog,
                         ),
                       ],
                     ),
                   ),
                   const SizedBox(height: 16),
-                ]),
-                _settingsGroup('orders', 'Заказы', [
-                  for (var i = 0; i < kanbanColumns.length; i++) ...[
-                    if (i > 0) const SizedBox(height: 16),
-                    AppCard(
-                      child: Row(
-                        children: [
-                          Expanded(child: Text(kanbanColumns[i].label)),
-                          CupertinoCheckbox(
-                            value: settings.kanbanColumnEnabled(
-                              kanbanColumns[i].key,
-                            ),
-                            onChanged: (value) async {
-                              final next = <String>[...settings.kanbanColumns];
-                              if (value == true) {
-                                if (!next.contains(kanbanColumns[i].key)) {
-                                  next.add(kanbanColumns[i].key);
-                                }
-                              } else {
-                                next.remove(kanbanColumns[i].key);
-                              }
-                              await context
-                                  .read<SettingsController>()
-                                  .setKanbanColumns(next);
-                              if (mounted) setState(() {});
-                            },
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ]),
-                const SizedBox(height: 16),
-                _settingsGroup('data', 'Данные и Яндекс', [
                   AppCard(
                     child: Column(
                       children: [
@@ -1491,103 +1650,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     ),
                   ),
                   const SizedBox(height: 16),
-                ]),
-                _settingsGroup('security', 'Безопасность и аудит', [
-                  AppCard(
-                    child: Column(
-                      children: [
-                        CupertinoListTile(
-                          title: Text(
-                            settings.hasAppPin
-                                ? 'PIN-код активен'
-                                : 'PIN-код не установлен',
-                          ),
-                          subtitle: const Text(
-                            'Экран блокируется при запуске. Биометрия — в плане.',
-                          ),
-                        ),
-                        SecondaryButton(
-                          label: settings.hasAppPin
-                              ? 'Сменить или убрать PIN'
-                              : 'Установить PIN',
-                          icon: CupertinoIcons.lock,
-                          onPressed: _managePin,
-                        ),
-                        if (settings.hasAppPin) ...[
-                          const SizedBox(height: 8),
-                          SecondaryButton(
-                            label: 'Выключить PIN',
-                            icon: CupertinoIcons.lock_open,
-                            onPressed: () async {
-                              final ok = await showAppConfirm(
-                                context,
-                                title: 'Выключить PIN?',
-                                message: 'После этого приложение будет открываться без PIN.',
-                                destructive: true,
-                                confirmLabel: 'Выключить',
-                              );
-                              if (!ok || !context.mounted) return;
-                              await context
-                                  .read<SettingsController>()
-                                  .setAppPin(null);
-                              if (context.mounted)
-                                await showAppAlert(
-                                  context,
-                                  title: 'Готово',
-                                  message: 'PIN выключен.',
-                                );
-                              if (mounted) setState(() {});
-                            },
-                          ),
-                        ],
-                        const SizedBox(height: 8),
-                        FutureBuilder<bool>(
-                          future: AppBiometricService.isAvailable(),
-                          builder: (context, snapshot) {
-                            final available = snapshot.data ?? false;
-                            if (!available) return const SizedBox.shrink();
-                            return Row(
-                              children: [
-                                const Expanded(
-                                  child: Text('Биометрия (разблокировка)'),
-                                ),
-                                CupertinoSwitch(
-                                  value: settings.biometricEnabled,
-                                  onChanged: (v) async {
-                                    await context
-                                        .read<SettingsController>()
-                                        .setBiometricEnabled(v);
-                                    if (!context.mounted) return;
-                                    setState(() {});
-                                  },
-                                ),
-                              ],
-                            );
-                          },
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  AppCard(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text('Записей: ${_auditEntries.length}'),
-                        const SizedBox(height: 8),
-                        SecondaryButton(
-                          label: _auditBusy
-                              ? 'Загрузка...'
-                              : 'Показать журнал аудита',
-                          icon: CupertinoIcons.doc_text_search,
-                          onPressed: _auditBusy ? () {} : _showAuditLog,
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                ]),
-                _settingsGroup('app', 'Приложение и обновления', [
                   AppCard(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1656,7 +1718,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       ],
                     ),
                   ),
-                  const SizedBox(height: 16),
                 ]),
               ],
             ),
@@ -1700,6 +1761,71 @@ class _ActionTile extends StatelessWidget {
             CupertinoIcons.chevron_forward,
             size: 16,
             color: colors.tertiaryLabel,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _TermsCard extends StatefulWidget {
+  const _TermsCard();
+
+  @override
+  State<_TermsCard> createState() => _TermsCardState();
+}
+
+class _TermsCardState extends State<_TermsCard> {
+  late final TextEditingController _objectTermController;
+  late final TextEditingController _clientTermController;
+
+  @override
+  void initState() {
+    super.initState();
+    final settings = context.read<SettingsController>();
+    _objectTermController = TextEditingController(text: settings.objectTerm);
+    _clientTermController = TextEditingController(text: settings.clientTerm);
+  }
+
+  @override
+  void dispose() {
+    _objectTermController.dispose();
+    _clientTermController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _save() async {
+    final store = context.read<SettingsController>();
+    await store.setObjectTerm(_objectTermController.text.trim());
+    await store.setClientTerm(_clientTermController.text.trim());
+    if (mounted) setState(() {});
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AppCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Термины записей',
+            style: TextStyle(fontWeight: FontWeight.w600),
+          ),
+          const SizedBox(height: 8),
+          CupertinoTextField(
+            controller: _objectTermController,
+            placeholder: 'Термин объекта',
+          ),
+          const SizedBox(height: 8),
+          CupertinoTextField(
+            controller: _clientTermController,
+            placeholder: 'Термин клиента',
+          ),
+          const SizedBox(height: 8),
+          SecondaryButton(
+            label: 'Сохранить термины',
+            icon: CupertinoIcons.checkmark,
+            onPressed: _save,
           ),
         ],
       ),
