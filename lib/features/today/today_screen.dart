@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math';
 
 import 'package:flutter/cupertino.dart';
@@ -10,6 +11,7 @@ import '../../core/utils/app_utils.dart';
 import '../../data/models/client_reminder.dart';
 import '../../data/models/job.dart';
 import '../../state/masters_store.dart';
+import '../../state/settings_controller.dart';
 import '../jobs/job_detail_screen.dart';
 import '../jobs/job_form_screen.dart';
 import '../money/money_screen.dart';
@@ -23,6 +25,24 @@ class TodayScreen extends StatefulWidget {
 }
 
 class _TodayScreenState extends State<TodayScreen> {
+  Timer? _tick;
+
+  @override
+  void initState() {
+    super.initState();
+    _tick = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (mounted && context.read<MastersStore>().openWorkSession != null) {
+        setState(() {});
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _tick?.cancel();
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
     final store = context.watch<MastersStore>();
@@ -85,6 +105,15 @@ class _TodayScreenState extends State<TodayScreen> {
               onPressed: _quickAdd,
               child: const Icon(CupertinoIcons.plus, semanticLabel: 'Добавить'),
             ),
+            const SizedBox(width: 2),
+            CupertinoButton(
+              padding: EdgeInsets.zero,
+              onPressed: () => _openQuickMoney(context),
+              child: const Text(
+                '₽',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 20),
+              ),
+            ),
           ],
         ),
       ),
@@ -133,7 +162,9 @@ class _TodayScreenState extends State<TodayScreen> {
               return ListView(
                 padding: const EdgeInsets.fromLTRB(16, 12, 16, 72),
                 children: [
-                  _buildTodayOverview(store, context),
+                  _buildTodayTimerCard(store, context),
+                  const SizedBox(height: 12),
+                  _buildMonthCard(store, context),
                   const SizedBox(height: 12),
                   _buildSevenDayCashSummary(store, context),
                   const SizedBox(height: 12),
@@ -577,16 +608,252 @@ class _TodayScreenState extends State<TodayScreen> {
 
 String _money(int cents) => '${(cents / 100).toStringAsFixed(0)} ₽';
 
-Widget _buildTodayOverview(MastersStore store, BuildContext context) {
+String _hms(int seconds) {
+  final h = seconds ~/ 3600;
+  final m = (seconds % 3600) ~/ 60;
+  final s = seconds % 60;
+  if (h > 0) return '$h ч $m мин';
+  return '$m мин $s с';
+}
+
+Widget _moneyRow(String label, String value, Color color) => Padding(
+  padding: const EdgeInsets.symmetric(vertical: 2),
+  child: Row(
+    children: [
+      Expanded(child: Text(label)),
+      Text(
+        value,
+        style: TextStyle(color: color, fontWeight: FontWeight.w600),
+      ),
+    ],
+  ),
+);
+
+Widget _buildTodayTimerCard(MastersStore store, BuildContext context) {
   final colors = context.colors;
-  final todayStart = DateTime.now();
+  final open = store.openWorkSession;
+  final todaySeconds = store.workSecondsToday();
+  return AppCard(
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            const Expanded(
+              child: Text(
+                'Рабочий день',
+                style: TextStyle(fontWeight: FontWeight.w600),
+              ),
+            ),
+            if (open != null)
+              Text(
+                _hms(store.workSeconds(open)),
+                style: TextStyle(
+                  fontWeight: FontWeight.w600,
+                  color: colors.accent,
+                ),
+              ),
+          ],
+        ),
+        const SizedBox(height: 10),
+        if (open != null) ...[
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  open.jobId == null
+                      ? 'Без заказа'
+                      : (store.jobById(open.jobId!)?.title ?? open.jobId!),
+                  style: TextStyle(color: colors.secondaryLabel, fontSize: 13),
+                ),
+              ),
+              const SizedBox(width: 8),
+              CupertinoButton.filled(
+                onPressed: () => store.stopWorkSession(open.id),
+                child: const Text('Стоп'),
+              ),
+            ],
+          ),
+        ] else ...[
+          CupertinoButton.filled(
+            onPressed: () => _pickJobAndStart(context),
+            child: const Text('Начать смену'),
+          ),
+        ],
+        const SizedBox(height: 6),
+        Text(
+          'Сегодня наработано: ${_hms(todaySeconds)}',
+          style: TextStyle(color: colors.secondaryLabel, fontSize: 12),
+        ),
+      ],
+    ),
+  );
+}
+
+Future<void> _pickJobAndStart(BuildContext context) async {
+  final store = context.read<MastersStore>();
+  final activeJobs = store.jobs.where((j) => !j.archived).toList();
+  if (activeJobs.isEmpty) {
+    await store.startWorkSession(jobId: null);
+    return;
+  }
+  final choice = await showCupertinoModalPopup<String?>(
+    context: context,
+    builder: (dialogContext) => CupertinoActionSheet(
+      title: const Text('Начать отсчет'),
+      message: const Text('Выберите заказ или начните без привязки к заказу.'),
+      actions: [
+        for (final job in activeJobs)
+          CupertinoActionSheetAction(
+            onPressed: () => Navigator.of(dialogContext).pop(job.id),
+            child: Text(job.title),
+          ),
+        CupertinoActionSheetAction(
+          onPressed: () => Navigator.of(dialogContext).pop('__none__'),
+          child: const Text('Без заказа'),
+        ),
+      ],
+      cancelButton: CupertinoActionSheetAction(
+        onPressed: () => Navigator.of(dialogContext).pop(null),
+        child: const Text('Отмена'),
+      ),
+    ),
+  );
+  if (choice == null) return;
+  await store.startWorkSession(jobId: choice == '__none__' ? null : choice);
+}
+
+Future<void> _openQuickMoney(BuildContext context) async {
+  final store = context.read<MastersStore>();
+  final accounts = store.accounts.where((a) => !a.archived).toList();
+  if (accounts.isEmpty) {
+    await showAppAlert(
+      context,
+      title: 'Нет счетов',
+      message: 'Сначала добавьте счёт.',
+    );
+    return;
+  }
+  final kind = await showCupertinoModalPopup<String?>(
+    context: context,
+    builder: (dialogContext) => CupertinoActionSheet(
+      title: const Text('Быстрые деньги'),
+      actions: [
+        CupertinoActionSheetAction(
+          onPressed: () => Navigator.of(dialogContext).pop('sale'),
+          child: const Text('Продажа / доход'),
+        ),
+        CupertinoActionSheetAction(
+          onPressed: () => Navigator.of(dialogContext).pop('expense'),
+          child: const Text('Расход'),
+        ),
+      ],
+      cancelButton: CupertinoActionSheetAction(
+        onPressed: () => Navigator.of(dialogContext).pop(null),
+        child: const Text('Отмена'),
+      ),
+    ),
+  );
+  if (kind == null) return;
+  final isIncome = kind == 'sale';
+  String? selectedId = accounts.first.id;
+  final amountController = TextEditingController();
+  final ok = await showCupertinoModalPopup<bool?>(
+    context: context,
+    builder: (dialogContext) => StatefulBuilder(
+      builder: (dialogContext, setSheetState) => CupertinoAlertDialog(
+        title: Text(isIncome ? 'Продажа / доход' : 'Расход'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            CupertinoTextField(
+              controller: amountController,
+              keyboardType: TextInputType.numberWithOptions(decimal: true),
+              placeholder: 'Сумма',
+            ),
+            const SizedBox(height: 10),
+            ...accounts.map(
+              (a) => CupertinoButton(
+                padding: EdgeInsets.zero,
+                onPressed: () => setSheetState(() => selectedId = a.id),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 6,
+                  ),
+                  decoration: BoxDecoration(
+                    border: Border.all(
+                      color: selectedId == a.id
+                          ? context.colors.accent
+                          : context.colors.tertiaryLabel,
+                    ),
+                    borderRadius: BorderRadius.circular(8),
+                    color: selectedId == a.id
+                        ? context.colors.accent.withValues(alpha: 0.10)
+                        : null,
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (selectedId == a.id)
+                        const Icon(
+                          CupertinoIcons.checkmark,
+                          size: 14,
+                          color: CupertinoColors.activeBlue,
+                        ),
+                      Text(a.name),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          CupertinoDialogAction(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Отмена'),
+          ),
+          CupertinoDialogAction(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('Готово'),
+            isDefaultAction: true,
+          ),
+        ],
+      ),
+    ),
+  );
+  if (ok != true) return;
+  final amount =
+      ((double.tryParse(amountController.text.trim().replaceAll(',', '.')) ??
+                  0) *
+              100)
+          .round();
+  if (amount <= 0 || selectedId == null) return;
+  final accountId = selectedId!;
+  try {
+    await store.addTransaction(
+      accountId: accountId,
+      kind: isIncome ? 'sale' : 'expense',
+      direction: isIncome ? 'in' : 'out',
+      amountCents: amount,
+      category: isIncome ? 'Продажа' : '',
+    );
+  } catch (e) {
+    await showAppAlert(context, title: 'Ошибка', message: e.toString());
+  }
+}
+
+Widget _buildMonthCard(MastersStore store, BuildContext context) {
+  final colors = context.colors;
+  final settings = context.watch<SettingsController>();
+  final now = DateTime.now();
   final tx = store.moneyTransactions
       .where(
         (t) =>
             !t.voided &&
-            t.createdAt.isAfter(
-              DateTime(todayStart.year, todayStart.month, todayStart.day),
-            ),
+            t.createdAt.year == now.year &&
+            t.createdAt.month == now.month,
       )
       .toList();
   final income = tx
@@ -595,53 +862,77 @@ Widget _buildTodayOverview(MastersStore store, BuildContext context) {
   final expense = tx
       .where((t) => t.direction == 'out')
       .fold(0, (s, t) => s + t.amountCents);
-  final total = (income + expense).abs();
+  final taxRate = settings.taxRate;
+  final taxReserve = taxRate > 0 ? (income * taxRate / 100).round() : 0;
+  final profit = income - expense - taxReserve;
+  final balance = store.totalBalanceCents();
   return AppCard(
     child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('Сегодня', style: const TextStyle(fontWeight: FontWeight.w600)),
-        const SizedBox(height: 8),
-        SizedBox(
-          height: 140,
-          child: CustomPaint(
-            painter: _IncomeExpensePiePainter(income: income, expense: expense),
-            child: Center(
+        Row(
+          children: [
+            const Expanded(
               child: Text(
-                total == 0 ? '—' : 'И/Р',
-                style: TextStyle(color: colors.secondaryLabel),
+                'Сводка месяца',
+                style: TextStyle(fontWeight: FontWeight.w600),
               ),
             ),
-          ),
-        ),
-        const SizedBox(height: 8),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceAround,
-          children: [
-            Text(
-              'Доход ${(income / 100).toStringAsFixed(0)}',
-              style: TextStyle(color: colors.green),
-            ),
-            Text(
-              'Расход ${(expense / 100).toStringAsFixed(0)}',
-              style: TextStyle(color: colors.red),
+            GestureDetector(
+              onTap: () => Navigator.of(
+                context,
+              ).push(CupertinoPageRoute(builder: (_) => const StatsScreen())),
+              child: SizedBox(
+                height: 56,
+                width: 56,
+                child: CustomPaint(
+                  painter: _MonthPiePainter(income: income, expense: expense),
+                  child: const Center(
+                    child: Text(
+                      'И/Р',
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
             ),
           ],
         ),
+        const SizedBox(height: 10),
+        _moneyRow('На счетах', _money(balance), colors.accent),
+        _moneyRow('Доходы', _money(income), colors.green),
+        _moneyRow('Расходы', _money(expense), colors.red),
+        _moneyRow(
+          'Прибыль',
+          _money(profit),
+          profit >= 0 ? colors.green : colors.red,
+        ),
+        if (taxRate > 0) ...[
+          const SizedBox(height: 4),
+          Text(
+            'Налоговый резерв ≈ ${_money(taxReserve)} (${taxRate}%)',
+            style: TextStyle(color: colors.secondaryLabel, fontSize: 12),
+          ),
+        ],
       ],
     ),
   );
 }
 
-class _IncomeExpensePiePainter extends CustomPainter {
-  const _IncomeExpensePiePainter({required this.income, required this.expense});
+class _MonthPiePainter extends CustomPainter {
+  const _MonthPiePainter({required this.income, required this.expense});
   final int income;
   final int expense;
+
   @override
   void paint(Canvas canvas, Size size) {
     final total = income + expense;
     if (total <= 0) return;
     final center = Offset(size.width / 2, size.height / 2);
-    final radius = size.shortestSide * 0.4;
+    final radius = size.shortestSide * 0.42;
     final rect = Rect.fromCircle(center: center, radius: radius);
     double start = -pi / 2;
     final paint = Paint()..style = PaintingStyle.fill;
@@ -653,7 +944,7 @@ class _IncomeExpensePiePainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(covariant _IncomeExpensePiePainter old) =>
+  bool shouldRepaint(covariant _MonthPiePainter old) =>
       old.income != income || old.expense != expense;
 }
 
