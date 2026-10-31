@@ -15,6 +15,7 @@ import '../../core/deep_link_service.dart';
 import '../../core/utils/app_utils.dart';
 import '../../data/models/job.dart';
 import '../../data/models/job_attachment.dart';
+import 'job_constants.dart';
 import 'job_form_screen.dart';
 import 'cost_calculator_screen.dart';
 import '../../state/masters_store.dart';
@@ -205,12 +206,7 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
     if (amount <= 0) return;
     if (amount > remaining) {
       if (mounted) {
-        await showAppAlert(
-          context,
-          title: 'Архив',
-          message:
-              ' не   .',
-        );
+        await showAppAlert(context, title: 'Архив', message: ' не   .');
       }
       return;
     }
@@ -229,12 +225,38 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
       );
     } catch (e) {
       if (mounted) {
-        await showAppAlert(
-          context,
-          title: 'Архив',
-          message: e.toString(),
-        );
+        await showAppAlert(context, title: 'Архив', message: e.toString());
       }
+    }
+  }
+
+  Future<void> _showJobStatusPicker() async {
+    final store = context.read<MastersStore>();
+    final job = store.jobById(widget.jobId);
+    if (job == null) return;
+    final selected = await showCupertinoModalPopup<JobStatus?>(
+      context: context,
+      builder: (ctx) => CupertinoActionSheet(
+        title: const Text('Статус заказа'),
+        actions: [
+          for (final s in jobStatuses)
+            CupertinoActionSheetAction(
+              isDefaultAction: job.status == s,
+              onPressed: () => Navigator.of(ctx).pop(s),
+              child: Text(s.label),
+            ),
+        ],
+        cancelButton: CupertinoActionSheetAction(
+          onPressed: () => Navigator.of(ctx).pop(),
+          child: const Text('Отмена'),
+        ),
+      ),
+    );
+    if (selected == null || !mounted || selected == job.status) return;
+    if (selected == JobStatus.closed) {
+      await _closeJob(store, job);
+    } else {
+      await store.setJobStatus(job.id, selected);
     }
   }
 
@@ -260,16 +282,12 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
         context: context,
         builder: (dialogContext) => CupertinoAlertDialog(
           title: const Text('Закрыть ?'),
-          content: Text(
-            ' к оплате: ${(remaining / 100).toStringAsFixed(0)} ₽',
-          ),
+          content: Text(' к оплате: ${(remaining / 100).toStringAsFixed(0)} ₽'),
           actions: [
             CupertinoDialogAction(
               isDefaultAction: true,
               onPressed: () => Navigator.of(dialogContext).pop('accept'),
-              child: const Text(
-                'Принять  и ',
-              ),
+              child: const Text('Принять  и '),
             ),
             CupertinoDialogAction(
               isDestructiveAction: true,
@@ -301,8 +319,7 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
           await showAppAlert(
             context,
             title: ' сумма',
-            message:
-                '  быть  1  ${(remaining / 100).toStringAsFixed(0)} ₽.',
+            message: '  быть  1  ${(remaining / 100).toStringAsFixed(0)} ₽.',
           );
           return;
         }
@@ -358,11 +375,7 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
       }
     } catch (e) {
       if (mounted) {
-        await showAppAlert(
-          context,
-          title: 'Архив',
-          message: e.toString(),
-        );
+        await showAppAlert(context, title: 'Архив', message: e.toString());
       }
     }
   }
@@ -674,43 +687,10 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
             const SizedBox(height: 16),
             SectionLabel('╨б╤В╨░╤В╤Г╤Б'),
             AppCard(
-              child: Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: JobStatus.values.map((s) {
-                  final selected = job.status == s;
-                  return CupertinoButton(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 8,
-                    ),
-                    onPressed: selected
-                        ? null
-                        : s == JobStatus.closed
-                        ? () => _closeJob(store, job)
-                        : () => store.setJobStatus(job.id, s),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 6,
-                      ),
-                      decoration: BoxDecoration(
-                        color: selected ? colors.accent : colors.cardElevated,
-                        borderRadius: BorderRadius.circular(99),
-                      ),
-                      child: Text(
-                        s.label,
-                        style: TextStyle(
-                          color: selected
-                              ? const Color(0xFFFFFFFF)
-                              : colors.label,
-                          fontWeight: FontWeight.w500,
-                          fontSize: 13,
-                        ),
-                      ),
-                    ),
-                  );
-                }).toList(),
+              child: SecondaryButton(
+                label: 'Статус: ${job.status.label}',
+                icon: CupertinoIcons.list_bullet,
+                onPressed: () => _showJobStatusPicker(),
               ),
             ),
             const SizedBox(height: 16),

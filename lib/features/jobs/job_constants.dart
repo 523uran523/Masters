@@ -41,3 +41,9 @@ const List<KanbanColumnDef> kanbanColumns = <KanbanColumnDef>[
     statuses: <JobStatus>[JobStatus.done, JobStatus.closed],
   ),
 ];
+
+/// Все статусы заказов для выпадающего выбора смены статуса.
+/// Общий источник — статусы kanban-колонок выше, в порядке колонок.
+final List<JobStatus> jobStatuses = kanbanColumns
+    .expand((col) => col.statuses)
+    .toList();
