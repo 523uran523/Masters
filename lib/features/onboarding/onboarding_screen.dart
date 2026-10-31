@@ -17,7 +17,6 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   final _pageController = PageController();
   int _page = 0;
 
-  String _businessType = 'auto';
   String _team = 'solo';
   String _workMode = 'orders';
   bool _sellsGoods = false;
@@ -32,35 +31,20 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   Future<void> _finish() async {
     final settings = context.read<SettingsController>();
     final store = context.read<MastersStore>();
-    await settings.setBusinessType(_businessType);
+    await settings.setBusinessType('universal');
     final modules = <String>['money', 'orders', 'clients'];
     if (_team == 'team') modules.add('employees');
     if (_sellsGoods) modules.add('inventory');
     if (_workMode == 'booking') modules.add('booking');
     await settings.setModules(modules);
-    switch (_businessType) {
-      case 'auto':
-        await settings.setObjectTerm('Автомобиль');
-        await settings.setClientTerm('Клиент');
-        break;
-      case 'bakery':
-        await settings.setObjectTerm('Изделие');
-        await settings.setClientTerm('Покупатель');
-        break;
-      case 'barber':
-        await settings.setObjectTerm('Клиент');
-        await settings.setClientTerm('Клиент');
-        break;
-      default:
-        await settings.setObjectTerm('Объект');
-        await settings.setClientTerm('Клиент');
-    }
+    await settings.setObjectTerm('Объект');
+    await settings.setClientTerm('Клиент');
     if (!store.isLoaded) {
       await store.load();
     }
     if (_addDemoData) {
       try {
-        await store.seedDemoData(_businessType);
+        await store.seedDemoData('universal');
       } catch (_) {
         // Keep onboarding completion even if demo seeding fails.
       }
@@ -69,7 +53,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   }
 
   void _next() {
-    if (_page < 3) {
+    if (_page < 2) {
       _pageController.nextPage(
         duration: const Duration(milliseconds: 260),
         curve: Curves.easeOutCubic,
@@ -91,43 +75,6 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                 controller: _pageController,
                 onPageChanged: (i) => setState(() => _page = i),
                 children: [
-                  _pageWrap(
-                    title: 'Чем занимаетесь?',
-                    child: Column(
-                      children: [
-                        _choice(
-                          'Шиномонтаж / автосервис',
-                          'auto',
-                          _businessType,
-                          (v) => setState(() => _businessType = v),
-                        ),
-                        _choice(
-                          'Пекарня / кондитерская',
-                          'bakery',
-                          _businessType,
-                          (v) => setState(() => _businessType = v),
-                        ),
-                        _choice(
-                          'Барбер / салон',
-                          'barber',
-                          _businessType,
-                          (v) => setState(() => _businessType = v),
-                        ),
-                        _choice(
-                          'Мастерская / ремонт',
-                          'repair',
-                          _businessType,
-                          (v) => setState(() => _businessType = v),
-                        ),
-                        _choice(
-                          'Другое',
-                          'other',
-                          _businessType,
-                          (v) => setState(() => _businessType = v),
-                        ),
-                      ],
-                    ),
-                  ),
                   _pageWrap(
                     title: 'Работаете одни или с командой?',
                     child: Column(
@@ -213,12 +160,12 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
               child: Column(
                 children: [
                   Text(
-                    'Шаг ${_page + 1} из 4',
+                    'Шаг ${_page + 1} из 3',
                     style: TextStyle(color: colors.secondaryLabel),
                   ),
                   const SizedBox(height: 8),
                   PrimaryButton(
-                    label: _page < 3 ? 'Далее' : 'Начать работу',
+                    label: _page < 2 ? 'Далее' : 'Начать работу',
                     onPressed: _next,
                   ),
                 ],
