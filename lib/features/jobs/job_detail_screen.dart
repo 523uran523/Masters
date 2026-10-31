@@ -554,15 +554,34 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
     return CupertinoPageScaffold(
       navigationBar: CupertinoNavigationBar(
         middle: Text(job.title),
-        trailing: CupertinoButton(
-          padding: EdgeInsets.zero,
-          onPressed: () => Navigator.of(context).push(
-            CupertinoPageRoute(builder: (_) => JobFormScreen(jobId: job.id)),
-          ),
-          child: const Icon(
-            CupertinoIcons.pencil,
-            semanticLabel: '╨а╨╡╨┤╨░╨║╤В╨╕╤А╨╛╨▓╨░╤В╤М',
-          ),
+        trailing: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            CupertinoButton(
+              padding: EdgeInsets.zero,
+              onPressed: () => context.read<MastersStore>().setJobPinned(
+                job.id,
+                !job.pinned,
+              ),
+              child: Icon(
+                job.pinned ? CupertinoIcons.star_fill : CupertinoIcons.star,
+                color: job.pinned ? colors.accent : null,
+                semanticLabel: job.pinned ? 'Открепить' : 'Закрепить',
+              ),
+            ),
+            CupertinoButton(
+              padding: EdgeInsets.zero,
+              onPressed: () => Navigator.of(context).push(
+                CupertinoPageRoute(
+                  builder: (_) => JobFormScreen(jobId: job.id),
+                ),
+              ),
+              child: const Icon(
+                CupertinoIcons.pencil,
+                semanticLabel: '╨а╨╡╨┤╨░╨║╤В╨╕╤А╨╛╨▓╨░╤В╤М',
+              ),
+            ),
+          ],
         ),
       ),
       child: SafeArea(

@@ -38,7 +38,7 @@ class AppDatabase {
 
     final database = await openDatabase(
       resolved,
-      version: 13,
+      version: 14,
       onConfigure: (db) async {
         if (!kIsWeb) await db.execute('PRAGMA foreign_keys = ON');
       },
@@ -88,6 +88,7 @@ class AppDatabase {
         finished_at INTEGER,
         note TEXT,
         archived INTEGER NOT NULL DEFAULT 0,
+        pinned INTEGER NOT NULL DEFAULT 0,
         tags TEXT NOT NULL DEFAULT '',
         assignee_id TEXT REFERENCES employees(id) ON DELETE SET NULL,
         created_at INTEGER NOT NULL,
@@ -654,6 +655,15 @@ class AppDatabase {
         // Column may already exist.
       }
       await _createMoneyAuditTriggers(db);
+    }
+    if (oldVersion < 14) {
+      try {
+        await db.execute(
+          'ALTER TABLE jobs ADD COLUMN pinned INTEGER NOT NULL DEFAULT 0',
+        );
+      } catch (_) {
+        // Column may already exist.
+      }
     }
   }
 

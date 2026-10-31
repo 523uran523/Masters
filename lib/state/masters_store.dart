@@ -925,6 +925,16 @@ class MastersStore extends ChangeNotifier {
     notifyListeners();
   }
 
+  Future<void> setJobPinned(String id, bool value) async {
+    await _jobRepo.setPinned(id, value);
+    final job = jobById(id);
+    if (job != null) {
+      final index = _jobs.indexWhere((j) => j.id == id);
+      if (index != -1) _jobs[index] = job.copyWith(pinned: value);
+    }
+    notifyListeners();
+  }
+
   List<Job> jobsByStatus(JobStatus status) =>
       _jobs.where((j) => !j.archived && j.status == status).toList();
 

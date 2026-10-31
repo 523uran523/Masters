@@ -152,7 +152,10 @@ class _JobsScreenState extends State<JobsScreen> {
             assigneeName.toLowerCase().contains(q);
       }).toList();
     }
-    list.sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
+    list.sort((a, b) {
+      if (a.pinned != b.pinned) return a.pinned ? -1 : 1;
+      return b.updatedAt.compareTo(a.updatedAt);
+    });
     return list;
   }
 
@@ -846,9 +849,14 @@ class _JobsScreenState extends State<JobsScreen> {
 
   Widget _buildProcessView(MastersStore store) {
     final colors = context.colors;
-    final filteredJobs = store.jobs
-        .where((j) => !j.archived && _extraFiltersMatch(j, store))
-        .toList();
+    final filteredJobs =
+        store.jobs
+            .where((j) => !j.archived && _extraFiltersMatch(j, store))
+            .toList()
+          ..sort((a, b) {
+            if (a.pinned != b.pinned) return a.pinned ? -1 : 1;
+            return b.updatedAt.compareTo(a.updatedAt);
+          });
     final groups = <_ProcessGroup>[
       _ProcessGroup(
         label: 'тХи╨нтХитХЫтХитЦУтХд╨ЫтХитХб',
@@ -1126,6 +1134,8 @@ class _JobRow extends StatelessWidget {
               ],
             ),
           ),
+          if (job.pinned)
+            Icon(CupertinoIcons.star_fill, size: 16, color: colors.accent),
           if (job.priority == JobPriority.high)
             Icon(CupertinoIcons.exclamationmark, size: 16, color: colors.red),
           Icon(
@@ -1164,21 +1174,39 @@ class _JobCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            job.title,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(
-              fontWeight: FontWeight.w600,
-              decoration:
-                  job.status == JobStatus.done || job.status == JobStatus.closed
-                  ? TextDecoration.lineThrough
-                  : null,
-              color:
-                  job.status == JobStatus.done || job.status == JobStatus.closed
-                  ? colors.tertiaryLabel
-                  : null,
-            ),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Text(
+                  job.title,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontWeight: FontWeight.w600,
+                    decoration:
+                        job.status == JobStatus.done ||
+                            job.status == JobStatus.closed
+                        ? TextDecoration.lineThrough
+                        : null,
+                    color:
+                        job.status == JobStatus.done ||
+                            job.status == JobStatus.closed
+                        ? colors.tertiaryLabel
+                        : null,
+                  ),
+                ),
+              ),
+              if (job.pinned)
+                Padding(
+                  padding: const EdgeInsets.only(left: 6, top: 2),
+                  child: Icon(
+                    CupertinoIcons.pin_fill,
+                    size: 14,
+                    color: colors.accent,
+                  ),
+                ),
+            ],
           ),
           const SizedBox(height: 4),
           Text(

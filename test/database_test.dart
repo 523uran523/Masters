@@ -1,4 +1,5 @@
 import 'dart:io';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
 import 'package:shared_preferences/shared_preferences.dart';
@@ -29,8 +30,10 @@ void main() {
       expect(store.clients, isEmpty);
       expect(store.employees.length, 1);
       expect(store.selfEmployee?.name, 'Я');
-      final ver = (await appDb.database.rawQuery('PRAGMA user_version'))[0]['user_version'];
-      expect(ver, 13);
+      final ver = (await appDb.database.rawQuery(
+        'PRAGMA user_version',
+      ))[0]['user_version'];
+      expect(ver, 14);
     } finally {
       await appDb.close();
     }
@@ -40,12 +43,30 @@ void main() {
     final appDb = await AppDatabase.open(path: inMemoryDatabasePath);
     try {
       final db = appDb.database;
-      final tables = (await db.rawQuery("SELECT name FROM sqlite_master WHERE type='table'")).map((r) => r['name'] as String).toSet();
-      for (final t in ['clients', 'jobs', 'job_attachments', 'money_transactions', 'employees', 'recurring_payments', 'audit_log', 'period_closures']) {
+      final tables = (await db.rawQuery(
+        "SELECT name FROM sqlite_master WHERE type='table'",
+      )).map((r) => r['name'] as String).toSet();
+      for (final t in [
+        'clients',
+        'jobs',
+        'job_attachments',
+        'money_transactions',
+        'employees',
+        'recurring_payments',
+        'audit_log',
+        'period_closures',
+      ]) {
         expect(tables.contains(t), isTrue, reason: 'missing table $t');
       }
-      final version = (await db.rawQuery('PRAGMA user_version'))[0]['user_version'];
-      expect(version, 13);
+      final jobCols = (await db.rawQuery('PRAGMA table_info(jobs)'))
+          .map((r) => r['name'] as String)
+          .toSet();
+      expect(jobCols.contains('pinned'), isTrue, reason: 'missing jobs.pinned');
+
+      final version = (await db.rawQuery(
+        'PRAGMA user_version',
+      ))[0]['user_version'];
+      expect(version, 14);
     } finally {
       await appDb.close();
     }
@@ -58,7 +79,11 @@ void main() {
       final store = MastersStore(appDb, settings);
       await store.load();
 
-      await store.createEmployee(name: 'Test', payType: 'hourly', rateCents: 1000);
+      await store.createEmployee(
+        name: 'Test',
+        payType: 'hourly',
+        rateCents: 1000,
+      );
       expect(store.employees.length, 2);
       final employee = store.employees.firstWhere((e) => e.name == 'Test');
       expect(store.earnedCents(employee.id), 0);
@@ -68,9 +93,11 @@ void main() {
     }
   });
 
-
   test('migrates v11 database to v12 creating job_attachments', () async {
-    final dbPath = p.join(Directory.systemTemp.path, 'masters_migration_test.db');
+    final dbPath = p.join(
+      Directory.systemTemp.path,
+      'masters_migration_test.db',
+    );
     try {
       await File(dbPath).delete();
     } catch (_) {}
@@ -82,13 +109,51 @@ void main() {
 
     final db12 = await AppDatabase.open(path: dbPath);
     try {
-      final tables = (await db12.database.rawQuery("SELECT name FROM sqlite_master WHERE type='table'")).map((r) => r['name'] as String).toSet();
+      final tables = (await db12.database.rawQuery(
+        "SELECT name FROM sqlite_master WHERE type='table'",
+      )).map((r) => r['name'] as String).toSet();
       expect(tables.contains('job_attachments'), isTrue);
-      final ver = (await db12.database.rawQuery('PRAGMA user_version'))[0]['user_version'];
-      expect(ver, 13);
+      final ver = (await db12.database.rawQuery(
+        'PRAGMA user_version',
+      ))[0]['user_version'];
+      expect(ver, 14);
     } finally {
       await db12.close();
-      try { await File(dbPath).delete(); } catch (_) {}
+      try {
+        await File(dbPath).delete();
+      } catch (_) {}
+    }
+  });
+
+  test('migrates v13 database to v14 adding pinned to jobs', () async {
+    final dbPath = p.join(
+      Directory.systemTemp.path,
+      'masters_migration_v14_test.db',
+    );
+    try {
+      await File(dbPath).delete();
+    } catch (_) {}
+    final db14 = await AppDatabase.open(path: dbPath);
+    final raw = db14.database;
+    try {
+      await raw.execute('ALTER TABLE jobs DROP COLUMN pinned');
+    } catch (_) {}
+    await raw.execute('PRAGMA user_version = 13');
+    await db14.close();
+
+    final db = await AppDatabase.open(path: dbPath);
+    try {
+      final cols = (await db.database.rawQuery('PRAGMA table_info(jobs)'))
+          .map((r) => r['name'] as String)
+          .toSet();
+      expect(cols.contains('pinned'), isTrue, reason: 'missing jobs.pinned');
+      final ver = (await db.database.rawQuery('PRAGMA user_version'))[0]['user_version'];
+      expect(ver, 14);
+    } finally {
+      await db.close();
+      try {
+        await File(dbPath).delete();
+      } catch (_) {}
     }
   });
 }
