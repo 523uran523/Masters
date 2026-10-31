@@ -403,65 +403,58 @@ class ClientDetailScreen extends StatelessWidget {
                     ),
                   )
                 : Column(
-                    children: jobs
-                        .map(
-                          (job) {
-                            final unpaidCents =
-                                job.priceCents - store.paidForJob(job.id);
-                            return Padding(
-                              padding: const EdgeInsets.only(bottom: 8),
-                              child: AppCard(
-                                onTap: () => Navigator.of(context).push(
-                                  CupertinoPageRoute(
-                                    builder: (_) =>
-                                        JobDetailScreen(jobId: job.id),
-                                  ),
-                                ),
-                                child: Row(
-                                children: [
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          job.title,
-                                          style: const TextStyle(
-                                            fontWeight: FontWeight.w600,
-                                          ),
-                                        ),
-                                        Text(
-                                          '${job.status.label} • ${(job.priceCents / 100).toStringAsFixed(0)} ₽',
-                                          style: TextStyle(
-                                            color:
-                                                context.colors.secondaryLabel,
-                                            fontSize: 12,
-                                          ),
-                                        ),
-                                        if (job.status == JobStatus.closed &&
-                                            unpaidCents > 0)
-                                          Padding(
-                                            padding: const EdgeInsets.only(
-                                                top: 6),
-                                            child: Pill(
-                                              'Не оплачен ${(unpaidCents / 100).toStringAsFixed(0)} ₽',
-                                              color: context.colors.red,
-                                            ),
-                                          ),
-                                      ],
-                                    ),
-                                  ),
-                                  Icon(
-                                    CupertinoIcons.chevron_forward,
-                                    size: 16,
-                                    color: context.colors.tertiaryLabel,
-                                  ),
-                                ],
-                              ),
+                    children: jobs.map((job) {
+                      final unpaidCents =
+                          job.priceCents - store.paidForJob(job.id);
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 8),
+                        child: AppCard(
+                          onTap: () => Navigator.of(context).push(
+                            CupertinoPageRoute(
+                              builder: (_) => JobDetailScreen(jobId: job.id),
                             ),
-                          },
-                        )
-                        .toList(),
+                          ),
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      job.title,
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                    Text(
+                                      '${job.status.label} • ${(job.priceCents / 100).toStringAsFixed(0)} ₽',
+                                      style: TextStyle(
+                                        color: context.colors.secondaryLabel,
+                                        fontSize: 12,
+                                      ),
+                                    ),
+                                    if (job.status == JobStatus.closed &&
+                                        unpaidCents > 0)
+                                      Padding(
+                                        padding: const EdgeInsets.only(top: 6),
+                                        child: Pill(
+                                          'Не оплачен ${(unpaidCents / 100).toStringAsFixed(0)} ₽',
+                                          color: context.colors.red,
+                                        ),
+                                      ),
+                                  ],
+                                ),
+                              ),
+                              Icon(
+                                CupertinoIcons.chevron_forward,
+                                size: 16,
+                                color: context.colors.tertiaryLabel,
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                    }).toList(),
                   ),
             const SizedBox(height: 12),
             PrimaryButton(
