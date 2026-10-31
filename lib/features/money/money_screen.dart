@@ -922,6 +922,43 @@ class _MoneyScreenState extends State<MoneyScreen> {
     );
   }
 
+  Future<void> _showTxSearch() async {
+    _txSearchController.text = _txQuery;
+    if (!mounted) return;
+    final result = await showCupertinoDialog<String?>(
+      context: context,
+      builder: (dialogContext) => CupertinoAlertDialog(
+        title: const Text('Поиск'),
+        content: Padding(
+          padding: const EdgeInsets.only(top: 12),
+          child: CupertinoTextField(
+            controller: _txSearchController,
+            placeholder: 'Поиск по категории/комментарию',
+            autofocus: true,
+            onSubmitted: (_) =>
+                Navigator.of(dialogContext)
+                    .pop(_txSearchController.text.trim()),
+          ),
+        ),
+        actions: [
+          CupertinoDialogAction(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: const Text('Cancel'),
+          ),
+          CupertinoDialogAction(
+            isDefaultAction: true,
+            onPressed: () =>
+                Navigator.of(dialogContext)
+                    .pop(_txSearchController.text.trim()),
+            child: const Text('OK'),
+          ),
+        ],
+      ),
+    );
+    if (result == null || !mounted) return;
+    setState(() => _txQuery = result);
+  }
+
   @override
   void dispose() {
     _txSearchController.dispose();
@@ -1549,10 +1586,42 @@ class _MoneyScreenState extends State<MoneyScreen> {
                   ),
                   const SizedBox(height: 16),
                   const SizedBox(height: 8),
-                  CupertinoTextField(
-                    controller: _txSearchController,
-                    placeholder: 'РџРѕРёСЃРє РїРѕ РєР°С‚РµРіРѕСЂРёРё/РєРѕРјРјРµРЅС‚Р°СЂРёСЋ',
-                    onChanged: (v) => setState(() => _txQuery = v),
+                  Row(
+                    children: [
+                      if (_txQuery.isNotEmpty) ...[
+                        Expanded(
+                          child: Text(
+                            'Поиск: $_txQuery',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              color: colors.secondaryLabel,
+                              fontSize: 13,
+                            ),
+                          ),
+                        ),
+                        CupertinoButton(
+                          padding: EdgeInsets.zero,
+                          onPressed: () => setState(() {
+                            _txQuery = '';
+                            _txSearchController.clear();
+                          }),
+                          child: const Icon(
+                            CupertinoIcons.xmark,
+                            semanticLabel: 'Очистить',
+                          ),
+                        ),
+                      ] else
+                        const Spacer(),
+                      CupertinoButton(
+                        padding: EdgeInsets.zero,
+                        onPressed: _showTxSearch,
+                        child: const Icon(
+                          CupertinoIcons.search,
+                          semanticLabel: 'Поиск',
+                        ),
+                      ),
+                    ],
                   ),
                   const SizedBox(height: 8),
                   Row(
