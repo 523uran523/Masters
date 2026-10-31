@@ -33,7 +33,7 @@ void main() {
       final ver = (await appDb.database.rawQuery(
         'PRAGMA user_version',
       ))[0]['user_version'];
-      expect(ver, 14);
+      expect(ver, 15);
     } finally {
       await appDb.close();
     }
@@ -62,13 +62,46 @@ void main() {
           .map((r) => r['name'] as String)
           .toSet();
       expect(jobCols.contains('pinned'), isTrue, reason: 'missing jobs.pinned');
+      expect(
+        jobCols.contains('calculator_state'),
+        isTrue,
+        reason: 'missing jobs.calculator_state',
+      );
 
       final version = (await db.rawQuery(
         'PRAGMA user_version',
       ))[0]['user_version'];
-      expect(version, 14);
+      expect(version, 15);
     } finally {
       await appDb.close();
+    }
+  });
+
+  test('migrates jobs.calculator_state from v14 to v15', () async {
+    // Create a fresh database at the new version, then rewind it to v14
+    // (drop the new column and user_version) to simulate an existing v14 db.
+    final appDb = await AppDatabase.open(path: inMemoryDatabasePath);
+    try {
+      final db = appDb.database;
+      await db.execute('ALTER TABLE jobs DROP COLUMN calculator_state');
+      await db.execute('PRAGMA user_version = 14');
+    } finally {
+      await appDb.close();
+    }
+
+    // Reopening must run the v14→v15 upgrade and restore the column.
+    final reopened = await AppDatabase.open(path: inMemoryDatabasePath);
+    try {
+      final ver = (await reopened.database.rawQuery(
+        'PRAGMA user_version',
+      ))[0]['user_version'];
+      expect(ver, 15);
+      final cols = (await reopened.database.rawQuery(
+        'PRAGMA table_info(jobs)',
+      )).map((r) => r['name'] as String).toSet();
+      expect(cols.contains('calculator_state'), isTrue);
+    } finally {
+      await reopened.close();
     }
   });
 
@@ -93,7 +126,7 @@ void main() {
     }
   });
 
-  test('migrates v11 database to v12 creating job_attachments', () async {
+  test('migrates v11 database to v15 (job_attachments + calculator_state)', () async {
     final dbPath = p.join(
       Directory.systemTemp.path,
       'masters_migration_test.db',
@@ -116,7 +149,7 @@ void main() {
       final ver = (await db12.database.rawQuery(
         'PRAGMA user_version',
       ))[0]['user_version'];
-      expect(ver, 14);
+      expect(ver, 15);
     } finally {
       await db12.close();
       try {
@@ -125,7 +158,7 @@ void main() {
     }
   });
 
-  test('migrates v13 database to v14 adding pinned to jobs', () async {
+  test('migrates v13 database to v15 (pinned + calculator_state)', () async {
     final dbPath = p.join(
       Directory.systemTemp.path,
       'masters_migration_v14_test.db',
@@ -147,8 +180,13 @@ void main() {
           .map((r) => r['name'] as String)
           .toSet();
       expect(cols.contains('pinned'), isTrue, reason: 'missing jobs.pinned');
+      expect(
+        cols.contains('calculator_state'),
+        isTrue,
+        reason: 'missing jobs.calculator_state',
+      );
       final ver = (await db.database.rawQuery('PRAGMA user_version'))[0]['user_version'];
-      expect(ver, 14);
+      expect(ver, 15);
     } finally {
       await db.close();
       try {

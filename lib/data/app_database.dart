@@ -38,7 +38,7 @@ class AppDatabase {
 
     final database = await openDatabase(
       resolved,
-      version: 14,
+      version: 15,
       onConfigure: (db) async {
         if (!kIsWeb) await db.execute('PRAGMA foreign_keys = ON');
       },
@@ -89,6 +89,7 @@ class AppDatabase {
         note TEXT,
         archived INTEGER NOT NULL DEFAULT 0,
         pinned INTEGER NOT NULL DEFAULT 0,
+        calculator_state TEXT,
         tags TEXT NOT NULL DEFAULT '',
         assignee_id TEXT REFERENCES employees(id) ON DELETE SET NULL,
         created_at INTEGER NOT NULL,
@@ -665,6 +666,39 @@ class AppDatabase {
         // Column may already exist.
       }
     }
+    if (oldVersion < 15) {
+      final hasColumn = (await db.rawQuery('PRAGMA table_info(jobs)'))
+          .any((row) => row['name'] == 'calculator_state');
+      if (!hasColumn) {
+        await db.execute(
+          'ALTER TABLE jobs ADD COLUMN calculator_state TEXT',
+        );
+      }
+    }
+  }
+
+  Future<String?> getCalculatorState(String jobId) async {
+    final rows = await database.query(
+      'jobs',
+      columns: ['calculator_state'],
+      where: 'id = ?',
+      whereArgs: [jobId],
+      limit: 1,
+    );
+    if (rows.isEmpty) return null;
+    return rows.first['calculator_state'] as String?;
+  }
+
+  Future<void> saveCalculatorState(String jobId, String stateJson) async {
+    await database.update(
+      'jobs',
+      {
+        'calculator_state': stateJson,
+        'updated_at': DateTime.now().millisecondsSinceEpoch,
+      },
+      where: 'id = ?',
+      whereArgs: [jobId],
+    );
   }
 
   Future<List<String>> integrityIssues() async {
