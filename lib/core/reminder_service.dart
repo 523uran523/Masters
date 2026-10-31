@@ -135,4 +135,72 @@ class ReminderService {
       // ignore
     }
   }
+
+  static Future<void> scheduleRecurringReminder({
+    required String id,
+    required String title,
+    required String direction,
+    required DateTime dueAt,
+    required int amountCents,
+    required String? accountName,
+  }) async {
+    if (kIsWeb) {
+      return;
+    }
+    try {
+      tzdata.initializeTimeZones();
+      final now = DateTime.now();
+      var notifyAt = DateTime(dueAt.year, dueAt.month, dueAt.day, 9, 0);
+      if (notifyAt.isBefore(now)) {
+        notifyAt = dueAt.subtract(const Duration(hours: 1));
+      }
+      if (notifyAt.isBefore(now)) {
+        return;
+      }
+
+      final notificationTitle = direction == 'in'
+          ? 'Платёж ожидается: $title'
+          : 'Оплата: $title';
+      final money = (amountCents / 100).toStringAsFixed(2);
+      final accountSuffix = accountName == null || accountName.trim().isEmpty
+          ? ''
+          : ' • $accountName';
+      final body = '$money$accountSuffix';
+
+      final scheduled = tz.TZDateTime.from(notifyAt, tz.local);
+      const details = NotificationDetails(
+        android: AndroidNotificationDetails(
+          'recurring_payment',
+          'Регулярные платежи',
+          channelDescription: 'Напоминания о регулярных платежах',
+          importance: Importance.defaultImportance,
+          priority: Priority.defaultPriority,
+        ),
+        iOS: DarwinNotificationDetails(),
+      );
+      await _plugin.zonedSchedule(
+        id.hashCode.abs(),
+        notificationTitle,
+        body,
+        scheduled,
+        details,
+        androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+        uiLocalNotificationDateInterpretation:
+            UILocalNotificationDateInterpretation.absoluteTime,
+      );
+    } catch (_) {
+      // Never crash on unsupported platforms
+    }
+  }
+
+  static Future<void> cancelRecurringReminder(String id) async {
+    if (kIsWeb) {
+      return;
+    }
+    try {
+      await _plugin.cancel(id.hashCode.abs());
+    } catch (_) {
+      // ignore
+    }
+  }
 }

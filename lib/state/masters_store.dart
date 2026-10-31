@@ -522,6 +522,9 @@ class MastersStore extends ChangeNotifier {
         .map((m) => ClosedPeriod.fromMap(Map<String, Object?>.from(m)))
         .toList();
     _recurringPayments = await _recurringRepo.getAll();
+    try {
+      await rescheduleAllRecurringReminders();
+    } catch (_) {}
     _payrollPeriods = await _payrollRepo.getAll();
     await _reconcileEmployeePayments();
 
@@ -2513,6 +2516,27 @@ class MastersStore extends ChangeNotifier {
   List<RecurringPayment> get recurringPayments =>
       List.unmodifiable(_recurringPayments);
 
+  Future<void> rescheduleAllRecurringReminders() async {
+    for (final payment in List<RecurringPayment>.from(_recurringPayments)) {
+      try {
+        await ReminderService.cancelRecurringReminder(payment.id);
+      } catch (_) {}
+      if (!payment.active) continue;
+      try {
+        await ReminderService.scheduleRecurringReminder(
+          id: payment.id,
+          title: payment.name,
+          direction: payment.direction,
+          dueAt: payment.nextDueAt,
+          amountCents: payment.amountCents,
+          accountName: payment.accountId == null
+              ? null
+              : accountById(payment.accountId!)?.name,
+        );
+      } catch (_) {}
+    }
+  }
+
   Future<RecurringPayment> createRecurringPayment({
     required String name,
     String direction = 'out',
@@ -2542,6 +2566,22 @@ class MastersStore extends ChangeNotifier {
     );
     await _recurringRepo.save(payment);
     _recurringPayments = [payment, ..._recurringPayments];
+    try {
+      if (payment.active) {
+        await ReminderService.scheduleRecurringReminder(
+          id: payment.id,
+          title: payment.name,
+          direction: payment.direction,
+          dueAt: payment.nextDueAt,
+          amountCents: payment.amountCents,
+          accountName: payment.accountId == null
+              ? null
+              : accountById(payment.accountId!)?.name,
+        );
+      } else {
+        await ReminderService.cancelRecurringReminder(payment.id);
+      }
+    } catch (_) {}
     await auditAction(
       action: 'recurring_payment.create',
       entity: 'recurring_payment',
@@ -2562,6 +2602,21 @@ class MastersStore extends ChangeNotifier {
     } else {
       _recurringPayments[idx] = updated;
     }
+    try {
+      await ReminderService.cancelRecurringReminder(updated.id);
+      if (updated.active) {
+        await ReminderService.scheduleRecurringReminder(
+          id: updated.id,
+          title: updated.name,
+          direction: updated.direction,
+          dueAt: updated.nextDueAt,
+          amountCents: updated.amountCents,
+          accountName: updated.accountId == null
+              ? null
+              : accountById(updated.accountId!)?.name,
+        );
+      }
+    } catch (_) {}
     await auditAction(
       action: 'recurring_payment.update',
       entity: 'recurring_payment',
@@ -2575,6 +2630,9 @@ class MastersStore extends ChangeNotifier {
     ensurePeriodOpen();
     await _recurringRepo.delete(id);
     _recurringPayments = _recurringPayments.where((r) => r.id != id).toList();
+    try {
+      await ReminderService.cancelRecurringReminder(id);
+    } catch (_) {}
     await auditAction(
       action: 'recurring_payment.delete',
       entity: 'recurring_payment',
@@ -2609,9 +2667,23 @@ class MastersStore extends ChangeNotifier {
           Duration(days: payment.intervalDays < 1 ? 1 : payment.intervalDays),
         );
       }
-      await updateRecurringPayment(
-        payment.copyWith(nextDueAt: next, updatedAt: current),
-      );
+      final updated = payment.copyWith(nextDueAt: next, updatedAt: current);
+      await updateRecurringPayment(updated);
+      try {
+        await ReminderService.cancelRecurringReminder(updated.id);
+        if (updated.active) {
+          await ReminderService.scheduleRecurringReminder(
+            id: updated.id,
+            title: updated.name,
+            direction: updated.direction,
+            dueAt: updated.nextDueAt,
+            amountCents: updated.amountCents,
+            accountName: updated.accountId == null
+                ? null
+                : accountById(updated.accountId!)?.name,
+          );
+        }
+      } catch (_) {}
       count++;
     }
     return count;
