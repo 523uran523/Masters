@@ -12,6 +12,7 @@ import '../../data/models/job.dart';
 import '../../state/masters_store.dart';
 import '../jobs/job_detail_screen.dart';
 import '../jobs/job_form_screen.dart';
+import '../money/money_screen.dart';
 import '../stats/stats_screen.dart';
 
 class TodayScreen extends StatefulWidget {
@@ -65,23 +66,26 @@ class _TodayScreenState extends State<TodayScreen> {
     return CupertinoPageScaffold(
       navigationBar: CupertinoNavigationBar(
         middle: const Text('Сегодня'),
-        trailing: CupertinoButton(
-          padding: EdgeInsets.zero,
-          onPressed: () {
-            if (store.clients.isEmpty) {
-              showAppAlert(
+        trailing: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            CupertinoButton(
+              padding: EdgeInsets.zero,
+              onPressed: () => Navigator.of(
                 context,
-                title: 'Нет клиентов',
-                message:
-                    'Нет активных заказов. Нажмите +, чтобы создать новый.',
-              );
-              return;
-            }
-            Navigator.of(
-              context,
-            ).push(CupertinoPageRoute(builder: (_) => const JobFormScreen()));
-          },
-          child: const Icon(CupertinoIcons.plus, semanticLabel: 'Добавить'),
+              ).push(CupertinoPageRoute(builder: (_) => const MoneyScreen())),
+              child: const Icon(
+                CupertinoIcons.money_dollar,
+                semanticLabel: 'Деньги',
+              ),
+            ),
+            const SizedBox(width: 4),
+            CupertinoButton(
+              padding: EdgeInsets.zero,
+              onPressed: _quickAdd,
+              child: const Icon(CupertinoIcons.plus, semanticLabel: 'Добавить'),
+            ),
+          ],
         ),
       ),
       child: SafeArea(
