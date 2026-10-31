@@ -207,9 +207,9 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
       if (mounted) {
         await showAppAlert(
           context,
-          title: 'РћС€РёР±РєР°',
+          title: 'Архив',
           message:
-              'РЎСѓРјРјР° РЅРµ РјРѕР¶РµС‚ РїСЂРµРІС‹С€Р°С‚СЊ РѕСЃС‚Р°С‚РѕРє.',
+              ' не   .',
         );
       }
       return;
@@ -231,7 +231,7 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
       if (mounted) {
         await showAppAlert(
           context,
-          title: 'РћС€РёР±РєР°',
+          title: 'Архив',
           message: e.toString(),
         );
       }
@@ -259,26 +259,26 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
       final choice = await showCupertinoDialog<String?>(
         context: context,
         builder: (dialogContext) => CupertinoAlertDialog(
-          title: const Text('Р—Р°РєСЂС‹С‚СЊ Р·Р°РєР°Р·?'),
+          title: const Text('Закрыть ?'),
           content: Text(
-            'РћСЃС‚Р°С‚РѕРє Рє РѕРїР»Р°С‚Рµ: ${(remaining / 100).toStringAsFixed(0)} в‚Ѕ',
+            ' к оплате: ${(remaining / 100).toStringAsFixed(0)} ₽',
           ),
           actions: [
             CupertinoDialogAction(
               isDefaultAction: true,
               onPressed: () => Navigator.of(dialogContext).pop('accept'),
               child: const Text(
-                'РџСЂРёРЅСЏС‚СЊ РѕСЃС‚Р°С‚РѕРє Рё Р·Р°РєСЂС‹С‚СЊ',
+                'Принять  и ',
               ),
             ),
             CupertinoDialogAction(
               isDestructiveAction: true,
               onPressed: () => Navigator.of(dialogContext).pop('debt'),
-              child: const Text('Р—Р°РєСЂС‹С‚СЊ СЃ РґРѕР»РіРѕРј'),
+              child: const Text('Закрыть с '),
             ),
             CupertinoDialogAction(
               onPressed: () => Navigator.of(dialogContext).pop(null),
-              child: const Text('РћС‚РјРµРЅР°'),
+              child: const Text('Отмена'),
             ),
           ],
         ),
@@ -290,7 +290,7 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
         final accountId = await _pickAccount(store);
         if (accountId == null || !mounted) return;
         final amountStr = await _promptText(
-          'РЎСѓРјРјР° РѕРїР»Р°С‚С‹',
+          'Сумма оплаты',
           (remaining / 100).toStringAsFixed(0),
         );
         if (amountStr == null || !mounted) return;
@@ -300,9 +300,9 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
         if (amount <= 0 || amount > remaining) {
           await showAppAlert(
             context,
-            title: 'РќРµРІРµСЂРЅР°СЏ СЃСѓРјРјР°',
+            title: ' сумма',
             message:
-                'РЎСѓРјРјР° РґРѕР»Р¶РЅР° Р±С‹С‚СЊ РѕС‚ 1 РґРѕ ${(remaining / 100).toStringAsFixed(0)} в‚Ѕ.',
+                '  быть  1  ${(remaining / 100).toStringAsFixed(0)} ₽.',
           );
           return;
         }
@@ -312,7 +312,7 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
             kind: 'payment',
             direction: 'in',
             amountCents: amount,
-            category: 'РћРїР»Р°С‚Р° Р·Р°РєР°Р·Р°',
+            category: 'Оплата заказа',
             note: current.title,
             clientId: current.clientId,
             jobId: current.id,
@@ -321,7 +321,7 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
           if (mounted) {
             await showAppAlert(
               context,
-              title: 'РћС€РёР±РєР° РѕРїР»Р°С‚С‹',
+              title: 'Архив оплаты',
               message: e.toString(),
             );
           }
@@ -336,8 +336,8 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
         } else {
           await showAppAlert(
             context,
-            title: 'РћРїР»Р°С‚Р° РїСЂРёРЅСЏС‚Р°',
-            message: 'РћСЃС‚Р°С‚РѕРє РЅРµ РїРѕРіР°С€РµРЅ РїРѕР»РЅРѕСЃС‚СЊСЋ. Р—Р°РєР°Р· РѕСЃС‚Р°С‘С‚СЃСЏ РЅРµРѕРїР»Р°С‡РµРЅРЅС‹Рј.',
+            title: ' принята',
+            message: ' не  . Заказ  .',
           );
         }
         return;
@@ -351,16 +351,16 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
         if (!mounted) return;
         await showAppAlert(
           context,
-          title: 'Р’РЅРёРјР°РЅРёРµ',
+          title: 'Внимание',
           message:
-              'Р—Р°РєР°Р· Р·Р°РєСЂС‹С‚ СЃ РґРѕР»РіРѕРј. РќРµРѕРїР»Р°С‡РµРЅРЅС‹Р№ РѕСЃС‚Р°С‚РѕРє: ${(remaining / 100).toStringAsFixed(0)} в‚Ѕ.',
+              'Заказ закрыт с .  : ${(remaining / 100).toStringAsFixed(0)} ₽.',
         );
       }
     } catch (e) {
       if (mounted) {
         await showAppAlert(
           context,
-          title: 'РћС€РёР±РєР°',
+          title: 'Архив',
           message: e.toString(),
         );
       }
