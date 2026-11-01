@@ -33,7 +33,7 @@ void main() {
       final ver = (await appDb.database.rawQuery(
         'PRAGMA user_version',
       ))[0]['user_version'];
-      expect(ver, 18);
+      expect(ver, 19);
     } finally {
       await appDb.close();
     }
@@ -72,14 +72,14 @@ void main() {
       final version = (await db.rawQuery(
         'PRAGMA user_version',
       ))[0]['user_version'];
-      expect(version, 18);
+      expect(version, 19);
     } finally {
       await appDb.close();
     }
   });
 
   test(
-    'migrates v14 database to v16 (calculator_state + work_sessions)',
+    'migrates v14 database to v19 (calculator_state + work_sessions)',
     () async {
       // Create a fresh database at the new version, then rewind it to v14
       // (drop the new column and user_version) to simulate an existing v14 db.
@@ -98,7 +98,7 @@ void main() {
         final ver = (await reopened.database.rawQuery(
           'PRAGMA user_version',
         ))[0]['user_version'];
-        expect(ver, 18);
+        expect(ver, 19);
         final cols = (await reopened.database.rawQuery(
           'PRAGMA table_info(jobs)',
         )).map((r) => r['name'] as String).toSet();
@@ -134,7 +134,7 @@ void main() {
     }
   });
 
-  test('migrates v11 database to v16 (job_attachments + calculator_state + work_sessions)', () async {
+  test('migrates v11 database to v19 (job_attachments + calculator_state + work_sessions)', () async {
     final dbPath = p.join(
       Directory.systemTemp.path,
       'masters_migration_test.db',
@@ -157,7 +157,7 @@ void main() {
       final ver = (await db12.database.rawQuery(
         'PRAGMA user_version',
       ))[0]['user_version'];
-      expect(ver, 18);
+      expect(ver, 19);
     } finally {
       await db12.close();
       try {
@@ -167,7 +167,7 @@ void main() {
   });
 
   test(
-    'migrates v13 database to v16 (pinned + calculator_state + work_sessions)',
+    'migrates v13 database to v19 (pinned + calculator_state + work_sessions)',
     () async {
       final dbPath = p.join(
         Directory.systemTemp.path,
@@ -198,7 +198,7 @@ void main() {
         final ver = (await db.database.rawQuery(
           'PRAGMA user_version',
         ))[0]['user_version'];
-        expect(ver, 18);
+        expect(ver, 19);
       } finally {
         await db.close();
         try {
@@ -207,4 +207,44 @@ void main() {
       }
     },
   );
+
+  test('migrates v18 database to v19 (unified booking indexes)', () async {
+    final dbPath = p.join(
+      Directory.systemTemp.path,
+      'masters_migration_v19_test.db',
+    );
+    try {
+      await File(dbPath).delete();
+    } catch (_) {}
+    // Create a fresh db, then rewind to v18 to simulate an existing db.
+    final db18 = await AppDatabase.open(path: dbPath);
+    await db18.database.execute('PRAGMA user_version = 18');
+    await db18.close();
+
+    final db = await AppDatabase.open(path: dbPath);
+    try {
+      final ver = (await db.database.rawQuery(
+        'PRAGMA user_version',
+      ))[0]['user_version'];
+      expect(ver, 19);
+      final indexes = (await db.database.rawQuery(
+        "SELECT name FROM sqlite_master WHERE type='index'",
+      )).map((r) => r['name'] as String).toSet();
+      expect(
+        indexes.contains('idx_appts_start'),
+        isTrue,
+        reason: 'missing idx_appts_start after v19',
+      );
+      expect(
+        indexes.contains('idx_jobs_due'),
+        isTrue,
+        reason: 'missing idx_jobs_due after v19',
+      );
+    } finally {
+      await db.close();
+      try {
+        await File(dbPath).delete();
+      } catch (_) {}
+    }
+  });
 }
