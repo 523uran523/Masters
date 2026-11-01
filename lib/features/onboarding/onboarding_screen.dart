@@ -32,10 +32,16 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     final settings = context.read<SettingsController>();
     final store = context.read<MastersStore>();
     await settings.setBusinessType('universal');
+    final workMode = switch (_workMode) {
+      'booking' => 'appointments',
+      'hybrid' => 'hybrid',
+      _ => 'orders',
+    };
+    await settings.setWorkMode(workMode);
     final modules = <String>['money', 'orders', 'clients'];
     if (_team == 'team') modules.add('employees');
     if (_sellsGoods) modules.add('inventory');
-    if (_workMode == 'booking') modules.add('booking');
+    if (_workMode == 'booking' || _workMode == 'hybrid') modules.add('booking');
     await settings.setModules(modules);
     await settings.setObjectTerm('Объект');
     await settings.setClientTerm('Клиент');
@@ -113,6 +119,12 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                         _choice(
                           'Продаю на месте',
                           'counter',
+                          _workMode,
+                          (v) => setState(() => _workMode = v),
+                        ),
+                        _choice(
+                          'И то, и другое (Оба)',
+                          'hybrid',
                           _workMode,
                           (v) => setState(() => _workMode = v),
                         ),

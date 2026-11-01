@@ -57,6 +57,7 @@ class SettingsController extends ChangeNotifier {
   static const _kanbanColumnsKey = 'kanban_columns';
   static const _teamEnabledKey = 'team_enabled';
   static const _calculatorEnabledKey = 'calculator_enabled';
+  static const _workModeKey = 'work_mode';
 
   static Future<SettingsController> load() async {
     tzdata.initializeTimeZones();
@@ -179,6 +180,24 @@ class SettingsController extends ChangeNotifier {
 
   Future<void> setCalculatorEnabled(bool value) async {
     await _prefs.setBool(_calculatorEnabledKey, value);
+    notifyListeners();
+  }
+
+  /// Режим работы магазина: `orders` (только заказы), `appointments`
+  /// (только записи) или `hybrid` (оба потока в едином экране).
+  /// По умолчанию — `hybrid`.
+  String get workMode => _prefs.getString(_workModeKey) ?? 'hybrid';
+
+  /// Показывать ли записи (скрыты только в режиме «только заказы»).
+  bool get showAppointments => workMode != 'orders';
+
+  /// Показывать ли заказы (скрыты только в режиме «только записи»).
+  bool get showJobs => workMode != 'appointments';
+
+  Future<void> setWorkMode(String value) async {
+    const allowed = {'orders', 'appointments', 'hybrid'};
+    if (!allowed.contains(value)) return;
+    await _prefs.setString(_workModeKey, value);
     notifyListeners();
   }
 
