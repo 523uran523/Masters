@@ -1,6 +1,6 @@
 # Masters — архитектура приложения (актуальная на состояние репозитория)
 
-Дата: 29.10.2026
+Дата: 01.11.2026
 ОС проекта: Windows 10/11, Flutter (Dart), SQLite.
 Стиль: локальный-first учёт, Cupertino UI, поддержка горизонтальной раскладки, пресеты по бизнес-типам.
 Основной репозиторий: `C:\Users\523ur\Documents\MyProjects\Apps\Masters`.
@@ -107,7 +107,7 @@ Repository pattern: `getAll`, `byId`, `save`, `delete`/specific queries. Мно�
 Файл: `lib/data/app_database.dart`
 
 ### Версия БД
-**Version 12**.
+**Version 19**.
 
 ### Миграции
 - v1: ядро, money
@@ -122,9 +122,16 @@ Repository pattern: `getAll`, `byId`, `save`, `delete`/specific queries. Мно�
 - v10: recurring payments + payroll periods
 - v11: DB audit triggers
 - v12: job_attachments
+- v13: receipt_path + money audit triggers
+- v14: pinned jobs
+- v15: job calculator state
+- v16: work_sessions timer refactor
+- v17: reverses_id
+- v18: inventory composition (BOM)
+- v19: unified booking indexes (appointments/jobs по датам)
 
 ### Таблицы
-`clients`, `objects`, `jobs`, `job_stages`, `materials`, `work_sessions`, `accounts`, `cash_shifts`, `money_transactions`, `inventory_items`, `suppliers`, `purchases`, `purchase_lines`, `stock_movements`, `recipe_lines`, `booking_resources`, `appointments`, `client_reminders`, `employees`, `time_entries`, `employee_payments`, `audit_log`, `period_closures`, `recurring_payments`, `payroll_periods`, `job_attachments`.
+`clients`, `objects`, `jobs`, `job_stages`, `materials`, `work_sessions`, `accounts`, `cash_shifts`, `money_transactions`, `inventory_items`, `suppliers`, `purchases`, `purchase_lines`, `stock_movements`, `recipe_lines`, `inventory_compositions`, `booking_resources`, `appointments`, `client_reminders`, `employees`, `time_entries`, `employee_payments`, `audit_log`, `period_closures`, `recurring_payments`, `payroll_periods`, `job_attachments`.
 
 ### Integrity
 - `integrityIssues()` — `PRAGMA foreign_key_check` + `PRAGMA quick_check`.
@@ -349,6 +356,16 @@ Repository pattern: `getAll`, `byId`, `save`, `delete`/specific queries. Мно�
 - `MastersStore.createAppointment` проверяет конфликты по ресурсу и интервалу времени и бросает `StateError` при пересечении.
 - Создание связанных записей (`client_reminder` типа `appointment`) через один сценарий.
 
+## 18e. Унифицированное бронирование (unified booking)
+- Адаптер `UnifiedEvent` в `MastersStore` поверх таблиц `appointments` и `jobs` (без изменения схемы).
+- Конвертация job↔appointment, проверка конфликтов ресурсов и слотов.
+- Spec: `docs/specs/2026-11-01-unified-booking-design.md`, `docs/specs/2026-11-01-unified-booking-ui-tight.md`.
+
+## 18f. Налоговые профили (tax profiles)
+- Профили налогов по странам и активный профиль в `SettingsController` с fallback на legacy-параметры.
+- Использование ставки активного налогового профиля в расчёте tax reserve.
+- Spec: `docs/specs/2026-11-01-tax-profiles.md`.
+
 ---
 
 ## 19. Что осталось по планам
@@ -417,14 +434,14 @@ adb shell monkey -p com.mastersapp.masters -c android.intent.category.LAUNCHER 1
   `build/app/outputs/flutter-apk/app-release.apk`
 - Phone installed app:
   - package `com.mastersapp.masters`
-  - version `0.2.0`
+  - version `0.3.12+15`
   - APK copied to phone `/sdcard/Download/Masters-release.apk`.
 - GitHub:
   - `origin/main`
   - latest pushed commits include app, tests, DB and triggers.
 - Текущий test baseline:
-  - `flutter test`: 16/16.
-  - `flutter analyze --no-pub`: info/warning issues without errors.
+  - `flutter test`: 101/101.
+  - `flutter analyze --no-pub`: 59 issues (info/warning, без ошибок).
 
 ---
 

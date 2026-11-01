@@ -32,7 +32,7 @@ Web-версия запускается: `http://localhost:8080`, база SQLit
 
 ## Яндекс Диск: вход без логина и пароля
 
-Подробная инструкция — в `YANDEX_OAUTH_SETUP.md`.
+Подробная инструкция — в `docs/YANDEX_OAUTH.md`.
 
 - `lib/core/yandex_oauth.dart` — authorization code flow с PKCE, токен и
   refresh-токен в `shared_preferences`;
@@ -93,7 +93,7 @@ dart run web_server/server.dart 8080
 
 1. **Зарегистрировать OAuth-приложение** на <https://oauth.yandex.ru/client/new>
    и получить ClientID/Client secret — без них кнопка «Войти через Яндекс»
-   показывает «Вход не настроен». Пошагово: `YANDEX_OAUTH_SETUP.md`.
+   показывает «Вход не настроен». Пошагово: `docs/YANDEX_OAUTH.md`.
 2. **Пересобрать web с `--dart-define=YANDEX_CLIENT_ID=...`** (и задать
    `YANDEX_CLIENT_SECRET` для сервера) — текущая сборка собрана без ClientID.
 3. **Прогнать реальный вход**: авторизация, обмен кода, загрузка файла,

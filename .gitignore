@@ -11,6 +11,7 @@
 .svn/
 .swiftpm/
 migrate_working_dir/
+__pycache__/
 
 # IntelliJ related
 *.iml
@@ -51,3 +52,10 @@ app.*.map.json
 /android/key.properties
 /android/*.jks
 /android/*.keystore
+
+# Stray root files / local build notes (cleanup)
+/*.log
+/*.txt
+/*.pyc
+/*.dart
+/__pycache__/
