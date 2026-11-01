@@ -5,6 +5,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../app/theme/app_theme.dart';
 import '../../app/ui.dart';
+import '../../app/tax_radar_bar.dart';
 import '../../core/backup_service.dart';
 import '../../core/reminder_service.dart';
 import '../../core/app_biometric.dart';
@@ -1708,6 +1709,69 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                 },
                               );
                             },
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    AppCard(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Налоговый радар (НПД)',
+                            style: TextStyle(fontWeight: FontWeight.w600),
+                          ),
+                          const SizedBox(height: 8),
+                          Row(
+                            children: [
+                              const Expanded(
+                                child: Text('Учитывать лимит НПД (2,4M/год)'),
+                              ),
+                              CupertinoSwitch(
+                                value: settings.taxRadarEnabled,
+                                onChanged: (v) async {
+                                  await settings.setTaxRadarEnabled(v);
+                                  if (mounted) setState(() {});
+                                },
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          SecondaryButton(
+                            label:
+                                'Лимит дохода, ₽: ${(settings.taxIncomeLimitCents / 100).toStringAsFixed(0)}',
+                            icon: CupertinoIcons.pencil,
+                            onPressed: () async {
+                              final v = await _promptPin(
+                                'Лимит дохода, ₽',
+                                settings.taxIncomeLimitCents.toString(),
+                              );
+                              if (v == null || !mounted) return;
+                              final cents =
+                                  int.tryParse(v.trim()) ??
+                                  settings.taxIncomeLimitCents;
+                              await settings.setTaxIncomeLimitCents(cents);
+                              if (mounted) setState(() {});
+                            },
+                          ),
+                          const SizedBox(height: 8),
+                          if (settings.taxRadarEnabled &&
+                              settings.npdLimitApplies) ...[
+                            TaxRadarBar(
+                              incomeCents: context
+                                  .read<MastersStore>()
+                                  .annualIncomeCents(),
+                              limitCents: settings.taxIncomeLimitCents,
+                            ),
+                            const SizedBox(height: 8),
+                          ],
+                          Text(
+                            'Внимание: при превышении 2,4M ₽ зарегистрируйтесь как ИП или измените налоговую схему.',
+                            style: TextStyle(
+                              color: colors.secondaryLabel,
+                              fontSize: 12,
+                            ),
                           ),
                         ],
                       ),

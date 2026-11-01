@@ -7,6 +7,7 @@ import 'package:open_filex/open_filex.dart';
 import 'package:provider/provider.dart';
 
 import '../../app/theme/app_theme.dart';
+import '../../app/tax_radar_bar.dart';
 import '../../app/ui.dart';
 import '../employees/employees_screen.dart';
 import '../stats/stats_screen.dart';
@@ -32,6 +33,7 @@ class _MoneyScreenState extends State<MoneyScreen> {
   DateTime? _dateTo;
   String _recurringStatusFilter = 'all';
   int _selectedTab = 0; // 0: Операции, 1: Счета, 2: Категории
+  bool _taxRadarExpanded = false;
 
   String _money(int cents) => '${(cents / 100).toStringAsFixed(0)} ₽';
 
@@ -1229,6 +1231,32 @@ class _MoneyScreenState extends State<MoneyScreen> {
         .fold(0, (s, t) => s + t.amountCents);
     final taxRate = settings.getActiveTaxRate();
     final taxAccountId = settings.taxAccountId;
+    final radarYear = now.year;
+    final radarMonthlyIncome = List<int>.filled(12, 0);
+    final radarMonthlyExpense = List<int>.filled(12, 0);
+    for (final t in store.moneyTransactions) {
+      if (t.voided || t.createdAt.year != radarYear) continue;
+      final mi = t.createdAt.month - 1;
+      if (t.direction == 'in') {
+        radarMonthlyIncome[mi] += t.amountCents;
+      } else if (t.direction == 'out') {
+        radarMonthlyExpense[mi] += t.amountCents;
+      }
+    }
+    const radarMonthNames = [
+      'Янв',
+      'Фев',
+      'Мар',
+      'Апр',
+      'Май',
+      'Июн',
+      'Июл',
+      'Авг',
+      'Сен',
+      'Окт',
+      'Ноя',
+      'Дек',
+    ];
     final reservedTax = taxRate <= 0
         ? 0
         : (monthIncome * taxRate / 100).round();
@@ -1295,6 +1323,104 @@ class _MoneyScreenState extends State<MoneyScreen> {
                     child: ListView(
                       padding: const EdgeInsets.fromLTRB(16, 12, 16, 72),
                       children: [
+                        if (settings.taxRadarEnabled &&
+                            settings.npdLimitApplies) ...[
+                          AppCard(
+                            onTap: () => setState(
+                              () => _taxRadarExpanded = !_taxRadarExpanded,
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                TaxRadarBar(
+                                  incomeCents: store.annualIncomeCents(),
+                                  limitCents: settings.taxIncomeLimitCents,
+                                ),
+                                if (_taxRadarExpanded) ...[
+                                  const SizedBox(height: 8),
+                                  Row(
+                                    children: [
+                                      Expanded(
+                                        child: Text(
+                                          'Месяц',
+                                          style: TextStyle(
+                                            color: colors.secondaryLabel,
+                                            fontSize: 12,
+                                          ),
+                                        ),
+                                      ),
+                                      SizedBox(
+                                        width: 80,
+                                        child: Text(
+                                          'Доходы',
+                                          textAlign: TextAlign.right,
+                                          style: TextStyle(
+                                            color: colors.secondaryLabel,
+                                            fontSize: 12,
+                                          ),
+                                        ),
+                                      ),
+                                      SizedBox(
+                                        width: 80,
+                                        child: Text(
+                                          'Расходы',
+                                          textAlign: TextAlign.right,
+                                          style: TextStyle(
+                                            color: colors.secondaryLabel,
+                                            fontSize: 12,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 4),
+                                  ...List.generate(12, (i) {
+                                    final inc = radarMonthlyIncome[i];
+                                    final exp = radarMonthlyExpense[i];
+                                    if (inc == 0 && exp == 0) {
+                                      return const SizedBox.shrink();
+                                    }
+                                    return Padding(
+                                      padding: const EdgeInsets.symmetric(
+                                        vertical: 2,
+                                      ),
+                                      child: Row(
+                                        children: [
+                                          Expanded(
+                                            child: Text(radarMonthNames[i]),
+                                          ),
+                                          SizedBox(
+                                            width: 80,
+                                            child: Text(
+                                              _money(inc),
+                                              textAlign: TextAlign.right,
+                                              style: TextStyle(
+                                                color: colors.green,
+                                                fontSize: 12,
+                                              ),
+                                            ),
+                                          ),
+                                          SizedBox(
+                                            width: 80,
+                                            child: Text(
+                                              _money(exp),
+                                              textAlign: TextAlign.right,
+                                              style: TextStyle(
+                                                color: colors.red,
+                                                fontSize: 12,
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    );
+                                  }),
+                                ],
+                              ],
+                            ),
+                          ),
+                          const SizedBox(height: 10),
+                        ],
                         if (_selectedTab == 0) ...[
                           SectionLabel('Сегодня'),
                           AppCard(

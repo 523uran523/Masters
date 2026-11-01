@@ -5,6 +5,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:provider/provider.dart';
 
 import '../../app/theme/app_theme.dart';
+import '../../app/tax_radar_bar.dart';
 import '../../app/ui.dart';
 import '../../core/deep_link_service.dart';
 import '../../core/utils/app_utils.dart';
@@ -46,6 +47,7 @@ class _TodayScreenState extends State<TodayScreen> {
   @override
   Widget build(BuildContext context) {
     final store = context.watch<MastersStore>();
+    final settings = context.watch<SettingsController>();
     final colors = context.colors;
     final now = DateTime.now();
     final todayKey = dayKey(now);
@@ -166,6 +168,16 @@ class _TodayScreenState extends State<TodayScreen> {
                   const SizedBox(height: 12),
                   _buildMonthCard(store, context),
                   const SizedBox(height: 12),
+                  if (settings.taxRadarEnabled && settings.npdLimitApplies) ...[
+                    AppCard(
+                      child: TaxRadarBar(
+                        compact: true,
+                        incomeCents: store.annualIncomeCents(),
+                        limitCents: settings.taxIncomeLimitCents,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                  ],
                   _buildSevenDayCashSummary(store, context),
                   const SizedBox(height: 12),
                   _buildSummaryCards(store, colors),
