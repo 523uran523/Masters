@@ -8,13 +8,72 @@ import 'package:flutter_test/flutter_test.dart';
 // so we require context: at least 2 sequential artifact chars or a prefix + Cyrillic.
 // CP1252 double-encoding: multi-char patterns like 'Рћ', 'С‚', 'Рє', 'Сѓ', 'Рё', 'Рѕ', 'РЅ', 'РІ'.
 const List<String> _mojibakeSignaturesCp1252 = <String>[
-  'Рћ', 'С‚', 'Рє', 'Сѓ', 'Рё', 'Рѕ', 'РЅ', 'РІ',
-  'РЈ', 'РЎ', 'Рё', 'Р�', 'Рє', 'Рѕ', 'Рі', 'Рї', 'Рј', 'Рћ',
-  'Р›', 'РЅ', 'РІ', 'Р°', 'Р±', 'Рµ', 'Р¶', 'Р·', 'Р»', 'Рј', 'Рї',
-  'Рі', 'Рґ', 'Р—', 'Р№', 'СЃ', 'СЊ', 'СЋ', 'СЏ', 'Р°', 'Р±',
-  'Рµ', 'Р¶', 'Р·', 'Р»', 'Рј', 'Рї', 'Рі', 'Рґ', 'Р—', 'Р№',
-  'СЃ', 'СЊ', 'СЋ', 'СЏ', 'Сѓ', 'С‘', 'С€', 'С€', 'Р№',
-  'СЏ', 'Сѓ', 'С‘', 'С†', 'С‡', 'С…', 'С‰', 'С‹',
+  'Рћ',
+  'С‚',
+  'Рє',
+  'Сѓ',
+  'Рё',
+  'Рѕ',
+  'РЅ',
+  'РІ',
+  'РЈ',
+  'РЎ',
+  'Рё',
+  'Р�',
+  'Рє',
+  'Рѕ',
+  'Рі',
+  'Рї',
+  'Рј',
+  'Рћ',
+  'Р›',
+  'РЅ',
+  'РІ',
+  'Р°',
+  'Р±',
+  'Рµ',
+  'Р¶',
+  'Р·',
+  'Р»',
+  'Рј',
+  'Рї',
+  'Рі',
+  'Рґ',
+  'Р—',
+  'Р№',
+  'СЃ',
+  'СЊ',
+  'СЋ',
+  'СЏ',
+  'Р°',
+  'Р±',
+  'Рµ',
+  'Р¶',
+  'Р·',
+  'Р»',
+  'Рј',
+  'Рї',
+  'Рі',
+  'Рґ',
+  'Р—',
+  'Р№',
+  'СЃ',
+  'СЊ',
+  'СЋ',
+  'СЏ',
+  'Сѓ',
+  'С‘',
+  'С€',
+  'С€',
+  'Р№',
+  'СЏ',
+  'Сѓ',
+  'С‘',
+  'С†',
+  'С‡',
+  'С…',
+  'С‰',
+  'С‹',
 ];
 
 // CP866 double-encoding: box-drawing characters that appear in groups in corrupted text.
@@ -40,13 +99,23 @@ bool _textHasMojibake(String text) {
   // Multi-char Cyrillic prefix combos: тХ, тА, тБ, тГ, тД, тЕ, тЖ, тФ, тАв
   final prefixPattern = RegExp(r'т[ХАБГДЕЖФ][иА-Яё]?|тАв');
   if (prefixPattern.hasMatch(text)) return true;
+  // CP866 single-box residue: a box-drawing glyph (U+2500-U+257F) glued to a
+  // Cyrillic letter (e.g. '×' corrupted to U+251C U+0427) never occurs in clean
+  // Russian/English UI text. Keyed on adjacency so isolated box separators
+  // ('║' rules, '─' dividers) that are NOT next to a letter are still allowed.
+  final boxCyrillicPattern = RegExp(
+    r'[\u2500-\u257F][\u0400-\u04FF]|[\u0400-\u04FF][\u2500-\u257F]',
+  );
+  if (boxCyrillicPattern.hasMatch(text)) return true;
   return false;
 }
 
 Iterable<File> _dartFiles(Directory dir) sync* {
   for (final e in dir.listSync(followLinks: false)) {
-    if (e is Directory) yield* _dartFiles(e);
-    else if (e is File && e.path.endsWith('.dart')) yield e;
+    if (e is Directory)
+      yield* _dartFiles(e);
+    else if (e is File && e.path.endsWith('.dart'))
+      yield e;
   }
 }
 
@@ -72,6 +141,10 @@ void main() {
         problems.add('${f.path}: Mojibake detected');
       }
     }
-    expect(problems, isEmpty, reason: 'Found mojibake in: ${problems.join(", ")}');
+    expect(
+      problems,
+      isEmpty,
+      reason: 'Found mojibake in: ${problems.join(", ")}',
+    );
   });
 }

@@ -806,7 +806,7 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
                             ),
                           ),
                           Text(
-                            '${m.quantity.toStringAsFixed(m.quantity % 1 == 0 ? 0 : 2)} ${m.unit} ├Ч ${(m.priceCents / 100).toStringAsFixed(0)}',
+                            '${m.quantity.toStringAsFixed(m.quantity % 1 == 0 ? 0 : 2)} ${m.unit} × ${(m.priceCents / 100).toStringAsFixed(0)}',
                             style: TextStyle(
                               color: colors.secondaryLabel,
                               fontSize: 12,
