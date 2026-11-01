@@ -38,7 +38,7 @@ class AppDatabase {
 
     final database = await openDatabase(
       resolved,
-      version: 17,
+      version: 18,
       onConfigure: (db) async {
         if (!kIsWeb) await db.execute('PRAGMA foreign_keys = ON');
       },
@@ -148,6 +148,7 @@ class AppDatabase {
 
     await _createMoneySchema(db);
     await _createInventorySchema(db);
+    await _createInventoryCompositionSchema(db);
     await _createBookingSchema(db);
     await _createReminderSchema(db);
     await _createTeamSchema(db);
@@ -487,6 +488,26 @@ class AppDatabase {
     );
   }
 
+  static Future<void> _createInventoryCompositionSchema(Database db) async {
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS inventory_compositions (
+        id TEXT PRIMARY KEY,
+        item_id TEXT NOT NULL REFERENCES inventory_items(id) ON DELETE CASCADE,
+        component_id TEXT REFERENCES inventory_items(id) ON DELETE SET NULL,
+        is_labor INTEGER NOT NULL DEFAULT 0,
+        qty REAL NOT NULL,
+        price_cents INTEGER NOT NULL,
+        note TEXT
+      )
+    ''');
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_inv_comp_item ON inventory_compositions(item_id)',
+    );
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_inv_comp_component ON inventory_compositions(component_id)',
+    );
+  }
+
   static Future<void> _createMoneySchema(Database db) async {
     await db.execute('''
       CREATE TABLE IF NOT EXISTS accounts (
@@ -727,6 +748,10 @@ class AppDatabase {
       await db.execute(
         'CREATE INDEX IF NOT EXISTS idx_money_tx_reverses_id ON money_transactions(reverses_id)',
       );
+    }
+    if (oldVersion < 18) {
+      // v18: inventory cost composition (BOM) for stock items.
+      await _createInventoryCompositionSchema(db);
     }
   }
 
