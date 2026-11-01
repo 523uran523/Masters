@@ -15,8 +15,11 @@
 | today-legend-fix (убрать текст со значениями, оставить точки-легенду) | docs/specs/2026-11-01-today-legend-fix.md | junior | **принято** (85134a3, 57/57, pushed) |
 | money-tabs-fix (восстановить текст + вкладки Операции/Счета/Категории) | docs/specs/2026-11-01-money-tabs-fix.md | senior | **принято** (pushed, 57/57) |
 | release-031215 | docs/specs/2026-11-01-release-031215.md | senior | **принято/опубликовано** (151cfb4; 0.3.12+15, code 15, SHA 62A404C6…) |
-| tax-profiles (налоговые профили по странам, настройки) | docs/specs/2026-11-01-tax-profiles.md | senior | **принято** (integration-verified: settings 6→101 tests green after recursion fix; commits 6583ef0/9b9d5e9/919f5a8) |
-| db-migration-snapshots (снапшоты БД v1→v19 + regression-тесты) | docs/specs/2026-11-01-db-migration-snapshots.md | senior | **принято** (integration-verified: migration_upgrade_test 19/19; commits fb16f65/b96c99c) |
+| tax-profiles (налоговые профили по странам, настройки) | docs/specs/2026-11-01-tax-profiles.md | senior | **принято** (6583ef0/9b9d5e9/919f5a8 + integration fix 164276c) |
+| db-migration-snapshots (снапшоты БД v1→v19 + regression-тесты) | docs/specs/2026-11-01-db-migration-snapshots.md | senior | **принято** (fb16f65/b96c99c) |
+| code-audit-cleanup (audit + cleanup + UX text capitalization) | — | senior | **принято** (c1bfc1c, ddff84e; 101/101, 0 warn) |
+| project-cleanup-consolidate (удалить мусор + консолидация md) | — | senior | **принято** (6896d9e, 913c4c2) |
+| settings-ux-polish (compact / vibrant / иконки / статус-чип) | docs/specs/2026-11-01-settings-ux-polish.md | senior | **выдано** |
 | release-031316 (после двух срезов) | docs/specs/2026-11-01-release-031316.md | senior | **выдано** (ждёт двух срезов) |
 
 ## Правила
