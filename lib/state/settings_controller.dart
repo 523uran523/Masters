@@ -1,9 +1,71 @@
+import 'dart:async';
+import 'dart:convert';
+
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:timezone/data/latest.dart' as tzdata;
 
 import '../core/app_pin_service.dart';
 import '../core/yandex_oauth.dart';
+
+/// Налоговый профиль: страна + режим налогообложения + ставка.
+class TaxProfile {
+  final String id;
+  final String country;
+  final String name;
+  final int ratePercent;
+
+  const TaxProfile({
+    required this.id,
+    required this.country,
+    required this.name,
+    required this.ratePercent,
+  });
+
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'country': country,
+    'name': name,
+    'ratePercent': ratePercent,
+  };
+
+  factory TaxProfile.fromJson(Map<String, dynamic> json) => TaxProfile(
+    id: json['id'] as String,
+    country: json['country'] as String,
+    name: json['name'] as String,
+    ratePercent: json['ratePercent'] as int,
+  );
+
+  TaxProfile copyWith({
+    String? id,
+    String? country,
+    String? name,
+    int? ratePercent,
+  }) => TaxProfile(
+    id: id ?? this.id,
+    country: country ?? this.country,
+    name: name ?? this.name,
+    ratePercent: ratePercent ?? this.ratePercent,
+  );
+}
+
+/// Стандартные пресеты налоговых профилей для первого запуска.
+const _defaultTaxProfiles = [
+  TaxProfile(
+    id: 'ru_4',
+    country: 'RU',
+    name: 'Самозанятость 4%',
+    ratePercent: 4,
+  ),
+  TaxProfile(
+    id: 'ru_6',
+    country: 'RU',
+    name: 'Самозанятость 6%',
+    ratePercent: 6,
+  ),
+  TaxProfile(id: 'kz_2', country: 'KZ', name: 'Самозанятый', ratePercent: 2),
+  TaxProfile(id: 'us_0', country: 'US', name: 'Sole prop', ratePercent: 0),
+];
 
 enum AppThemeMode { system, light, dark }
 
@@ -46,6 +108,8 @@ class SettingsController extends ChangeNotifier {
   static const _dndEnabledKey = 'dnd_enabled';
   static const _hiddenTabsKey = 'hidden_tabs';
   static const _taxRateKey = 'tax_rate';
+  static const _taxProfilesKey = 'tax_profiles';
+  static const _activeTaxProfileIdKey = 'active_tax_profile_id';
   static const _taxAccountKey = 'tax_account';
   static const _hourRateCentsKey = 'hour_rate_cents';
   static const _jobTagsKey = 'job_tags';
@@ -132,6 +196,126 @@ class SettingsController extends ChangeNotifier {
   String get objectTerm => _prefs.getString(_objectTermKey) ?? 'Объект';
   String get clientTerm => _prefs.getString(_clientTermKey) ?? 'Клиент';
   int get taxRate => _prefs.getInt(_taxRateKey) ?? 0;
+
+  /// Список налоговых профилей. При первом чтении лениво инициализируется
+  /// пресетами, если профилей ещё нет и старый taxRate не задан.
+  List<TaxProfile> get taxProfiles {
+    final raw = _prefs.getString(_taxProfilesKey);
+    if (raw == null || raw.isEmpty) {
+      // Ленивая инициализация пресетов: только если старый taxRate тоже не задан.
+      if (taxRate == 0) {
+        _initDefaultProfiles();
+        // После инициализации перечитываем из prefs.
+        return taxProfiles;
+      }
+      return const [];
+    }
+    try {
+      final list = jsonDecode(raw) as List<dynamic>;
+      return list
+          .map((e) => TaxProfile.fromJson(e as Map<String, dynamic>))
+          .toList();
+    } catch (_) {
+      // Повреждённые данные не затираем старый taxRate.
+      return const [];
+    }
+  }
+
+  /// ID активного налогового профиля.
+  String? get activeTaxProfileId => _prefs.getString(_activeTaxProfileIdKey);
+
+  /// Активный налоговый профиль или null.
+  TaxProfile? get activeTaxProfile {
+    final id = activeTaxProfileId;
+    if (id == null) return null;
+    for (final p in taxProfiles) {
+      if (p.id == id) return p;
+    }
+    return null;
+  }
+
+  /// Ставка активного профиля. Если профилей нет или активный не найден —
+  /// fallback на старый taxRate для обратной совместимости.
+  int getActiveTaxRate() {
+    final active = activeTaxProfile;
+    if (active != null) return active.ratePercent;
+    if (taxProfiles.isNotEmpty) {
+      // Активный не определён — 0, чтобы не молча подставлять ставку.
+      return 0;
+    }
+    // Нет профилей → fallback на старый taxRate.
+    return taxRate;
+  }
+
+  /// Инициализация пресетов профилей (ленивая, без форсирования при old taxRate).
+  void _initDefaultProfiles() {
+    // В SharedPreferences setString обновляет кэш синхронно; запись не блокируем UI.
+    unawaited(
+      _prefs.setString(
+        _taxProfilesKey,
+        jsonEncode(_defaultTaxProfiles.map((p) => p.toJson()).toList()),
+      ),
+    );
+    unawaited(
+      _prefs.setString(_activeTaxProfileIdKey, _defaultTaxProfiles.first.id),
+    );
+  }
+
+  /// Добавить новый профиль.
+  Future<void> addTaxProfile(TaxProfile profile) async {
+    final list = [...taxProfiles, profile];
+    await _prefs.setString(
+      _taxProfilesKey,
+      jsonEncode(list.map((p) => p.toJson()).toList()),
+    );
+    // Если нет активного — сделать новый активным.
+    if (activeTaxProfileId == null) {
+      await _prefs.setString(_activeTaxProfileIdKey, profile.id);
+    }
+    notifyListeners();
+  }
+
+  /// Обновить существующий профиль.
+  Future<void> updateTaxProfile(TaxProfile profile) async {
+    final list = taxProfiles
+        .map((p) => p.id == profile.id ? profile : p)
+        .toList();
+    await _prefs.setString(
+      _taxProfilesKey,
+      jsonEncode(list.map((p) => p.toJson()).toList()),
+    );
+    notifyListeners();
+  }
+
+  /// Удалить профиль. Нельзя удалить активный профиль — вернёт false.
+  Future<bool> removeTaxProfile(String id) async {
+    if (activeTaxProfileId == id) return false; // Нельзя удалить активный.
+    final list = taxProfiles.where((p) => p.id != id).toList();
+    await _prefs.setString(
+      _taxProfilesKey,
+      jsonEncode(list.map((p) => p.toJson()).toList()),
+    );
+    if (list.isEmpty) {
+      await _prefs.remove(_activeTaxProfileIdKey);
+    }
+    notifyListeners();
+    return true;
+  }
+
+  /// Установить активный профиль.
+  Future<void> setActiveTaxProfile(String id) async {
+    if (taxProfiles.any((p) => p.id == id)) {
+      await _prefs.setString(_activeTaxProfileIdKey, id);
+      notifyListeners();
+    }
+  }
+
+  // Алиасы под имена из ТЗ/UI.
+  Future<void> addProfile(TaxProfile profile) => addTaxProfile(profile);
+  Future<void> updateProfile(TaxProfile profile) => updateTaxProfile(profile);
+  Future<bool> removeProfile(String id) => removeTaxProfile(id);
+  Future<void> setActiveProfile(String id) => setActiveTaxProfile(id);
+
   String? get taxAccountId => _prefs.getString(_taxAccountKey);
   List<String> get jobTags =>
       (_prefs.getStringList(_jobTagsKey) ?? const []).toList();
