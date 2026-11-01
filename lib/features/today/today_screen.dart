@@ -927,17 +927,6 @@ Widget _buildMonthCard(MastersStore store, BuildContext context) {
             _legendDot(colors, colors.red, 'Расходы'),
           ],
         ),
-        const SizedBox(height: 4),
-        _legendText(
-          colors,
-          'Месяц: Д ${_money(income)} · Р ${_money(expense)} · '
-          'Прибыль ${_money(profit)}',
-        ),
-        _legendText(
-          colors,
-          '7 дней: Д ${_money(weekIncome)} · Р ${_money(weekExpense)} · '
-          'Прибыль ${_money(weekProfit)}',
-        ),
         if (taxRate > 0) ...[
           const SizedBox(height: 4),
           Text(
