@@ -47,9 +47,9 @@ class _UnifiedBookingScreenState extends State<UnifiedBookingScreen> {
   Widget build(BuildContext context) {
     final settings = context.watch<SettingsController>();
     final title = switch (settings.workMode) {
-      'appointments' => 'Запись',
-      'hybrid' => 'Заказы',
-      _ => 'Заказ',
+      'appointments' => 'События',
+      'hybrid' => 'События',
+      _ => 'События',
     };
 
     return CupertinoPageScaffold(
@@ -60,7 +60,7 @@ class _UnifiedBookingScreenState extends State<UnifiedBookingScreen> {
           children: [
             CupertinoButton(
               padding: EdgeInsets.zero,
-              onPressed: _view == 'kanban' ? _showKanban : _showCalendar,
+              onPressed: _view == 'kanban' ? _showCalendar : _showKanban,
               child: Icon(
                 _view == 'kanban'
                     ? CupertinoIcons.calendar
@@ -79,26 +79,9 @@ class _UnifiedBookingScreenState extends State<UnifiedBookingScreen> {
       child: _busy
           ? const Center(child: CupertinoActivityIndicator())
           : SafeArea(
-              child: Column(
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
-                    child: CupertinoSegmentedControl<String>(
-                      groupValue: _view,
-                      onValueChanged: (v) => setState(() => _view = v),
-                      children: const {
-                        'kanban': Text('Канбан'),
-                        'calendar': Text('Календарь'),
-                      },
-                    ),
-                  ),
-                  Expanded(
-                    child: _view == 'kanban'
-                        ? UnifiedKanbanView(actions: _actions)
-                        : UnifiedCalendarView(actions: _actions),
-                  ),
-                ],
-              ),
+              child: _view == 'kanban'
+                  ? UnifiedKanbanView(actions: _actions)
+                  : UnifiedCalendarView(actions: _actions),
             ),
     );
   }

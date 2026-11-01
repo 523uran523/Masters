@@ -117,9 +117,13 @@ class _TabDef {
 List<_TabDef> _buildTabDefs(String workMode) {
   final unifiedScreen = const UnifiedBookingScreen();
   final bookingTab = switch (workMode) {
-    'appointments' => _TabDef(CupertinoIcons.calendar, 'Запись', unifiedScreen),
-    'hybrid' => _TabDef(CupertinoIcons.doc_text, 'Заказы', unifiedScreen),
-    _ => _TabDef(CupertinoIcons.doc_text, 'Заказ', unifiedScreen),
+    'appointments' => _TabDef(
+      CupertinoIcons.calendar,
+      'События',
+      unifiedScreen,
+    ),
+    'hybrid' => _TabDef(CupertinoIcons.doc_text, 'События', unifiedScreen),
+    _ => _TabDef(CupertinoIcons.doc_text, 'События', unifiedScreen),
   };
   return [
     _TabDef(CupertinoIcons.house, 'Сегодня', TodayScreen()),
