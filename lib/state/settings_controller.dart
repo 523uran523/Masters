@@ -111,6 +111,8 @@ class SettingsController extends ChangeNotifier {
   static const _taxProfilesKey = 'tax_profiles';
   static const _activeTaxProfileIdKey = 'active_tax_profile_id';
   static const _taxAccountKey = 'tax_account';
+  static const _taxIncomeLimitCentsKey = 'tax_income_limit_cents';
+  static const _taxRadarEnabledKey = 'tax_radar_enabled';
   static const _hourRateCentsKey = 'hour_rate_cents';
   static const _jobTagsKey = 'job_tags';
   static const _jobTagsEnabledKey = 'job_tags_enabled';
@@ -233,6 +235,14 @@ class SettingsController extends ChangeNotifier {
       if (p.id == id) return p;
     }
     return null;
+  }
+
+  /// Активный налоговый профиль относится к НПД (лимит дохода применим).
+  /// Для УСН/без налога — false. Если профилей нет — true (радар работает).
+  bool get npdLimitApplies {
+    final profile = activeTaxProfile;
+    if (profile == null) return true;
+    return profile.name.toLowerCase().contains('самозанят');
   }
 
   /// Ставка активного профиля. Если профилей нет или активный не найден —
@@ -430,6 +440,23 @@ class SettingsController extends ChangeNotifier {
 
   Future<void> setTaxRate(int value) async {
     await _prefs.setInt(_taxRateKey, value.clamp(0, 100));
+    notifyListeners();
+  }
+
+  /// Годовой лимит дохода для НПД-радара (в центах). По умолчанию 2.4М ₽.
+  int get taxIncomeLimitCents =>
+      _prefs.getInt(_taxIncomeLimitCentsKey) ?? 240000000;
+
+  Future<void> setTaxIncomeLimitCents(int value) async {
+    await _prefs.setInt(_taxIncomeLimitCentsKey, value < 0 ? 0 : value);
+    notifyListeners();
+  }
+
+  /// Включён ли налоговый радар (НПД).
+  bool get taxRadarEnabled => _prefs.getBool(_taxRadarEnabledKey) ?? true;
+
+  Future<void> setTaxRadarEnabled(bool value) async {
+    await _prefs.setBool(_taxRadarEnabledKey, value);
     notifyListeners();
   }
 
