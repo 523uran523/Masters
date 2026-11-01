@@ -665,6 +665,185 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
+  Future<void> _addTaxProfile() async {
+    final countryController = TextEditingController();
+    final nameController = TextEditingController();
+    final rateController = TextEditingController();
+
+    final result = await showCupertinoDialog<bool>(
+      context: context,
+      builder: (dialogContext) => CupertinoAlertDialog(
+        title: const Text('Налоговый профиль'),
+        content: Padding(
+          padding: const EdgeInsets.only(top: 12),
+          child: Column(
+            children: [
+              CupertinoTextField(
+                controller: countryController,
+                placeholder: 'Страна (RU, KZ, US)',
+                autofocus: true,
+                textCapitalization: TextCapitalization.characters,
+                decoration: BoxDecoration(
+                  color: context.colors.card,
+                  border: Border.all(color: context.colors.separator),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+              ),
+              const SizedBox(height: 8),
+              CupertinoTextField(
+                controller: nameController,
+                placeholder: 'Название (например, УСН 6%)',
+                decoration: BoxDecoration(
+                  color: context.colors.card,
+                  border: Border.all(color: context.colors.separator),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+              ),
+              const SizedBox(height: 8),
+              CupertinoTextField(
+                controller: rateController,
+                placeholder: 'Ставка % (0-100)',
+                keyboardType: TextInputType.number,
+                decoration: BoxDecoration(
+                  color: context.colors.card,
+                  border: Border.all(color: context.colors.separator),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          CupertinoDialogAction(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Отмена'),
+          ),
+          CupertinoDialogAction(
+            isDefaultAction: true,
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('Сохранить'),
+          ),
+        ],
+      ),
+    );
+
+    if (result != true || !mounted) return;
+
+    final country = countryController.text.trim().toUpperCase();
+    final name = nameController.text.trim();
+    final rate = int.tryParse(rateController.text.trim()) ?? 0;
+
+    if (country.isEmpty || name.isEmpty) {
+      await showAppAlert(
+        context,
+        title: 'Ошибка',
+        message: 'Заполните все поля.',
+      );
+      return;
+    }
+
+    final settings = context.read<SettingsController>();
+    await settings.addTaxProfile(
+      TaxProfile(
+        id: DateTime.now().millisecondsSinceEpoch.toString(),
+        country: country,
+        name: name,
+        ratePercent: rate.clamp(0, 100),
+      ),
+    );
+    if (mounted) setState(() {});
+  }
+
+  Future<void> _editTaxProfile(TaxProfile profile) async {
+    final countryController = TextEditingController(text: profile.country);
+    final nameController = TextEditingController(text: profile.name);
+    final rateController = TextEditingController(
+      text: profile.ratePercent.toString(),
+    );
+
+    final result = await showCupertinoDialog<bool>(
+      context: context,
+      builder: (dialogContext) => CupertinoAlertDialog(
+        title: const Text('Редактировать профиль'),
+        content: Padding(
+          padding: const EdgeInsets.only(top: 12),
+          child: Column(
+            children: [
+              CupertinoTextField(
+                controller: countryController,
+                placeholder: 'Страна (RU, KZ, US)',
+                autofocus: true,
+                textCapitalization: TextCapitalization.characters,
+                decoration: BoxDecoration(
+                  color: context.colors.card,
+                  border: Border.all(color: context.colors.separator),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+              ),
+              const SizedBox(height: 8),
+              CupertinoTextField(
+                controller: nameController,
+                placeholder: 'Название (например, УСН 6%)',
+                decoration: BoxDecoration(
+                  color: context.colors.card,
+                  border: Border.all(color: context.colors.separator),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+              ),
+              const SizedBox(height: 8),
+              CupertinoTextField(
+                controller: rateController,
+                placeholder: 'Ставка % (0-100)',
+                keyboardType: TextInputType.number,
+                decoration: BoxDecoration(
+                  color: context.colors.card,
+                  border: Border.all(color: context.colors.separator),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          CupertinoDialogAction(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Отмена'),
+          ),
+          CupertinoDialogAction(
+            isDefaultAction: true,
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('Сохранить'),
+          ),
+        ],
+      ),
+    );
+
+    if (result != true || !mounted) return;
+
+    final country = countryController.text.trim().toUpperCase();
+    final name = nameController.text.trim();
+    final rate = int.tryParse(rateController.text.trim()) ?? 0;
+
+    if (country.isEmpty || name.isEmpty) {
+      await showAppAlert(
+        context,
+        title: 'Ошибка',
+        message: 'Заполните все поля.',
+      );
+      return;
+    }
+
+    final settings = context.read<SettingsController>();
+    await settings.updateTaxProfile(
+      profile.copyWith(
+        country: country,
+        name: name,
+        ratePercent: rate.clamp(0, 100),
+      ),
+    );
+    if (mounted) setState(() {});
+  }
+
   Future<void> _clearData() async {
     final store = context.read<MastersStore>();
     final ok = await showAppConfirm(
@@ -1187,43 +1366,93 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text('Ставка: ${settings.taxRate}%'),
-                        const SizedBox(height: 8),
-                        Wrap(
-                          spacing: 8,
-                          runSpacing: 8,
-                          children: [
-                            for (final preset in const [
-                              ('Самозанятый 6%', 6),
-                              ('УСН 6%', 6),
-                              ('УСН 15%', 15),
-                              ('Без налога', 0),
-                            ])
-                              SecondaryButton(
-                                label: preset.$1,
-                                onPressed: () async {
-                                  await settings.setTaxRate(preset.$2);
-                                  if (mounted) setState(() {});
-                                },
-                              ),
-                          ],
+                        const Text(
+                          'Налоговые профили',
+                          style: TextStyle(fontWeight: FontWeight.w600),
                         ),
+                        const SizedBox(height: 8),
+                        ...settings.taxProfiles.map((profile) {
+                          final isActive =
+                              profile.id == settings.activeTaxProfileId;
+                          return Padding(
+                            padding: const EdgeInsets.only(bottom: 8),
+                            child: Row(
+                              children: [
+                                CupertinoCheckbox(
+                                  value: isActive,
+                                  onChanged: (v) async {
+                                    if (v == true) {
+                                      await settings.setActiveTaxProfile(
+                                        profile.id,
+                                      );
+                                      if (mounted) setState(() {});
+                                    }
+                                  },
+                                ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: GestureDetector(
+                                    onTap: () => _editTaxProfile(profile),
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          '${profile.country}, ${profile.name}',
+                                          style: const TextStyle(fontSize: 14),
+                                        ),
+                                        Text(
+                                          '${profile.ratePercent}%',
+                                          style: TextStyle(
+                                            color:
+                                                context.colors.secondaryLabel,
+                                            fontSize: 12,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                                CupertinoButton(
+                                  padding: EdgeInsets.zero,
+                                  onPressed: isActive
+                                      ? null
+                                      : () async {
+                                          final ok = await showAppConfirm(
+                                            context,
+                                            title: 'Удалить профиль?',
+                                            message:
+                                                '${profile.country}, ${profile.name} (${profile.ratePercent}%)',
+                                            destructive: true,
+                                            confirmLabel: 'Удалить',
+                                          );
+                                          if (ok) {
+                                            await settings.removeTaxProfile(
+                                              profile.id,
+                                            );
+                                            if (mounted) setState(() {});
+                                          }
+                                        },
+                                  child: Icon(
+                                    CupertinoIcons.trash,
+                                    color: isActive
+                                        ? context.colors.tertiaryLabel
+                                        : context.colors.red,
+                                    size: 20,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          );
+                        }),
                         const SizedBox(height: 8),
                         SecondaryButton(
-                          label: 'Изменить ставку',
-                          icon: CupertinoIcons.percent,
-                          onPressed: () async {
-                            final v = await _promptPin(
-                              'Ставка налога, %',
-                              settings.taxRate.toString(),
-                            );
-                            final rate = int.tryParse((v ?? '').trim());
-                            if (rate == null) return;
-                            await settings.setTaxRate(rate);
-                            if (mounted) setState(() {});
-                          },
+                          label: 'Добавить профиль',
+                          icon: CupertinoIcons.plus,
+                          onPressed: () => _addTaxProfile(),
                         ),
-                        const SizedBox(height: 8),
+                        const SizedBox(height: 16),
+                        // Счёт-карман для налогов
                         Builder(
                           builder: (context) {
                             final taxPocketId = settings.taxAccountId;
@@ -1282,17 +1511,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
                             );
                           },
                         ),
-                        if (settings.taxRate > 0) ...[
-                          const SizedBox(height: 8),
-                          SecondaryButton(
-                            label: 'Выключить карман',
-                            icon: CupertinoIcons.xmark,
-                            onPressed: () async {
-                              await settings.setTaxRate(0);
-                              if (mounted) setState(() {});
-                            },
-                          ),
-                        ],
                       ],
                     ),
                   ),
