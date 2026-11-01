@@ -7,6 +7,7 @@ import '../../app/ui.dart';
 import '../../data/models/inventory_item.dart';
 import '../../data/models/supplier.dart';
 import '../../state/masters_store.dart';
+import 'inventory_composition_screen.dart';
 
 class InventoryScreen extends StatefulWidget {
   const InventoryScreen({super.key});
@@ -676,6 +677,14 @@ class _InventoryScreenState extends State<InventoryScreen> {
     }
   }
 
+  void _openComposition(InventoryItem item) {
+    Navigator.of(context).push(
+      CupertinoPageRoute(
+        builder: (_) => InventoryCompositionScreen(itemId: item.id),
+      ),
+    );
+  }
+
   Future<void> _showItemHistory(InventoryItem item) async {
     final store = context.read<MastersStore>();
     final movements =
@@ -1043,6 +1052,16 @@ class _InventoryScreenState extends State<InventoryScreen> {
                                               fontSize: 12,
                                             ),
                                           ),
+                                          if (store
+                                              .itemComposition(item.id)
+                                              .isNotEmpty)
+                                            Text(
+                                              'Состав: ${store.itemComposition(item.id).length} поз. • себест. ${_money(store.compositionCostCents(item.id))}',
+                                              style: TextStyle(
+                                                color: colors.accent,
+                                                fontSize: 12,
+                                              ),
+                                            ),
                                           if (item.trackStock)
                                             Text(
                                               'Остаток: ${item.stockQty.toStringAsFixed(item.stockQty % 1 == 0 ? 0 : 2)} ${item.unit}${item.stockQty < 0 ? ' \u2022 \u041e\u0442\u0440\u0438\u0446\u0430\u0442\u0435\u043b\u044c\u043d\u044b\u0439 \u043e\u0441\u0442\u0430\u0442\u043e\u043a' : (item.lowStock ? ' (\u043c\u0430\u043b\u043e)' : '')}',
@@ -1096,6 +1115,18 @@ class _InventoryScreenState extends State<InventoryScreen> {
                                         style: TextStyle(
                                           fontSize: 12,
                                           color: colors.label,
+                                        ),
+                                      ),
+                                    ),
+                                    CupertinoButton(
+                                      padding: EdgeInsets.zero,
+                                      onPressed: () => _openComposition(item),
+                                      child: Text(
+                                        'Состав',
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          color: colors.accent,
+                                          fontWeight: FontWeight.w600,
                                         ),
                                       ),
                                     ),
