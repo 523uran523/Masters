@@ -616,17 +616,24 @@ String _hms(int seconds) {
   return '$m мин $s с';
 }
 
-Widget _moneyRow(String label, String value, Color color) => Padding(
-  padding: const EdgeInsets.symmetric(vertical: 2),
-  child: Row(
-    children: [
-      Expanded(child: Text(label)),
-      Text(
-        value,
-        style: TextStyle(color: color, fontWeight: FontWeight.w600),
-      ),
-    ],
-  ),
+Widget _legendDot(AppColors colors, Color dot, String label) => Row(
+  mainAxisSize: MainAxisSize.min,
+  children: [
+    Container(
+      width: 6,
+      height: 6,
+      decoration: BoxDecoration(color: dot, shape: BoxShape.circle),
+    ),
+    const SizedBox(width: 4),
+    Text(label, style: TextStyle(color: colors.secondaryLabel, fontSize: 12)),
+  ],
+);
+
+Widget _legendText(AppColors colors, String text) => Text(
+  text,
+  style: TextStyle(color: colors.secondaryLabel, fontSize: 12),
+  maxLines: 1,
+  overflow: TextOverflow.ellipsis,
 );
 
 Widget _buildTodayTimerCard(MastersStore store, BuildContext context) {
@@ -865,55 +872,76 @@ Widget _buildMonthCard(MastersStore store, BuildContext context) {
   final taxRate = settings.taxRate;
   final taxReserve = taxRate > 0 ? (income * taxRate / 100).round() : 0;
   final profit = income - expense - taxReserve;
-  final balance = store.totalBalanceCents();
+  final weekStart = DateTime(
+    now.year,
+    now.month,
+    now.day,
+  ).subtract(const Duration(days: 6));
+  final weekTx = store.moneyTransactions
+      .where((t) => !t.voided && !t.createdAt.isBefore(weekStart))
+      .toList();
+  final weekIncome = weekTx
+      .where((t) => t.direction == 'in')
+      .fold(0, (s, t) => s + t.amountCents);
+  final weekExpense = weekTx
+      .where((t) => t.direction == 'out')
+      .fold(0, (s, t) => s + t.amountCents);
+  final weekProfit = weekIncome - weekExpense;
+
   return AppCard(
+    onTap: () =>
+        Navigator.of(context)
+            .push(CupertinoPageRoute(builder: (_) => const StatsScreen())),
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        const Text('Сводка', style: TextStyle(fontWeight: FontWeight.w600)),
+        const SizedBox(height: 10),
         Row(
           children: [
-            const Expanded(
-              child: Text(
-                'Сводка месяца',
-                style: TextStyle(fontWeight: FontWeight.w600),
+            Expanded(
+              child: _DonutRing(
+                income: income,
+                expense: expense,
+                profit: profit,
+                label: 'Месяц',
               ),
             ),
-            GestureDetector(
-              onTap: () => Navigator.of(
-                context,
-              ).push(CupertinoPageRoute(builder: (_) => const StatsScreen())),
-              child: SizedBox(
-                height: 56,
-                width: 56,
-                child: CustomPaint(
-                  painter: _MonthPiePainter(income: income, expense: expense),
-                  child: const Center(
-                    child: Text(
-                      'И/Р',
-                      style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
-                ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: _DonutRing(
+                income: weekIncome,
+                expense: weekExpense,
+                profit: weekProfit,
+                label: '7 дней',
               ),
             ),
           ],
         ),
         const SizedBox(height: 10),
-        _moneyRow('На счетах', _money(balance), colors.accent),
-        _moneyRow('Доходы', _money(income), colors.green),
-        _moneyRow('Расходы', _money(expense), colors.red),
-        _moneyRow(
-          'Прибыль',
-          _money(profit),
-          profit >= 0 ? colors.green : colors.red,
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _legendDot(colors, colors.green, 'Доходы'),
+            const SizedBox(width: 12),
+            _legendDot(colors, colors.red, 'Расходы'),
+          ],
+        ),
+        const SizedBox(height: 4),
+        _legendText(
+          colors,
+          'Месяц: Д ${_money(income)} · Р ${_money(expense)} · '
+          'Прибыль ${_money(profit)}',
+        ),
+        _legendText(
+          colors,
+          '7 дней: Д ${_money(weekIncome)} · Р ${_money(weekExpense)} · '
+          'Прибыль ${_money(weekProfit)}',
         ),
         if (taxRate > 0) ...[
           const SizedBox(height: 4),
           Text(
-            'Налоговый резерв ≈ ${_money(taxReserve)} (${taxRate}%)',
+            'Налоговый резерв ≈ ${_money(taxReserve)} ($taxRate%)',
             style: TextStyle(color: colors.secondaryLabel, fontSize: 12),
           ),
         ],
@@ -922,30 +950,127 @@ Widget _buildMonthCard(MastersStore store, BuildContext context) {
   );
 }
 
-class _MonthPiePainter extends CustomPainter {
-  const _MonthPiePainter({required this.income, required this.expense});
+class _DonutRing extends StatelessWidget {
+  const _DonutRing({
+    required this.income,
+    required this.expense,
+    required this.profit,
+    required this.label,
+  });
+
   final int income;
   final int expense;
+  final int profit;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.colors;
+    final empty = income + expense <= 0;
+    final centerText = empty
+        ? '—'
+        : (profit >= 0 ? '+${_money(profit)}' : '−${_money(-profit)}');
+    final centerStyle = empty
+        ? TextStyle(
+            color: colors.secondaryLabel,
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+          )
+        : TextStyle(
+            color: profit >= 0 ? colors.green : colors.red,
+            fontSize: 12,
+            fontWeight: FontWeight.w700,
+          );
+    return Center(
+      child: Column(
+        children: [
+          SizedBox(
+            height: 112,
+            width: 112,
+            child: CustomPaint(
+              painter: _DonutRingPainter(
+                income: income,
+                expense: expense,
+                incomeColor: colors.green,
+                expenseColor: colors.red,
+                trackColor: colors.separator,
+                empty: empty,
+              ),
+              child: Center(
+                child: Text(
+                  centerText,
+                  style: centerStyle,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            label,
+            style: TextStyle(color: colors.secondaryLabel, fontSize: 12),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _DonutRingPainter extends CustomPainter {
+  const _DonutRingPainter({
+    required this.income,
+    required this.expense,
+    required this.incomeColor,
+    required this.expenseColor,
+    required this.trackColor,
+    required this.empty,
+  });
+
+  final int income;
+  final int expense;
+  final Color incomeColor;
+  final Color expenseColor;
+  final Color trackColor;
+  final bool empty;
 
   @override
   void paint(Canvas canvas, Size size) {
-    final total = income + expense;
-    if (total <= 0) return;
     final center = Offset(size.width / 2, size.height / 2);
-    final radius = size.shortestSide * 0.42;
-    final rect = Rect.fromCircle(center: center, radius: radius);
-    double start = -pi / 2;
-    final paint = Paint()..style = PaintingStyle.fill;
-    paint.color = const Color(0xFF34C759);
-    final incAngle = (income / total) * 2 * pi;
-    canvas.drawArc(rect, start, incAngle, true, paint);
-    paint.color = const Color(0xFFFF3B30);
-    canvas.drawArc(rect, start + incAngle, 2 * pi - incAngle, true, paint);
+    final radius = size.shortestSide / 2 - 1;
+    final strokeWidth = radius * 0.28;
+    final circleRadius = radius - strokeWidth / 2;
+    final rect = Rect.fromCircle(center: center, radius: circleRadius);
+    final paint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = strokeWidth;
+    if (empty) {
+      paint.color = trackColor;
+      canvas.drawCircle(center, circleRadius, paint);
+      return;
+    }
+    final total = income + expense;
+    final start = -pi / 2;
+    final incomeSweep = (income / total) * 2 * pi;
+    if (incomeSweep > 0) {
+      paint.color = incomeColor;
+      canvas.drawArc(rect, start, incomeSweep, false, paint);
+    }
+    final expenseSweep = 2 * pi - incomeSweep;
+    if (expenseSweep > 0) {
+      paint.color = expenseColor;
+      canvas.drawArc(rect, start + incomeSweep, expenseSweep, false, paint);
+    }
   }
 
   @override
-  bool shouldRepaint(covariant _MonthPiePainter old) =>
-      old.income != income || old.expense != expense;
+  bool shouldRepaint(covariant _DonutRingPainter old) =>
+      old.income != income ||
+      old.expense != expense ||
+      old.incomeColor != incomeColor ||
+      old.expenseColor != expenseColor ||
+      old.trackColor != trackColor ||
+      old.empty != empty;
 }
 
 class _SummaryTile extends StatelessWidget {
