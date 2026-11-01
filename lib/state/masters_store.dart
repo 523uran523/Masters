@@ -285,6 +285,38 @@ class MastersStore extends ChangeNotifier {
     return (projectedMonthIncome * taxRate / 100).round();
   }
 
+  /// Сумма доходов (direction 'in', не voided) за указанный год.
+  int annualIncomeCents({int? year}) {
+    final y = year ?? DateTime.now().year;
+    var sum = 0;
+    for (final t in _moneyTransactions) {
+      if (t.voided || t.direction != 'in') continue;
+      if (t.createdAt.year != y) continue;
+      sum += t.amountCents;
+    }
+    return sum;
+  }
+
+  /// Прогресс годового дохода против NPD-лимита (0..1).
+  double get taxRadarProgress {
+    final limit = settings.taxIncomeLimitCents;
+    if (limit <= 0) return 0.0;
+    final p = annualIncomeCents() / limit;
+    if (p < 0) return 0.0;
+    if (p > 1) return 1.0;
+    return p.toDouble();
+  }
+
+  /// Остаток до NPD-лимита (центы, >= 0).
+  int get taxRadarLeftCents {
+    final left = settings.taxIncomeLimitCents - annualIncomeCents();
+    return left < 0 ? 0 : left;
+  }
+
+  // Алиасы из spec для совместимости.
+  double get annualIncomeNpdLimitProgress => taxRadarProgress;
+  int get annualIncomeLeftCents => taxRadarLeftCents;
+
   @override
   void notifyListeners() {
     _viewsDirty = true;
