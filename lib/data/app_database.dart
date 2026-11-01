@@ -49,6 +49,21 @@ class AppDatabase {
     return AppDatabase._(database);
   }
 
+  /// Public wrapper for creating base schema (v1). Used by tests and migrations.
+  static Future<void> createBaseSchema(Database db) async {
+    await _createSchema(db, 1);
+  }
+
+  /// Public wrapper for upgrading schema from oldVersion to newVersion.
+  /// Used by tests to generate fixtures and verify migrations.
+  static Future<void> upgradeSchema(
+    Database db,
+    int oldVersion,
+    int newVersion,
+  ) async {
+    await _upgradeSchema(db, oldVersion, newVersion);
+  }
+
   static Future<void> _createSchema(Database db, int version) async {
     await db.execute('''
       CREATE TABLE clients (
@@ -633,19 +648,19 @@ class AppDatabase {
     int oldVersion,
     int newVersion,
   ) async {
-    if (oldVersion < 2) {
+    if (oldVersion < 2 && newVersion >= 2) {
       await _createMoneySchema(db);
     }
-    if (oldVersion < 3) {
+    if (oldVersion < 3 && newVersion >= 3) {
       await _createInventorySchema(db);
     }
-    if (oldVersion < 4) {
+    if (oldVersion < 4 && newVersion >= 4) {
       await _createBookingSchema(db);
     }
-    if (oldVersion < 5) {
+    if (oldVersion < 5 && newVersion >= 5) {
       await _createReminderSchema(db);
     }
-    if (oldVersion < 6) {
+    if (oldVersion < 6 && newVersion >= 6) {
       await _createTeamSchema(db);
       try {
         await db.execute(
@@ -655,27 +670,27 @@ class AppDatabase {
         // column may already exist
       }
     }
-    if (oldVersion < 7) {
+    if (oldVersion < 7 && newVersion >= 7) {
       await _ensureSyncColumns(db);
     }
-    if (oldVersion < 8) {
+    if (oldVersion < 8 && newVersion >= 8) {
       await _createAuditLogSchema(db);
     }
-    if (oldVersion < 9) {
+    if (oldVersion < 9 && newVersion >= 9) {
       await _createPeriodClosureSchema(db);
     }
-    if (oldVersion < 10) {
+    if (oldVersion < 10 && newVersion >= 10) {
       await _createRecurringPaymentSchema(db);
       await _createPayrollPeriodSchema(db);
     }
-    if (oldVersion < 11) {
+    if (oldVersion < 11 && newVersion >= 11) {
       await _ensureSyncColumns(db);
       await _createAuditTriggers(db);
     }
-    if (oldVersion < 12) {
+    if (oldVersion < 12 && newVersion >= 12) {
       await _createAttachmentSchema(db);
     }
-    if (oldVersion < 13) {
+    if (oldVersion < 13 && newVersion >= 13) {
       try {
         await db.execute(
           'ALTER TABLE money_transactions ADD COLUMN receipt_path TEXT',
@@ -685,7 +700,7 @@ class AppDatabase {
       }
       await _createMoneyAuditTriggers(db);
     }
-    if (oldVersion < 14) {
+    if (oldVersion < 14 && newVersion >= 14) {
       try {
         await db.execute(
           'ALTER TABLE jobs ADD COLUMN pinned INTEGER NOT NULL DEFAULT 0',
@@ -694,14 +709,14 @@ class AppDatabase {
         // Column may already exist.
       }
     }
-    if (oldVersion < 15) {
+    if (oldVersion < 15 && newVersion >= 15) {
       final hasColumn = (await db.rawQuery('PRAGMA table_info(jobs)'))
           .any((row) => row['name'] == 'calculator_state');
       if (!hasColumn) {
         await db.execute('ALTER TABLE jobs ADD COLUMN calculator_state TEXT');
       }
     }
-    if (oldVersion < 16) {
+    if (oldVersion < 16 && newVersion >= 16) {
       // v16: work_sessions timer — integer id, nullable job_id, paused seconds.
       await db.execute('ALTER TABLE work_sessions RENAME TO work_sessions_v15');
       await db.execute('''
@@ -737,7 +752,7 @@ class AppDatabase {
       );
       await _createAuditTriggers(db);
     }
-    if (oldVersion < 17) {
+    if (oldVersion < 17 && newVersion >= 17) {
       try {
         await db.execute(
           'ALTER TABLE money_transactions ADD COLUMN reverses_id TEXT',
@@ -749,11 +764,11 @@ class AppDatabase {
         'CREATE INDEX IF NOT EXISTS idx_money_tx_reverses_id ON money_transactions(reverses_id)',
       );
     }
-    if (oldVersion < 18) {
+    if (oldVersion < 18 && newVersion >= 18) {
       // v18: inventory cost composition (BOM) for stock items.
       await _createInventoryCompositionSchema(db);
     }
-    if (oldVersion < 19) {
+    if (oldVersion < 19 && newVersion >= 19) {
       // v19: единый экран планирования. UnifiedEvent — модель-адаптер на
       // уровне store поверх таблиц appointments и jobs, схемы данных не
       // меняются. Гарантируем индексы для запросов по диапазону дат.
