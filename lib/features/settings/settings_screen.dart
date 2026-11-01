@@ -46,19 +46,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
   final _yandexCodeController = TextEditingController();
   final _tagController = TextEditingController();
 
-  Future<void> _loadAuditLog() async {
-    setState(() => _auditBusy = true);
-    try {
-      final entries = await context.read<MastersStore>().auditEntries(
-        limit: 50,
-      );
-      if (!mounted) return;
-      setState(() => _auditEntries = entries);
-    } finally {
-      if (mounted) setState(() => _auditBusy = false);
-    }
-  }
-
   Future<void> _checkForUpdates() async {
     setState(() {
       _updateBusy = true;

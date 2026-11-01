@@ -76,16 +76,6 @@ const List<String> _mojibakeSignaturesCp1252 = <String>[
   'С‹',
 ];
 
-// CP866 double-encoding: box-drawing characters that appear in groups in corrupted text.
-// Require at least 2 sequential box chars to avoid matching single UI symbols.
-const List<String> _mojibakeSignaturesCp866 = <String>[
-  'тХи', 'тАв', 'тФ', // Multi-char Cyrillic prefix + box combinations
-  '╨╗', '╨╝', '╨╛', '╨╜', '╨╡', '╨╛', '╨╖', '╨╕', // Box + Cyrillic combos
-  '╨Ъ', '╨Ф', '╨Т', '╨У', '╨Ч', '╨Ш', '╨Щ', '╨Э', '╨Ю', '╨Я',
-  '╨░', '╨▓', '╨▒', // Sequential box chars (not single UI glyphs)
-  '║', '╤', '╥', '╦', '╧', '╨', '╩', '╪', '╫', '╬', // Only when repeated
-];
-
 bool _textHasMojibake(String text) {
   // Use regexes for multi-char patterns to avoid single-char false positives.
   // CP1252: any of the multi-char signatures.

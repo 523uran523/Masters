@@ -100,7 +100,7 @@ void main() {
     test('matches by self assignee', () async {
       // Assuming selfEmployee is available or created.
       // Since selfEmployee is calculated in the store based on role 'owner' and name 'Я'.
-      final self = await store.createEmployee(name: 'Я', role: 'owner');
+      await store.createEmployee(name: 'Я', role: 'owner');
       final job = Job(
         id: '1',
         clientId: 'c1',

@@ -131,7 +131,7 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
 
   Future<void> _addAttachment() async {
     final files = await FilePicker.pickFiles();
-    if (files == null || files.isEmpty || files.single.path == null) return;
+    if (files.isEmpty || files.single.path == null) return;
     final store = context.read<MastersStore>();
     setState(() => _busyAttachment = true);
     try {

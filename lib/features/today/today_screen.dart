@@ -629,13 +629,6 @@ Widget _legendDot(AppColors colors, Color dot, String label) => Row(
   ],
 );
 
-Widget _legendText(AppColors colors, String text) => Text(
-  text,
-  style: TextStyle(color: colors.secondaryLabel, fontSize: 12),
-  maxLines: 1,
-  overflow: TextOverflow.ellipsis,
-);
-
 Widget _buildTodayTimerCard(MastersStore store, BuildContext context) {
   final colors = context.colors;
   final open = store.openWorkSession;
