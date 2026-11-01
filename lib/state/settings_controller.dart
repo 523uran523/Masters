@@ -205,8 +205,9 @@ class SettingsController extends ChangeNotifier {
       // Ленивая инициализация пресетов: только если старый taxRate тоже не задан.
       if (taxRate == 0) {
         _initDefaultProfiles();
-        // После инициализации перечитываем из prefs.
-        return taxProfiles;
+        // Пресеты записаны в prefs (кэш in-memory обновлён синхронно);
+        // возвращаем их напрямую, не рекурсивно.
+        return _defaultTaxProfiles;
       }
       return const [];
     }
