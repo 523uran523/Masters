@@ -3,12 +3,12 @@ import 'package:provider/provider.dart';
 
 import '../../app/theme/app_theme.dart';
 import '../../app/ui.dart';
-import '../../features/booking/booking_screen.dart';
 import '../../features/clients/clients_screen.dart';
 import '../../features/employees/employees_screen.dart';
 import '../../features/inventory/inventory_screen.dart';
 import '../../features/settings/settings_screen.dart';
 import '../../features/stats/stats_screen.dart';
+import '../../features/unified_booking/unified_booking_screen.dart';
 import '../../state/masters_store.dart';
 import '../../state/settings_controller.dart';
 
@@ -41,12 +41,13 @@ class MoreScreen extends StatelessWidget {
           subtitle: '${store.employees.length} человек',
           screen: const EmployeesScreen(),
         ),
-      _MoreTile(
-        icon: CupertinoIcons.calendar,
-        title: 'Записи',
-        subtitle: '${store.appointments.length} визитов',
-        screen: const BookingScreen(),
-      ),
+      if (settings.showAppointments)
+        _MoreTile(
+          icon: CupertinoIcons.calendar,
+          title: 'Записи',
+          subtitle: '${store.appointments.length} визитов',
+          screen: const UnifiedBookingScreen(),
+        ),
       _MoreTile(
         icon: CupertinoIcons.chart_bar,
         title: 'Аналитика',

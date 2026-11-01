@@ -916,6 +916,29 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
+  /// Строка выбора режима работы (только заказы / только записи / гибрид).
+  Widget _workModeChoice(String value, String label) {
+    final settings = context.read<SettingsController>();
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 6),
+      child: Row(
+        children: [
+          CupertinoCheckbox(
+            value: settings.workMode == value,
+            onChanged: (v) async {
+              if (v == true) {
+                await settings.setWorkMode(value);
+                if (mounted) setState(() {});
+              }
+            },
+          ),
+          const SizedBox(width: 8),
+          Expanded(child: Text(label)),
+        ],
+      ),
+    );
+  }
+
   Future<void> _applyConfigPreset(String preset) async {
     await context.read<SettingsController>().applyConfigPreset(preset);
     if (mounted) setState(() {});
@@ -934,6 +957,33 @@ class _SettingsScreenState extends State<SettingsScreen> {
               padding: const EdgeInsets.fromLTRB(16, 12, 16, 72),
               children: [
                 _settingsGroup('features', 'Общие возможности', [
+                  AppCard(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'Режим работы',
+                          style: TextStyle(fontWeight: FontWeight.w600),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          'Заказы, записи или оба потока в едином экране',
+                          style: TextStyle(
+                            color: context.colors.tertiaryLabel,
+                            fontSize: 12,
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+                        _workModeChoice('orders', 'Только заказы (дедлайны)'),
+                        _workModeChoice(
+                          'appointments',
+                          'Только записи (календарь)',
+                        ),
+                        _workModeChoice('hybrid', 'Оба (гибрид)'),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 16),
                   AppCard(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
