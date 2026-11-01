@@ -264,7 +264,7 @@ class MastersStore extends ChangeNotifier {
 
   int forecastCashToEndOfMonth() {
     final p = _monthEndProjectionPieces();
-    final taxRate = settings.taxRate;
+    final taxRate = settings.getActiveTaxRate();
     int projectedTaxReserve = 0;
     if (taxRate > 0) {
       final projectedMonthIncome =
@@ -279,7 +279,7 @@ class MastersStore extends ChangeNotifier {
 
   int forecastTaxReserveToEndOfMonth() {
     final p = _monthEndProjectionPieces();
-    final taxRate = settings.taxRate;
+    final taxRate = settings.getActiveTaxRate();
     if (taxRate <= 0) return 0;
     final projectedMonthIncome = p.monthIncomeCents + p.scheduledFutureIncoming;
     return (projectedMonthIncome * taxRate / 100).round();

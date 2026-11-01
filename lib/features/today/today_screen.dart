@@ -869,7 +869,7 @@ Widget _buildMonthCard(MastersStore store, BuildContext context) {
   final expense = tx
       .where((t) => t.direction == 'out')
       .fold(0, (s, t) => s + t.amountCents);
-  final taxRate = settings.taxRate;
+  final taxRate = settings.getActiveTaxRate();
   final taxReserve = taxRate > 0 ? (income * taxRate / 100).round() : 0;
   final profit = income - expense - taxReserve;
   final weekStart = DateTime(
@@ -887,6 +887,7 @@ Widget _buildMonthCard(MastersStore store, BuildContext context) {
       .where((t) => t.direction == 'out')
       .fold(0, (s, t) => s + t.amountCents);
   final weekProfit = weekIncome - weekExpense;
+  final activeProfile = settings.activeTaxProfile;
 
   return AppCard(
     onTap: () =>
@@ -930,7 +931,7 @@ Widget _buildMonthCard(MastersStore store, BuildContext context) {
         if (taxRate > 0) ...[
           const SizedBox(height: 4),
           Text(
-            'Налоговый резерв ≈ ${_money(taxReserve)} ($taxRate%)',
+            'Налоговый резерв ${activeProfile != null ? '(${activeProfile.country}, ${activeProfile.name})' : ''} ≈ ${_money(taxReserve)} ($taxRate%)',
             style: TextStyle(color: colors.secondaryLabel, fontSize: 12),
           ),
         ],

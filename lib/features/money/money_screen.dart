@@ -1227,7 +1227,7 @@ class _MoneyScreenState extends State<MoneyScreen> {
     final monthIncome = monthTx
         .where((t) => t.direction == 'in')
         .fold(0, (s, t) => s + t.amountCents);
-    final taxRate = settings.taxRate;
+    final taxRate = settings.getActiveTaxRate();
     final taxAccountId = settings.taxAccountId;
     final reservedTax = taxRate <= 0
         ? 0
@@ -1317,7 +1317,7 @@ class _MoneyScreenState extends State<MoneyScreen> {
                                 if (taxRate > 0) ...[
                                   _KV('Налоговый резерв', _money(reservedTax)),
                                   _KV(
-                                    'Налоговый резерв ()',
+                                    'Налоговый резерв (прогноз)',
                                     _money(
                                       store.forecastTaxReserveToEndOfMonth(),
                                     ),
