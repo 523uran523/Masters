@@ -3,19 +3,43 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 
-// Signatures of UTF-8-read-as-cp866 double encoding (mojibake) in Russian text.
-const List<String> _mojibakeSignatures = <String>[
-  'Р', 'Р­', 'Р°', 'Р±', 'Рµ', 'Р¶', 'Р·', 'Р»', 'РЅ', 'РІ',
+// Multi-character signature patterns that indicate double CP866/CP1251 encoding.
+// Single characters (e.g. '║') can appear legitimately in clean UI (₽, →, etc.)
+// so we require context: at least 2 sequential artifact chars or a prefix + Cyrillic.
+// CP1252 double-encoding: multi-char patterns like 'Рћ', 'С‚', 'Рє', 'Сѓ', 'Рё', 'Рѕ', 'РЅ', 'РІ'.
+const List<String> _mojibakeSignaturesCp1252 = <String>[
+  'Рћ', 'С‚', 'Рє', 'Сѓ', 'Рё', 'Рѕ', 'РЅ', 'РІ',
   'РЈ', 'РЎ', 'Рё', 'Р�', 'Рє', 'Рѕ', 'Рі', 'Рї', 'Рј', 'Рћ',
-  'Рќ', 'Рџ', 'Рґ', 'Р—', 'Р’', 'Р№', 'СЂ', 'СЃ', 'СЊ', 'СЋ',
-  'СЏ', 'Сѓ', 'С‘', 'С‚', 'С†', 'С‡', 'С…', 'С‰', 'С‹', 'С€',
-  'вЂ', 'в‚', 'вЂў', 'вЂ—', 'в‚Ѕ',
+  'Р›', 'РЅ', 'РІ', 'Р°', 'Р±', 'Рµ', 'Р¶', 'Р·', 'Р»', 'Рј', 'Рї',
+  'Рі', 'Рґ', 'Р—', 'Р№', 'СЃ', 'СЊ', 'СЋ', 'СЏ', 'Р°', 'Р±',
+  'Рµ', 'Р¶', 'Р·', 'Р»', 'Рј', 'Рї', 'Рі', 'Рґ', 'Р—', 'Р№',
+  'СЃ', 'СЊ', 'СЋ', 'СЏ', 'Сѓ', 'С‘', 'С€', 'С€', 'Р№',
+  'СЏ', 'Сѓ', 'С‘', 'С†', 'С‡', 'С…', 'С‰', 'С‹',
+];
+
+// CP866 double-encoding: box-drawing characters that appear in groups in corrupted text.
+// Require at least 2 sequential box chars to avoid matching single UI symbols.
+const List<String> _mojibakeSignaturesCp866 = <String>[
+  'тХи', 'тАв', 'тФ', // Multi-char Cyrillic prefix + box combinations
+  '╨╗', '╨╝', '╨╛', '╨╜', '╨╡', '╨╛', '╨╖', '╨╕', // Box + Cyrillic combos
+  '╨Ъ', '╨Ф', '╨Т', '╨У', '╨Ч', '╨Ш', '╨Щ', '╨Э', '╨Ю', '╨Я',
+  '╨░', '╨▓', '╨▒', // Sequential box chars (not single UI glyphs)
+  '║', '╤', '╥', '╦', '╧', '╨', '╩', '╪', '╫', '╬', // Only when repeated
 ];
 
 bool _textHasMojibake(String text) {
-  for (final sig in _mojibakeSignatures) {
+  // Use regexes for multi-char patterns to avoid single-char false positives.
+  // CP1252: any of the multi-char signatures.
+  for (final sig in _mojibakeSignaturesCp1252) {
     if (text.contains(sig)) return true;
   }
+  // CP866: require at least 2 consecutive box chars, OR box + Cyrillic prefix.
+  // This filters out single '₽' (₽), '→', '↩' which use box chars in isolation.
+  final cp866Pattern = RegExp(r'[╨╩╪╫╬╭╮╯╰║╤╥╦╧]{2,}');
+  if (cp866Pattern.hasMatch(text)) return true;
+  // Multi-char Cyrillic prefix combos: тХ, тА, тБ, тГ, тД, тЕ, тЖ, тФ, тАв
+  final prefixPattern = RegExp(r'т[ХАБГДЕЖФ][иА-Яё]?|тАв');
+  if (prefixPattern.hasMatch(text)) return true;
   return false;
 }
 

@@ -73,10 +73,14 @@ List<String> _priceUnitsFor(String qtyUnit) {
 }
 
 class CostCalculatorScreen extends StatefulWidget {
-  const CostCalculatorScreen(
-      {super.key, this.initialMaterialsCents = 0, this.jobId});
+  const CostCalculatorScreen({
+    super.key,
+    this.initialMaterialsCents = 0,
+    this.jobId,
+  });
 
   final int initialMaterialsCents;
+
   /// Если задан — состояние калькулятора сохраняется/восстанавливается
   /// в jobs.calculator_state через MastersStore.
   final String? jobId;
@@ -93,9 +97,9 @@ class _ResourceLine {
     required this.priceUnit,
     String price = '0',
     this.inventoryItemId,
-  })  : nameController = TextEditingController(text: name),
-        qtyController = TextEditingController(text: qty),
-        priceController = TextEditingController(text: price);
+  }) : nameController = TextEditingController(text: name),
+       qtyController = TextEditingController(text: qty),
+       priceController = TextEditingController(text: price);
 
   final TextEditingController nameController;
   final TextEditingController qtyController;
@@ -104,13 +108,14 @@ class _ResourceLine {
   String priceUnit;
   final String? inventoryItemId;
 
-  double get qty => double.tryParse(qtyController.text.trim().replaceAll(',', '.')) ?? 0;
+  double get qty =>
+      double.tryParse(qtyController.text.trim().replaceAll(',', '.')) ?? 0;
 
-  int get priceCents => ((double.tryParse(priceController.text.trim()
-              .replaceAll(',', '.')) ??
-          0) *
-      100)
-      .round();
+  int get priceCents =>
+      ((double.tryParse(priceController.text.trim().replaceAll(',', '.')) ??
+                  0) *
+              100)
+          .round();
 
   /// Стоимость строки: qty (в своей единице) × цена (за свою единицу),
   /// приведено к общей базовой мере, в центах.
@@ -180,23 +185,28 @@ class _CostCalculatorScreenState extends State<CostCalculatorScreen> {
       r.dispose();
     }
     _resources.clear();
-    for (final e in (data['resources'] as List? ?? <dynamic>[])
-        .cast<Map<String, dynamic>>()) {
-      final qtyUnit = (e['qtyUnit'] is String && kQtyUnits.contains(e['qtyUnit']))
+    for (final e
+        in (data['resources'] as List? ?? <dynamic>[])
+            .cast<Map<String, dynamic>>()) {
+      final qtyUnit =
+          (e['qtyUnit'] is String && kQtyUnits.contains(e['qtyUnit']))
           ? e['qtyUnit'] as String
           : 'шт';
-      final priceUnit = (e['priceUnit'] is String &&
+      final priceUnit =
+          (e['priceUnit'] is String &&
               _priceUnitsFor(qtyUnit).contains(e['priceUnit']))
           ? e['priceUnit'] as String
           : _defaultPriceUnit(qtyUnit);
-      _resources.add(_ResourceLine(
-        name: (e['name'] as String?) ?? '',
-        qty: (e['qty'] as String?) ?? '1',
-        qtyUnit: qtyUnit,
-        price: (e['price'] as String?) ?? '0',
-        priceUnit: priceUnit,
-        inventoryItemId: (e['inventoryItemId'] as String?),
-      ));
+      _resources.add(
+        _ResourceLine(
+          name: (e['name'] as String?) ?? '',
+          qty: (e['qty'] as String?) ?? '1',
+          qtyUnit: qtyUnit,
+          price: (e['price'] as String?) ?? '0',
+          priceUnit: priceUnit,
+          inventoryItemId: (e['inventoryItemId'] as String?),
+        ),
+      );
     }
     final labor = data['labor'] as Map<String, dynamic>?;
     _laborHoursController.text = (labor?['hours'] as String?) ?? '0';
@@ -218,18 +228,18 @@ class _CostCalculatorScreenState extends State<CostCalculatorScreen> {
     _marginController.dispose();
     if (widget.jobId != null) {
       unawaited(
-        Provider.of<MastersStore>(context, listen: false)
-            .flushCalculatorState(widget.jobId!),
+        Provider.of<MastersStore>(
+          context,
+          listen: false,
+        ).flushCalculatorState(widget.jobId!),
       );
     }
     super.dispose();
   }
 
-  double _d(String v) =>
-      double.tryParse(v.trim().replaceAll(',', '.')) ?? 0;
+  double _d(String v) => double.tryParse(v.trim().replaceAll(',', '.')) ?? 0;
 
-  int get _materialsCents =>
-      _resources.fold(0, (s, r) => s + r.totalCents);
+  int get _materialsCents => _resources.fold(0, (s, r) => s + r.totalCents);
 
   int get _laborCents {
     final hours = _d(_laborHoursController.text);
@@ -258,37 +268,39 @@ class _CostCalculatorScreenState extends State<CostCalculatorScreen> {
     setState(() {});
     final jobId = widget.jobId;
     if (jobId != null) {
-      Provider.of<MastersStore>(context, listen: false)
-          .saveCalculatorState(jobId, jsonEncode(_snapshot()));
+      Provider.of<MastersStore>(
+        context,
+        listen: false,
+      ).saveCalculatorState(jobId, jsonEncode(_snapshot()));
     }
   }
 
   Map<String, dynamic> _snapshot() => {
-        'schema': 1,
-        'resources': _resources.map((r) {
-          return {
-            'name': r.nameController.text,
-            'qty': r.qtyController.text,
-            'qtyUnit': r.qtyUnit,
-            'price': r.priceController.text,
-            'priceUnit': r.priceUnit,
-            if (r.inventoryItemId != null)
-              'inventoryItemId': r.inventoryItemId,
-          };
-        }).toList(),
-        'labor': {
-          'role': 'work',
-          'hours': _laborHoursController.text,
-          'rate': _laborRateController.text,
-        },
-        'overhead': _overheadController.text,
-        'other': _otherController.text,
-        'margin': _marginController.text,
+    'schema': 1,
+    'resources': _resources.map((r) {
+      return {
+        'name': r.nameController.text,
+        'qty': r.qtyController.text,
+        'qtyUnit': r.qtyUnit,
+        'price': r.priceController.text,
+        'priceUnit': r.priceUnit,
+        if (r.inventoryItemId != null) 'inventoryItemId': r.inventoryItemId,
       };
+    }).toList(),
+    'labor': {
+      'role': 'work',
+      'hours': _laborHoursController.text,
+      'rate': _laborRateController.text,
+    },
+    'overhead': _overheadController.text,
+    'other': _otherController.text,
+    'margin': _marginController.text,
+  };
 
   void _addResource() {
-    setState(() =>
-        _resources.add(_ResourceLine(qtyUnit: 'шт', priceUnit: 'за шт')));
+    setState(
+      () => _resources.add(_ResourceLine(qtyUnit: 'шт', priceUnit: 'за шт')),
+    );
     _markDirty();
   }
 
@@ -366,14 +378,16 @@ class _CostCalculatorScreenState extends State<CostCalculatorScreen> {
   }
 
   void _apply() {
-    Navigator.of(context).pop({'costCents': _costCents, 'priceCents': _priceCents});
+    Navigator.of(context)
+        .pop({'costCents': _costCents, 'priceCents': _priceCents});
   }
 
   /// Добавить строку из позиции склада (заполнить поля, не дублировать —
   /// дублирование проверяется при сохранении на склад).
   void _applyInventoryItem(InventoryItem item) {
     final empty = _resources.indexWhere(
-        (r) => r.nameController.text.trim().isEmpty && r.inventoryItemId == null);
+      (r) => r.nameController.text.trim().isEmpty && r.inventoryItemId == null,
+    );
     final line = _ResourceLine(
       name: item.name,
       qty: '1',
@@ -397,8 +411,9 @@ class _CostCalculatorScreenState extends State<CostCalculatorScreen> {
     final name = r.nameController.text.trim();
     if (name.isEmpty) return;
     final store = Provider.of<MastersStore>(context, listen: false);
-    final exists = store.inventoryItems.any((i) =>
-        i.name.trim().toLowerCase() == name.toLowerCase());
+    final exists = store.inventoryItems.any(
+      (i) => i.name.trim().toLowerCase() == name.toLowerCase(),
+    );
     if (exists) {
       HapticFeedback.lightImpact();
       return;
@@ -420,8 +435,10 @@ class _CostCalculatorScreenState extends State<CostCalculatorScreen> {
     if (itemId != null) {
       inventoryItem = Provider.of<MastersStore>(context, listen: false)
           .inventoryItems
-          .firstWhere((it) => it.id == itemId,
-              orElse: () => throw StateError('inventory item $itemId missing'));
+          .firstWhere(
+            (it) => it.id == itemId,
+            orElse: () => throw StateError('inventory item $itemId missing'),
+          );
     }
     final remainder = inventoryItem == null
         ? ''
@@ -457,8 +474,9 @@ class _CostCalculatorScreenState extends State<CostCalculatorScreen> {
                 child: CupertinoTextField(
                   controller: r.qtyController,
                   placeholder: 'Кол-во',
-                  keyboardType:
-                      const TextInputType.numberWithOptions(decimal: true),
+                  keyboardType: const TextInputType.numberWithOptions(
+                    decimal: true,
+                  ),
                   onChanged: (_) => _markDirty(),
                 ),
               ),
@@ -474,8 +492,9 @@ class _CostCalculatorScreenState extends State<CostCalculatorScreen> {
                 child: CupertinoTextField(
                   controller: r.priceController,
                   placeholder: 'Цена',
-                  keyboardType:
-                      const TextInputType.numberWithOptions(decimal: true),
+                  keyboardType: const TextInputType.numberWithOptions(
+                    decimal: true,
+                  ),
                   prefix: const Padding(
                     padding: EdgeInsets.only(left: 8),
                     child: Text('₽'),
@@ -532,10 +551,7 @@ class _CostCalculatorScreenState extends State<CostCalculatorScreen> {
                   const SizedBox(width: 95 + 8 + 115 + 8),
                   Text(
                     'остаток на складе$remainder',
-                    style: TextStyle(
-                      color: colors.tertiaryLabel,
-                      fontSize: 12,
-                    ),
+                    style: TextStyle(color: colors.tertiaryLabel, fontSize: 12),
                   ),
                 ],
               ),
@@ -584,8 +600,7 @@ class _CostCalculatorScreenState extends State<CostCalculatorScreen> {
                           .toList(),
                       onChanged: (selected) {
                         final item = store.inventoryItems.firstWhere(
-                          (it) =>
-                              '${it.name} (${it.unit})' == selected,
+                          (it) => '${it.name} (${it.unit})' == selected,
                         );
                         _applyInventoryItem(item);
                       },
@@ -633,8 +648,7 @@ class _CostCalculatorScreenState extends State<CostCalculatorScreen> {
                         width: 100,
                         child: CupertinoTextField(
                           controller: _laborHoursController,
-                          keyboardType:
-                              const TextInputType.numberWithOptions(
+                          keyboardType: const TextInputType.numberWithOptions(
                             decimal: true,
                           ),
                           onChanged: (_) => _markDirty(),
@@ -651,8 +665,7 @@ class _CostCalculatorScreenState extends State<CostCalculatorScreen> {
                         width: 100,
                         child: CupertinoTextField(
                           controller: _laborRateController,
-                          keyboardType:
-                              const TextInputType.numberWithOptions(
+                          keyboardType: const TextInputType.numberWithOptions(
                             decimal: true,
                           ),
                           onChanged: (_) => _markDirty(),
@@ -777,8 +790,11 @@ class _CostCalculatorScreenState extends State<CostCalculatorScreen> {
                       ),
                       Row(
                         children: [
-                          Icon(CupertinoIcons.minus,
-                              size: 16, color: colors.tertiaryLabel),
+                          Icon(
+                            CupertinoIcons.minus,
+                            size: 16,
+                            color: colors.tertiaryLabel,
+                          ),
                           const SizedBox(width: 6),
                           Text(
                             '${(_priceCents / 100).toStringAsFixed(0)} ₽',
@@ -797,4 +813,3 @@ class _CostCalculatorScreenState extends State<CostCalculatorScreen> {
     );
   }
 }
-

@@ -64,18 +64,16 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
         child: Column(
           children: [
             CupertinoButton(
-              child: const Text('╨Ъ╨▓╨╕╤В╨░╨╜╤Ж╨╕╤П'),
-              onPressed: () => Navigator.of(ctx).pop('╨Ъ╨▓╨╕╤В╨░╨╜╤Ж╨╕╤П'),
+              child: const Text('Квитанция'),
+              onPressed: () => Navigator.of(ctx).pop('Квитанция'),
             ),
             CupertinoButton(
-              child: const Text('╨Р╨║╤В ╨▓╤Л╨┐╨╛╨╗╨╜╨╡╨╜╨╜╤Л╤Е ╤А╨░╨▒╨╛╤В'),
-              onPressed: () =>
-                  Navigator.of(ctx)
-                      .pop('╨Р╨║╤В ╨▓╤Л╨┐╨╛╨╗╨╜╨╡╨╜╨╜╤Л╤Е ╤А╨░╨▒╨╛╤В'),
+              child: const Text('Акт выполненных работ'),
+              onPressed: () => Navigator.of(ctx).pop('Акт выполненных работ'),
             ),
             CupertinoButton(
-              child: const Text('╨б╤З╤С╤В'),
-              onPressed: () => Navigator.of(ctx).pop('╨б╤З╤С╤В'),
+              child: const Text('Счёт'),
+              onPressed: () => Navigator.of(ctx).pop('Счёт'),
             ),
           ],
         ),
@@ -93,8 +91,8 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
     if (mounted && ok) {
       await showAppAlert(
         context,
-        title: '╨У╨╛╤В╨╛╨▓╨╛',
-        message: '╨Ф╨╛╨║╤Г╨╝╨╡╨╜╤В ╤Б╨╛╤Е╤А╨░╨╜╤С╨╜.',
+        title: 'Готово',
+        message: 'Документ сохранён.',
       );
     }
   }
@@ -150,10 +148,10 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
   Future<void> _removeAttachment(JobAttachment a) async {
     final ok = await showAppConfirm(
       context,
-      title: '╨г╨┤╨░╨╗╨╕╤В╤М ╨▓╨╗╨╛╨╢╨╡╨╜╨╕╨╡?',
+      title: 'Удалить вложение?',
       message: a.fileName,
       destructive: true,
-      confirmLabel: '╨г╨┤╨░╨╗╨╕╤В╤М',
+      confirmLabel: 'Удалить',
     );
     if (!ok) return;
     await context.read<MastersStore>().deleteJobAttachment(a.id);
@@ -161,27 +159,18 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
   }
 
   Future<void> _addStage(MastersStore store) async {
-    final title = await _promptText(
-      '╨Э╨╛╨▓╤Л╨╣ ╤Н╤В╨░╨┐',
-      '╨Э╨░╨┐╤А╨╕╨╝╨╡╤А: ╨Ч╨░╨╝╨╡╤А',
-    );
+    final title = await _promptText('Новый этап', 'Например: Замер');
     if (title == null || title.trim().isEmpty) return;
     await store.addStage(widget.jobId, title.trim());
   }
 
   Future<void> _addMaterial(MastersStore store) async {
-    final name = await _promptText(
-      '╨Ь╨░╤В╨╡╤А╨╕╨░╨╗',
-      '╨Э╨░╨┐╤А╨╕╨╝╨╡╤А: ╨Ъ╨░╨▒╨╡╨╗╤М 3x2.5',
-    );
+    final name = await _promptText('Материал', 'Например: Кабель 3x2.5');
     if (name == null || name.trim().isEmpty) return;
-    final qtyStr = await _promptText('╨Ъ╨╛╨╗╨╕╤З╨╡╤Б╤В╨▓╨╛', '1');
+    final qtyStr = await _promptText('Количество', '1');
     final qty = double.tryParse((qtyStr ?? '1').replaceAll(',', '.')) ?? 1;
-    final unit = await _promptText('╨Х╨┤╨╕╨╜╨╕╤Ж╨░', '╨╝') ?? '╤И╤В';
-    final priceStr = await _promptText(
-      '╨ж╨╡╨╜╨░ ╨╖╨░ ╨╡╨┤╨╕╨╜╨╕╤Ж╤Г (тВ╜)',
-      '0',
-    );
+    final unit = await _promptText('Единица', 'м') ?? 'шт';
+    final priceStr = await _promptText('Цена за единицу (₽)', '0');
     final priceCents =
         ((double.tryParse((priceStr ?? '0').replaceAll(',', '.')) ?? 0) * 100)
             .round();
@@ -189,7 +178,7 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
       jobId: widget.jobId,
       name: name.trim(),
       quantity: qty <= 0 ? 1 : qty,
-      unit: unit.trim().isEmpty ? '╤И╤В' : unit.trim(),
+      unit: unit.trim().isEmpty ? 'шт' : unit.trim(),
       priceCents: priceCents,
     );
   }
@@ -197,7 +186,7 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
   Future<void> _acceptPayment(MastersStore store, Job job) async {
     final remaining = job.priceCents - store.paidForJob(job.id);
     final amountStr = await _promptText(
-      '╨б╤Г╨╝╨╝╨░ ╨╛╨┐╨╗╨░╤В╤Л',
+      'Сумма оплаты',
       remaining > 0 ? (remaining / 100).toStringAsFixed(0) : '0',
     );
     final amount =
@@ -218,7 +207,7 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
         kind: 'payment',
         direction: 'in',
         amountCents: amount,
-        category: '╨Ю╨┐╨╗╨░╤В╨░ ╨╖╨░╨║╨░╨╖╨░',
+        category: 'Оплата заказа',
         note: job.title,
         clientId: job.clientId,
         jobId: job.id,
@@ -385,8 +374,8 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
     if (client == null || client.phone.isEmpty) {
       await showAppAlert(
         context,
-        title: '╨Э╨╡╤В ╤В╨╡╨╗╨╡╤Д╨╛╨╜╨░',
-        message: '╨Ф╨╛╨▒╨░╨▓╤М╤В╨╡ ╤В╨╡╨╗╨╡╤Д╨╛╨╜ ╨║╨╗╨╕╨╡╨╜╤В╨░ ╨┤╨╗╤П ╤Б╨╛╨╛╨▒╤Й╨╡╨╜╨╕╤П.',
+        title: 'Нет телефона',
+        message: 'Добавьте телефон клиента для сообщения.',
       );
       return;
     }
@@ -394,37 +383,37 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
       context: context,
       builder: (dialogContext) => CupertinoActionSheet(
         title: Text(client.name),
-        message: const Text('╨Т╤Л╨▒╨╡╤А╨╕╤В╨╡ ╤И╨░╨▒╨╗╨╛╨╜ ╨╕ ╨║╨░╨╜╨░╨╗'),
+        message: const Text('Выберите шаблон и канал'),
         actions: [
           CupertinoActionSheetAction(
             onPressed: () => Navigator.of(dialogContext).pop('ready'),
-            child: const Text('╨Ч╨░╨║╨░╨╖ ╨│╨╛╤В╨╛╨▓'),
+            child: const Text('Заказ готов'),
           ),
           CupertinoActionSheetAction(
             onPressed: () => Navigator.of(dialogContext).pop('pickup'),
-            child: const Text('╨Ь╨╛╨╢╨╜╨╛ ╨╖╨░╨▒╤А╨░╤В╤М'),
+            child: const Text('Можно забрать'),
           ),
           CupertinoActionSheetAction(
             onPressed: () => Navigator.of(dialogContext).pop('progress'),
-            child: const Text('╨Ч╨░╨║╨░╨╖ ╨▓ ╤А╨░╨▒╨╛╤В╨╡'),
+            child: const Text('Заказ в работе'),
           ),
           if (store.paidForJob(job.id) < job.priceCents)
             CupertinoActionSheetAction(
               onPressed: () => Navigator.of(dialogContext).pop('pay'),
-              child: const Text('╨Э╨░╨┐╨╛╨╝╨╕╨╜╨░╨╜╨╕╨╡ ╨╛╨▒ ╨╛╨┐╨╗╨░╤В╨╡'),
+              child: const Text('Напоминание об оплате'),
             ),
           CupertinoActionSheetAction(
             onPressed: () => Navigator.of(dialogContext).pop('whatsapp'),
-            child: const Text('╨Э╨░╨┐╨╕╤Б╨░╤В╤М ╨▓ WhatsApp'),
+            child: const Text('Написать в WhatsApp'),
           ),
           CupertinoActionSheetAction(
             onPressed: () => Navigator.of(dialogContext).pop('telegram'),
-            child: const Text('╨Э╨░╨┐╨╕╤Б╨░╤В╤М ╨▓ Telegram'),
+            child: const Text('Написать в Telegram'),
           ),
         ],
         cancelButton: CupertinoActionSheetAction(
           onPressed: () => Navigator.of(dialogContext).pop(),
-          child: const Text('╨Ю╤В╨╝╨╡╨╜╨░'),
+          child: const Text('Отмена'),
         ),
       ),
     );
@@ -432,17 +421,15 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
     final debt = job.priceCents - store.paidForJob(job.id);
     final text = switch (template) {
       'ready' =>
-        '╨Ч╨┤╤А╨░╨▓╤Б╤В╨▓╤Г╨╣╤В╨╡, ${client.name}! ╨Т╨░╤И ╨╖╨░╨║╨░╨╖ "${job.title}" ╨│╨╛╤В╨╛╨▓ ╨║ ╨▓╤Л╨┤╨░╤З╨╡.',
+        'Здравствуйте, ${client.name}! Ваш заказ "${job.title}" готов к выдаче.',
       'pickup' =>
-        '╨Ч╨┤╤А╨░╨▓╤Б╤В╨▓╤Г╨╣╤В╨╡, ${client.name}! ╨Т╤Л ╨╝╨╛╨╢╨╡╤В╨╡ ╨╖╨░╨▒╤А╨░╤В╤М ╤А╨░╨▒╨╛╤В╤Г "${job.title}".',
+        'Здравствуйте, ${client.name}! Вы можете забрать работу "${job.title}".',
       'progress' =>
-        '╨Ч╨┤╤А╨░╨▓╤Б╤В╨▓╤Г╨╣╤В╨╡, ${client.name}! ╨а╨░╨▒╨╛╤В╨░ "${job.title}" ╨▓ ╨┐╤А╨╛╤Ж╨╡╤Б╤Б╨╡.',
+        'Здравствуйте, ${client.name}! Работа "${job.title}" в процессе.',
       'pay' =>
-        '╨Ч╨┤╤А╨░╨▓╤Б╤В╨▓╤Г╨╣╤В╨╡, ${client.name}! ╨Ю╤Б╤В╨░╨╗╨╛╤Б╤М ╨╛╨┐╨╗╨░╤В╨╕╤В╤М ${(debt / 100).toStringAsFixed(0)} тВ╜ ╨┐╨╛ ╨╖╨░╨║╨░╨╖╤Г "${job.title}".',
-      'whatsapp' =>
-        '╨Ч╨┤╤А╨░╨▓╤Б╤В╨▓╤Г╨╣╤В╨╡, ${client.name}! ╨Я╨╛ ╨╖╨░╨║╨░╨╖╤Г "${job.title}".',
-      'telegram' =>
-        '╨Ч╨┤╤А╨░╨▓╤Б╤В╨▓╤Г╨╣╤В╨╡, ${client.name}! ╨Я╨╛ ╨╖╨░╨║╨░╨╖╤Г "${job.title}".',
+        'Здравствуйте, ${client.name}! Осталось оплатить ${(debt / 100).toStringAsFixed(0)} ₽ по заказу "${job.title}".',
+      'whatsapp' => 'Здравствуйте, ${client.name}! По заказу "${job.title}".',
+      'telegram' => 'Здравствуйте, ${client.name}! По заказу "${job.title}".',
       _ => '',
     };
     if (template == 'whatsapp') {
@@ -467,7 +454,7 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 CupertinoButton(
-                  child: const Text('╨Ю╤В╨╝╨╡╨╜╨░'),
+                  child: const Text('Отмена'),
                   onPressed: () => Navigator.of(ctx).pop(),
                 ),
               ],
@@ -493,13 +480,10 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
   }
 
   Future<void> _addSessionManual(MastersStore store) async {
-    final minStr = await _promptText('╨Т╤А╨╡╨╝╤П (╨╝╨╕╨╜╤Г╤В╤Л)', '60');
+    final minStr = await _promptText('Время (минуты)', '60');
     final minutes = int.tryParse((minStr ?? '').trim()) ?? 0;
     if (minutes <= 0) return;
-    final note = await _promptText(
-      '╨Ч╨░╨╝╨╡╤В╨║╨░ (╨╜╨╡╨╛╨▒╤П╨╖╨░╤В╨╡╨╗╤М╨╜╨╛)',
-      '',
-    );
+    final note = await _promptText('Заметка (необязательно)', '');
     await store.addSession(
       jobId: widget.jobId,
       startedAt: DateTime.now().subtract(Duration(minutes: minutes)),
@@ -531,12 +515,12 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
         actions: [
           CupertinoDialogAction(
             onPressed: () => Navigator.of(dc).pop(),
-            child: const Text('╨Ю╤В╨╝╨╡╨╜╨░'),
+            child: const Text('Отмена'),
           ),
           CupertinoDialogAction(
             isDefaultAction: true,
             onPressed: () => Navigator.of(dc).pop(controller.text.trim()),
-            child: const Text('╨Ю╨Ъ'),
+            child: const Text('ОК'),
           ),
         ],
       ),
@@ -551,8 +535,8 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
     final job = store.jobById(widget.jobId);
     if (job == null) {
       return CupertinoPageScaffold(
-        navigationBar: const CupertinoNavigationBar(middle: Text('╨Ч╨░╨║╨░╨╖')),
-        child: const Center(child: Text('╨Э╨╡ ╨╜╨░╨╣╨┤╨╡╨╜')),
+        navigationBar: const CupertinoNavigationBar(middle: Text('Заказ')),
+        child: const Center(child: Text('Не найден')),
       );
     }
     final client = store.clientById(job.clientId);
@@ -594,7 +578,7 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
               ),
               child: const Icon(
                 CupertinoIcons.pencil,
-                semanticLabel: '╨а╨╡╨┤╨░╨║╤В╨╕╤А╨╛╨▓╨░╤В╤М',
+                semanticLabel: 'Редактировать',
               ),
             ),
           ],
@@ -610,7 +594,7 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    client?.name ?? '╨С╨╡╨╖ ╨║╨╗╨╕╨╡╨╜╤В╨░',
+                    client?.name ?? 'Без клиента',
                     style: const TextStyle(
                       fontWeight: FontWeight.w600,
                       fontSize: 17,
@@ -686,7 +670,7 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
               ),
             ),
             const SizedBox(height: 16),
-            SectionLabel('╨б╤В╨░╤В╤Г╤Б'),
+            SectionLabel('Статус'),
             AppCard(
               child: SecondaryButton(
                 label: 'Статус: ${job.status.label}',
@@ -695,37 +679,34 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
               ),
             ),
             const SizedBox(height: 16),
-            SectionLabel('╨б╤Г╨╝╨╝╤Л'),
+            SectionLabel('Суммы'),
             AppCard(
               child: Column(
                 children: [
+                  _KV('Цена', '${(job.priceCents / 100).toStringAsFixed(0)} ₽'),
                   _KV(
-                    '╨ж╨╡╨╜╨░',
-                    '${(job.priceCents / 100).toStringAsFixed(0)} тВ╜',
+                    'Расход (введённый)',
+                    '${(job.costCents / 100).toStringAsFixed(0)} ₽',
                   ),
                   _KV(
-                    '╨а╨░╤Б╤Е╨╛╨┤ (╨▓╨▓╨╡╨┤╤С╨╜╨╜╤Л╨╣)',
-                    '${(job.costCents / 100).toStringAsFixed(0)} тВ╜',
+                    'Материалы',
+                    '${(materialTotal / 100).toStringAsFixed(0)} ₽',
                   ),
                   _KV(
-                    '╨Ь╨░╤В╨╡╤А╨╕╨░╨╗╤Л',
-                    '${(materialTotal / 100).toStringAsFixed(0)} тВ╜',
+                    'Итого расход',
+                    '${(totalCost / 100).toStringAsFixed(0)} ₽',
                   ),
                   _KV(
-                    '╨Ш╤В╨╛╨│╨╛ ╤А╨░╤Б╤Е╨╛╨┤',
-                    '${(totalCost / 100).toStringAsFixed(0)} тВ╜',
+                    'Маржа',
+                    '${((job.priceCents - totalCost) / 100).toStringAsFixed(0)} ₽',
                   ),
-                  _KV(
-                    '╨Ь╨░╤А╨╢╨░',
-                    '${((job.priceCents - totalCost) / 100).toStringAsFixed(0)} тВ╜',
-                  ),
-                  _KV('╨Т╤А╨╡╨╝╤П', formatMinutes(totalMin)),
+                  _KV('Время', formatMinutes(totalMin)),
                   if (job.dueDate != null)
-                    _KV('╨б╤А╨╛╨║', formatFullDate(job.dueDate!)),
+                    _KV('Срок', formatFullDate(job.dueDate!)),
                   if (settings.teamEnabled && job.assigneeId != null)
                     _KV(
-                      '╨Ш╤Б╨┐╨╛╨╗╨╜╨╕╤В╨╡╨╗╤М',
-                      store.employeeById(job.assigneeId!)?.name ?? 'тАФ',
+                      'Исполнитель',
+                      store.employeeById(job.assigneeId!)?.name ?? '—',
                     ),
                 ],
               ),
@@ -733,7 +714,7 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
             if (settings.calculatorEnabled) ...[
               const SizedBox(height: 12),
               SecondaryButton(
-                label: '╨Ъ╨░╨╗╤М╨║╤Г╨╗╤П╤В╨╛╤А ╤Ж╨╡╨╜╤Л',
+                label: 'Калькулятор цены',
                 icon: CupertinoIcons.money_dollar,
                 onPressed: () async {
                   final result = await Navigator.of(context)
@@ -756,7 +737,7 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
             ],
             const SizedBox(height: 16),
             SectionLabel(
-              '╨н╤В╨░╨┐╤Л (${stages.where((s) => s.done).length}/${stages.length})',
+              'Этапы (${stages.where((s) => s.done).length}/${stages.length})',
             ),
             AppCard(
               child: Column(
@@ -791,7 +772,7 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
                               CupertinoIcons.xmark,
                               size: 14,
                               color: colors.tertiaryLabel,
-                              semanticLabel: '╨г╨┤╨░╨╗╨╕╤В╤М',
+                              semanticLabel: 'Удалить',
                             ),
                           ),
                         ],
@@ -799,7 +780,7 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
                     ),
                   ),
                   SecondaryButton(
-                    label: '╨Ф╨╛╨▒╨░╨▓╨╕╤В╤М ╤Н╤В╨░╨┐',
+                    label: 'Добавить этап',
                     icon: CupertinoIcons.plus,
                     onPressed: () => _addStage(store),
                   ),
@@ -807,7 +788,7 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
               ),
             ),
             const SizedBox(height: 16),
-            SectionLabel('╨Ь╨░╤В╨╡╤А╨╕╨░╨╗╤Л (${materials.length})'),
+            SectionLabel('Материалы (${materials.length})'),
             AppCard(
               child: Column(
                 children: [
@@ -833,7 +814,7 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
                           ),
                           const SizedBox(width: 8),
                           Text(
-                            '${(m.totalCents / 100).toStringAsFixed(0)} тВ╜',
+                            '${(m.totalCents / 100).toStringAsFixed(0)} ₽',
                             style: const TextStyle(fontWeight: FontWeight.w600),
                           ),
                           CupertinoButton(
@@ -843,7 +824,7 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
                               CupertinoIcons.xmark,
                               size: 14,
                               color: colors.tertiaryLabel,
-                              semanticLabel: '╨г╨┤╨░╨╗╨╕╤В╤М',
+                              semanticLabel: 'Удалить',
                             ),
                           ),
                         ],
@@ -851,7 +832,7 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
                     ),
                   ),
                   SecondaryButton(
-                    label: '╨Ф╨╛╨▒╨░╨▓╨╕╤В╤М ╨╝╨░╤В╨╡╤А╨╕╨░╨╗',
+                    label: 'Добавить материал',
                     icon: CupertinoIcons.plus,
                     onPressed: () => _addMaterial(store),
                   ),
@@ -859,7 +840,7 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
               ),
             ),
             const SizedBox(height: 16),
-            SectionLabel('╨г╤З╤С╤В ╨▓╤А╨╡╨╝╨╡╨╜╨╕'),
+            SectionLabel('Учёт времени'),
             AppCard(
               child: Column(
                 children: [
@@ -873,20 +854,20 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
                     ),
                     const SizedBox(height: 8),
                     PrimaryButton(
-                      label: '╨Ю╤Б╤В╨░╨╜╨╛╨▓╨╕╤В╤М',
+                      label: 'Остановить',
                       icon: CupertinoIcons.stop,
                       onPressed: () => _stopTimer(store),
                     ),
                   ] else ...[
                     PrimaryButton(
-                      label: '╨Э╨░╤З╨░╤В╤М ╤А╨░╨▒╨╛╤В╤Г',
+                      label: 'Начать работу',
                       icon: CupertinoIcons.play,
                       onPressed: _startTimer,
                     ),
                   ],
                   const SizedBox(height: 10),
                   SecondaryButton(
-                    label: '╨Ф╨╛╨▒╨░╨▓╨╕╤В╤М ╤Б╨╡╤Б╤Б╨╕╤О ╨▓╤А╤Г╤З╨╜╤Г╤О',
+                    label: 'Добавить сессию вручную',
                     icon: CupertinoIcons.plus,
                     onPressed: () => _addSessionManual(store),
                   ),
@@ -924,7 +905,7 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
                           children: [
                             Expanded(
                               child: Text(
-                                '${DateFormat('d MMM', 'ru').format(s.startedAt)} тАв ${formatMinutes(s.minutes)}',
+                                '${DateFormat('d MMM', 'ru').format(s.startedAt)} • ${formatMinutes(s.minutes)}',
                                 style: TextStyle(color: colors.label),
                               ),
                             ),
@@ -943,7 +924,7 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
                                 CupertinoIcons.xmark,
                                 size: 14,
                                 color: colors.tertiaryLabel,
-                                semanticLabel: '╨г╨┤╨░╨╗╨╕╤В╤М',
+                                semanticLabel: 'Удалить',
                               ),
                             ),
                           ],
@@ -956,20 +937,20 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
             ),
             const SizedBox(height: 16),
             if (store.paidForJob(job.id) > 0 || job.priceCents > 0) ...[
-              SectionLabel('╨Ю╨┐╨╗╨░╤В╨░'),
+              SectionLabel('Оплата'),
               AppCard(
                 child: Column(
                   children: [
                     _KV(
-                      '╨Ю╨┐╨╗╨░╤З╨╡╨╜╨╛',
-                      '${(store.paidForJob(job.id) / 100).toStringAsFixed(0)} тВ╜',
+                      'Оплачено',
+                      '${(store.paidForJob(job.id) / 100).toStringAsFixed(0)} ₽',
                     ),
                     _KV(
-                      '╨Ю╤Б╤В╨░╤В╨╛╨║',
-                      '${((job.priceCents - store.paidForJob(job.id)) / 100).toStringAsFixed(0)} тВ╜',
+                      'Остаток',
+                      '${((job.priceCents - store.paidForJob(job.id)) / 100).toStringAsFixed(0)} ₽',
                     ),
                     SecondaryButton(
-                      label: '╨Я╤А╨╕╨╜╤П╤В╤М ╨╛╨┐╨╗╨░╤В╤Г',
+                      label: 'Принять оплату',
                       icon: CupertinoIcons.money_dollar,
                       onPressed: () => _acceptPayment(store, job),
                     ),
@@ -978,14 +959,14 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
               ),
               const SizedBox(height: 16),
             ],
-            SectionLabel('╨Т╨╗╨╛╨╢╨╡╨╜╨╕╤П (${_attachments.length})'),
+            SectionLabel('Вложения (${_attachments.length})'),
             AppCard(
               child: Column(
                 children: [
                   if (_attachments.isEmpty)
                     EmptyState(
-                      title: '╨Э╨╡╤В ╨▓╨╗╨╛╨╢╨╡╨╜╨╕╨╣',
-                      message: '╨Ф╨╛╨▒╨░╨▓╤М╤В╨╡ ╤Д╨╛╤В╨╛, ╤Б╨╝╨╡╤В╤Г ╨╕╨╗╨╕ ╨┤╨╛╨║╤Г╨╝╨╡╨╜╤В.',
+                      title: 'Нет вложений',
+                      message: 'Добавьте фото, смету или документ.',
                     ),
                   ..._attachments.map(
                     (a) => Padding(
@@ -1011,7 +992,7 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
                             child: const Icon(
                               CupertinoIcons.eye,
                               size: 18,
-                              semanticLabel: '╨Ю╤В╨║╤А╤Л╤В╤М',
+                              semanticLabel: 'Открыть',
                             ),
                           ),
                           CupertinoButton(
@@ -1021,7 +1002,7 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
                               CupertinoIcons.xmark,
                               size: 16,
                               color: context.colors.tertiaryLabel,
-                              semanticLabel: '╨г╨┤╨░╨╗╨╕╤В╤М',
+                              semanticLabel: 'Удалить',
                             ),
                           ),
                         ],
@@ -1029,9 +1010,7 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
                     ),
                   ),
                   SecondaryButton(
-                    label: _busyAttachment
-                        ? '╨Ф╨╛╨▒╨░╨▓╨╗╨╡╨╜╨╕╨╡...'
-                        : '╨Ф╨╛╨▒╨░╨▓╨╕╤В╤М ╤Д╨░╨╣╨╗',
+                    label: _busyAttachment ? 'Добавление...' : 'Добавить файл',
                     icon: CupertinoIcons.plus,
                     onPressed: _busyAttachment ? () {} : _addAttachment,
                   ),
@@ -1039,7 +1018,7 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
               ),
             ),
             const SizedBox(height: 16),
-            SectionLabel('╨Ф╨╡╨╣╤Б╤В╨▓╨╕╤П'),
+            SectionLabel('Действия'),
             AppCard(
               child: Column(
                 children: [
@@ -1047,35 +1026,33 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
                     icon: job.archived
                         ? CupertinoIcons.tray_full
                         : CupertinoIcons.archivebox,
-                    label: job.archived
-                        ? '╨Т╨╛╤Б╤Б╤В╨░╨╜╨╛╨▓╨╕╤В╤М'
-                        : '╨Т ╨░╤А╤Е╨╕╨▓',
+                    label: job.archived ? 'Восстановить' : 'В архив',
                     onTap: () => store.setArchived(job.id, !job.archived),
                   ),
                   Hairline(indent: 0),
                   SecondaryButton(
-                    label: '╨б╨╛╨╖╨┤╨░╤В╤М ╨┤╨╛╨║╤Г╨╝╨╡╨╜╤В (PDF)',
+                    label: 'Создать документ (PDF)',
                     icon: CupertinoIcons.doc_text,
                     onPressed: () => _createDocument(store, job),
                   ),
                   Hairline(indent: 0),
                   SecondaryButton(
-                    label: '╨Э╨░╨┐╨╕╤Б╨░╤В╤М ╨║╨╗╨╕╨╡╨╜╤В╤Г',
+                    label: 'Написать клиенту',
                     icon: CupertinoIcons.chat_bubble,
                     onPressed: () => _sendMessage(store, job),
                   ),
                   Hairline(indent: 0),
                   _ActionTile(
                     icon: CupertinoIcons.delete,
-                    label: '╨г╨┤╨░╨╗╨╕╤В╤М ╨╖╨░╨║╨░╨╖',
+                    label: 'Удалить заказ',
                     destructive: true,
                     onTap: () async {
                       final ok = await showAppConfirm(
                         context,
-                        title: '╨г╨┤╨░╨╗╨╕╤В╤М ╨╖╨░╨║╨░╨╖?',
-                        message: '╨н╤В╨░╨┐╤Л, ╨╝╨░╤В╨╡╤А╨╕╨░╨╗╤Л ╨╕ ╨▓╤А╨╡╨╝╤П ╤В╨╛╨╢╨╡ ╤Г╨┤╨░╨╗╤П╤В╤Б╤П.',
+                        title: 'Удалить заказ?',
+                        message: 'Этапы, материалы и время тоже удалятся.',
                         destructive: true,
-                        confirmLabel: '╨г╨┤╨░╨╗╨╕╤В╤М',
+                        confirmLabel: 'Удалить',
                       );
                       if (!ok) return;
                       await store.deleteJob(job.id);
