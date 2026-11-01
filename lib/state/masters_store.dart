@@ -17,6 +17,7 @@ import '../data/models/client.dart';
 import '../data/models/employee.dart';
 import '../data/models/time_entry.dart';
 import '../data/models/client_reminder.dart';
+import '../data/models/unified_event.dart';
 import '../data/models/inventory_composition.dart';
 import '../data/models/inventory_item.dart';
 import '../data/models/job_attachment.dart';
@@ -447,6 +448,13 @@ class MastersStore extends ChangeNotifier {
   Job? jobById(String id) {
     for (final j in _jobs) {
       if (j.id == id) return j;
+    }
+    return null;
+  }
+
+  Appointment? appointmentById(String id) {
+    for (final a in _appointments) {
+      if (a.id == id) return a;
     }
     return null;
   }
@@ -1778,6 +1786,110 @@ class MastersStore extends ChangeNotifier {
     await _appointmentRepo.delete(id);
     _appointments = _appointments.where((a) => a.id != id).toList();
     notifyListeners();
+  }
+
+  /// Меняет статус записи (канбан-перетаскивание, быстрая отметка).
+  Future<void> setAppointmentStatus(String id, AppointmentStatus status) async {
+    final idx = _appointments.indexWhere((a) => a.id == id);
+    if (idx == -1) return;
+    final updated = _appointments[idx].copyWith(
+      status: status,
+      updatedAt: DateTime.now(),
+    );
+    await ReminderService.cancelAppointmentReminder(id);
+    await _appointmentRepo.save(updated);
+    _appointments[idx] = updated;
+    if (status == AppointmentStatus.scheduled ||
+        status == AppointmentStatus.confirmed) {
+      try {
+        await ReminderService.scheduleAppointmentReminder(
+          updated.title,
+          updated.startAt,
+        );
+      } catch (_) {
+        // reminders are best-effort
+      }
+    }
+    notifyListeners();
+  }
+
+  // Unified events (записи + заказы в одном экране планирования)
+
+  /// Объединённое событие «запись» + «заказ» за диапазон [start, end),
+  /// отсортированное по времени. Заказы без срока не попадают в
+  /// календарь; архивные заказы исключаются.
+  List<UnifiedEvent> getEventsForRange(DateTime start, DateTime end) {
+    final events = <UnifiedEvent>[];
+    for (final a in _appointments) {
+      if (!a.startAt.isBefore(start) && a.startAt.isBefore(end)) {
+        events.add(UnifiedEvent.fromAppointment(a));
+      }
+    }
+    for (final j in _jobs) {
+      if (j.archived) continue;
+      final t = j.dueDate ?? j.startedAt;
+      if (t == null) continue;
+      if (!t.isBefore(start) && t.isBefore(end)) {
+        events.add(UnifiedEvent.fromJob(j));
+      }
+    }
+    events.sort((a, b) => a.startTime.compareTo(b.startTime));
+    return events;
+  }
+
+  /// Превращает запись в заказ: создаёт Job с тем же клиентом/объектом,
+  /// сроком = старт записи и пометкой о происхождении; запись удаляется
+  /// (вместе с её напоминанием). У записи без клиента конвертация
+  /// невозможна — выбрасывается StateError.
+  Future<void> convertAppointmentToJob(String appointmentId) async {
+    final a = appointmentById(appointmentId);
+    if (a == null) throw StateError('Запись не найдена');
+    if (a.clientId == null) {
+      throw StateError('У записи нет клиента — нечего привязывать заказ');
+    }
+    final now = DateTime.now();
+    final job = Job(
+      id: newId(),
+      clientId: a.clientId!,
+      objectId: a.objectId,
+      title: a.title,
+      status: a.status == AppointmentStatus.done
+          ? JobStatus.done
+          : JobStatus.nuevo,
+      dueDate: a.startAt,
+      note: a.note == null
+          ? 'Из записи: ${a.startAt.toLocal()}'
+          : 'Из записи: ${a.startAt.toLocal()} — ${a.note}',
+      createdAt: now,
+      updatedAt: now,
+    );
+    await _jobRepo.save(job);
+    _jobs = [job, ..._jobs];
+    await deleteAppointment(a.id); // снимает напоминание и удаляет запись
+    notifyListeners();
+  }
+
+  /// Назначает заказу конкретное время: создаёт запись на слоте
+  /// дедлайна заказа (или «сейчас + 1 час»), заказ остаётся на месте.
+  /// Конфликт слота ресурса отклоняется существующей проверкой
+  /// createAppointment (StateError).
+  Future<Appointment> convertJobToAppointment(String jobId) async {
+    final j = jobById(jobId);
+    if (j == null) throw StateError('Заказ не найден');
+    final start = j.dueDate ?? DateTime.now().add(const Duration(hours: 1));
+    final end = start.add(const Duration(hours: 1));
+    final note = [
+      if ((j.note ?? '').isNotEmpty) j.note,
+      'Из заказа «${j.title}»',
+    ].join(' • ');
+    return createAppointment(
+      title: j.title,
+      startAt: start,
+      endAt: end,
+      clientId: j.clientId,
+      objectId: j.objectId,
+      note: note,
+    );
   }
 
   // Reminders

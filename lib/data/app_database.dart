@@ -38,7 +38,7 @@ class AppDatabase {
 
     final database = await openDatabase(
       resolved,
-      version: 18,
+      version: 19,
       onConfigure: (db) async {
         if (!kIsWeb) await db.execute('PRAGMA foreign_keys = ON');
       },
@@ -752,6 +752,17 @@ class AppDatabase {
     if (oldVersion < 18) {
       // v18: inventory cost composition (BOM) for stock items.
       await _createInventoryCompositionSchema(db);
+    }
+    if (oldVersion < 19) {
+      // v19: единый экран планирования. UnifiedEvent — модель-адаптер на
+      // уровне store поверх таблиц appointments и jobs, схемы данных не
+      // меняются. Гарантируем индексы для запросов по диапазону дат.
+      await db.execute(
+        'CREATE INDEX IF NOT EXISTS idx_appts_start ON appointments(start_at)',
+      );
+      await db.execute(
+        'CREATE INDEX IF NOT EXISTS idx_jobs_due ON jobs(due_date)',
+      );
     }
   }
 
