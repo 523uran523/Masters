@@ -17,6 +17,7 @@ import '../data/models/client.dart';
 import '../data/models/employee.dart';
 import '../data/models/time_entry.dart';
 import '../data/models/client_reminder.dart';
+import '../data/models/inventory_composition.dart';
 import '../data/models/inventory_item.dart';
 import '../data/models/job_attachment.dart';
 import '../data/models/supplier.dart';
@@ -35,6 +36,7 @@ import '../data/repositories/employee_repository.dart';
 import '../data/repositories/time_entry_repository.dart';
 import '../data/repositories/client_reminder_repository.dart';
 import '../data/repositories/client_repository.dart';
+import '../data/repositories/inventory_composition_repository.dart';
 import '../data/repositories/inventory_item_repository.dart';
 import '../data/repositories/job_repository.dart';
 import '../data/repositories/stock_movement_repository.dart';
@@ -107,6 +109,7 @@ class MastersStore extends ChangeNotifier {
     _shiftRepo = CashShiftRepository(_appDatabase.database);
     _inventoryRepo = InventoryItemRepository(_appDatabase.database);
     _stockMovementRepo = StockMovementRepository(_appDatabase.database);
+    _compositionRepo = InventoryCompositionRepository(_appDatabase.database);
     _appointmentRepo = AppointmentRepository(_appDatabase.database);
     _bookingResourceRepo = BookingResourceRepository(_appDatabase.database);
     _recurringRepo = RecurringPaymentRepository(_appDatabase.database);
@@ -131,6 +134,7 @@ class MastersStore extends ChangeNotifier {
   late final CashShiftRepository _shiftRepo;
   late final InventoryItemRepository _inventoryRepo;
   late final StockMovementRepository _stockMovementRepo;
+  late final InventoryCompositionRepository _compositionRepo;
   late final AppointmentRepository _appointmentRepo;
   late final BookingResourceRepository _bookingResourceRepo;
   late final SupplierRepository _supplierRepo;
@@ -149,6 +153,7 @@ class MastersStore extends ChangeNotifier {
   List<CashShift> _shifts = [];
   List<InventoryItem> _inventoryItems = [];
   List<StockMovement> _stockMovements = [];
+  List<InventoryCompositionLine> _compositionLines = [];
   List<Appointment> _appointments = [];
   List<BookingResource> _bookingResources = [];
   List<ClientReminder> _reminders = [];
@@ -518,6 +523,7 @@ class MastersStore extends ChangeNotifier {
     _employeePayments = rest[11] as List<EmployeePayment>;
     _purchaseLines = [];
     _employeePayments = rest[11] as List<EmployeePayment>;
+    _compositionLines = await _compositionRepo.getAll();
 
     _closedPeriods = (await _appDatabase.periodClosures())
         .map((m) => ClosedPeriod.fromMap(Map<String, Object?>.from(m)))
@@ -1542,7 +1548,47 @@ class MastersStore extends ChangeNotifier {
     await _inventoryRepo.delete(id);
     _inventoryItems = _inventoryItems.where((i) => i.id != id).toList();
     _stockMovements = _stockMovements.where((m) => m.itemId != id).toList();
+    _compositionLines = _compositionLines.where((l) => l.itemId != id).toList();
     notifyListeners();
+  }
+
+  /// All composition (BOM) lines of an item: stock components and/or
+  /// manual labor. Empty list if the item has no composition.
+  List<InventoryCompositionLine> itemComposition(String itemId) =>
+      _compositionLines.where((l) => l.itemId == itemId).toList();
+
+  /// Total cost of the item's composition: sum(qty * price_cents).
+  int compositionCostCents(String itemId) =>
+      itemComposition(itemId).fold(0, (sum, l) => sum + l.totalCents);
+
+  /// Replace the whole composition of [itemId] with [lines] and update the
+  /// item's cost_cents to the composition total (via updateInventoryItem).
+  /// Returns the new total in cents.
+  Future<int> saveItemComposition(
+    String itemId,
+    List<InventoryCompositionLine> lines,
+  ) async {
+    final stored = lines.map((l) {
+      if (l.id.isEmpty) {
+        return l.copyWith(id: newId(), itemId: itemId);
+      }
+      return l.copyWith(itemId: itemId);
+    }).toList();
+    await _compositionRepo.replaceForItem(itemId, stored);
+    _compositionLines = [
+      ..._compositionLines.where((l) => l.itemId != itemId),
+      ...stored,
+    ];
+    final total = stored.fold(0, (sum, l) => sum + l.totalCents);
+    final idx = _inventoryItems.indexWhere((i) => i.id == itemId);
+    if (idx != -1) {
+      await updateInventoryItem(
+        _inventoryItems[idx].copyWith(costCents: total),
+      );
+    } else {
+      notifyListeners();
+    }
+    return total;
   }
 
   Future<void> receiveStock({
