@@ -31,6 +31,7 @@ class _MoneyScreenState extends State<MoneyScreen> {
   DateTime? _dateFrom;
   DateTime? _dateTo;
   String _recurringStatusFilter = 'all';
+  int _selectedTab = 0; // 0: Операции, 1: Счета, 2: Категории
 
   String _money(int cents) => '${(cents / 100).toStringAsFixed(0)} ₽';
 
@@ -189,8 +190,8 @@ class _MoneyScreenState extends State<MoneyScreen> {
     if (store.accounts.isEmpty) {
       await showAppAlert(
         context,
-        title: ' счёта',
-        message: 'Сначала создайте  в разделе .',
+        title: 'Нет счёта',
+        message: 'Сначала создайте счёт в разделе «Счета»',
       );
       return;
     }
@@ -213,7 +214,7 @@ class _MoneyScreenState extends State<MoneyScreen> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Text(
-                isIncome ? ' продажа' : 'Быстрый расход',
+                isIncome ? 'Новая продажа' : 'Быстрый расход',
                 style: const TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.w700,
@@ -255,7 +256,7 @@ class _MoneyScreenState extends State<MoneyScreen> {
               ),
               const SizedBox(height: 16),
               SecondaryButton(
-                label: isIncome ? 'Провести ' : 'Провести ',
+                label: isIncome ? 'Провести' : 'Провести',
                 icon: isIncome ? CupertinoIcons.plus : CupertinoIcons.minus,
                 onPressed: () async {
                   final amount =
@@ -393,8 +394,8 @@ class _MoneyScreenState extends State<MoneyScreen> {
     if (store.accounts.isEmpty) {
       await showAppAlert(
         context,
-        title: ' счёта',
-        message: 'Сначала создайте  в разделе .',
+        title: 'Нет счёта',
+        message: 'Сначала создайте счёт в разделе «Счета»',
       );
       return;
     }
@@ -1074,7 +1075,7 @@ class _MoneyScreenState extends State<MoneyScreen> {
                               final ok = await showAppConfirm(
                                 context,
                                 title: 'Удалить чек?',
-                                message: ' останется  .',
+                                message: 'Чек останется в системе.',
                                 destructive: true,
                                 confirmLabel: 'Удалить',
                               );
@@ -1272,247 +1273,161 @@ class _MoneyScreenState extends State<MoneyScreen> {
       ),
       child: _busy
           ? const Center(child: CupertinoActivityIndicator())
-          : SafeArea(
-              child: ListView(
-                padding: const EdgeInsets.fromLTRB(16, 12, 16, 72),
-                children: [
-                  SectionLabel('Сегодня'),
-                  AppCard(
-                    child: Column(
+          : Column(
+              children: [
+                Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 8,
+                  ),
+                  child: CupertinoSegmentedControl<int>(
+                    children: const {
+                      0: Text('Операции'),
+                      1: Text('Счета'),
+                      2: Text('Категории'),
+                    },
+                    groupValue: _selectedTab,
+                    onValueChanged: (v) => setState(() => _selectedTab = v),
+                  ),
+                ),
+                Expanded(
+                  child: SafeArea(
+                    child: ListView(
+                      padding: const EdgeInsets.fromLTRB(16, 12, 16, 72),
                       children: [
-                        _KV('выручка', _money(todayIncome)),
-                        _KV('расходы', _money(todayExpense)),
-                        _KV('Прибыль', _money(todayIncome - todayExpense)),
-                        _KV('  счетах', _money(store.totalBalanceCents())),
-                        _KV(
-                          'Прогноз   месяца',
-                          _money(store.forecastCashToEndOfMonth()),
-                        ),
-                        if (taxRate > 0) ...[
-                          _KV('Налоговый резерв', _money(reservedTax)),
-                          _KV(
-                            'Налоговый резерв ()',
-                            _money(store.forecastTaxReserveToEndOfMonth()),
-                          ),
-                          _KV(
-                            'Свободно после резерва',
-                            _money(monthIncome - reservedTax),
-                          ),
-                          if (taxAccountId != null)
-                            Padding(
-                              padding: const EdgeInsets.symmetric(vertical: 3),
-                              child: Row(
-                                children: [
-                                  Expanded(
-                                    child: Text(
-                                      'Счёт кармана: ${store.accountById(taxAccountId)?.name ?? 'неизвестный счёт'}',
-                                      style: TextStyle(
-                                        color: colors.secondaryLabel,
-                                        fontSize: 13,
+                        if (_selectedTab == 0) ...[
+                          SectionLabel('Сегодня'),
+                          AppCard(
+                            child: Column(
+                              children: [
+                                _KV('выручка', _money(todayIncome)),
+                                _KV('расходы', _money(todayExpense)),
+                                _KV(
+                                  'Прибыль',
+                                  _money(todayIncome - todayExpense),
+                                ),
+                                _KV(
+                                  'На счетах',
+                                  _money(store.totalBalanceCents()),
+                                ),
+                                _KV(
+                                  'Прогноз за месяц',
+                                  _money(store.forecastCashToEndOfMonth()),
+                                ),
+                                if (taxRate > 0) ...[
+                                  _KV('Налоговый резерв', _money(reservedTax)),
+                                  _KV(
+                                    'Налоговый резерв ()',
+                                    _money(
+                                      store.forecastTaxReserveToEndOfMonth(),
+                                    ),
+                                  ),
+                                  _KV(
+                                    'Свободно после резерва',
+                                    _money(monthIncome - reservedTax),
+                                  ),
+                                  if (taxAccountId != null)
+                                    Padding(
+                                      padding: const EdgeInsets.symmetric(
+                                        vertical: 3,
+                                      ),
+                                      child: Row(
+                                        children: [
+                                          Expanded(
+                                            child: Text(
+                                              'Счёт кармана: ${store.accountById(taxAccountId)?.name ?? 'неизвестный счёт'}',
+                                              style: TextStyle(
+                                                color: colors.secondaryLabel,
+                                                fontSize: 13,
+                                              ),
+                                            ),
+                                          ),
+                                        ],
                                       ),
                                     ),
-                                  ),
                                 ],
-                              ),
-                            ),
-                        ],
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: SecondaryButton(
-                          label: ' продажа',
-                          icon: CupertinoIcons.plus,
-                          onPressed: _quickSale,
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: SecondaryButton(
-                          label: 'Расход',
-                          icon: CupertinoIcons.minus,
-                          onPressed: _addExpense,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  SecondaryButton(
-                    label: ' между счетами',
-                    icon: CupertinoIcons.arrow_left_right,
-                    onPressed: _transferBetweenAccounts,
-                  ),
-                  const SizedBox(height: 8),
-                  SecondaryButton(
-                    label: 'Импорт транзакций (Excel)',
-                    icon: CupertinoIcons.doc_on_doc,
-                    onPressed: _importTransactionsExcel,
-                  ),
-                  const SizedBox(height: 16),
-                  if (settings.cashShiftEnabled) ...[
-                    SectionLabel('Смена кассы'),
-                    AppCard(
-                      child: shift == null
-                          ? SecondaryButton(
-                              label: 'Открыть смену',
-                              icon: CupertinoIcons.play,
-                              onPressed: _openShift,
-                            )
-                          : Column(
-                              children: [
-                                _KV('', 'Открыта'),
-                                _KV(
-                                  'Начало',
-                                  DateFormat(
-                                    'd MMM, HH:mm',
-                                    'ru',
-                                  ).format(shift.openedAt),
-                                ),
-                                _KV(
-                                  'Ожидается',
-                                  _money(store.expectedForShift(shift)),
-                                ),
-                                SecondaryButton(
-                                  label: 'Закрыть смену',
-                                  icon: CupertinoIcons.stop,
-                                  onPressed: _closeShift,
-                                ),
                               ],
                             ),
-                    ),
-                    const SizedBox(height: 16),
-                  ],
-                  SectionLabel('Счета (${store.accounts.length})'),
-                  ...store.accounts.map(
-                    (a) => Padding(
-                      padding: const EdgeInsets.only(bottom: 8),
-                      child: AppCard(
-                        child: Row(
-                          children: [
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    a.name,
-                                    style: const TextStyle(
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
-                                  Text(
-                                    a.type,
-                                    style: TextStyle(
-                                      color: colors.secondaryLabel,
-                                      fontSize: 12,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            Text(
-                              _money(store.balanceCents(a.id)),
-                              style: const TextStyle(
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  const SizedBox(height: 8),
-                  SectionLabel(' платежи (${recurringFiltered.length})'),
-                  const SizedBox(height: 6),
-                  SecondaryButton(
-                    label: _recurringStatusFilter == 'all'
-                        ? '\u0421\u0442\u0430\u0442\u0443\u0441: \u0432\u0441\u0435'
-                        : (_recurringStatusFilter == 'active'
-                              ? '\u0421\u0442\u0430\u0442\u0443\u0441: \u0430\u043a\u0442\u0438\u0432\u043d\u044b\u0435'
-                              : '\u0421\u0442\u0430\u0442\u0443\u0441: \u0432\u044b\u043a\u043b\u044e\u0447\u0435\u043d\u043d\u044b\u0435'),
-                    icon: CupertinoIcons.line_horizontal_3_decrease,
-                    onPressed: () async {
-                      final v = await showCupertinoModalPopup<String>(
-                        context: context,
-                        builder: (dialogContext) => CupertinoActionSheet(
-                          title: const Text(
-                            '\u0421\u0442\u0430\u0442\u0443\u0441',
                           ),
-                          actions: [
-                            CupertinoActionSheetAction(
-                              onPressed: () =>
-                                  Navigator.of(dialogContext).pop('all'),
-                              child: const Text('\u0412\u0441\u0435'),
-                            ),
-                            CupertinoActionSheetAction(
-                              onPressed: () =>
-                                  Navigator.of(dialogContext).pop('active'),
-                              child: const Text(
-                                '\u0410\u043a\u0442\u0438\u0432\u043d\u044b\u0435',
-                              ),
-                            ),
-                            CupertinoActionSheetAction(
-                              onPressed: () =>
-                                  Navigator.of(dialogContext).pop('disabled'),
-                              child: const Text(
-                                '\u0412\u044b\u043a\u043b\u044e\u0447\u0435\u043d\u043d\u044b\u0435',
-                              ),
-                            ),
-                          ],
-                          cancelButton: CupertinoActionSheetAction(
-                            onPressed: () => Navigator.of(dialogContext).pop(),
-                            child: const Text(
-                              '\u041e\u0442\u043c\u0435\u043d\u0430',
-                            ),
-                          ),
-                        ),
-                      );
-                      if (v != null) {
-                        setState(() => _recurringStatusFilter = v);
-                      }
-                    },
-                  ),
-                  const SizedBox(height: 8),
-                  if (recurringFiltered.isEmpty)
-                    EmptyState(
-                      title: ' регулярных платежей',
-                      message: ' регулярные расходы или поступления.',
-                      art: Icon(
-                        CupertinoIcons.repeat,
-                        size: 36,
-                        color: const Color(0xFFB2B2B6),
-                      ),
-                    )
-                  else
-                    AppCard(
-                      child: Column(
-                        children: [
-                          for (
-                            int gi = 0;
-                            gi < recurringMonthKeys.length;
-                            gi++
-                          ) ...[
-                            if (gi > 0) const SizedBox(height: 8),
-                            Text(
-                              DateFormat(
-                                'MMMM yyyy',
-                                'ru',
-                              ).format(recurringMonthKeys[gi]),
-                              style: TextStyle(
-                                fontWeight: FontWeight.w700,
-                                fontSize: 13,
-                                color: colors.secondaryLabel,
-                              ),
-                            ),
-                            const SizedBox(height: 4),
-                            ...recurringGroups[recurringMonthKeys[gi]]!.map(
-                              (p) => Padding(
-                                padding: const EdgeInsets.symmetric(
-                                  vertical: 4,
+                          const SizedBox(height: 10),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: SecondaryButton(
+                                  label: 'Продажа',
+                                  icon: CupertinoIcons.plus,
+                                  onPressed: _quickSale,
                                 ),
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: SecondaryButton(
+                                  label: 'Расход',
+                                  icon: CupertinoIcons.minus,
+                                  onPressed: _addExpense,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          SecondaryButton(
+                            label: 'Перевод между счетами',
+                            icon: CupertinoIcons.arrow_left_right,
+                            onPressed: _transferBetweenAccounts,
+                          ),
+                          const SizedBox(height: 8),
+                          SecondaryButton(
+                            label: 'Импорт транзакций (Excel)',
+                            icon: CupertinoIcons.doc_on_doc,
+                            onPressed: _importTransactionsExcel,
+                          ),
+                          const SizedBox(height: 16),
+                          if (settings.cashShiftEnabled) ...[
+                            SectionLabel('Смена кассы'),
+                            AppCard(
+                              child: shift == null
+                                  ? SecondaryButton(
+                                      label: 'Открыть смену',
+                                      icon: CupertinoIcons.play,
+                                      onPressed: _openShift,
+                                    )
+                                  : Column(
+                                      children: [
+                                        _KV('', 'Открыта'),
+                                        _KV(
+                                          'Начало',
+                                          DateFormat(
+                                            'd MMM, HH:mm',
+                                            'ru',
+                                          ).format(shift.openedAt),
+                                        ),
+                                        _KV(
+                                          'Ожидается',
+                                          _money(store.expectedForShift(shift)),
+                                        ),
+                                        SecondaryButton(
+                                          label: 'Закрыть смену',
+                                          icon: CupertinoIcons.stop,
+                                          onPressed: _closeShift,
+                                        ),
+                                      ],
+                                    ),
+                            ),
+                            const SizedBox(height: 16),
+                          ],
+                        ],
+                        if (_selectedTab == 1) ...[
+                          SectionLabel('Счета (${store.accounts.length})'),
+                          SecondaryButton(
+                            label: 'Добавить счёт',
+                            icon: CupertinoIcons.plus,
+                            onPressed: _newAccount,
+                          ),
+                          const SizedBox(height: 8),
+                          ...store.accounts.map(
+                            (a) => Padding(
+                              padding: const EdgeInsets.only(bottom: 8),
+                              child: AppCard(
                                 child: Row(
                                   children: [
                                     Expanded(
@@ -1521,13 +1436,13 @@ class _MoneyScreenState extends State<MoneyScreen> {
                                             CrossAxisAlignment.start,
                                         children: [
                                           Text(
-                                            p.name,
+                                            a.name,
                                             style: const TextStyle(
                                               fontWeight: FontWeight.w600,
                                             ),
                                           ),
                                           Text(
-                                            '${p.direction == "in" ? "+" : "-"} ${_money(p.amountCents)} \u00b7 \u043a\u0430\u0436\u0434\u044b\u0435 ${p.intervalDays} \u0434\u043d \u00b7 \u0434\u0430\u0442\u0430 ${p.nextDueAt.day}.${p.nextDueAt.month}.${p.nextDueAt.year}',
+                                            a.type,
                                             style: TextStyle(
                                               color: colors.secondaryLabel,
                                               fontSize: 12,
@@ -1536,538 +1451,855 @@ class _MoneyScreenState extends State<MoneyScreen> {
                                         ],
                                       ),
                                     ),
-                                    CupertinoSwitch(
-                                      value: p.active,
-                                      onChanged: (v) =>
-                                          store.updateRecurringPayment(
-                                            p.copyWith(active: v),
-                                          ),
-                                    ),
-                                    CupertinoButton(
-                                      padding: EdgeInsets.zero,
-                                      onPressed: () => _editRecurringPayment(p),
-                                      child: Icon(
-                                        CupertinoIcons.pencil,
-                                        size: 18,
-                                        color: colors.accent,
-                                        semanticLabel: '\u0420\u0435\u0434\u0430\u043a\u0442\u0438\u0440\u043e\u0432\u0430\u0442\u044c',
-                                      ),
-                                    ),
-                                    CupertinoButton(
-                                      padding: EdgeInsets.zero,
-                                      onPressed: () =>
-                                          store.deleteRecurringPayment(p.id),
-                                      child: Icon(
-                                        CupertinoIcons.trash,
-                                        size: 18,
-                                        color: colors.red,
-                                        semanticLabel: '\u0423\u0434\u0430\u043b\u0438\u0442\u044c',
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          ],
-                        ],
-                      ),
-                    ),
-                  const SizedBox(height: 8),
-                  SecondaryButton(
-                    label: ' регулярный платёж',
-                    icon: CupertinoIcons.repeat,
-                    onPressed: _addRecurringPayment,
-                  ),
-                  const SizedBox(height: 4),
-                  SecondaryButton(
-                    label: 'Провести плановые',
-                    icon: CupertinoIcons.play,
-                    onPressed: _runDueRecurring,
-                  ),
-                  const SizedBox(height: 16),
-                  if (settings.teamEnabled) ...[
-                    SectionLabel('Команда'),
-                    ..._teamCards(store, colors),
-                    const SizedBox(height: 16),
-                  ],
-                  SectionLabel(' клиентов (${_money(totalDebt)})'),
-                  debtClients.isEmpty
-                      ? EmptyState(
-                          title: 'Долгов Нет',
-                          message: ' расчёты закрыты.',
-                          art: Icon(
-                            CupertinoIcons.checkmark_seal,
-                            size: 36,
-                            color: const Color(0xFFB2B2B6),
-                          ),
-                        )
-                      : AppCard(
-                          child: Column(
-                            children: debtClients.map((d) {
-                              final c = d['client'];
-                              return Padding(
-                                padding: const EdgeInsets.symmetric(
-                                  vertical: 4,
-                                ),
-                                child: Row(
-                                  children: [
-                                    Expanded(
-                                      child: Text(
-                                        c.name,
-                                        style: const TextStyle(
-                                          fontWeight: FontWeight.w500,
-                                        ),
-                                      ),
-                                    ),
                                     Text(
-                                      _money(d['debt'] as int),
+                                      _money(store.balanceCents(a.id)),
                                       style: const TextStyle(
                                         fontWeight: FontWeight.w600,
                                       ),
                                     ),
                                   ],
                                 ),
-                              );
-                            }).toList(),
-                          ),
-                        ),
-                  if (settings.teamEnabled) ...[
-                    SecondaryButton(
-                      label: ' и зарплата',
-                      icon: CupertinoIcons.person_2,
-                      onPressed: () => Navigator.of(context).push(
-                        CupertinoPageRoute(
-                          builder: (_) => const EmployeesScreen(),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                  ],
-                  SecondaryButton(
-                    label: ' аналитика (P&L)',
-                    icon: CupertinoIcons.chart_bar,
-                    onPressed: () => Navigator.of(context).push(
-                      CupertinoPageRoute(builder: (_) => const StatsScreen()),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  const SizedBox(height: 8),
-                  Row(
-                    children: [
-                      if (_txQuery.isNotEmpty) ...[
-                        Expanded(
-                          child: Text(
-                            'Поиск: $_txQuery',
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              color: colors.secondaryLabel,
-                              fontSize: 13,
+                              ),
                             ),
                           ),
-                        ),
-                        CupertinoButton(
-                          padding: EdgeInsets.zero,
-                          onPressed: () => setState(() {
-                            _txQuery = '';
-                            _txSearchController.clear();
-                          }),
-                          child: const Icon(
-                            CupertinoIcons.xmark,
-                            semanticLabel: 'Очистить',
+                          const SizedBox(height: 16),
+                        ],
+                        if (_selectedTab == 2) ...[
+                          SectionLabel('Категории'),
+                          _buildCategoriesSection(store),
+                          const SizedBox(height: 16),
+                        ],
+                        // Вкладка "Операции" - продолжаем с платежей
+                        if (_selectedTab == 0) ...[
+                          const SizedBox(height: 8),
+                          SectionLabel(
+                            ' платежи (${recurringFiltered.length})',
                           ),
-                        ),
-                      ] else
-                        const Spacer(),
-                      CupertinoButton(
-                        padding: EdgeInsets.zero,
-                        onPressed: _showTxSearch,
-                        child: const Icon(
-                          CupertinoIcons.search,
-                          semanticLabel: 'Поиск',
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: SecondaryButton(
-                          label: _directionFilter == 'all'
-                              ? 'Направление: Все'
-                              : (_directionFilter == 'in'
-                                    ? 'Приходы'
-                                    : 'расходы'),
-                          icon: CupertinoIcons.line_horizontal_3_decrease,
-                          onPressed: () async {
-                            final v = await showCupertinoModalPopup<String>(
-                              context: context,
-                              builder: (dialogContext) => CupertinoActionSheet(
-                                title: const Text('Направление'),
-                                actions: [
-                                  CupertinoActionSheetAction(
-                                    onPressed: () =>
-                                        Navigator.of(dialogContext).pop('all'),
-                                    child: const Text('Все'),
+                          const SizedBox(height: 6),
+                          SecondaryButton(
+                            label: _recurringStatusFilter == 'all'
+                                ? '\u0421\u0442\u0430\u0442\u0443\u0441: \u0432\u0441\u0435'
+                                : (_recurringStatusFilter == 'active'
+                                      ? '\u0421\u0442\u0430\u0442\u0443\u0441: \u0430\u043a\u0442\u0438\u0432\u043d\u044b\u0435'
+                                      : '\u0421\u0442\u0430\u0442\u0443\u0441: \u0432\u044b\u043a\u043b\u044e\u0447\u0435\u043d\u043d\u044b\u0435'),
+                            icon: CupertinoIcons.line_horizontal_3_decrease,
+                            onPressed: () async {
+                              final v = await showCupertinoModalPopup<String>(
+                                context: context,
+                                builder: (dialogContext) => CupertinoActionSheet(
+                                  title: const Text(
+                                    '\u0421\u0442\u0430\u0442\u0443\u0441',
                                   ),
-                                  CupertinoActionSheetAction(
-                                    onPressed: () =>
-                                        Navigator.of(dialogContext).pop('in'),
-                                    child: const Text('Приходы'),
-                                  ),
-                                  CupertinoActionSheetAction(
-                                    onPressed: () =>
-                                        Navigator.of(dialogContext).pop('out'),
-                                    child: const Text('расходы'),
-                                  ),
-                                ],
-                                cancelButton: CupertinoActionSheetAction(
-                                  onPressed: () =>
-                                      Navigator.of(dialogContext).pop(),
-                                  child: const Text('Отмена'),
-                                ),
-                              ),
-                            );
-                            if (v != null) setState(() => _directionFilter = v);
-                          },
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: SecondaryButton(
-                          label: _accountFilter == null
-                              ? 'Счёт: Все'
-                              : (store.accountById(_accountFilter!)?.name ??
-                                    'Счёт'),
-                          icon: CupertinoIcons.money_dollar,
-                          onPressed: () async {
-                            final v = await showCupertinoModalPopup<String?>(
-                              context: context,
-                              builder: (dialogContext) => Container(
-                                height: 280,
-                                color: context.colors.card,
-                                child: Column(
-                                  children: [
-                                    CupertinoButton(
-                                      child: const Text('Все счета'),
+                                  actions: [
+                                    CupertinoActionSheetAction(
                                       onPressed: () =>
                                           Navigator.of(dialogContext)
-                                              .pop('__all__'),
+                                              .pop('all'),
+                                      child: const Text('\u0412\u0441\u0435'),
                                     ),
-                                    Expanded(
-                                      child: ListView(
-                                        children: [
-                                          for (final a in store.accounts.where(
-                                            (x) => !x.archived,
-                                          ))
-                                            CupertinoButton(
-                                              onPressed: () =>
-                                                  Navigator.of(dialogContext)
-                                                      .pop(a.id),
-                                              child: Align(
-                                                alignment: Alignment.centerLeft,
-                                                child: Text(a.name),
-                                              ),
-                                            ),
-                                        ],
+                                    CupertinoActionSheetAction(
+                                      onPressed: () =>
+                                          Navigator.of(dialogContext)
+                                              .pop('active'),
+                                      child: const Text(
+                                        '\u0410\u043a\u0442\u0438\u0432\u043d\u044b\u0435',
+                                      ),
+                                    ),
+                                    CupertinoActionSheetAction(
+                                      onPressed: () =>
+                                          Navigator.of(dialogContext)
+                                              .pop('disabled'),
+                                      child: const Text(
+                                        '\u0412\u044b\u043a\u043b\u044e\u0447\u0435\u043d\u043d\u044b\u0435',
                                       ),
                                     ),
                                   ],
+                                  cancelButton: CupertinoActionSheetAction(
+                                    onPressed: () =>
+                                        Navigator.of(dialogContext).pop(),
+                                    child: const Text(
+                                      '\u041e\u0442\u043c\u0435\u043d\u0430',
+                                    ),
+                                  ),
                                 ),
-                              ),
-                            );
-                            if (v == '__all__') {
-                              setState(() => _accountFilter = null);
-                            } else if (v != null) {
-                              setState(() => _accountFilter = v);
-                            }
-                          },
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  SecondaryButton(
-                    label: _formatDate(),
-                    icon: CupertinoIcons.calendar,
-                    onPressed: _openDateFilter,
-                  ),
-                  const SizedBox(height: 16),
-                  SectionLabel('Журнал (${store.moneyTransactions.length})'),
-                  store.moneyTransactions.isEmpty
-                      ? EmptyState(
-                          title: ' операций',
-                          message: ' продажу или .',
-                          art: Icon(
-                            CupertinoIcons.doc_text,
-                            size: 36,
-                            color: const Color(0xFFB2B2B6),
+                              );
+                              if (v != null) {
+                                setState(() => _recurringStatusFilter = v);
+                              }
+                            },
                           ),
-                        )
-                      : Column(
-                          children: store.moneyTransactions
-                              .where((t) {
-                                if (t.voided) return false;
-                                if (_directionFilter != 'all' &&
-                                    t.direction != _directionFilter) {
-                                  return false;
-                                }
-                                if (_accountFilter != null &&
-                                    t.accountId != _accountFilter) {
-                                  return false;
-                                }
-                                if (_dateFrom != null &&
-                                    t.createdAt.isBefore(_dateFrom!)) {
-                                  return false;
-                                }
-                                if (_dateTo != null) {
-                                  final endOfDay = DateTime(
-                                    _dateTo!.year,
-                                    _dateTo!.month,
-                                    _dateTo!.day + 1,
-                                  );
-                                  if (t.createdAt.isAfter(endOfDay)) {
-                                    return false;
-                                  }
-                                }
-                                final q = _txQuery.trim().toLowerCase();
-                                if (q.isNotEmpty) {
-                                  final clientId = t.clientId;
-                                  final jobId = t.jobId;
-                                  final clientName = clientId == null
-                                      ? ''
-                                      : (store.clientById(clientId)?.name ??
-                                            clientId);
-                                  final accountName =
-                                      store.accountById(t.accountId)?.name ??
-                                      t.accountId;
-                                  final jobTitle = jobId == null
-                                      ? ''
-                                      : (store.jobById(jobId)?.title ?? jobId);
-                                  final haystack = [
-                                    t.category,
-                                    if (t.category.trim().isEmpty)
-                                      'Чек категории',
-                                    t.note ?? '',
-                                    t.kind,
-                                    clientName,
-                                    accountName,
-                                    jobTitle,
-                                  ].join(' ').toLowerCase();
-                                  if (!haystack.contains(q)) {
-                                    return false;
-                                  }
-                                }
-                                return true;
-                              })
-                              .take(50)
-                              .map((t) {
-                                final acc = store.accountById(t.accountId);
-                                final isReversal = t.reversesId != null;
-                                final alreadyReversed = store.moneyTransactions
-                                    .any((tx) => tx.reversesId == t.id);
-                                final rowColor = alreadyReversed || isReversal
-                                    ? colors.tertiaryLabel
-                                    : null;
-                                return Padding(
-                                  padding: const EdgeInsets.only(bottom: 8),
-                                  child: AppCard(
-                                    onTap: () => _showTransactionDetail(t),
-                                    child: Row(
-                                      children: [
-                                        Expanded(
-                                          child: Column(
-                                            crossAxisAlignment:
-                                                CrossAxisAlignment.start,
-                                            children: [
-                                              Row(
-                                                mainAxisSize: MainAxisSize.min,
+                          const SizedBox(height: 8),
+                          if (recurringFiltered.isEmpty)
+                            EmptyState(
+                              title: ' регулярных платежей',
+                              message: ' регулярные расходы или поступления.',
+                              art: Icon(
+                                CupertinoIcons.repeat,
+                                size: 36,
+                                color: const Color(0xFFB2B2B6),
+                              ),
+                            )
+                          else
+                            AppCard(
+                              child: Column(
+                                children: [
+                                  for (
+                                    int gi = 0;
+                                    gi < recurringMonthKeys.length;
+                                    gi++
+                                  ) ...[
+                                    if (gi > 0) const SizedBox(height: 8),
+                                    Text(
+                                      DateFormat(
+                                        'MMMM yyyy',
+                                        'ru',
+                                      ).format(recurringMonthKeys[gi]),
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.w700,
+                                        fontSize: 13,
+                                        color: colors.secondaryLabel,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 4),
+                                    ...recurringGroups[recurringMonthKeys[gi]]!.map(
+                                      (p) => Padding(
+                                        padding: const EdgeInsets.symmetric(
+                                          vertical: 4,
+                                        ),
+                                        child: Row(
+                                          children: [
+                                            Expanded(
+                                              child: Column(
                                                 crossAxisAlignment:
-                                                    CrossAxisAlignment.center,
+                                                    CrossAxisAlignment.start,
                                                 children: [
                                                   Text(
-                                                    t.category.isEmpty
-                                                        ? t.kind
-                                                        : t.category,
-                                                    style: TextStyle(
+                                                    p.name,
+                                                    style: const TextStyle(
                                                       fontWeight:
                                                           FontWeight.w600,
-                                                      color: rowColor,
                                                     ),
                                                   ),
-                                                  if (alreadyReversed) ...[
-                                                    const SizedBox(width: 6),
-                                                    const Text(
-                                                      '↩︎',
-                                                      style: TextStyle(
-                                                        fontSize: 14,
+                                                  Text(
+                                                    '${p.direction == "in" ? "+" : "-"} ${_money(p.amountCents)} \u00b7 \u043a\u0430\u0436\u0434\u044b\u0435 ${p.intervalDays} \u0434\u043d \u00b7 \u0434\u0430\u0442\u0430 ${p.nextDueAt.day}.${p.nextDueAt.month}.${p.nextDueAt.year}',
+                                                    style: TextStyle(
+                                                      color:
+                                                          colors.secondaryLabel,
+                                                      fontSize: 12,
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                            ),
+                                            CupertinoSwitch(
+                                              value: p.active,
+                                              onChanged: (v) =>
+                                                  store.updateRecurringPayment(
+                                                    p.copyWith(active: v),
+                                                  ),
+                                            ),
+                                            CupertinoButton(
+                                              padding: EdgeInsets.zero,
+                                              onPressed: () =>
+                                                  _editRecurringPayment(p),
+                                              child: Icon(
+                                                CupertinoIcons.pencil,
+                                                size: 18,
+                                                color: colors.accent,
+                                                semanticLabel: '\u0420\u0435\u0434\u0430\u043a\u0442\u0438\u0440\u043e\u0432\u0430\u0442\u044c',
+                                              ),
+                                            ),
+                                            CupertinoButton(
+                                              padding: EdgeInsets.zero,
+                                              onPressed: () => store
+                                                  .deleteRecurringPayment(p.id),
+                                              child: Icon(
+                                                CupertinoIcons.trash,
+                                                size: 18,
+                                                color: colors.red,
+                                                semanticLabel: '\u0423\u0434\u0430\u043b\u0438\u0442\u044c',
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ],
+                              ),
+                            ),
+                          const SizedBox(height: 8),
+                          SecondaryButton(
+                            label: ' регулярный платёж',
+                            icon: CupertinoIcons.repeat,
+                            onPressed: _addRecurringPayment,
+                          ),
+                          const SizedBox(height: 4),
+                          SecondaryButton(
+                            label: 'Провести плановые',
+                            icon: CupertinoIcons.play,
+                            onPressed: _runDueRecurring,
+                          ),
+                          const SizedBox(height: 16),
+                          if (settings.teamEnabled) ...[
+                            SectionLabel('Команда'),
+                            ..._teamCards(store, colors),
+                            const SizedBox(height: 16),
+                          ],
+                          SectionLabel(' клиентов (${_money(totalDebt)})'),
+                          debtClients.isEmpty
+                              ? EmptyState(
+                                  title: 'Долгов Нет',
+                                  message: ' расчёты закрыты.',
+                                  art: Icon(
+                                    CupertinoIcons.checkmark_seal,
+                                    size: 36,
+                                    color: const Color(0xFFB2B2B6),
+                                  ),
+                                )
+                              : AppCard(
+                                  child: Column(
+                                    children: debtClients.map((d) {
+                                      final c = d['client'];
+                                      return Padding(
+                                        padding: const EdgeInsets.symmetric(
+                                          vertical: 4,
+                                        ),
+                                        child: Row(
+                                          children: [
+                                            Expanded(
+                                              child: Text(
+                                                c.name,
+                                                style: const TextStyle(
+                                                  fontWeight: FontWeight.w500,
+                                                ),
+                                              ),
+                                            ),
+                                            Text(
+                                              _money(d['debt'] as int),
+                                              style: const TextStyle(
+                                                fontWeight: FontWeight.w600,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      );
+                                    }).toList(),
+                                  ),
+                                ),
+                          if (settings.teamEnabled) ...[
+                            SecondaryButton(
+                              label: ' и зарплата',
+                              icon: CupertinoIcons.person_2,
+                              onPressed: () => Navigator.of(context).push(
+                                CupertinoPageRoute(
+                                  builder: (_) => const EmployeesScreen(),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                          ],
+                          SecondaryButton(
+                            label: ' аналитика (P&L)',
+                            icon: CupertinoIcons.chart_bar,
+                            onPressed: () => Navigator.of(context).push(
+                              CupertinoPageRoute(
+                                builder: (_) => const StatsScreen(),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                          const SizedBox(height: 8),
+                          Row(
+                            children: [
+                              if (_txQuery.isNotEmpty) ...[
+                                Expanded(
+                                  child: Text(
+                                    'Поиск: $_txQuery',
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: TextStyle(
+                                      color: colors.secondaryLabel,
+                                      fontSize: 13,
+                                    ),
+                                  ),
+                                ),
+                                CupertinoButton(
+                                  padding: EdgeInsets.zero,
+                                  onPressed: () => setState(() {
+                                    _txQuery = '';
+                                    _txSearchController.clear();
+                                  }),
+                                  child: const Icon(
+                                    CupertinoIcons.xmark,
+                                    semanticLabel: 'Очистить',
+                                  ),
+                                ),
+                              ] else
+                                const Spacer(),
+                              CupertinoButton(
+                                padding: EdgeInsets.zero,
+                                onPressed: _showTxSearch,
+                                child: const Icon(
+                                  CupertinoIcons.search,
+                                  semanticLabel: 'Поиск',
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: SecondaryButton(
+                                  label: _directionFilter == 'all'
+                                      ? 'Направление: Все'
+                                      : (_directionFilter == 'in'
+                                            ? 'Приходы'
+                                            : 'расходы'),
+                                  icon:
+                                      CupertinoIcons.line_horizontal_3_decrease,
+                                  onPressed: () async {
+                                    final v =
+                                        await showCupertinoModalPopup<String>(
+                                          context: context,
+                                          builder: (dialogContext) =>
+                                              CupertinoActionSheet(
+                                                title: const Text(
+                                                  'Направление',
+                                                ),
+                                                actions: [
+                                                  CupertinoActionSheetAction(
+                                                    onPressed: () =>
+                                                        Navigator.of(
+                                                          dialogContext,
+                                                        ).pop('all'),
+                                                    child: const Text('Все'),
+                                                  ),
+                                                  CupertinoActionSheetAction(
+                                                    onPressed: () =>
+                                                        Navigator.of(
+                                                          dialogContext,
+                                                        ).pop('in'),
+                                                    child: const Text(
+                                                      'Приходы',
+                                                    ),
+                                                  ),
+                                                  CupertinoActionSheetAction(
+                                                    onPressed: () =>
+                                                        Navigator.of(
+                                                          dialogContext,
+                                                        ).pop('out'),
+                                                    child: const Text(
+                                                      'расходы',
+                                                    ),
+                                                  ),
+                                                ],
+                                                cancelButton:
+                                                    CupertinoActionSheetAction(
+                                                      onPressed: () =>
+                                                          Navigator.of(
+                                                            dialogContext,
+                                                          ).pop(),
+                                                      child: const Text(
+                                                        'Отмена',
                                                       ),
                                                     ),
-                                                    const SizedBox(width: 4),
-                                                    Text(
+                                              ),
+                                        );
+                                    if (v != null)
+                                      setState(() => _directionFilter = v);
+                                  },
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: SecondaryButton(
+                                  label: _accountFilter == null
+                                      ? 'Счёт: Все'
+                                      : (store
+                                                .accountById(_accountFilter!)
+                                                ?.name ??
+                                            'Счёт'),
+                                  icon: CupertinoIcons.money_dollar,
+                                  onPressed: () async {
+                                    final v =
+                                        await showCupertinoModalPopup<String?>(
+                                          context: context,
+                                          builder: (dialogContext) => Container(
+                                            height: 280,
+                                            color: context.colors.card,
+                                            child: Column(
+                                              children: [
+                                                CupertinoButton(
+                                                  child: const Text(
+                                                    'Все счета',
+                                                  ),
+                                                  onPressed: () => Navigator.of(
+                                                    dialogContext,
+                                                  ).pop('__all__'),
+                                                ),
+                                                Expanded(
+                                                  child: ListView(
+                                                    children: [
+                                                      for (final a
+                                                          in store.accounts
+                                                              .where(
+                                                                (x) =>
+                                                                    !x.archived,
+                                                              ))
+                                                        CupertinoButton(
+                                                          onPressed: () =>
+                                                              Navigator.of(
+                                                                dialogContext,
+                                                              ).pop(a.id),
+                                                          child: Align(
+                                                            alignment: Alignment
+                                                                .centerLeft,
+                                                            child: Text(a.name),
+                                                          ),
+                                                        ),
+                                                    ],
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                        );
+                                    if (v == '__all__') {
+                                      setState(() => _accountFilter = null);
+                                    } else if (v != null) {
+                                      setState(() => _accountFilter = v);
+                                    }
+                                  },
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          SecondaryButton(
+                            label: _formatDate(),
+                            icon: CupertinoIcons.calendar,
+                            onPressed: _openDateFilter,
+                          ),
+                          const SizedBox(height: 16),
+                          SectionLabel(
+                            'Журнал (${store.moneyTransactions.length})',
+                          ),
+                          store.moneyTransactions.isEmpty
+                              ? EmptyState(
+                                  title: ' операций',
+                                  message: ' продажу или .',
+                                  art: Icon(
+                                    CupertinoIcons.doc_text,
+                                    size: 36,
+                                    color: const Color(0xFFB2B2B6),
+                                  ),
+                                )
+                              : Column(
+                                  children: store.moneyTransactions
+                                      .where((t) {
+                                        if (t.voided) return false;
+                                        if (_directionFilter != 'all' &&
+                                            t.direction != _directionFilter) {
+                                          return false;
+                                        }
+                                        if (_accountFilter != null &&
+                                            t.accountId != _accountFilter) {
+                                          return false;
+                                        }
+                                        if (_dateFrom != null &&
+                                            t.createdAt.isBefore(_dateFrom!)) {
+                                          return false;
+                                        }
+                                        if (_dateTo != null) {
+                                          final endOfDay = DateTime(
+                                            _dateTo!.year,
+                                            _dateTo!.month,
+                                            _dateTo!.day + 1,
+                                          );
+                                          if (t.createdAt.isAfter(endOfDay)) {
+                                            return false;
+                                          }
+                                        }
+                                        final q = _txQuery.trim().toLowerCase();
+                                        if (q.isNotEmpty) {
+                                          final clientId = t.clientId;
+                                          final jobId = t.jobId;
+                                          final clientName = clientId == null
+                                              ? ''
+                                              : (store
+                                                        .clientById(clientId)
+                                                        ?.name ??
+                                                    clientId);
+                                          final accountName =
+                                              store
+                                                  .accountById(t.accountId)
+                                                  ?.name ??
+                                              t.accountId;
+                                          final jobTitle = jobId == null
+                                              ? ''
+                                              : (store.jobById(jobId)?.title ??
+                                                    jobId);
+                                          final haystack = [
+                                            t.category,
+                                            if (t.category.trim().isEmpty)
+                                              'Чек категории',
+                                            t.note ?? '',
+                                            t.kind,
+                                            clientName,
+                                            accountName,
+                                            jobTitle,
+                                          ].join(' ').toLowerCase();
+                                          if (!haystack.contains(q)) {
+                                            return false;
+                                          }
+                                        }
+                                        return true;
+                                      })
+                                      .take(50)
+                                      .map((t) {
+                                        final acc = store.accountById(
+                                          t.accountId,
+                                        );
+                                        final isReversal = t.reversesId != null;
+                                        final alreadyReversed = store
+                                            .moneyTransactions
+                                            .any((tx) => tx.reversesId == t.id);
+                                        final rowColor =
+                                            alreadyReversed || isReversal
+                                            ? colors.tertiaryLabel
+                                            : null;
+                                        return Padding(
+                                          padding: const EdgeInsets.only(
+                                            bottom: 8,
+                                          ),
+                                          child: AppCard(
+                                            onTap: () =>
+                                                _showTransactionDetail(t),
+                                            child: Row(
+                                              children: [
+                                                Expanded(
+                                                  child: Column(
+                                                    crossAxisAlignment:
+                                                        CrossAxisAlignment
+                                                            .start,
+                                                    children: [
+                                                      Row(
+                                                        mainAxisSize:
+                                                            MainAxisSize.min,
+                                                        crossAxisAlignment:
+                                                            CrossAxisAlignment
+                                                                .center,
+                                                        children: [
+                                                          Text(
+                                                            t.category.isEmpty
+                                                                ? t.kind
+                                                                : t.category,
+                                                            style: TextStyle(
+                                                              fontWeight:
+                                                                  FontWeight
+                                                                      .w600,
+                                                              color: rowColor,
+                                                            ),
+                                                          ),
+                                                          if (alreadyReversed) ...[
+                                                            const SizedBox(
+                                                              width: 6,
+                                                            ),
+                                                            const Text(
+                                                              '↩︎',
+                                                              style: TextStyle(
+                                                                fontSize: 14,
+                                                              ),
+                                                            ),
+                                                            const SizedBox(
+                                                              width: 4,
+                                                            ),
+                                                            Text(
+                                                              'Возвращено',
+                                                              style: TextStyle(
+                                                                fontSize: 11,
+                                                                fontWeight:
+                                                                    FontWeight
+                                                                        .w600,
+                                                                color: colors
+                                                                    .tertiaryLabel,
+                                                              ),
+                                                            ),
+                                                          ],
+                                                          if (isReversal) ...[
+                                                            const SizedBox(
+                                                              width: 6,
+                                                            ),
+                                                            GestureDetector(
+                                                              onTap: () {
+                                                                final originId =
+                                                                    t.reversesId!;
+                                                                Navigator.of(
+                                                                  context,
+                                                                ).pop();
+                                                                _showTransactionDetailById(
+                                                                  originId,
+                                                                );
+                                                              },
+                                                              child: Text(
+                                                                ' → исходная',
+                                                                style: TextStyle(
+                                                                  fontSize: 11,
+                                                                  color: colors
+                                                                      .accent,
+                                                                ),
+                                                              ),
+                                                            ),
+                                                          ],
+                                                        ],
+                                                      ),
+                                                      Text(
+                                                        [
+                                                          acc?.name ?? '',
+                                                          if (t.note != null &&
+                                                              t
+                                                                  .note!
+                                                                  .isNotEmpty)
+                                                            t.note!,
+                                                          DateFormat(
+                                                            'd MMM, HH:mm',
+                                                            'ru',
+                                                          ).format(t.createdAt),
+                                                        ].join(' • '),
+                                                        style: TextStyle(
+                                                          color: colors
+                                                              .secondaryLabel,
+                                                          fontSize: 12,
+                                                        ),
+                                                      ),
+                                                    ],
+                                                  ),
+                                                ),
+                                                Text(
+                                                  '${t.direction == 'in' ? '+' : '-'}${_money(t.amountCents)}',
+                                                  style: TextStyle(
+                                                    fontWeight: FontWeight.w600,
+                                                    color:
+                                                        alreadyReversed ||
+                                                            isReversal
+                                                        ? colors.tertiaryLabel
+                                                        : (t.direction == 'in'
+                                                              ? colors.green
+                                                              : colors.red),
+                                                  ),
+                                                ),
+                                                if (alreadyReversed)
+                                                  Container(
+                                                    padding:
+                                                        const EdgeInsets.symmetric(
+                                                          horizontal: 8,
+                                                          vertical: 2,
+                                                        ),
+                                                    decoration: BoxDecoration(
+                                                      color: colors
+                                                          .tertiaryLabel
+                                                          .withValues(
+                                                            alpha: 0.15,
+                                                          ),
+                                                      borderRadius:
+                                                          BorderRadius.circular(
+                                                            8,
+                                                          ),
+                                                    ),
+                                                    child: const Text(
                                                       'Возвращено',
                                                       style: TextStyle(
                                                         fontSize: 11,
                                                         fontWeight:
                                                             FontWeight.w600,
-                                                        color: colors
-                                                            .tertiaryLabel,
-                                                      ),
-                                                    ),
-                                                  ],
-                                                  if (isReversal) ...[
-                                                    const SizedBox(width: 6),
-                                                    GestureDetector(
-                                                      onTap: () {
-                                                        final originId =
-                                                            t.reversesId!;
-                                                        Navigator.of(context)
-                                                            .pop();
-                                                        _showTransactionDetailById(
-                                                          originId,
-                                                        );
-                                                      },
-                                                      child: Text(
-                                                        ' → исходная',
-                                                        style: TextStyle(
-                                                          fontSize: 11,
-                                                          color: colors.accent,
+                                                        color: Color(
+                                                          0xFFB2B2B6,
                                                         ),
                                                       ),
                                                     ),
-                                                  ],
-                                                ],
-                                              ),
-                                              Text(
-                                                [
-                                                  acc?.name ?? '',
-                                                  if (t.note != null &&
-                                                      t.note!.isNotEmpty)
-                                                    t.note!,
-                                                  DateFormat(
-                                                    'd MMM, HH:mm',
-                                                    'ru',
-                                                  ).format(t.createdAt),
-                                                ].join(' • '),
-                                                style: TextStyle(
-                                                  color: colors.secondaryLabel,
-                                                  fontSize: 12,
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                        Text(
-                                          '${t.direction == 'in' ? '+' : '-'}${_money(t.amountCents)}',
-                                          style: TextStyle(
-                                            fontWeight: FontWeight.w600,
-                                            color: alreadyReversed || isReversal
-                                                ? colors.tertiaryLabel
-                                                : (t.direction == 'in'
-                                                      ? colors.green
-                                                      : colors.red),
-                                          ),
-                                        ),
-                                        if (alreadyReversed)
-                                          Container(
-                                            padding: const EdgeInsets.symmetric(
-                                              horizontal: 8,
-                                              vertical: 2,
-                                            ),
-                                            decoration: BoxDecoration(
-                                              color: colors.tertiaryLabel
-                                                  .withValues(alpha: 0.15),
-                                              borderRadius:
-                                                  BorderRadius.circular(8),
-                                            ),
-                                            child: const Text(
-                                              'Возвращено',
-                                              style: TextStyle(
-                                                fontSize: 11,
-                                                fontWeight: FontWeight.w600,
-                                                color: Color(0xFFB2B2B6),
-                                              ),
-                                            ),
-                                          )
-                                        else if (isReversal)
-                                          CupertinoButton(
-                                            padding: EdgeInsets.zero,
-                                            onPressed: () {
-                                              final originId = t.reversesId!;
-                                              Navigator.of(context).pop();
-                                              _showTransactionDetailById(
-                                                originId,
-                                              );
-                                            },
-                                            child: Icon(
-                                              CupertinoIcons
-                                                  .arrow_turn_down_right,
-                                              size: 14,
-                                              color: colors.label,
-                                            ),
-                                          )
-                                        else
-                                          CupertinoButton(
-                                            padding: EdgeInsets.zero,
-                                            onPressed: () async {
-                                              final ok = await showAppConfirm(
-                                                context,
-                                                title: 'Сделать возврат?',
-                                                message:
-                                                    'Будет создана новая операция-возврат на ${_money(t.amountCents)}, исходная станет серой.',
-                                                destructive: false,
-                                                confirmLabel: 'Возвратить',
-                                              );
-                                              if (!ok || !mounted) return;
-                                              try {
-                                                await store.revertTransaction(
-                                                  t.id,
-                                                );
-                                              } catch (e) {
-                                                if (context.mounted) {
-                                                  showCupertinoDialog<void>(
-                                                    context: context,
-                                                    builder: (ctx) =>
-                                                        CupertinoAlertDialog(
-                                                          title: const Text(
-                                                            'Ошибка',
-                                                          ),
-                                                          content: Text(
-                                                            e.toString(),
-                                                          ),
-                                                          actions: [
-                                                            CupertinoDialogAction(
-                                                              child: const Text(
-                                                                'ОК',
+                                                  )
+                                                else if (isReversal)
+                                                  CupertinoButton(
+                                                    padding: EdgeInsets.zero,
+                                                    onPressed: () {
+                                                      final originId =
+                                                          t.reversesId!;
+                                                      Navigator.of(context)
+                                                          .pop();
+                                                      _showTransactionDetailById(
+                                                        originId,
+                                                      );
+                                                    },
+                                                    child: Icon(
+                                                      CupertinoIcons
+                                                          .arrow_turn_down_right,
+                                                      size: 14,
+                                                      color: colors.label,
+                                                    ),
+                                                  )
+                                                else
+                                                  CupertinoButton(
+                                                    padding: EdgeInsets.zero,
+                                                    onPressed: () async {
+                                                      final ok =
+                                                          await showAppConfirm(
+                                                            context,
+                                                            title: 'Сделать возврат?',
+                                                            message:
+                                                                'Будет создана новая операция-возврат на ${_money(t.amountCents)}, исходная станет серой.',
+                                                            destructive: false,
+                                                            confirmLabel:
+                                                                'Возвратить',
+                                                          );
+                                                      if (!ok || !mounted)
+                                                        return;
+                                                      try {
+                                                        await store
+                                                            .revertTransaction(
+                                                              t.id,
+                                                            );
+                                                      } catch (e) {
+                                                        if (context.mounted) {
+                                                          showCupertinoDialog<
+                                                            void
+                                                          >(
+                                                            context: context,
+                                                            builder: (ctx) => CupertinoAlertDialog(
+                                                              title: const Text(
+                                                                'Ошибка',
                                                               ),
-                                                              onPressed: () =>
-                                                                  Navigator.of(
-                                                                    ctx,
-                                                                  ).pop(),
+                                                              content: Text(
+                                                                e.toString(),
+                                                              ),
+                                                              actions: [
+                                                                CupertinoDialogAction(
+                                                                  child:
+                                                                      const Text(
+                                                                        'ОК',
+                                                                      ),
+                                                                  onPressed: () =>
+                                                                      Navigator.of(
+                                                                        ctx,
+                                                                      ).pop(),
+                                                                ),
+                                                              ],
                                                             ),
-                                                          ],
-                                                        ),
-                                                  );
-                                                }
-                                              }
-                                            },
-                                            child: Icon(
-                                              CupertinoIcons.arrow_uturn_left,
-                                              size: 14,
-                                              color: colors.label,
+                                                          );
+                                                        }
+                                                      }
+                                                    },
+                                                    child: Icon(
+                                                      CupertinoIcons
+                                                          .arrow_uturn_left,
+                                                      size: 14,
+                                                      color: colors.label,
+                                                    ),
+                                                  ),
+                                              ],
                                             ),
                                           ),
-                                      ],
-                                    ),
-                                  ),
-                                );
-                              })
-                              .toList(),
-                        ),
-                ],
-              ),
+                                        );
+                                      })
+                                      .toList(),
+                                ),
+                        ],
+                      ],
+                    ),
+                  ),
+                ),
+              ],
             ),
+    );
+  }
+
+  Widget _buildCategoriesSection(MastersStore store) {
+    final incomeCats = <String>{};
+    final expenseCats = <String>{};
+    for (final t in store.moneyTransactions) {
+      if (t.category.isNotEmpty) {
+        if (t.direction == 'in') {
+          incomeCats.add(t.category);
+        } else {
+          expenseCats.add(t.category);
+        }
+      }
+    }
+    final incomeList = incomeCats.toList()..sort();
+    final expenseList = expenseCats.toList()..sort();
+
+    if (incomeList.isEmpty && expenseList.isEmpty) {
+      return const EmptyState(
+        title: 'Нет категорий',
+        message: 'Категории появятся после добавления операций.',
+        art: Icon(CupertinoIcons.tag, size: 36, color: Color(0xFFB2B2B6)),
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (incomeList.isNotEmpty) ...[
+          Text(
+            'Доходы',
+            style: TextStyle(
+              fontWeight: FontWeight.w600,
+              color: context.colors.secondaryLabel,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Wrap(
+            spacing: 8,
+            runSpacing: 4,
+            children: incomeList
+                .map(
+                  (c) => Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
+                    decoration: BoxDecoration(
+                      color: context.colors.green.withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Text(c, style: const TextStyle(fontSize: 13)),
+                  ),
+                )
+                .toList(),
+          ),
+          const SizedBox(height: 12),
+        ],
+        if (expenseList.isNotEmpty) ...[
+          Text(
+            'Расходы',
+            style: TextStyle(
+              fontWeight: FontWeight.w600,
+              color: context.colors.secondaryLabel,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Wrap(
+            spacing: 8,
+            runSpacing: 4,
+            children: expenseList
+                .map(
+                  (c) => Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
+                    decoration: BoxDecoration(
+                      color: context.colors.red.withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Text(c, style: const TextStyle(fontSize: 13)),
+                  ),
+                )
+                .toList(),
+          ),
+        ],
+      ],
     );
   }
 }
