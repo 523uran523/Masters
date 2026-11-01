@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 
 import '../../app/theme/app_theme.dart';
 import '../../app/ui.dart';
+import '../../data/models/inventory_composition.dart';
 import '../../data/models/inventory_item.dart';
 import '../../data/models/supplier.dart';
 import '../../state/masters_store.dart';
@@ -685,6 +686,62 @@ class _InventoryScreenState extends State<InventoryScreen> {
     );
   }
 
+  /// Компактный блок «Состав стоимости» под ценой: список строк
+  /// (компонент × кол-во — сумма строки) и итог. Скрыт, если состава нет.
+  List<Widget> _compositionBlock(MastersStore store, InventoryItem item) {
+    final colors = context.colors;
+    final lines = store.itemComposition(item.id);
+    return [
+      Text(
+        'Состав стоимости',
+        style: TextStyle(
+          color: colors.accent,
+          fontSize: 12,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
+      for (final line in lines)
+        Text(
+          _compositionLineLabel(store, line),
+          style: TextStyle(color: colors.secondaryLabel, fontSize: 11),
+        ),
+      Text(
+        'Итого: ${_money(store.compositionCostCents(item.id))}',
+        style: TextStyle(
+          color: colors.accent,
+          fontSize: 12,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
+    ];
+  }
+
+  /// Строка вида «Доска × 2 — 200 ₽» или «Ручной труд: сборка × 1 — 500 ₽».
+  String _compositionLineLabel(
+    MastersStore store,
+    InventoryCompositionLine line,
+  ) {
+    final qty = line.qty % 1 == 0
+        ? line.qty.toInt().toString()
+        : line.qty.toString();
+    String name;
+    if (line.isLabor || line.componentId == null) {
+      final note = line.note;
+      name = (note == null || note.isEmpty)
+          ? 'Ручной труд'
+          : 'Ручной труд: $note';
+    } else {
+      name = 'Товар удалён';
+      for (final i in store.inventoryItems) {
+        if (i.id == line.componentId) {
+          name = i.name;
+          break;
+        }
+      }
+    }
+    return '$name × $qty — ${_money(line.totalCents)}';
+  }
+
   Future<void> _showItemHistory(InventoryItem item) async {
     final store = context.read<MastersStore>();
     final movements =
@@ -1055,13 +1112,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
                                           if (store
                                               .itemComposition(item.id)
                                               .isNotEmpty)
-                                            Text(
-                                              'Состав: ${store.itemComposition(item.id).length} поз. • себест. ${_money(store.compositionCostCents(item.id))}',
-                                              style: TextStyle(
-                                                color: colors.accent,
-                                                fontSize: 12,
-                                              ),
-                                            ),
+                                            ..._compositionBlock(store, item),
                                           if (item.trackStock)
                                             Text(
                                               'Остаток: ${item.stockQty.toStringAsFixed(item.stockQty % 1 == 0 ? 0 : 2)} ${item.unit}${item.stockQty < 0 ? ' \u2022 \u041e\u0442\u0440\u0438\u0446\u0430\u0442\u0435\u043b\u044c\u043d\u044b\u0439 \u043e\u0441\u0442\u0430\u0442\u043e\u043a' : (item.lowStock ? ' (\u043c\u0430\u043b\u043e)' : '')}',
