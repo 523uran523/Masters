@@ -559,6 +559,7 @@ class ClientDetailScreen extends StatelessWidget {
               CupertinoTextField(
                 controller: nameController,
                 placeholder: 'Имя',
+                textCapitalization: TextCapitalization.words,
                 decoration: BoxDecoration(
                   color: const Color(0x00FFFFFF),
                   border: Border.all(color: context.colors.separator),

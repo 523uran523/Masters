@@ -27,6 +27,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
     String title,
     String placeholder, {
     String? initial,
+    TextCapitalization textCapitalization = TextCapitalization.none,
   }) async {
     final controller = TextEditingController(text: initial ?? '');
     return showCupertinoDialog<String?>(
@@ -38,6 +39,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
           child: CupertinoTextField(
             controller: controller,
             placeholder: placeholder,
+            textCapitalization: textCapitalization,
             autofocus: true,
             decoration: BoxDecoration(
               color: context.colors.card,
@@ -196,7 +198,11 @@ class _InventoryScreenState extends State<InventoryScreen> {
   }
 
   Future<void> _newItem() async {
-    final name = await _prompt('Название позиции', 'Масло моторное 5W-30');
+    final name = await _prompt(
+      'Название позиции',
+      'Масло моторное 5W-30',
+      textCapitalization: TextCapitalization.sentences,
+    );
     if (name == null || name.trim().isEmpty) return;
     final kind = await _pickKind();
     if (kind == null) return;
@@ -632,7 +638,12 @@ class _InventoryScreenState extends State<InventoryScreen> {
   }
 
   Future<void> _editItem(InventoryItem item) async {
-    final name = await _prompt('Название', item.name, initial: item.name);
+    final name = await _prompt(
+      'Название',
+      item.name,
+      initial: item.name,
+      textCapitalization: TextCapitalization.sentences,
+    );
     if (name == null || name.trim().isEmpty) return;
     final unit = await _pickUnit() ?? item.unit;
     final sellStr =

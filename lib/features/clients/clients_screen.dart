@@ -133,7 +133,11 @@ class _ClientsScreenState extends State<ClientsScreen> {
   }
 
   Future<void> _addClient() async {
-    final name = await _promptText('Имя клиента', 'Иван');
+    final name = await _promptText(
+      'Имя клиента',
+      'Иван',
+      textCapitalization: TextCapitalization.words,
+    );
     if (name == null || name.trim().isEmpty) return;
     final phone = await _promptText('Телефон', '+7...');
     final note = await _promptText('Заметка', '');
@@ -146,7 +150,11 @@ class _ClientsScreenState extends State<ClientsScreen> {
     );
   }
 
-  Future<String?> _promptText(String title, String placeholder) async {
+  Future<String?> _promptText(
+    String title,
+    String placeholder, {
+    TextCapitalization textCapitalization = TextCapitalization.none,
+  }) async {
     final controller = TextEditingController();
     return showCupertinoDialog<String?>(
       context: context,
@@ -157,6 +165,7 @@ class _ClientsScreenState extends State<ClientsScreen> {
           child: CupertinoTextField(
             controller: controller,
             placeholder: placeholder,
+            textCapitalization: textCapitalization,
             autofocus: true,
             decoration: BoxDecoration(
               color: context.colors.card,

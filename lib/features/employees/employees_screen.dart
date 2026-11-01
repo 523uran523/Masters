@@ -25,6 +25,7 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
     String title,
     String placeholder, {
     String initial = '',
+    TextCapitalization textCapitalization = TextCapitalization.none,
   }) async {
     final controller = TextEditingController(text: initial);
     return showCupertinoDialog<String?>(
@@ -36,6 +37,7 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
           child: CupertinoTextField(
             controller: controller,
             placeholder: placeholder,
+            textCapitalization: textCapitalization,
             autofocus: true,
             decoration: BoxDecoration(
               color: context.colors.card,
@@ -60,7 +62,11 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
   }
 
   Future<void> _newEmployee() async {
-    final name = await _prompt('Имя сотрудника', 'Иван');
+    final name = await _prompt(
+      'Имя сотрудника',
+      'Иван',
+      textCapitalization: TextCapitalization.words,
+    );
     if (name == null || name.trim().isEmpty) return;
     final payType = await _pickPayType();
     if (payType == null) return;

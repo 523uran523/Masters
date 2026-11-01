@@ -480,6 +480,7 @@ class _JobFormScreenState extends State<JobFormScreen> {
                   CupertinoTextField(
                     controller: _titleController,
                     placeholder: 'Название заказа',
+                    textCapitalization: TextCapitalization.sentences,
                     style: TextStyle(color: colors.label),
                   ),
                   const SizedBox(height: 12),
