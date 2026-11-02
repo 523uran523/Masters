@@ -48,13 +48,14 @@ class UpdateService {
     http.Client? client,
     http.Client? httpClient,
     String? primaryUrl,
+    String? baseUrl,
     String? mirrorUrl,
     this.isMirrorEnabled = false,
     this.channel = 'stable',
     String? appId,
     int? currentVersionCode,
   }) : _client = client ?? httpClient ?? http.Client(),
-       primaryUrl = primaryUrl ?? base,
+       primaryUrl = primaryUrl ?? baseUrl ?? base,
        mirrorUrl = mirrorUrl ?? '',
        _appIdOverride = appId,
        _currentVersionCodeOverride = currentVersionCode;
@@ -142,8 +143,11 @@ class UpdateService {
     );
   }
 
-  Future<UpdateInfo> checkForUpdate({bool mirrorOnly = false}) async {
-    final preferMirror = mirrorOnly || channel == 'beta';
+  Future<UpdateInfo> checkForUpdate({
+    bool mirrorOnly = false,
+    bool useMirror = false,
+  }) async {
+    final preferMirror = mirrorOnly || useMirror || channel == 'beta';
     final mirrorValid = _isValidUrl(mirrorUrl);
     final targets = <String>[];
     if (preferMirror) {
