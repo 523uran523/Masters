@@ -124,6 +124,9 @@ class SettingsController extends ChangeNotifier {
   static const _teamEnabledKey = 'team_enabled';
   static const _calculatorEnabledKey = 'calculator_enabled';
   static const _workModeKey = 'work_mode';
+  static const _updateMirrorEnabledKey = 'update_mirror_enabled';
+  static const _updateMirrorUrlKey = 'update_mirror_url';
+  static const _updateChannelKey = 'update_channel';
 
   static Future<SettingsController> load() async {
     tzdata.initializeTimeZones();
@@ -393,6 +396,32 @@ class SettingsController extends ChangeNotifier {
     const allowed = {'orders', 'appointments', 'hybrid'};
     if (!allowed.contains(value)) return;
     await _prefs.setString(_workModeKey, value);
+    notifyListeners();
+  }
+
+  /// Включено ли зеркало обновлений (телефон/бета-сервер).
+  bool get updateMirrorEnabled =>
+      _prefs.getBool(_updateMirrorEnabledKey) ?? false;
+
+  Future<void> setUpdateMirrorEnabled(bool value) async {
+    await _prefs.setBool(_updateMirrorEnabledKey, value);
+    notifyListeners();
+  }
+
+  /// URL зеркала обновлений. Пусто — зеркало не настроено.
+  String get updateMirrorUrl => _prefs.getString(_updateMirrorUrlKey) ?? '';
+
+  Future<void> setUpdateMirrorUrl(String value) async {
+    await _prefs.setString(_updateMirrorUrlKey, value.trim());
+    notifyListeners();
+  }
+
+  /// Канал обновлений: 'stable' или 'beta'.
+  String get updateChannel => _prefs.getString(_updateChannelKey) ?? 'stable';
+
+  Future<void> setUpdateChannel(String value) async {
+    if (value != 'stable' && value != 'beta') return;
+    await _prefs.setString(_updateChannelKey, value);
     notifyListeners();
   }
 

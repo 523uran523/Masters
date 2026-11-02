@@ -46,6 +46,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
   bool _awaitingCode = false;
   final _yandexCodeController = TextEditingController();
   final _tagController = TextEditingController();
+  final _mirrorUrlController = TextEditingController();
+  String _mirrorStatus = '';
+  bool _mirrorBusy = false;
+  bool _mirrorInitialized = false;
 
   Future<void> _checkForUpdates() async {
     setState(() {
@@ -53,7 +57,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
       _updateStatus = 'Проверка обновлений...';
     });
     try {
-      final update = await UpdateService().checkForUpdate();
+      final settings = context.read<SettingsController>();
+      final update = await UpdateService(
+        mirrorUrl: settings.updateMirrorUrl,
+        isMirrorEnabled: settings.updateMirrorEnabled,
+        channel: settings.updateChannel,
+      ).checkForUpdate();
       if (!mounted) return;
       setState(() {
         _updateInfo = update;
@@ -75,6 +84,35 @@ class _SettingsScreenState extends State<SettingsScreen> {
       setState(() => _updateStatus = 'Ошибка обновления: $e');
     } finally {
       if (mounted) setState(() => _updateBusy = false);
+    }
+  }
+
+  Future<void> _checkMirror() async {
+    final settings = context.read<SettingsController>();
+    final url = _mirrorUrlController.text.trim();
+    await settings.setUpdateMirrorUrl(url);
+    setState(() {
+      _mirrorBusy = true;
+      _mirrorStatus = 'Проверка зеркала...';
+    });
+    try {
+      final service = UpdateService(
+        mirrorUrl: url,
+        isMirrorEnabled: true,
+        channel: 'beta',
+      );
+      final update = await service.checkForUpdate(mirrorOnly: true);
+      if (!mounted) return;
+      setState(() {
+        _mirrorStatus = update.updateAvailable
+            ? 'Доступно обновление: ${update.latestVersionName} (код ${update.latestVersionCode})'
+            : 'У вас актуальная версия.';
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _mirrorStatus = 'Ошибка зеркала: $e');
+    } finally {
+      if (mounted) setState(() => _mirrorBusy = false);
     }
   }
 
@@ -112,7 +150,19 @@ class _SettingsScreenState extends State<SettingsScreen> {
   void dispose() {
     _yandexCodeController.dispose();
     _tagController.dispose();
+    _mirrorUrlController.dispose();
     super.dispose();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (!_mirrorInitialized) {
+      _mirrorInitialized = true;
+      _mirrorUrlController.text = context
+          .read<SettingsController>()
+          .updateMirrorUrl;
+    }
   }
 
   Future<void> _pickReminderTime(SettingsController settings) async {
@@ -2183,6 +2233,80 @@ class _SettingsScreenState extends State<SettingsScreen> {
                               label: 'Отключить',
                               icon: CupertinoIcons.person_badge_minus,
                               onPressed: _disconnectYandex,
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    AppCard(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Канал обновлений',
+                            style: TextStyle(fontWeight: FontWeight.w600),
+                          ),
+                          const SizedBox(height: 8),
+                          CupertinoSegmentedControl<String>(
+                            groupValue: settings.updateChannel,
+                            children: const {
+                              'stable': Padding(
+                                padding: EdgeInsets.symmetric(horizontal: 8),
+                                child: Text('Стабильный'),
+                              ),
+                              'beta': Padding(
+                                padding: EdgeInsets.symmetric(horizontal: 8),
+                                child: Text('Бета'),
+                              ),
+                            },
+                            onValueChanged: (value) async {
+                              if (value == null) return;
+                              await settings.setUpdateChannel(value);
+                              if (mounted) setState(() {});
+                            },
+                          ),
+                          const SizedBox(height: 12),
+                          Row(
+                            children: [
+                              const Expanded(child: Text('Зеркало включено')),
+                              CupertinoSwitch(
+                                value: settings.updateMirrorEnabled,
+                                onChanged: (value) async {
+                                  await settings.setUpdateMirrorEnabled(value);
+                                  if (mounted) setState(() {});
+                                },
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          CupertinoTextField(
+                            controller: _mirrorUrlController,
+                            placeholder: 'http://10.181.239.143:8080',
+                            decoration: BoxDecoration(
+                              color: context.colors.card,
+                              border: Border.all(
+                                color: context.colors.separator,
+                              ),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          SecondaryButton(
+                            label: _mirrorBusy
+                                ? 'Проверка...'
+                                : 'Проверить зеркало',
+                            icon: CupertinoIcons.cloud_download,
+                            onPressed: _mirrorBusy ? () {} : _checkMirror,
+                          ),
+                          if (_mirrorStatus.isNotEmpty) ...[
+                            const SizedBox(height: 4),
+                            Text(
+                              _mirrorStatus,
+                              style: TextStyle(
+                                color: context.colors.secondaryLabel,
+                                fontSize: 12,
+                              ),
                             ),
                           ],
                         ],
