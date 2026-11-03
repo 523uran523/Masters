@@ -4,6 +4,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:sqflite/sqflite.dart';
 
 import '../core/sync_client.dart' show SyncRow;
+import '../core/text_encoding.dart' show repairMojibake;
 import '../core/utils/app_utils.dart';
 
 import 'dart:convert';
@@ -81,7 +82,7 @@ class AppDatabase {
 
     final database = await openDatabase(
       resolved,
-      version: 20,
+      version: 21,
       onConfigure: (db) async {
         if (!kIsWeb) await db.execute('PRAGMA foreign_keys = ON');
       },
@@ -929,7 +930,99 @@ class AppDatabase {
       await _ensureSyncColumns(db);
       await _createSyncSchema(db);
     }
+    if (oldVersion < 21 && newVersion >= 21) {
+      // v21: данные, а не схема. Ранние сборки сохраняли часть seeded-строк
+      // уже повреждёнными (UTF-8, прочитанный как CP1251/CP866), и такие
+      // имена доходят до экранов кракозябрами. Литералы в коде исправлены,
+      // но строки остаются в БД — лечим их один раз здесь.
+      await repairStoredMojibake(db);
+    }
   }
+
+  /// Текстовые колонки, где живут пользовательские/seeded строки на русском.
+  /// Технические поля (id, статусы, пути, JSON) намеренно исключены.
+  static const Map<String, List<String>> _mojibakeScanColumns =
+      <String, List<String>>{
+    'clients': <String>['name', 'note'],
+    'objects': <String>['title', 'address', 'note'],
+    'jobs': <String>['title', 'note'],
+    'job_stages': <String>['title'],
+    'materials': <String>['name', 'unit'],
+    'work_sessions': <String>['note'],
+    'recurring_payments': <String>['name', 'category', 'note'],
+    'payroll_periods': <String>['name', 'note'],
+    'period_closures': <String>['note'],
+    'employees': <String>['name'],
+    'time_entries': <String>['note'],
+    'employee_payments': <String>['note'],
+    'client_reminders': <String>['title', 'body'],
+    'booking_resources': <String>['name'],
+    'appointments': <String>['title', 'note'],
+    'inventory_items': <String>['name', 'unit', 'category'],
+    'suppliers': <String>['name', 'note'],
+    'purchases': <String>['note'],
+    'stock_movements': <String>['note'],
+    'inventory_compositions': <String>['note'],
+    'accounts': <String>['name'],
+    'cash_shifts': <String>['note'],
+    'money_transactions': <String>['category', 'note'],
+    'job_attachments': <String>['file_name'],
+  };
+
+  /// Rewrites double-encoded Cyrillic in place. Returns the number of rows
+  /// that actually changed (0 for an already clean database).
+  ///
+  /// Audit triggers are dropped around the rewrite so the repair does not
+  /// flood `audit_log` with `*.update` entries for rows nobody edited; they
+  /// are restored verbatim afterwards. Sync triggers stay in place, so
+  /// repaired rows are queued for upload.
+  static Future<int> repairStoredMojibake(Database db) async {
+    final auditTriggers = await db.rawQuery(
+      "SELECT name, sql FROM sqlite_master "
+      "WHERE type='trigger' AND name LIKE 'audit_%' AND sql IS NOT NULL",
+    );
+    for (final row in auditTriggers) {
+      await db.execute('DROP TRIGGER IF EXISTS ${row['name']}');
+    }
+
+    var repaired = 0;
+    for (final entry in _mojibakeScanColumns.entries) {
+      final table = entry.key;
+      final columns = entry.value;
+      final known = (await db.rawQuery('PRAGMA table_info($table)'))
+          .map((row) => row['name'] as String)
+          .toSet();
+      final usable = columns.where(known.contains).toList();
+      if (usable.isEmpty) continue;
+
+      final selected = <String>['rowid AS _rowid', ...usable];
+      final rows = await db.rawQuery(
+        'SELECT ${selected.join(', ')} FROM $table',
+      );
+      for (final row in rows) {
+        final updates = <String, Object?>{};
+        for (final column in usable) {
+          final value = row[column];
+          if (value is! String || value.isEmpty) continue;
+          final fixed = repairMojibake(value);
+          if (fixed != value) updates[column] = fixed;
+        }
+        if (updates.isEmpty) continue;
+        final assignments = updates.keys.map((c) => '$c = ?').join(', ');
+        await db.rawUpdate(
+          'UPDATE $table SET $assignments WHERE rowid = ?',
+          [...updates.values, row['_rowid']],
+        );
+        repaired++;
+      }
+    }
+
+    for (final row in auditTriggers) {
+      await db.execute(row['sql'] as String);
+    }
+    return repaired;
+  }
+
 
   Future<String?> getCalculatorState(String jobId) async {
     final rows = await database.query(
@@ -1875,12 +1968,18 @@ class AppDatabase {
           }
 
           final source = row.data ?? <String, Object?>{};
+          final scanned = _mojibakeScanColumns[table] ?? const <String>[];
           final merged = <String, Object?>{};
           for (final column in columns) {
             if (column == 'id') {
               merged['id'] = row.id;
             } else if (source.containsKey(column)) {
-              merged[column] = source[column];
+              final value = source[column];
+              // Сервер мог принять строку от старой сборки, поэтому текст из
+              // сети проходит ту же починку, что и локальная миграция.
+              merged[column] = value is String && scanned.contains(column)
+                  ? repairMojibake(value)
+                  : value;
             } else if (local != null) {
               merged[column] = local[column];
             } else {

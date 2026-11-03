@@ -2643,6 +2643,10 @@ class MastersStore extends ChangeNotifier {
       await batch.commit(noResult: true);
     });
 
+    // Копия могла быть снята со старой сборки с уже испорченными строками —
+    // лечим их до загрузки в память, иначе mojibake вернётся на экраны.
+    await AppDatabase.repairStoredMojibake(_appDatabase.database);
+
     await load();
   }
 

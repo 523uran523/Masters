@@ -33,13 +33,13 @@ void main() {
       final ver = (await appDb.database.rawQuery(
         'PRAGMA user_version',
       ))[0]['user_version'];
-      expect(ver, 20);
+      expect(ver, 21);
     } finally {
       await appDb.close();
     }
   });
 
-  test('schema v20 contains expected core tables and triggers', () async {
+  test('schema v21 contains expected core tables and triggers', () async {
     final appDb = await AppDatabase.open(path: inMemoryDatabasePath);
     try {
       final db = appDb.database;
@@ -82,14 +82,14 @@ void main() {
       final version = (await db.rawQuery(
         'PRAGMA user_version',
       ))[0]['user_version'];
-      expect(version, 20);
+      expect(version, 21);
     } finally {
       await appDb.close();
     }
   });
 
   test(
-    'migrates v14 database to v20 (calculator_state + work_sessions + sync)',
+    'migrates v14 database to v21 (calculator_state + work_sessions + sync)',
     () async {
       // Create a fresh database at the new version, then rewind it to v14
       // (drop the new column and user_version) to simulate an existing v14 db.
@@ -108,7 +108,7 @@ void main() {
         final ver = (await reopened.database.rawQuery(
           'PRAGMA user_version',
         ))[0]['user_version'];
-        expect(ver, 20);
+        expect(ver, 21);
         final cols = (await reopened.database.rawQuery(
           'PRAGMA table_info(jobs)',
         )).map((r) => r['name'] as String).toSet();
@@ -144,7 +144,7 @@ void main() {
     }
   });
 
-  test('migrates v11 database to v20 (job_attachments + calculator_state + work_sessions + sync)', () async {
+  test('migrates v11 database to v21 (job_attachments + calculator_state + work_sessions + sync)', () async {
     final dbPath = p.join(
       Directory.systemTemp.path,
       'masters_migration_test.db',
@@ -167,7 +167,7 @@ void main() {
       final ver = (await db12.database.rawQuery(
         'PRAGMA user_version',
       ))[0]['user_version'];
-      expect(ver, 20);
+      expect(ver, 21);
     } finally {
       await db12.close();
       try {
@@ -177,7 +177,7 @@ void main() {
   });
 
   test(
-    'migrates v13 database to v20 (pinned + calculator_state + work_sessions + sync)',
+    'migrates v13 database to v21 (pinned + calculator_state + work_sessions + sync)',
     () async {
       final dbPath = p.join(
         Directory.systemTemp.path,
@@ -208,7 +208,7 @@ void main() {
         final ver = (await db.database.rawQuery(
           'PRAGMA user_version',
         ))[0]['user_version'];
-        expect(ver, 20);
+        expect(ver, 21);
       } finally {
         await db.close();
         try {
@@ -218,10 +218,10 @@ void main() {
     },
   );
 
-  test('migrates v18 database to v20 (unified booking indexes + sync outbox)', () async {
+  test('migrates v18 database to v21 (unified booking indexes + sync outbox)', () async {
     final dbPath = p.join(
       Directory.systemTemp.path,
-      'masters_migration_v20_test.db',
+      'masters_migration_v21_test.db',
     );
     try {
       await File(dbPath).delete();
@@ -236,19 +236,19 @@ void main() {
       final ver = (await db.database.rawQuery(
         'PRAGMA user_version',
       ))[0]['user_version'];
-      expect(ver, 20);
+      expect(ver, 21);
       final indexes = (await db.database.rawQuery(
         "SELECT name FROM sqlite_master WHERE type='index'",
       )).map((r) => r['name'] as String).toSet();
       expect(
         indexes.contains('idx_appts_start'),
         isTrue,
-        reason: 'missing idx_appts_start after v20',
+        reason: 'missing idx_appts_start after v21',
       );
       expect(
         indexes.contains('idx_jobs_due'),
         isTrue,
-        reason: 'missing idx_jobs_due after v20',
+        reason: 'missing idx_jobs_due after v21',
       );
     } finally {
       await db.close();
@@ -258,10 +258,10 @@ void main() {
     }
   });
 
-  test('migrates v19 database to v20 (sync outbox + triggers)', () async {
+  test('migrates v19 database to v21 (sync outbox + triggers)', () async {
     final dbPath = p.join(
       Directory.systemTemp.path,
-      'masters_migration_sync_v20_test.db',
+      'masters_migration_sync_v21_test.db',
     );
     try {
       await File(dbPath).delete();
@@ -284,7 +284,7 @@ void main() {
       final ver = (await db.database.rawQuery(
         'PRAGMA user_version',
       ))[0]['user_version'];
-      expect(ver, 20);
+      expect(ver, 21);
       final tables = (await db.database.rawQuery(
         "SELECT name FROM sqlite_master WHERE type='table'",
       )).map((r) => r['name'] as String).toSet();
