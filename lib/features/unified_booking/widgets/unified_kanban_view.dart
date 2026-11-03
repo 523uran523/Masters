@@ -10,6 +10,7 @@ import '../../../data/models/job.dart';
 import '../../../data/models/unified_event.dart';
 import '../../../state/masters_store.dart';
 import '../../../state/settings_controller.dart';
+import '../../booking/appointment_detail_screen.dart';
 import '../../jobs/job_constants.dart';
 import '../../jobs/job_detail_screen.dart';
 import '../unified_booking_screen.dart';
@@ -309,21 +310,19 @@ class _UnifiedKanbanCard extends StatelessWidget {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
-                SizedBox(
-                  height: 18,
-                  child: Row(
-                    children: [
-                      Pill(
-                        event.isJob ? 'Заказ' : 'Запись',
-                        color: color,
-                        icon: event.isJob
-                            ? CupertinoIcons.doc_text
-                            : CupertinoIcons.calendar,
-                      ),
-                      const SizedBox(width: 6),
-                      Pill(event.statusLabel, color: colors.tertiaryLabel),
-                    ],
-                  ),
+                Wrap(
+                  spacing: 6,
+                  runSpacing: 4,
+                  children: [
+                    Pill(
+                      event.isJob ? 'Заказ' : 'Запись',
+                      color: color,
+                      icon: event.isJob
+                          ? CupertinoIcons.doc_text
+                          : CupertinoIcons.calendar,
+                    ),
+                    Pill(event.statusLabel, color: colors.tertiaryLabel),
+                  ],
                 ),
               ],
             ),
@@ -349,6 +348,10 @@ class _UnifiedKanbanCard extends StatelessWidget {
         ),
         actions: [
           CupertinoActionSheetAction(
+            onPressed: () => Navigator.of(dialogContext).pop('open'),
+            child: const Text('Открыть запись'),
+          ),
+          CupertinoActionSheetAction(
             onPressed: () => Navigator.of(dialogContext).pop('done'),
             child: Text(
               a.status == AppointmentStatus.done
@@ -370,6 +373,12 @@ class _UnifiedKanbanCard extends StatelessWidget {
     );
     if (choice == null || !context.mounted) return;
     switch (choice) {
+      case 'open':
+        Navigator.of(context).push(
+          CupertinoPageRoute(
+            builder: (_) => AppointmentDetailScreen(appointmentId: a.id),
+          ),
+        );
       case 'done':
         store.setAppointmentStatus(
           a.id,
