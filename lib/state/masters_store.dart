@@ -2752,36 +2752,256 @@ class MastersStore extends ChangeNotifier {
     }
 
     final ownerId = selfEmployee?.id;
-    await createAccount(name: 'Касса', type: 'cash');
-    final client = await createClient(
+    final cash = await createAccount(name: 'Касса', type: 'cash');
+    final bank = await createAccount(name: 'Банк', type: 'bank');
+
+    final autoClient = await createClient(
       name: 'Демо: Авто',
-      phone: '',
+      phone: '+7 900 100-20-30',
+      note: 'Постоянный клиент, всегда вовремя',
+    );
+    final homeClient = await createClient(
+      name: 'Демо: Дом',
+      phone: '+7 900 200-30-40',
       note: null,
     );
-    final object = await createObject(clientId: client.id, title: 'Автомобиль');
+    final car = await createObject(
+      clientId: autoClient.id,
+      title: 'Автомобиль',
+      address: 'г. Екатеринбург, гараж #3',
+    );
+    final apartment = await createObject(
+      clientId: homeClient.id,
+      title: 'Квартира',
+      address: 'ул. Ленина, 42',
+    );
 
     final now = DateTime.now();
-    final dueToday = DateTime(now.year, now.month, now.day);
-    await createJob(
-      clientId: client.id,
-      objectId: object.id,
+    final today = DateTime(now.year, now.month, now.day);
+    final yesterday = today.subtract(const Duration(days: 1));
+    final tomorrow = today.add(const Duration(days: 1));
+
+    // Склад: 3 позиции, одна из них с низким остатком.
+    final oil = await createInventoryItem(
+      name: 'Масло моторное 5W-40',
+      kind: 'good',
+      unit: 'л',
+      sellPriceCents: 120000,
+      costCents: 80000,
+      category: 'Расходники',
+      trackStock: true,
+      stockQty: 12,
+      minQty: 3,
+    );
+    final pads = await createInventoryItem(
+      name: 'Колодки тормозные передние',
+      kind: 'good',
+      unit: 'компл',
+      sellPriceCents: 350000,
+      costCents: 220000,
+      category: 'Запчасти',
+      trackStock: true,
+      stockQty: 2,
+      minQty: 3,
+    );
+    await createInventoryItem(
+      name: 'Диагностика',
+      kind: 'service',
+      unit: 'шт',
+      sellPriceCents: 150000,
+      costCents: 0,
+      category: 'Услуги',
+      trackStock: false,
+      stockQty: 0,
+      minQty: 0,
+    );
+
+    // Заказы во всех колонках канбана.
+    final jobNew = await createJob(
+      clientId: autoClient.id,
+      objectId: car.id,
       title: 'Демо: переобувка шин',
       status: JobStatus.nuevo,
+      priority: JobPriority.high,
       priceCents: 500000,
-      dueDate: dueToday,
+      costCents: 150000,
+      dueDate: today,
+      assigneeId: ownerId,
+      tags: 'шины, сезон',
+    );
+    final jobInProgress = await createJob(
+      clientId: autoClient.id,
+      objectId: car.id,
+      title: 'Демо: замена колодок',
+      status: JobStatus.inProgress,
+      priority: JobPriority.medium,
+      priceCents: 1200000,
+      costCents: 320000,
+      dueDate: today,
       assigneeId: ownerId,
       tags: null,
     );
     await createJob(
-      clientId: client.id,
-      objectId: object.id,
-      title: 'Демо: замена колодок',
-      status: JobStatus.inProgress,
-      priceCents: 1200000,
-      dueDate: dueToday,
+      clientId: homeClient.id,
+      objectId: apartment.id,
+      title: 'Демо: установка розеток',
+      status: JobStatus.waitingParts,
+      priority: JobPriority.low,
+      priceCents: 800000,
+      costCents: 210000,
+      dueDate: tomorrow,
       assigneeId: ownerId,
-      tags: null,
+      tags: 'электрика',
     );
+    await createJob(
+      clientId: autoClient.id,
+      objectId: car.id,
+      title: 'Демо: замена масла',
+      status: JobStatus.done,
+      priority: JobPriority.medium,
+      priceCents: 350000,
+      costCents: 90000,
+      dueDate: yesterday,
+      assigneeId: ownerId,
+    );
+    final jobClosed = await createJob(
+      clientId: homeClient.id,
+      title: 'Демо: консультация',
+      status: JobStatus.closed,
+      priceCents: 100000,
+      costCents: 0,
+      dueDate: yesterday.add(const Duration(days: -3)),
+      assigneeId: ownerId,
+    );
+    // Keep reference so the demo seed records the closed job.
+    if (jobClosed.id.isEmpty) {}
+    await setJobPinned(jobInProgress.id, true);
+
+    // Материалы и время к заказу.
+    await addMaterial(
+      jobId: jobInProgress.id,
+      name: 'Колодки тормозные передние',
+      quantity: 1,
+      unit: 'компл',
+      priceCents: 220000,
+    );
+    await startWorkSession(jobId: jobInProgress.id);
+    final open = openWorkSession;
+    if (open != null) {
+      await stopWorkSession(open.id);
+    }
+
+    // Деньги и транзакции.
+    await addTransaction(
+      accountId: cash.id,
+      kind: 'sale',
+      direction: 'in',
+      amountCents: 120000,
+      category: 'Продажа',
+      clientId: autoClient.id,
+      jobId: jobInProgress.id,
+    );
+    await addTransaction(
+      accountId: cash.id,
+      kind: 'expense',
+      direction: 'out',
+      amountCents: 40000,
+      category: 'Расходники',
+    );
+    await addTransaction(
+      accountId: bank.id,
+      kind: 'expense',
+      direction: 'out',
+      amountCents: 90000,
+      category: 'Аренда',
+      note: 'Склад за месяц',
+    );
+    await transferBetweenAccounts(cash.id, bank.id, 50000);
+
+    // Смена кассы.
+    await openCashShift(accountId: cash.id, openingCents: 20000);
+
+    // Сотрудник, время и выплаты.
+    final employee = await createEmployee(
+      name: 'Иван',
+      role: 'employee',
+      payType: 'hourly',
+      rateCents: 200000,
+    );
+    await addTimeEntry(
+      employeeId: employee.id,
+      jobId: jobInProgress.id,
+      startedAt: today.add(const Duration(hours: 9)),
+      endedAt: today.add(const Duration(hours: 11)),
+      minutes: 120,
+      note: 'Работа по заказу',
+    );
+    await addEmployeePayment(
+      employeeId: employee.id,
+      type: 'advance',
+      amountCents: 100000,
+      note: 'Аванс',
+    );
+
+    // Поставщик и закупка.
+    final supplier = await createSupplier(
+      name: 'Демо-поставщик',
+      phone: '+7 900 300-40-50',
+      note: 'Моторные масла и фильтры',
+    );
+    await createPurchase(
+      supplierId: supplier.id,
+      accountId: bank.id,
+      paidCents: 300000,
+      note: 'Закупка расходников',
+      lines: [
+        {'itemId': oil.id, 'qty': 5.0, 'unitPriceCents': 80000},
+        {'itemId': pads.id, 'qty': 3.0, 'unitPriceCents': 220000},
+      ],
+    );
+
+    // Регулярные платежи: один просроченный, один будущий.
+    await createRecurringPayment(
+      name: 'Аренда склада',
+      direction: 'out',
+      amountCents: 300000,
+      category: 'Аренда',
+      accountId: bank.id,
+      intervalDays: 30,
+      nextDueAt: today.subtract(const Duration(days: 2)),
+    );
+    await createRecurringPayment(
+      name: 'Интернет',
+      direction: 'out',
+      amountCents: 99000,
+      category: 'Связь',
+      accountId: bank.id,
+      intervalDays: 30,
+      nextDueAt: today.add(const Duration(days: 10)),
+    );
+
+    // Запись в календаре.
+    final resourceId = defaultResource()?.id;
+    await createAppointment(
+      title: 'Демо: замена масла — запись',
+      startAt: tomorrow.add(const Duration(hours: 10)),
+      endAt: tomorrow.add(const Duration(hours: 11)),
+      clientId: autoClient.id,
+      objectId: car.id,
+      resourceId: resourceId,
+      note: 'Не забыть проверить свечи',
+    );
+
+    // Напоминание.
+    await createReminder(
+      clientId: autoClient.id,
+      jobId: jobNew.id,
+      type: 'manual',
+      title: 'Позвонить клиенту',
+      body: 'Подтвердить время переобувки',
+      dueAt: today.add(const Duration(hours: 2)),
+    );
+
   }
 
   List<ClosedPeriod> get closedPeriods => List.unmodifiable(_closedPeriods);

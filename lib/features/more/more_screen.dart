@@ -23,26 +23,13 @@ class MoreScreen extends StatelessWidget {
     final settings = context.watch<SettingsController>();
     final sync = context.watch<SyncService>();
 
-    final tiles = <_MoreTile>[
+    final workTiles = <_MoreTile>[
       _MoreTile(
         icon: CupertinoIcons.person_2,
         title: 'Клиенты',
         subtitle: '${store.clients.length} карточек',
         screen: const ClientsScreen(),
       ),
-      _MoreTile(
-        icon: CupertinoIcons.cube,
-        title: 'Склад',
-        subtitle: '${store.inventoryItems.length} позиций',
-        screen: const InventoryScreen(),
-      ),
-      if (settings.teamEnabled)
-        _MoreTile(
-          icon: CupertinoIcons.person,
-          title: 'Сотрудники и зарплата',
-          subtitle: '${store.employees.length} человек',
-          screen: const EmployeesScreen(),
-        ),
       if (settings.showAppointments)
         _MoreTile(
           icon: CupertinoIcons.calendar,
@@ -58,21 +45,33 @@ class MoreScreen extends StatelessWidget {
       ),
     ];
 
+    final resourceTiles = <_MoreTile>[
+      _MoreTile(
+        icon: CupertinoIcons.cube,
+        title: 'Склад',
+        subtitle: '${store.inventoryItems.length} позиций',
+        screen: const InventoryScreen(),
+      ),
+      if (settings.teamEnabled)
+        _MoreTile(
+          icon: CupertinoIcons.person,
+          title: 'Сотрудники и зарплата',
+          subtitle: '${store.employees.length} человек',
+          screen: const EmployeesScreen(),
+        ),
+    ];
+
     return CupertinoPageScaffold(
       navigationBar: const CupertinoNavigationBar(middle: Text('Ещё')),
       child: SafeArea(
         child: ListView(
           padding: const EdgeInsets.fromLTRB(16, 12, 16, 72),
           children: [
-            Text(
-              'Разделы приложения',
-              style: TextStyle(color: colors.secondaryLabel, fontSize: 13),
-            ),
-            const SizedBox(height: 10),
+            SectionLabel('Работа'),
             AppCard(
               child: Column(
                 children: [
-                  for (final tile in tiles) ...[
+                  for (final tile in workTiles) ...[
                     CupertinoListTile(
                       leading: Icon(tile.icon, color: colors.accent),
                       title: Text(tile.title),
@@ -87,11 +86,41 @@ class MoreScreen extends StatelessWidget {
                         context,
                       ).push(CupertinoPageRoute(builder: (_) => tile.screen)),
                     ),
-                    if (tile != tiles.last) const Hairline(indent: 56),
+                    if (tile != workTiles.last) const Hairline(indent: 56),
                   ],
                 ],
               ),
             ),
+            const SizedBox(height: 16),
+            if (resourceTiles.isNotEmpty) ...[
+              SectionLabel('Склад и команда'),
+              AppCard(
+                child: Column(
+                  children: [
+                    for (final tile in resourceTiles) ...[
+                      CupertinoListTile(
+                        leading: Icon(tile.icon, color: colors.accent),
+                        title: Text(tile.title),
+                        subtitle: tile.subtitle == null
+                            ? null
+                            : Text(tile.subtitle!),
+                        trailing: const Icon(
+                          CupertinoIcons.chevron_right,
+                          size: 16,
+                        ),
+                        onTap: () => Navigator.of(
+                          context,
+                        ).push(
+                          CupertinoPageRoute(builder: (_) => tile.screen),
+                        ),
+                      ),
+                      if (tile != resourceTiles.last) const Hairline(indent: 56),
+                    ],
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+            ],
             const SizedBox(height: 16),
             AppCard(
               child: CupertinoListTile(

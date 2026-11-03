@@ -361,6 +361,34 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
     }
   }
 
+  Future<void> _showEmployeeActions() async {
+    final choice = await showCupertinoModalPopup<String?>(
+      context: context,
+      builder: (dialogContext) => CupertinoActionSheet(
+        title: const Text('Дополнительно'),
+        actions: [
+          CupertinoActionSheetAction(
+            onPressed: () => Navigator.of(dialogContext).pop('periods'),
+            child: const Text('Периоды'),
+          ),
+          CupertinoActionSheetAction(
+            onPressed: () => Navigator.of(dialogContext).pop('closePeriod'),
+            child: const Text('Закрыть период'),
+          ),
+        ],
+        cancelButton: CupertinoActionSheetAction(
+          onPressed: () => Navigator.of(dialogContext).pop(),
+          child: const Text('Отмена'),
+        ),
+      ),
+    );
+    if (choice == 'periods') {
+      await _managePayrollPeriods();
+    } else if (choice == 'closePeriod') {
+      await _closeCurrentPayrollPeriod();
+    }
+  }
+
   Future<void> _managePayrollPeriods() async {
     final store = context.read<MastersStore>();
     if (store.payrollPeriods.isEmpty) {
@@ -888,19 +916,8 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
           children: [
             CupertinoButton(
               padding: EdgeInsets.zero,
-              onPressed: _managePayrollPeriods,
-              child: const Icon(
-                CupertinoIcons.doc_text,
-                semanticLabel: 'Периоды',
-              ),
-            ),
-            CupertinoButton(
-              padding: EdgeInsets.zero,
-              onPressed: _closeCurrentPayrollPeriod,
-              child: const Icon(
-                CupertinoIcons.lock,
-                semanticLabel: 'Закрыть период',
-              ),
+              onPressed: _showEmployeeActions,
+              child: const Icon(CupertinoIcons.ellipsis_circle, semanticLabel: 'Дополнительно'),
             ),
             CupertinoButton(
               padding: EdgeInsets.zero,

@@ -522,6 +522,43 @@ class _JobsScreenState extends State<JobsScreen> {
     if (result != null && mounted) setState(() => _view = result);
   }
 
+  Future<void> _showMoreActions() async {
+    final colors = context.colors;
+    await showCupertinoModalPopup<void>(
+      context: context,
+      builder: (dialogContext) => CupertinoActionSheet(
+        title: const Text('Дополнительно'),
+        actions: [
+          CupertinoActionSheetAction(
+            onPressed: () {
+              Navigator.of(dialogContext).pop();
+              _showViewPicker();
+            },
+            child: const Text('Сменить вид'),
+          ),
+          CupertinoActionSheetAction(
+            onPressed: () {
+              Navigator.of(dialogContext).pop();
+              _showFilters();
+            },
+            child: const Text('Фильтры'),
+          ),
+          CupertinoActionSheetAction(
+            onPressed: () {
+              Navigator.of(dialogContext).pop();
+              _showSearch();
+            },
+            child: const Text('Поиск'),
+          ),
+        ],
+        cancelButton: CupertinoActionSheetAction(
+          onPressed: () => Navigator.of(dialogContext).pop(),
+          child: const Text('Отмена'),
+        ),
+      ),
+    );
+  }
+
   Future<void> _quickAdd() async {
     final store = context.read<MastersStore>();
 
@@ -677,25 +714,11 @@ class _JobsScreenState extends State<JobsScreen> {
           children: [
             CupertinoButton(
               padding: EdgeInsets.zero,
-              onPressed: _showFilters,
-              child: Icon(
-                CupertinoIcons.line_horizontal_3_decrease,
-                color: _hasActiveFilters ? colors.accent : null,
-                semanticLabel: 'Фильтр',
-              ),
-            ),
-            CupertinoButton(
-              padding: EdgeInsets.zero,
-              onPressed: _showViewPicker,
+              onPressed: _showMoreActions,
               child: const Icon(
-                CupertinoIcons.square_grid_2x2_fill,
-                semanticLabel: 'Вид',
+                CupertinoIcons.ellipsis_circle,
+                semanticLabel: 'Дополнительно',
               ),
-            ),
-            CupertinoButton(
-              padding: EdgeInsets.zero,
-              onPressed: _showSearch,
-              child: const Icon(CupertinoIcons.search, semanticLabel: 'Search'),
             ),
             CupertinoButton(
               padding: EdgeInsets.zero,

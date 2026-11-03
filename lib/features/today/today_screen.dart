@@ -93,17 +93,6 @@ class _TodayScreenState extends State<TodayScreen> {
           children: [
             CupertinoButton(
               padding: EdgeInsets.zero,
-              onPressed: () => Navigator.of(
-                context,
-              ).push(CupertinoPageRoute(builder: (_) => const MoneyScreen())),
-              child: const Icon(
-                CupertinoIcons.money_dollar_circle,
-                semanticLabel: 'Деньги',
-              ),
-            ),
-            const SizedBox(width: 2),
-            CupertinoButton(
-              padding: EdgeInsets.zero,
               onPressed: _quickAdd,
               child: const Icon(CupertinoIcons.plus, semanticLabel: 'Добавить'),
             ),

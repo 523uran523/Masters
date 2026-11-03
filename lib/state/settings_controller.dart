@@ -673,7 +673,7 @@ class SettingsController extends ChangeNotifier {
   static const _syncLastAtKey = 'sync_last_at';
   static const _syncAutoKey = 'sync_auto';
 
-  static const _defaultSyncBaseUrl = 'http://192.168.1.111:8080';
+  static const _defaultSyncBaseUrl = 'http://192.168.1.112:8080';
 
   String get syncBaseUrl {
     final stored = (_prefs.getString(_syncBaseUrlKey) ?? '').trim();

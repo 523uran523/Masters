@@ -132,6 +132,64 @@ class _ClientsScreenState extends State<ClientsScreen> {
     super.dispose();
   }
 
+  Future<void> _showClientActions() async {
+    final choice = await showCupertinoModalPopup<String?>(
+      context: context,
+      builder: (dialogContext) => CupertinoActionSheet(
+        title: const Text('Дополнительно'),
+        actions: [
+          CupertinoActionSheetAction(
+            onPressed: () => Navigator.of(dialogContext).pop('filter'),
+            child: const Text('Фильтр клиентов'),
+          ),
+          CupertinoActionSheetAction(
+            onPressed: () => Navigator.of(dialogContext).pop('search'),
+            child: const Text('Поиск'),
+          ),
+          CupertinoActionSheetAction(
+            onPressed: () => Navigator.of(dialogContext).pop('merge'),
+            child: const Text('Найти дубли'),
+          ),
+        ],
+        cancelButton: CupertinoActionSheetAction(
+          onPressed: () => Navigator.of(dialogContext).pop(),
+          child: const Text('Отмена'),
+        ),
+      ),
+    );
+    if (choice == 'filter') {
+      final v = await showCupertinoModalPopup<String>(
+        context: context,
+        builder: (dialogContext) => CupertinoActionSheet(
+          title: const Text('Фильтр клиентов'),
+          actions: [
+            CupertinoActionSheetAction(
+              onPressed: () => Navigator.of(dialogContext).pop('all'),
+              child: const Text('Все'),
+            ),
+            CupertinoActionSheetAction(
+              onPressed: () => Navigator.of(dialogContext).pop('debt'),
+              child: const Text('С долгом'),
+            ),
+            CupertinoActionSheetAction(
+              onPressed: () => Navigator.of(dialogContext).pop('paid'),
+              child: const Text('Без долга'),
+            ),
+          ],
+          cancelButton: CupertinoActionSheetAction(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: const Text('Отмена'),
+          ),
+        ),
+      );
+      if (v != null) setState(() => _clientFilter = v);
+    } else if (choice == 'search') {
+      await _showSearch();
+    } else if (choice == 'merge') {
+      await _mergeDuplicates();
+    }
+  }
+
   Future<void> _addClient() async {
     final name = await _promptText(
       'Имя клиента',
@@ -365,52 +423,8 @@ class _ClientsScreenState extends State<ClientsScreen> {
           children: [
             CupertinoButton(
               padding: EdgeInsets.zero,
-              onPressed: () async {
-                final v = await showCupertinoModalPopup<String>(
-                  context: context,
-                  builder: (dialogContext) => CupertinoActionSheet(
-                    title: const Text('Фильтр клиентов'),
-                    actions: [
-                      CupertinoActionSheetAction(
-                        onPressed: () => Navigator.of(dialogContext).pop('all'),
-                        child: const Text('Все'),
-                      ),
-                      CupertinoActionSheetAction(
-                        onPressed: () =>
-                            Navigator.of(dialogContext).pop('debt'),
-                        child: const Text('С долгом'),
-                      ),
-                      CupertinoActionSheetAction(
-                        onPressed: () =>
-                            Navigator.of(dialogContext).pop('paid'),
-                        child: const Text('Без долга'),
-                      ),
-                    ],
-                    cancelButton: CupertinoActionSheetAction(
-                      onPressed: () => Navigator.of(dialogContext).pop(),
-                      child: const Text('Отмена'),
-                    ),
-                  ),
-                );
-                if (v != null) setState(() => _clientFilter = v);
-              },
-              child: const Icon(
-                CupertinoIcons.line_horizontal_3_decrease,
-                semanticLabel: 'Фильтр',
-              ),
-            ),
-            CupertinoButton(
-              padding: EdgeInsets.zero,
-              onPressed: _showSearch,
-              child: const Icon(CupertinoIcons.search, semanticLabel: 'Поиск'),
-            ),
-            CupertinoButton(
-              padding: EdgeInsets.zero,
-              onPressed: _mergeDuplicates,
-              child: const Icon(
-                CupertinoIcons.person_2_square_stack,
-                semanticLabel: 'Найти дубли',
-              ),
+              onPressed: _showClientActions,
+              child: const Icon(CupertinoIcons.ellipsis_circle, semanticLabel: 'Дополнительно'),
             ),
             CupertinoButton(
               padding: EdgeInsets.zero,
