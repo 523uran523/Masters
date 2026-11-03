@@ -23,6 +23,7 @@
 | tax-radar | docs/specs/2026-11-01-tax-radar.md | senior | **принято** (aee3ae4/dfb0b39/4c9a57b/6e9e9ec/e87a1c4; 107/107) |
 | release-031316 | docs/specs/2026-11-01-release-031316.md | senior | **принято/опубликовано** (390af5b9; 0.3.13+16, code 16, SHA a707e94a…) |
 | sync-server | docs/specs/2026-11-03-sync-server.md | senior | **реализовано** (DB v20; клиент + `meaxis-sync` 1.0.0, health OK на устройстве) |
+| release-031417 | docs/specs/2026-11-03-release-031417.md | senior | **принято/опубликовано** (b895cde; 0.3.14+17, code 17, SHA 709ed722…; зеркало `192.168.1.112:8080/master-updates/masters/`) |
 | release-031417 | docs/specs/2026-11-03-release-031417.md | senior | **принято/опубликовано** (b895cde; 0.3.14+17, code 17, SHA 709ed722…; зеркало на `192.168.1.112:8080/master-updates`) |
 
 ## Правила
