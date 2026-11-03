@@ -11,6 +11,7 @@ import '../../features/stats/stats_screen.dart';
 import '../../features/unified_booking/unified_booking_screen.dart';
 import '../../state/masters_store.dart';
 import '../../state/settings_controller.dart';
+import '../../state/sync_service.dart';
 
 class MoreScreen extends StatelessWidget {
   const MoreScreen({super.key});
@@ -20,6 +21,7 @@ class MoreScreen extends StatelessWidget {
     final store = context.watch<MastersStore>();
     final colors = context.colors;
     final settings = context.watch<SettingsController>();
+    final sync = context.watch<SyncService>();
 
     final tiles = <_MoreTile>[
       _MoreTile(
@@ -55,17 +57,6 @@ class MoreScreen extends StatelessWidget {
         screen: const StatsScreen(),
       ),
     ];
-
-    if (settings.yandexConnected) {
-      tiles.add(
-        _MoreTile(
-          icon: CupertinoIcons.cloud_fill,
-          title: 'Облако',
-          subtitle: 'Связь с Яндекс.Диск',
-          screen: const SettingsScreen(),
-        ),
-      );
-    }
 
     return CupertinoPageScaffold(
       navigationBar: const CupertinoNavigationBar(middle: Text('Ещё')),
@@ -106,12 +97,50 @@ class MoreScreen extends StatelessWidget {
               child: CupertinoListTile(
                 leading: Icon(CupertinoIcons.gear, color: colors.accent),
                 title: const Text('Настройки'),
-                subtitle: const Text(
-                  'Аккаунт, деньги, синхронизация, PIN, биометрия',
-                ),
+                subtitle: const Text('Деньги, склад, PIN, обновления'),
                 trailing: const Icon(CupertinoIcons.chevron_right, size: 16),
                 onTap: () => Navigator.of(context).push(
                   CupertinoPageRoute(builder: (_) => const SettingsScreen()),
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+            GestureDetector(
+              onTap: () => Navigator.of(context).push(
+                CupertinoPageRoute(builder: (_) => const SettingsScreen()),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 4),
+                child: Row(
+                  children: [
+                    Icon(
+                      CupertinoIcons.cloud,
+                      size: 14,
+                      color: sync.ready ? colors.accent : colors.tertiaryLabel,
+                    ),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: Text(
+                        sync.ready
+                            ? 'Синхронизация: ${sync.spaceName}'
+                            : 'Синхронизация не настроена',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: colors.tertiaryLabel,
+                        ),
+                      ),
+                    ),
+                    if (sync.ready)
+                      Text(
+                        '${sync.pending}',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: colors.tertiaryLabel,
+                        ),
+                      )
+                    else
+                      Pill('Настроить', color: colors.accent),
+                  ],
                 ),
               ),
             ),

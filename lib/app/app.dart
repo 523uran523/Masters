@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:provider/provider.dart';
@@ -5,6 +7,7 @@ import 'package:provider/provider.dart';
 import '../features/onboarding/onboarding_screen.dart';
 import '../state/masters_store.dart';
 import '../state/settings_controller.dart';
+import '../state/sync_service.dart';
 import 'root_shell.dart';
 import 'theme/app_theme.dart';
 
@@ -17,11 +20,13 @@ class MastersApp extends StatefulWidget {
     super.key,
     required this.store,
     required this.settings,
+    required this.sync,
     this.navigatorKey,
   });
 
   final MastersStore store;
   final SettingsController settings;
+  final SyncService sync;
   final GlobalKey<NavigatorState>? navigatorKey;
 
   @override
@@ -41,7 +46,10 @@ class _MastersAppState extends State<MastersApp> with WidgetsBindingObserver {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _updateWidget();
       WidgetsBinding.instance.addPostFrameCallback(
-        (_) => _ensureAppPinIfNeeded().then((_) => _tryAutoSync()),
+        (_) => _ensureAppPinIfNeeded().then((_) async {
+          await _tryAutoSync();
+          await _tryServerSync();
+        }),
       );
     });
   }
@@ -168,6 +176,20 @@ class _MastersAppState extends State<MastersApp> with WidgetsBindingObserver {
     } catch (_) {}
   }
 
+  Future<void> _tryServerSync() async {
+    final sync = widget.sync;
+    if (!sync.ready || !sync.autoSync) return;
+    await sync.refreshPending();
+    if (sync.pending == 0) return;
+    await sync.syncNow(silent: true);
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state != AppLifecycleState.resumed) return;
+    unawaited(_tryServerSync());
+  }
+
   void _updateWidget() {
     // no-op
   }
@@ -193,6 +215,7 @@ class _MastersAppState extends State<MastersApp> with WidgetsBindingObserver {
       providers: [
         ChangeNotifierProvider.value(value: widget.store),
         ChangeNotifierProvider.value(value: widget.settings),
+        ChangeNotifierProvider.value(value: widget.sync),
       ],
       child: AnimatedBuilder(
         animation: widget.settings,

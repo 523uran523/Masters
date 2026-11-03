@@ -33,13 +33,13 @@ void main() {
       final ver = (await appDb.database.rawQuery(
         'PRAGMA user_version',
       ))[0]['user_version'];
-      expect(ver, 19);
+      expect(ver, 20);
     } finally {
       await appDb.close();
     }
   });
 
-  test('schema v12 contains expected core tables and triggers', () async {
+  test('schema v20 contains expected core tables and triggers', () async {
     final appDb = await AppDatabase.open(path: inMemoryDatabasePath);
     try {
       final db = appDb.database;
@@ -56,8 +56,18 @@ void main() {
         'audit_log',
         'period_closures',
         'work_sessions',
+        'sync_outbox',
       ]) {
         expect(tables.contains(t), isTrue, reason: 'missing table $t');
+      }
+      final triggers = (await db.rawQuery(
+        "SELECT name FROM sqlite_master WHERE type='trigger'",
+      )).map((r) => r['name'] as String).toSet();
+      for (final t in ['clients', 'jobs', 'money_transactions']) {
+        for (final op in ['insert', 'update', 'delete']) {
+          final name = 'sync_out_${t}_$op';
+          expect(triggers.contains(name), isTrue, reason: 'missing $name');
+        }
       }
       final jobCols = (await db.rawQuery('PRAGMA table_info(jobs)'))
           .map((r) => r['name'] as String)
@@ -72,14 +82,14 @@ void main() {
       final version = (await db.rawQuery(
         'PRAGMA user_version',
       ))[0]['user_version'];
-      expect(version, 19);
+      expect(version, 20);
     } finally {
       await appDb.close();
     }
   });
 
   test(
-    'migrates v14 database to v19 (calculator_state + work_sessions)',
+    'migrates v14 database to v20 (calculator_state + work_sessions + sync)',
     () async {
       // Create a fresh database at the new version, then rewind it to v14
       // (drop the new column and user_version) to simulate an existing v14 db.
@@ -98,7 +108,7 @@ void main() {
         final ver = (await reopened.database.rawQuery(
           'PRAGMA user_version',
         ))[0]['user_version'];
-        expect(ver, 19);
+        expect(ver, 20);
         final cols = (await reopened.database.rawQuery(
           'PRAGMA table_info(jobs)',
         )).map((r) => r['name'] as String).toSet();
@@ -134,7 +144,7 @@ void main() {
     }
   });
 
-  test('migrates v11 database to v19 (job_attachments + calculator_state + work_sessions)', () async {
+  test('migrates v11 database to v20 (job_attachments + calculator_state + work_sessions + sync)', () async {
     final dbPath = p.join(
       Directory.systemTemp.path,
       'masters_migration_test.db',
@@ -157,7 +167,7 @@ void main() {
       final ver = (await db12.database.rawQuery(
         'PRAGMA user_version',
       ))[0]['user_version'];
-      expect(ver, 19);
+      expect(ver, 20);
     } finally {
       await db12.close();
       try {
@@ -167,7 +177,7 @@ void main() {
   });
 
   test(
-    'migrates v13 database to v19 (pinned + calculator_state + work_sessions)',
+    'migrates v13 database to v20 (pinned + calculator_state + work_sessions + sync)',
     () async {
       final dbPath = p.join(
         Directory.systemTemp.path,
@@ -198,7 +208,7 @@ void main() {
         final ver = (await db.database.rawQuery(
           'PRAGMA user_version',
         ))[0]['user_version'];
-        expect(ver, 19);
+        expect(ver, 20);
       } finally {
         await db.close();
         try {
@@ -208,10 +218,10 @@ void main() {
     },
   );
 
-  test('migrates v18 database to v19 (unified booking indexes)', () async {
+  test('migrates v18 database to v20 (unified booking indexes + sync outbox)', () async {
     final dbPath = p.join(
       Directory.systemTemp.path,
-      'masters_migration_v19_test.db',
+      'masters_migration_v20_test.db',
     );
     try {
       await File(dbPath).delete();
@@ -226,20 +236,75 @@ void main() {
       final ver = (await db.database.rawQuery(
         'PRAGMA user_version',
       ))[0]['user_version'];
-      expect(ver, 19);
+      expect(ver, 20);
       final indexes = (await db.database.rawQuery(
         "SELECT name FROM sqlite_master WHERE type='index'",
       )).map((r) => r['name'] as String).toSet();
       expect(
         indexes.contains('idx_appts_start'),
         isTrue,
-        reason: 'missing idx_appts_start after v19',
+        reason: 'missing idx_appts_start after v20',
       );
       expect(
         indexes.contains('idx_jobs_due'),
         isTrue,
-        reason: 'missing idx_jobs_due after v19',
+        reason: 'missing idx_jobs_due after v20',
       );
+    } finally {
+      await db.close();
+      try {
+        await File(dbPath).delete();
+      } catch (_) {}
+    }
+  });
+
+  test('migrates v19 database to v20 (sync outbox + triggers)', () async {
+    final dbPath = p.join(
+      Directory.systemTemp.path,
+      'masters_migration_sync_v20_test.db',
+    );
+    try {
+      await File(dbPath).delete();
+    } catch (_) {}
+    // Create a fresh db, then rewind to v19 by removing the sync schema.
+    final db19 = await AppDatabase.open(path: dbPath);
+    final raw = db19.database;
+    final triggers = await raw.rawQuery(
+      "SELECT name FROM sqlite_master WHERE type='trigger' AND name LIKE 'sync_out_%'",
+    );
+    for (final row in triggers) {
+      await raw.execute('DROP TRIGGER IF EXISTS ${row['name']}');
+    }
+    await raw.execute('DROP TABLE IF EXISTS sync_outbox');
+    await raw.execute('PRAGMA user_version = 19');
+    await db19.close();
+
+    final db = await AppDatabase.open(path: dbPath);
+    try {
+      final ver = (await db.database.rawQuery(
+        'PRAGMA user_version',
+      ))[0]['user_version'];
+      expect(ver, 20);
+      final tables = (await db.database.rawQuery(
+        "SELECT name FROM sqlite_master WHERE type='table'",
+      )).map((r) => r['name'] as String).toSet();
+      expect(tables.contains('sync_outbox'), isTrue);
+
+      // A local write must land in the outbox through the new triggers.
+      final now = DateTime.now().millisecondsSinceEpoch;
+      await db.database.insert('clients', {
+        'id': 'client-sync-1',
+        'name': 'Sync client',
+        'phone': '',
+        'created_at': now,
+        'updated_at': now,
+      });
+      final queued = await db.database.query(
+        'sync_outbox',
+        where: 'table_name = ? AND row_id = ?',
+        whereArgs: ['clients', 'client-sync-1'],
+      );
+      expect(queued, hasLength(1), reason: 'insert trigger did not queue row');
     } finally {
       await db.close();
       try {

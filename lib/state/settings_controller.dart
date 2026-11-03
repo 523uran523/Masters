@@ -6,6 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:timezone/data/latest.dart' as tzdata;
 
 import '../core/app_pin_service.dart';
+import '../core/utils/app_utils.dart';
 import '../core/yandex_oauth.dart';
 
 /// Налоговый профиль: страна + режим налогообложения + ставка.
@@ -655,6 +656,131 @@ class SettingsController extends ChangeNotifier {
 
   Future<void> completeOnboarding() async {
     await _prefs.setBool(_onboardingKey, true);
+    notifyListeners();
+  }
+
+  // ── Синхронизация между устройствами ───────────────────────────────────────
+
+  static const _syncBaseUrlKey = 'sync_base_url';
+  static const _syncEmailKey = 'sync_email';
+  static const _syncTokenKey = 'sync_token';
+  static const _syncTokenExpiresKey = 'sync_token_expires_at';
+  static const _syncSpaceIdKey = 'sync_space_id';
+  static const _syncSpaceNameKey = 'sync_space_name';
+  static const _syncSpaceInviteKey = 'sync_space_invite';
+  static const _syncLastSeqKey = 'sync_last_seq';
+  static const _syncDeviceIdKey = 'sync_device_id';
+  static const _syncLastAtKey = 'sync_last_at';
+  static const _syncAutoKey = 'sync_auto';
+
+  static const _defaultSyncBaseUrl = 'http://192.168.1.111:8080';
+
+  String get syncBaseUrl {
+    final stored = (_prefs.getString(_syncBaseUrlKey) ?? '').trim();
+    return stored.isEmpty ? _defaultSyncBaseUrl : stored;
+  }
+
+  Future<void> setSyncBaseUrl(String value) async {
+    final url = value.trim();
+    if (url.isEmpty) {
+      await _prefs.remove(_syncBaseUrlKey);
+    } else {
+      await _prefs.setString(_syncBaseUrlKey, url);
+    }
+    notifyListeners();
+  }
+
+  String get syncEmail => _prefs.getString(_syncEmailKey) ?? '';
+  String get syncToken => _prefs.getString(_syncTokenKey) ?? '';
+  bool get syncSignedIn => syncToken.isNotEmpty;
+
+  DateTime? get syncTokenExpiresAt {
+    final raw = _prefs.getInt(_syncTokenExpiresKey);
+    if (raw == null || raw == 0) return null;
+    return DateTime.fromMillisecondsSinceEpoch(raw * 1000);
+  }
+
+  Future<void> setSyncSession({
+    required String token,
+    required String email,
+    int expiresAtSeconds = 0,
+  }) async {
+    await _prefs.setString(_syncTokenKey, token);
+    await _prefs.setString(_syncEmailKey, email);
+    if (expiresAtSeconds > 0) {
+      await _prefs.setInt(_syncTokenExpiresKey, expiresAtSeconds);
+    }
+    notifyListeners();
+  }
+
+  String get syncSpaceId => _prefs.getString(_syncSpaceIdKey) ?? '';
+  String get syncSpaceName => _prefs.getString(_syncSpaceNameKey) ?? '';
+  String get syncSpaceInvite => _prefs.getString(_syncSpaceInviteKey) ?? '';
+
+  Future<void> setSyncSpace({
+    required String id,
+    required String name,
+    String inviteCode = '',
+  }) async {
+    await _prefs.setString(_syncSpaceIdKey, id);
+    await _prefs.setString(_syncSpaceNameKey, name);
+    if (inviteCode.isEmpty) {
+      await _prefs.remove(_syncSpaceInviteKey);
+    } else {
+      await _prefs.setString(_syncSpaceInviteKey, inviteCode);
+    }
+    notifyListeners();
+  }
+
+  Future<void> clearSyncSpace() async {
+    await _prefs.remove(_syncSpaceIdKey);
+    await _prefs.remove(_syncSpaceNameKey);
+    await _prefs.remove(_syncSpaceInviteKey);
+    await _prefs.remove(_syncLastSeqKey);
+    notifyListeners();
+  }
+
+  int get syncLastSeq => _prefs.getInt(_syncLastSeqKey) ?? 0;
+
+  Future<void> setSyncLastSeq(int value) async {
+    await _prefs.setInt(_syncLastSeqKey, value < 0 ? 0 : value);
+    notifyListeners();
+  }
+
+  /// Идентификатор устройства для разрешения конфликтов «последняя запись».
+  String get syncDeviceId {
+    final stored = _prefs.getString(_syncDeviceIdKey);
+    if (stored != null && stored.isNotEmpty) return stored;
+    final fresh = newId();
+    _prefs.setString(_syncDeviceIdKey, fresh);
+    return fresh;
+  }
+
+  DateTime? get syncLastAt {
+    final raw = _prefs.getInt(_syncLastAtKey);
+    if (raw == null) return null;
+    return DateTime.fromMillisecondsSinceEpoch(raw);
+  }
+
+  Future<void> markSyncedNow() async {
+    await _prefs.setInt(
+      _syncLastAtKey,
+      DateTime.now().millisecondsSinceEpoch,
+    );
+    notifyListeners();
+  }
+
+  bool get syncAuto => _prefs.getBool(_syncAutoKey) ?? true;
+
+  Future<void> setSyncAuto(bool value) async {
+    await _prefs.setBool(_syncAutoKey, value);
+    notifyListeners();
+  }
+
+  Future<void> signOutSync() async {
+    await _prefs.remove(_syncTokenKey);
+    await _prefs.remove(_syncTokenExpiresKey);
+    await clearSyncSpace();
     notifyListeners();
   }
 }

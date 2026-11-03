@@ -16,6 +16,7 @@ import 'core/yandex_oauth.dart';
 import 'data/app_database.dart';
 import 'state/masters_store.dart';
 import 'state/settings_controller.dart';
+import 'state/sync_service.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -69,8 +70,18 @@ Future<void> main() async {
     }));
   }
 
+  final sync = SyncService(database: database, settings: settings, store: store);
+  await sync.refreshPending();
+
   final navigatorKey = GlobalKey<NavigatorState>();
-  runApp(MastersApp(store: store, settings: settings, navigatorKey: navigatorKey));
+  runApp(
+    MastersApp(
+      store: store,
+      settings: settings,
+      sync: sync,
+      navigatorKey: navigatorKey,
+    ),
+  );
 }
 
 /// Завершает OAuth-вход, если приложение открыто по redirect-адресу с кодом.

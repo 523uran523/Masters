@@ -3,6 +3,7 @@ import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:sqflite/sqflite.dart';
 
+import '../core/sync_client.dart' show SyncRow;
 import '../core/utils/app_utils.dart';
 
 import 'dart:convert';
@@ -17,6 +18,48 @@ class BackupMergeResult {
   final int affected;
   final int keptLocal;
   final List<String> conflicts;
+}
+
+/// Пачка изменений, готовая к отправке на сервер.
+class SyncPushBatch {
+  const SyncPushBatch({
+    this.rows = const [],
+    this.outboxIds = const [],
+    this.staleIds = const [],
+  });
+
+  final List<SyncRow> rows;
+
+  /// Записи очереди, соответствующие [rows].
+  final List<int> outboxIds;
+
+  /// Записи очереди, которые можно просто удалить (дубли, чужие таблицы).
+  final List<int> staleIds;
+
+  bool get isEmpty => rows.isEmpty && outboxIds.isEmpty && staleIds.isEmpty;
+}
+
+/// Результат применения строк, полученных с сервера синхронизации.
+class SyncApplyResult {
+  const SyncApplyResult({
+    this.applied = 0,
+    this.keptLocal = 0,
+    this.skipped = 0,
+  });
+
+  final int applied;
+  final int keptLocal;
+
+  /// Строки, которые не удалось записать (нет родителя, неизвестная таблица).
+  final int skipped;
+
+  int get total => applied + keptLocal + skipped;
+
+  SyncApplyResult operator +(SyncApplyResult other) => SyncApplyResult(
+    applied: applied + other.applied,
+    keptLocal: keptLocal + other.keptLocal,
+    skipped: skipped + other.skipped,
+  );
 }
 
 class AppDatabase {
@@ -38,7 +81,7 @@ class AppDatabase {
 
     final database = await openDatabase(
       resolved,
-      version: 19,
+      version: 20,
       onConfigure: (db) async {
         if (!kIsWeb) await db.execute('PRAGMA foreign_keys = ON');
       },
@@ -175,6 +218,7 @@ class AppDatabase {
     await _ensureSyncColumns(db);
     await _createAttachmentSchema(db);
     await _createAuditTriggers(db);
+    await _createSyncSchema(db);
   }
 
   static Future<void> _createAuditLogSchema(Database db) async {
@@ -277,6 +321,7 @@ class AppDatabase {
       'purchase_lines',
       'stock_movements',
       'recipe_lines',
+      'inventory_compositions',
       'booking_resources',
       'appointments',
       'client_reminders',
@@ -299,6 +344,105 @@ class AppDatabase {
       await add(table, 'updated_at', 'INTEGER');
       await add(table, 'deleted_at', 'INTEGER');
       await add(table, 'device_id', 'TEXT');
+    }
+  }
+
+  /// Таблицы, которые участвуют в обмене между устройствами.
+  ///
+  /// `work_sessions` намеренно исключены: их идентификатор локальный
+  /// (autoincrement), поэтому строки не сопоставимы между устройствами.
+  static const List<String> syncTables = <String>[
+    'clients',
+    'objects',
+    'jobs',
+    'job_stages',
+    'materials',
+    'accounts',
+    'cash_shifts',
+    'money_transactions',
+    'inventory_items',
+    'suppliers',
+    'purchases',
+    'purchase_lines',
+    'stock_movements',
+    'inventory_compositions',
+    'booking_resources',
+    'appointments',
+    'client_reminders',
+    'employees',
+    'time_entries',
+    'employee_payments',
+    'recurring_payments',
+    'payroll_periods',
+    'period_closures',
+  ];
+
+  /// Порядок применения: сначала справочники, затем зависимые строки.
+  static const List<String> _syncApplyOrder = <String>[
+    'clients',
+    'employees',
+    'suppliers',
+    'accounts',
+    'booking_resources',
+    'inventory_items',
+    'objects',
+    'jobs',
+    'job_stages',
+    'materials',
+    'appointments',
+    'client_reminders',
+    'cash_shifts',
+    'money_transactions',
+    'purchases',
+    'purchase_lines',
+    'stock_movements',
+    'inventory_compositions',
+    'time_entries',
+    'employee_payments',
+    'recurring_payments',
+    'payroll_periods',
+    'period_closures',
+  ];
+
+  static Future<void> _createSyncSchema(Database db) async {
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS sync_outbox (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        table_name TEXT NOT NULL,
+        row_id TEXT NOT NULL,
+        queued_at INTEGER NOT NULL
+      )
+    ''');
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_sync_outbox_row '
+      'ON sync_outbox(table_name, row_id)',
+    );
+    await _createSyncTriggers(db);
+  }
+
+  /// Триггеры складывают изменённые строки в очередь отправки.
+  ///
+  /// Очередь нужна, потому что часть репозиториев пишет строки без
+  /// `updated_at`/`device_id` и с жёстким удалением: без триггеров такие
+  /// изменения нечем обнаружить.
+  static Future<void> _createSyncTriggers(Database db) async {
+    for (final table in syncTables) {
+      for (final op in const ['insert', 'update', 'delete']) {
+        final trigger = 'sync_out_${table}_$op';
+        final column = op == 'delete' ? 'OLD' : 'NEW';
+        await db.execute('DROP TRIGGER IF EXISTS $trigger');
+        await db.execute('''
+          CREATE TRIGGER $trigger AFTER ${op.toUpperCase()} ON $table
+          BEGIN
+            INSERT INTO sync_outbox (table_name, row_id, queued_at)
+            VALUES (
+              '$table',
+              $column.id,
+              CAST(strftime('%s','now') AS INTEGER) * 1000
+            );
+          END
+        ''');
+      }
     }
   }
 
@@ -778,6 +922,12 @@ class AppDatabase {
       await db.execute(
         'CREATE INDEX IF NOT EXISTS idx_jobs_due ON jobs(due_date)',
       );
+    }
+    if (oldVersion < 20 && newVersion >= 20) {
+      // v20: синхронизация между устройствами. Синхронные колонки уже есть,
+      // добавляем очередь изменений для отправки на сервер.
+      await _ensureSyncColumns(db);
+      await _createSyncSchema(db);
     }
   }
 
@@ -1540,6 +1690,249 @@ class AppDatabase {
         VALUES (lower(hex(randomblob(16))), 'local-trigger', 'period_closures.delete', 'period_closures', OLD.id, json_object('id', OLD.id, 'start_at', OLD.start_at, 'end_at', OLD.end_at, 'closed_at', OLD.closed_at, 'note', OLD.note, 'updated_at', OLD.updated_at, 'deleted_at', OLD.deleted_at, 'device_id', OLD.device_id), (strftime('%s','now') * 1000), OLD.device_id);
       END
     ''');
+  }
+
+  // ---------------------------------------------------------------------
+  // Синхронизация между устройствами.
+  // ---------------------------------------------------------------------
+
+  /// Сколько строк ждёт отправки на сервер.
+  Future<int> syncOutboxCount() async {
+    final rows = await database.rawQuery(
+      'SELECT COUNT(*) AS c FROM ('
+      'SELECT table_name, row_id FROM sync_outbox '
+      'GROUP BY table_name, row_id)',
+    );
+    return (rows.first['c'] as num?)?.toInt() ?? 0;
+  }
+
+  /// Убирает очередь изменений (используется при выходе из рабочей области).
+  Future<void> clearSyncOutbox() => database.delete('sync_outbox');
+
+  /// Собирает пачку изменений для отправки на сервер.
+  ///
+  /// Заодно проставляет строкам `updated_at` и `device_id`: часть
+  /// репозиториев их не пишет, а без меток сервер не сможет разрешить
+  /// конфликт версий.
+  Future<SyncPushBatch> collectSyncBatch({
+    required String deviceId,
+    int limit = 400,
+  }) async {
+    final queued = await database.rawQuery(
+      'SELECT id, table_name, row_id, queued_at FROM sync_outbox '
+      'ORDER BY id ASC LIMIT ?',
+      [limit < 1 ? 1 : limit],
+    );
+
+    final rows = <SyncRow>[];
+    final outboxIds = <int>[];
+    final staleIds = <int>[];
+    final seen = <String>{};
+
+    for (final entry in queued) {
+      final outboxId = (entry['id'] as num?)?.toInt() ?? 0;
+      final table = entry['table_name']?.toString() ?? '';
+      final id = entry['row_id']?.toString() ?? '';
+      if (table.isEmpty || id.isEmpty || !syncTables.contains(table)) {
+        if (outboxId > 0) staleIds.add(outboxId);
+        continue;
+      }
+      if (!seen.add('$table\u0000$id')) {
+        // Строку уже собрали по более ранней записи очереди.
+        if (outboxId > 0) staleIds.add(outboxId);
+        continue;
+      }
+      if (outboxId > 0) outboxIds.add(outboxId);
+
+      final queuedAt = (entry['queued_at'] as num?)?.toInt() ?? 0;
+      final found = await database.query(
+        table,
+        where: 'id = ?',
+        whereArgs: [id],
+        limit: 1,
+      );
+
+      if (found.isEmpty) {
+        // Строку удалили физически — отправляем надгробие.
+        final stamp = queuedAt > 0
+            ? queuedAt
+            : DateTime.now().millisecondsSinceEpoch;
+        rows.add(
+          SyncRow(
+            table: table,
+            id: id,
+            updatedAt: stamp,
+            deviceId: deviceId,
+            deleted: true,
+            data: {'id': id, 'deleted_at': stamp},
+          ),
+        );
+        continue;
+      }
+
+      final row = found.first;
+      final currentUpdated = _mergeEpoch(row, 'updated_at');
+      final createdAt = _mergeEpoch(row, 'created_at');
+      final base = currentUpdated > 0 ? currentUpdated : createdAt;
+      final stamp = queuedAt > base ? queuedAt : base;
+      final storedDevice = (row['device_id'] ?? '').toString();
+      final device = storedDevice.isEmpty ? deviceId : storedDevice;
+
+      // Метки ставим только в отправляемой копии: UPDATE в базе снова
+      // сработал бы триггером очереди и вернул строку в отправку.
+      final payload = Map<String, Object?>.from(row)
+        ..['updated_at'] = stamp
+        ..['device_id'] = device;
+
+      rows.add(
+        SyncRow(
+          table: table,
+          id: id,
+          updatedAt: stamp,
+          deviceId: device,
+          deleted: row['deleted_at'] != null,
+          data: payload,
+        ),
+      );
+    }
+
+    return SyncPushBatch(rows: rows, outboxIds: outboxIds, staleIds: staleIds);
+  }
+
+  /// Убирает из очереди ровно те записи, что ушли на сервер.
+  ///
+  /// Записи, появившиеся во время отправки, остаются — иначе локальная
+  /// правка, сделанная в процессе, потерялась бы.
+  Future<void> confirmSyncBatch(SyncPushBatch batch) async {
+    final ids = [...batch.outboxIds, ...batch.staleIds];
+    if (ids.isEmpty) return;
+    const chunk = 200;
+    for (var start = 0; start < ids.length; start += chunk) {
+      final slice = ids.skip(start).take(chunk).toList();
+      final marks = List.filled(slice.length, '?').join(',');
+      await database.delete(
+        'sync_outbox',
+        where: 'id IN ($marks)',
+        whereArgs: slice,
+      );
+    }
+  }
+
+  /// Применяет строки, полученные с сервера.
+  ///
+  /// Побеждает версия с большей меткой времени; при равенстве — версия
+  /// устройства, чей `device_id` больше строкой (то же правило, что на
+  /// сервере).
+  Future<SyncApplyResult> applySyncRows(List<SyncRow> incoming) async {
+    if (incoming.isEmpty) return const SyncApplyResult();
+
+    final grouped = <String, List<SyncRow>>{};
+    for (final row in incoming) {
+      if (row.id.isEmpty) continue;
+      grouped.putIfAbsent(row.table, () => <SyncRow>[]).add(row);
+    }
+
+    var applied = 0;
+    var keptLocal = 0;
+    var skipped = 0;
+
+    await database.transaction((txn) async {
+      for (final table in _syncApplyOrder) {
+        final rows = grouped[table];
+        if (rows == null) continue;
+
+        final pragma = await txn.rawQuery('PRAGMA table_info($table)');
+        final columns = pragma
+            .map((row) => row['name']?.toString())
+            .whereType<String>()
+            .toList();
+        if (columns.isEmpty) {
+          skipped += rows.length;
+          continue;
+        }
+
+        for (final row in rows) {
+          final existing = await txn.query(
+            table,
+            where: 'id = ?',
+            whereArgs: [row.id],
+            limit: 1,
+          );
+          final local = existing.isEmpty ? null : existing.first;
+          final localTime = local == null ? 0 : _mergeEpoch(local, 'updated_at');
+          final remoteTime = row.updatedAt;
+
+          if (local != null && localTime > remoteTime) {
+            keptLocal++;
+            continue;
+          }
+          if (local != null && localTime == remoteTime && remoteTime > 0) {
+            final localDevice = (local['device_id'] ?? '').toString();
+            if (localDevice.compareTo(row.deviceId) >= 0) {
+              keptLocal++;
+              continue;
+            }
+          }
+
+          final source = row.data ?? <String, Object?>{};
+          final merged = <String, Object?>{};
+          for (final column in columns) {
+            if (column == 'id') {
+              merged['id'] = row.id;
+            } else if (source.containsKey(column)) {
+              merged[column] = source[column];
+            } else if (local != null) {
+              merged[column] = local[column];
+            } else {
+              merged[column] = null;
+            }
+          }
+
+          final stamp = remoteTime > 0
+              ? remoteTime
+              : DateTime.now().millisecondsSinceEpoch;
+          merged['updated_at'] = stamp;
+          if (row.deviceId.isNotEmpty) merged['device_id'] = row.deviceId;
+          if (row.deleted && merged['deleted_at'] == null) {
+            merged['deleted_at'] = stamp;
+          }
+
+          try {
+            if (local == null) {
+              await txn.insert(
+                table,
+                merged,
+                conflictAlgorithm: ConflictAlgorithm.ignore,
+              );
+            } else {
+              await txn.update(
+                table,
+                merged,
+                where: 'id = ?',
+                whereArgs: [row.id],
+              );
+            }
+            applied++;
+          } catch (_) {
+            // Строку нельзя записать (например, родитель ещё не пришёл).
+            skipped++;
+            continue;
+          }
+
+          await txn.delete(
+            'sync_outbox',
+            where: 'table_name = ? AND row_id = ?',
+            whereArgs: [table, row.id],
+          );
+        }
+      }
+    });
+
+    return SyncApplyResult(
+      applied: applied,
+      keptLocal: keptLocal,
+      skipped: skipped,
+    );
   }
 
   Future<void> close() => database.close();
