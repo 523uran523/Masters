@@ -1640,8 +1640,20 @@ class MastersStore extends ChangeNotifier {
     final idx = _inventoryItems.indexWhere((i) => i.id == itemId);
     if (idx == -1 || qty <= 0) return;
     final item = _inventoryItems[idx];
+    // Цена поступления обновляет себестоимость: при нескольких поставках
+    // берём взвешенную среднюю, чтобы маржа считалась по реальным деньгам.
+    var costCents = item.costCents;
+    final price = unitPriceCents ?? 0;
+    if (price > 0) {
+      final prevQty = item.stockQty > 0 ? item.stockQty : 0.0;
+      final totalQty = prevQty + qty;
+      costCents = totalQty <= 0
+          ? price
+          : ((item.costCents * prevQty + price * qty) / totalQty).round();
+    }
     final updated = item.copyWith(
       stockQty: item.stockQty + qty,
+      costCents: costCents,
       updatedAt: DateTime.now(),
     );
     await _inventoryRepo.save(updated);

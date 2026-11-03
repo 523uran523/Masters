@@ -4,10 +4,12 @@ import 'package:provider/provider.dart';
 
 import '../../app/theme/app_theme.dart';
 import '../../app/ui.dart';
+import '../../core/units.dart';
 import '../../data/models/inventory_composition.dart';
 import '../../data/models/inventory_item.dart';
 import '../../data/models/supplier.dart';
 import '../../state/masters_store.dart';
+import '../jobs/cost_calculator_screen.dart';
 import 'inventory_composition_screen.dart';
 
 class InventoryScreen extends StatefulWidget {
@@ -88,56 +90,19 @@ class _InventoryScreenState extends State<InventoryScreen> {
         actions: [
           CupertinoDialogAction(
             onPressed: () => Navigator.of(dialogContext).pop(),
-            child: const Text('Cancel'),
+            child: const Text('Отмена'),
           ),
           CupertinoDialogAction(
             isDefaultAction: true,
             onPressed: () =>
                 Navigator.of(dialogContext).pop(_searchController.text.trim()),
-            child: const Text('OK'),
+            child: const Text('ОК'),
           ),
         ],
       ),
     );
     if (result == null || !mounted) return;
     setState(() => _invQuery = result);
-  }
-
-  Future<String?> _pickUnit() async {
-    final unit = await showCupertinoModalPopup<String>(
-      context: context,
-      builder: (dialogContext) => CupertinoActionSheet(
-        title: const Text('Единица измерения'),
-        actions: [
-          for (final item in [
-            'шт',
-            'г',
-            'кг',
-            'мл',
-            'л',
-            'м',
-            'см',
-            'упак',
-            'услуга',
-          ])
-            CupertinoActionSheetAction(
-              onPressed: () => Navigator.of(dialogContext).pop(item),
-              child: Text(item),
-            ),
-          CupertinoActionSheetAction(
-            onPressed: () => Navigator.of(dialogContext).pop('__custom__'),
-            child: const Text('Другая...'),
-          ),
-        ],
-        cancelButton: CupertinoActionSheetAction(
-          onPressed: () => Navigator.of(dialogContext).pop(),
-          child: const Text('Отмена'),
-        ),
-      ),
-    );
-    if (unit == null) return null;
-    if (unit == '__custom__') return _prompt('Единица', 'шт');
-    return unit;
   }
 
   List<InventoryItem> _filteredInventory(MastersStore store) {
@@ -198,67 +163,25 @@ class _InventoryScreenState extends State<InventoryScreen> {
   }
 
   Future<void> _newItem() async {
-    final name = await _prompt(
-      'Название позиции',
-      'Масло моторное 5W-30',
-      textCapitalization: TextCapitalization.sentences,
+    final draft = await showCupertinoModalPopup<InventoryItem>(
+      context: context,
+      builder: (_) => _ItemEditorSheet(),
     );
-    if (name == null || name.trim().isEmpty) return;
-    final kind = await _pickKind();
-    if (kind == null) return;
-    final unit = await _pickUnit() ?? 'шт';
-    final sellStr = await _prompt('Цена продажи (₽)', '0') ?? '0';
-    final costStr = await _prompt('Себестоимость (₽)', '0') ?? '0';
-    final minStr = await _prompt('Мин. остаток', '0') ?? '0';
-    if (!mounted) return;
-    final track = await showAppConfirm(
-      context,
-      title: 'Учитывать остаток?',
-      message: 'Для услуг можно отключить учёт склада.',
-      confirmLabel: 'Учитывать',
-    );
-    final sell = ((double.tryParse(sellStr.replaceAll(',', '.')) ?? 0) * 100)
-        .round();
-    final cost = ((double.tryParse(costStr.replaceAll(',', '.')) ?? 0) * 100)
-        .round();
-    final minQty = double.tryParse(minStr.replaceAll(',', '.')) ?? 0;
-    if (!mounted) return;
+    if (draft == null || !mounted) return;
     setState(() => _busy = true);
     try {
       await context.read<MastersStore>().createInventoryItem(
-        name: name.trim(),
-        kind: kind,
-        unit: unit,
-        sellPriceCents: sell,
-        costCents: cost,
-        trackStock: track,
-        minQty: minQty,
+        name: draft.name,
+        kind: draft.kind,
+        unit: draft.unit,
+        sellPriceCents: draft.sellPriceCents,
+        costCents: draft.costCents,
+        trackStock: draft.trackStock,
+        minQty: draft.minQty,
       );
     } finally {
       if (mounted) setState(() => _busy = false);
     }
-  }
-
-  Future<String?> _pickKind() async {
-    return showCupertinoModalPopup<String?>(
-      context: context,
-      builder: (ctx) => Container(
-        height: 200,
-        color: context.colors.card,
-        child: Column(
-          children: [
-            CupertinoButton(
-              child: const Text('Товар'),
-              onPressed: () => Navigator.of(ctx).pop('good'),
-            ),
-            CupertinoButton(
-              child: const Text('Услуга'),
-              onPressed: () => Navigator.of(ctx).pop('service'),
-            ),
-          ],
-        ),
-      ),
-    );
   }
 
   Future<void> _receiveStock(InventoryItem item) async {
@@ -271,13 +194,16 @@ class _InventoryScreenState extends State<InventoryScreen> {
           (item.costCents / 100).toStringAsFixed(0),
         ) ??
         '0';
-    final _ = costStr;
+    final unitPriceCents =
+        ((double.tryParse(costStr.trim().replaceAll(',', '.')) ?? 0) * 100)
+            .round();
     if (!mounted) return;
     setState(() => _busy = true);
     try {
       await context.read<MastersStore>().receiveStock(
         itemId: item.id,
         qty: qty,
+        unitPriceCents: unitPriceCents,
         note: 'Закупка',
       );
     } finally {
@@ -638,55 +564,100 @@ class _InventoryScreenState extends State<InventoryScreen> {
   }
 
   Future<void> _editItem(InventoryItem item) async {
-    final name = await _prompt(
-      'Название',
-      item.name,
-      initial: item.name,
-      textCapitalization: TextCapitalization.sentences,
+    final edited = await showCupertinoModalPopup<InventoryItem>(
+      context: context,
+      builder: (_) => _ItemEditorSheet(item: item),
     );
-    if (name == null || name.trim().isEmpty) return;
-    final unit = await _pickUnit() ?? item.unit;
-    final sellStr =
-        await _prompt(
-          'Цена продажи (₽)',
-          (item.sellPriceCents / 100).toStringAsFixed(0),
-          initial: (item.sellPriceCents / 100).toStringAsFixed(0),
-        ) ??
-        (item.sellPriceCents / 100).toString();
-    final costStr =
-        await _prompt(
-          'Себестоимость (₽)',
-          (item.costCents / 100).toStringAsFixed(0),
-          initial: (item.costCents / 100).toStringAsFixed(0),
-        ) ??
-        '0';
-    final minStr =
-        await _prompt(
-          'Мин. остаток',
-          item.minQty.toString(),
-          initial: item.minQty.toString(),
-        ) ??
-        '0';
-    if (!mounted) return;
-    final sell = ((double.tryParse(sellStr.replaceAll(',', '.')) ?? 0) * 100)
-        .round();
-    final cost = ((double.tryParse(costStr.replaceAll(',', '.')) ?? 0) * 100)
-        .round();
-    final minQty = double.tryParse(minStr.replaceAll(',', '.')) ?? 0;
+    if (edited == null || !mounted) return;
     setState(() => _busy = true);
     try {
-      await context.read<MastersStore>().updateInventoryItem(
-        item.copyWith(
-          name: name.trim(),
-          unit: unit.trim(),
-          sellPriceCents: sell,
-          costCents: cost,
-          minQty: minQty,
-        ),
-      );
+      await context.read<MastersStore>().updateInventoryItem(edited);
     } finally {
       if (mounted) setState(() => _busy = false);
     }
+  }
+
+  /// Карточка позиции: быстрые операции в одном листе вместо цепочки диалогов.
+  Future<void> _showItemSheet(InventoryItem item) async {
+    final action = await showCupertinoModalPopup<String>(
+      context: context,
+      builder: (sheetContext) => CupertinoActionSheet(
+        title: Text(item.name),
+        message: Text(
+          [
+            '${item.kind == 'service' ? 'Услуга' : 'Товар'} · ${item.unit}',
+            if (item.trackStock)
+              'Остаток: ${formatQty(item.stockQty)} ${item.unit}',
+            'Себестоимость: ${_money(item.costCents)} · '
+                'продажа: ${_money(item.sellPriceCents)}',
+          ].join('\n'),
+        ),
+        actions: [
+          CupertinoActionSheetAction(
+            onPressed: () => Navigator.of(sheetContext).pop('edit'),
+            child: const Text('Редактировать'),
+          ),
+          CupertinoActionSheetAction(
+            onPressed: () => Navigator.of(sheetContext).pop('calculator'),
+            child: const Text('Рассчитать себестоимость'),
+          ),
+          if (item.trackStock) ...[
+            CupertinoActionSheetAction(
+              onPressed: () => Navigator.of(sheetContext).pop('receive'),
+              child: const Text('Поступление'),
+            ),
+            CupertinoActionSheetAction(
+              onPressed: () => Navigator.of(sheetContext).pop('writeoff'),
+              child: const Text('Списание'),
+            ),
+          ],
+          CupertinoActionSheetAction(
+            onPressed: () => Navigator.of(sheetContext).pop('history'),
+            child: const Text('История движений'),
+          ),
+          CupertinoActionSheetAction(
+            onPressed: () => Navigator.of(sheetContext).pop('composition'),
+            child: const Text('Состав стоимости'),
+          ),
+          CupertinoActionSheetAction(
+            isDestructiveAction: true,
+            onPressed: () => Navigator.of(sheetContext).pop('delete'),
+            child: const Text('Удалить позицию'),
+          ),
+        ],
+        cancelButton: CupertinoActionSheetAction(
+          isDefaultAction: true,
+          onPressed: () => Navigator.of(sheetContext).pop(),
+          child: const Text('Отмена'),
+        ),
+      ),
+    );
+    if (action == null || !mounted) return;
+    switch (action) {
+      case 'edit':
+        await _editItem(item);
+      case 'calculator':
+        await _openCalculator(item);
+      case 'receive':
+        await _receiveStock(item);
+      case 'writeoff':
+        await _writeOff(item);
+      case 'history':
+        await _showItemHistory(item);
+      case 'composition':
+        _openComposition(item);
+      case 'delete':
+        await _delete(item);
+    }
+  }
+
+  /// Единый калькулятор в режиме склада: результат пишется в позицию.
+  Future<void> _openCalculator(InventoryItem item) async {
+    await Navigator.of(context).push<Map<String, int>>(
+      CupertinoPageRoute(
+        builder: (_) => CostCalculatorScreen(inventoryItemId: item.id),
+      ),
+    );
   }
 
   void _openComposition(InventoryItem item) {
@@ -1076,141 +1047,536 @@ class _InventoryScreenState extends State<InventoryScreen> {
                     onPressed: _pickInventoryFilter,
                   ),
                   const SizedBox(height: 8),
-                  SectionLabel('Позиции (${_filteredInventory(store).length})'),
-                  store.inventoryItems.isEmpty
-                      ? EmptyState(
-                          title: 'Нет позиций',
-                          message: 'Добавьте товар или услугу.',
-                          art: Icon(
-                            CupertinoIcons.cube,
-                            size: 48,
-                            color: colors.tertiaryLabel,
-                          ),
-                          actions: [
-                            PrimaryButton(
-                              label: 'Добавить позицию',
-                              icon: CupertinoIcons.plus,
-                              onPressed: _newItem,
-                            ),
-                          ],
-                        )
-                      : Column(
-                          children: store.inventoryItems.map((item) {
-                            return Padding(
-                              padding: const EdgeInsets.only(bottom: 8),
-                              child: AppCard(
-                                onTap: () => _editItem(item),
-                                child: Row(
-                                  children: [
-                                    Expanded(
-                                      child: Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        children: [
-                                          Text(
-                                            item.name,
-                                            style: const TextStyle(
-                                              fontWeight: FontWeight.w600,
-                                            ),
-                                          ),
-                                          Text(
-                                            '${item.kind == 'service' ? 'Услуга' : 'Товар'} • ${item.unit} • продажа ${(item.sellPriceCents / 100).toStringAsFixed(0)} ₽',
-                                            style: TextStyle(
-                                              color: colors.secondaryLabel,
-                                              fontSize: 12,
-                                            ),
-                                          ),
-                                          if (store
-                                              .itemComposition(item.id)
-                                              .isNotEmpty)
-                                            ..._compositionBlock(store, item),
-                                          if (item.trackStock)
-                                            Text(
-                                              'Остаток: ${item.stockQty.toStringAsFixed(item.stockQty % 1 == 0 ? 0 : 2)} ${item.unit}${item.stockQty < 0 ? ' \u2022 \u041e\u0442\u0440\u0438\u0446\u0430\u0442\u0435\u043b\u044c\u043d\u044b\u0439 \u043e\u0441\u0442\u0430\u0442\u043e\u043a' : (item.lowStock ? ' (\u043c\u0430\u043b\u043e)' : '')}',
-                                              style: TextStyle(
-                                                color:
-                                                    item.stockQty < 0 ||
-                                                        item.lowStock
-                                                    ? colors.red
-                                                    : colors.secondaryLabel,
-                                                fontSize: 12,
-                                              ),
-                                            ),
-                                          if (item.trackStock &&
-                                              item.stockQty < 0)
-                                            Text(
-                                              'От\u0440\u0438\u0446\u0430\u0442\u0435\u043b\u044c\u043d\u044b\u0439 \u043e\u0441\u0442\u0430\u0442\u043e\u043a',
-                                              style: TextStyle(
-                                                color: colors.red,
-                                                fontSize: 12,
-                                                fontWeight: FontWeight.w600,
-                                              ),
-                                            ),
-                                        ],
-                                      ),
-                                    ),
-                                    if (item.trackStock) ...[
-                                      CupertinoButton(
-                                        padding: EdgeInsets.zero,
-                                        onPressed: () => _receiveStock(item),
-                                        child: const Icon(
-                                          CupertinoIcons.plus_circle,
-                                          size: 20,
-                                          semanticLabel: 'Приём',
-                                        ),
-                                      ),
-                                      CupertinoButton(
-                                        padding: EdgeInsets.zero,
-                                        onPressed: () => _writeOff(item),
-                                        child: const Icon(
-                                          CupertinoIcons.minus_circle,
-                                          size: 20,
-                                          semanticLabel: 'Списание',
-                                        ),
-                                      ),
-                                    ],
-                                    CupertinoButton(
-                                      padding: EdgeInsets.zero,
-                                      onPressed: () => _showItemHistory(item),
-                                      child: Text(
-                                        '\u0418\u0441\u0442\u043e\u0440\u0438\u044f',
-                                        style: TextStyle(
-                                          fontSize: 12,
-                                          color: colors.label,
-                                        ),
-                                      ),
-                                    ),
-                                    CupertinoButton(
-                                      padding: EdgeInsets.zero,
-                                      onPressed: () => _openComposition(item),
-                                      child: Text(
-                                        'Состав',
-                                        style: TextStyle(
-                                          fontSize: 12,
-                                          color: colors.accent,
+                  SectionLabel(
+                    'Позиции (${_filteredInventory(store).length})',
+                  ),
+                  if (store.inventoryItems.isEmpty)
+                    EmptyState(
+                      title: 'Нет позиций',
+                      message: 'Добавьте товар или услугу.',
+                      art: Icon(
+                        CupertinoIcons.cube,
+                        size: 48,
+                        color: colors.tertiaryLabel,
+                      ),
+                      actions: [
+                        PrimaryButton(
+                          label: 'Добавить позицию',
+                          icon: CupertinoIcons.plus,
+                          onPressed: _newItem,
+                        ),
+                      ],
+                    )
+                  else if (_filteredInventory(store).isEmpty)
+                    EmptyState(
+                      title: 'Ничего не найдено',
+                      message: _invQuery.isEmpty
+                          ? 'В этом фильтре нет позиций. Смените фильтр.'
+                          : 'По запросу «$_invQuery» позиций нет.',
+                      art: Icon(
+                        CupertinoIcons.search,
+                        size: 48,
+                        color: colors.tertiaryLabel,
+                      ),
+                      actions: [
+                        SecondaryButton(
+                          label: 'Сбросить фильтры',
+                          icon: CupertinoIcons.xmark,
+                          onPressed: () => setState(() {
+                            _invQuery = '';
+                            _invFilter = 'all';
+                            _searchController.clear();
+                          }),
+                        ),
+                      ],
+                    )
+                  else
+                    Column(
+                      children: _filteredInventory(store).map((item) {
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: 8),
+                          child: AppCard(
+                            onTap: () => _showItemSheet(item),
+                            child: Row(
+                              children: [
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        item.name,
+                                        style: const TextStyle(
                                           fontWeight: FontWeight.w600,
                                         ),
                                       ),
-                                    ),
-                                    CupertinoButton(
-                                      padding: EdgeInsets.zero,
-                                      onPressed: () => _delete(item),
-                                      child: Icon(
-                                        CupertinoIcons.xmark,
-                                        size: 16,
-                                        color: colors.tertiaryLabel,
-                                        semanticLabel: 'Удалить',
+                                      Text(
+                                        '${item.kind == 'service' ? 'Услуга' : 'Товар'} · ${item.unit} · '
+                                        'себестоимость ${_money(item.costCents)} · '
+                                        'продажа ${_money(item.sellPriceCents)}',
+                                        style: TextStyle(
+                                          color: colors.secondaryLabel,
+                                          fontSize: 12,
+                                        ),
                                       ),
-                                    ),
-                                  ],
+                                      if (store
+                                          .itemComposition(item.id)
+                                          .isNotEmpty)
+                                        ..._compositionBlock(store, item),
+                                      if (item.trackStock)
+                                        Text(
+                                          'Остаток: ${formatQty(item.stockQty)} ${item.unit}'
+                                          '${item.stockQty < 0 ? ' · отрицательный остаток' : (item.lowStock ? ' (мало)' : '')}',
+                                          style: TextStyle(
+                                            color:
+                                                item.stockQty < 0 ||
+                                                    item.lowStock
+                                                ? colors.red
+                                                : colors.secondaryLabel,
+                                            fontSize: 12,
+                                          ),
+                                        ),
+                                    ],
+                                  ),
                                 ),
-                              ),
-                            );
-                          }).toList(),
-                        ),
+                                CupertinoButton(
+                                  padding: EdgeInsets.zero,
+                                  onPressed: () => _openCalculator(item),
+                                  child: Icon(
+                                    CupertinoIcons.function,
+                                    size: 20,
+                                    color: colors.accent,
+                                    semanticLabel: 'Калькулятор',
+                                  ),
+                                ),
+                                CupertinoButton(
+                                  padding: EdgeInsets.zero,
+                                  onPressed: () => _showItemSheet(item),
+                                  child: Icon(
+                                    CupertinoIcons.ellipsis_circle,
+                                    size: 21,
+                                    color: colors.secondaryLabel,
+                                    semanticLabel: 'Действия',
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        );
+                      }).toList(),
+                    ),
                 ],
               ),
             ),
+    );
+  }
+}
+
+/// Лист создания/редактирования позиции склада: все поля сразу,
+/// без цепочки отдельных диалогов. Возвращает готовый [InventoryItem].
+class _ItemEditorSheet extends StatefulWidget {
+  const _ItemEditorSheet({this.item});
+
+  final InventoryItem? item;
+
+  @override
+  State<_ItemEditorSheet> createState() => _ItemEditorSheetState();
+}
+
+class _ItemEditorSheetState extends State<_ItemEditorSheet> {
+  late final TextEditingController _name;
+  late final TextEditingController _sell;
+  late final TextEditingController _cost;
+  late final TextEditingController _min;
+  late String _unit;
+  late String _kind;
+  late bool _trackStock;
+
+  bool get _isEdit => widget.item != null;
+
+  @override
+  void initState() {
+    super.initState();
+    final item = widget.item;
+    _name = TextEditingController(text: item?.name ?? '');
+    _sell = TextEditingController(
+      text: ((item?.sellPriceCents ?? 0) / 100).toStringAsFixed(
+        (item?.sellPriceCents ?? 0) % 100 == 0 ? 0 : 2,
+      ),
+    );
+    _cost = TextEditingController(
+      text: ((item?.costCents ?? 0) / 100).toStringAsFixed(
+        (item?.costCents ?? 0) % 100 == 0 ? 0 : 2,
+      ),
+    );
+    _min = TextEditingController(
+      text: formatQty(item?.minQty ?? 0),
+    );
+    _unit = item?.unit ?? 'шт';
+    _kind = item?.kind ?? 'good';
+    _trackStock = item?.trackStock ?? true;
+  }
+
+  @override
+  void dispose() {
+    _name.dispose();
+    _sell.dispose();
+    _cost.dispose();
+    _min.dispose();
+    super.dispose();
+  }
+
+  double _parse(String value) =>
+      double.tryParse(value.trim().replaceAll(',', '.')) ?? 0;
+
+  int _cents(String value) => (_parse(value) * 100).round();
+
+  Future<void> _pickUnit() async {
+    final extra = kUnitOptions.contains(_unit) ? null : _unit;
+    final unit = await showCupertinoModalPopup<String>(
+      context: context,
+      builder: (sheetContext) => CupertinoActionSheet(
+        title: const Text('Единица измерения'),
+        actions: [
+          for (final option in [...kUnitOptions, ?extra])
+            CupertinoActionSheetAction(
+              onPressed: () => Navigator.of(sheetContext).pop(option),
+              child: Text(
+                option,
+                style: TextStyle(
+                  fontWeight: option == _unit
+                      ? FontWeight.w600
+                      : FontWeight.normal,
+                ),
+              ),
+            ),
+        ],
+        cancelButton: CupertinoActionSheetAction(
+          isDefaultAction: true,
+          onPressed: () => Navigator.of(sheetContext).pop(),
+          child: const Text('Отмена'),
+        ),
+      ),
+    );
+    if (unit != null) setState(() => _unit = unit);
+  }
+
+  void _submit() {
+    final name = _name.text.trim();
+    if (name.isEmpty) return;
+    final now = DateTime.now();
+    final base = widget.item;
+    final result = base == null
+        ? InventoryItem(
+            id: '',
+            name: name,
+            kind: _kind,
+            unit: _unit,
+            sellPriceCents: _cents(_sell.text),
+            costCents: _cents(_cost.text),
+            trackStock: _trackStock,
+            minQty: _parse(_min.text),
+            createdAt: now,
+            updatedAt: now,
+          )
+        : base.copyWith(
+            name: name,
+            kind: _kind,
+            unit: _unit,
+            sellPriceCents: _cents(_sell.text),
+            costCents: _cents(_cost.text),
+            trackStock: _trackStock,
+            minQty: _parse(_min.text),
+          );
+    Navigator.of(context).pop(result);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.colors;
+    final canSave = _name.text.trim().isNotEmpty;
+
+    return Container(
+      height: MediaQuery.of(context).size.height * 0.82,
+      decoration: BoxDecoration(
+        color: colors.background,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(18)),
+      ),
+      child: SafeArea(
+        top: false,
+        child: Column(
+          children: [
+            const SizedBox(height: 10),
+            const SheetHandle(),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 10, 16, 4),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      _isEdit ? 'Позиция' : 'Новая позиция',
+                      style: const TextStyle(
+                        fontSize: 17,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                  CupertinoButton(
+                    padding: EdgeInsets.zero,
+                    onPressed: canSave ? _submit : null,
+                    child: Text(
+                      _isEdit ? 'Сохранить' : 'Добавить',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w600,
+                        color: canSave ? colors.accent : colors.tertiaryLabel,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Expanded(
+              child: ListView(
+                padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
+                children: [
+                  AppCard(
+                    child: Column(
+                      children: [
+                        CupertinoTextField(
+                          controller: _name,
+                          placeholder: 'Наименование',
+                          textCapitalization: TextCapitalization.sentences,
+                          onChanged: (_) => setState(() {}),
+                        ),
+                        const SizedBox(height: 12),
+                        CupertinoSlidingSegmentedControl<String>(
+                          groupValue: _kind,
+                          children: const {
+                            'good': Padding(
+                              padding: EdgeInsets.symmetric(vertical: 6),
+                              child: Text('Товар'),
+                            ),
+                            'service': Padding(
+                              padding: EdgeInsets.symmetric(vertical: 6),
+                              child: Text('Услуга'),
+                            ),
+                          },
+                          onValueChanged: (value) {
+                            if (value == null) return;
+                            setState(() {
+                              _kind = value;
+                              if (value == 'service') _trackStock = false;
+                            });
+                          },
+                        ),
+                        const SizedBox(height: 12),
+                        Row(
+                          children: [
+                            Text(
+                              'Единица',
+                              style: TextStyle(color: colors.secondaryLabel),
+                            ),
+                            const Spacer(),
+                            CupertinoButton(
+                              padding: EdgeInsets.zero,
+                              onPressed: _pickUnit,
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Text(
+                                    _unit,
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 4),
+                                  Icon(
+                                    CupertinoIcons.chevron_down,
+                                    size: 12,
+                                    color: colors.secondaryLabel,
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  AppCard(
+                    child: Column(
+                      children: [
+                        _SheetField(
+                          label: 'Себестоимость',
+                          controller: _cost,
+                          suffix: '₽',
+                          placeholder: '0',
+                          onChanged: () => setState(() {}),
+                        ),
+                        const SizedBox(height: 10),
+                        _SheetField(
+                          label: 'Цена продажи',
+                          controller: _sell,
+                          suffix: '₽',
+                          placeholder: '0',
+                          onChanged: () => setState(() {}),
+                        ),
+                        if (_cents(_cost.text) > 0 &&
+                            _cents(_sell.text) > 0) ...[
+                          const SizedBox(height: 10),
+                          Row(
+                            children: [
+                              Text(
+                                'Маржа',
+                                style: TextStyle(
+                                  color: colors.secondaryLabel,
+                                  fontSize: 13,
+                                ),
+                              ),
+                              const Spacer(),
+                              Text(
+                                '${_marginLabel()} · ${_marginPercent()}',
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w600,
+                                  color: _marginCents() >= 0
+                                      ? colors.green
+                                      : colors.red,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  AppCard(
+                    child: Column(
+                      children: [
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Text(
+                                    'Учитывать остаток',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                  Text(
+                                    _trackStock
+                                        ? 'Поступления и списания меняют остаток'
+                                        : 'Остаток не ведётся (услуги, работы)',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: colors.secondaryLabel,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            CupertinoSwitch(
+                              value: _trackStock,
+                              onChanged: (value) =>
+                                  setState(() => _trackStock = value),
+                            ),
+                          ],
+                        ),
+                        if (_trackStock) ...[
+                          const SizedBox(height: 12),
+                          _SheetField(
+                            label: 'Мин. остаток',
+                            controller: _min,
+                            suffix: _unit,
+                            placeholder: '0',
+                            onChanged: () => setState(() {}),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                  if (_isEdit && widget.item != null && widget.item!.trackStock) ...[
+                    const SizedBox(height: 12),
+                    Text(
+                      'Текущий остаток: ${formatQty(widget.item!.stockQty)} ${widget.item!.unit}. '
+                      'Изменить его можно через поступление или списание.',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: colors.tertiaryLabel,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  int _marginCents() => _cents(_sell.text) - _cents(_cost.text);
+
+  String _marginLabel() => '${(_marginCents() / 100).toStringAsFixed(0)} ₽';
+
+  String _marginPercent() {
+    final cost = _cents(_cost.text);
+    if (cost <= 0) return '—';
+    final pct = _marginCents() / cost * 100;
+    return '${pct.toStringAsFixed(pct.abs() >= 100 ? 0 : 1)}%';
+  }
+}
+
+class _SheetField extends StatelessWidget {
+  const _SheetField({
+    required this.label,
+    required this.controller,
+    required this.onChanged,
+    this.suffix,
+    this.placeholder,
+  });
+
+  final String label;
+  final TextEditingController controller;
+  final VoidCallback onChanged;
+  final String? suffix;
+  final String? placeholder;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.colors;
+    return Row(
+      children: [
+        Expanded(
+          child: Text(
+            label,
+            style: TextStyle(color: colors.secondaryLabel, fontSize: 15),
+          ),
+        ),
+        SizedBox(
+          width: 140,
+          child: CupertinoTextField(
+            controller: controller,
+            placeholder: placeholder,
+            textAlign: TextAlign.right,
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            suffix: suffix == null
+                ? null
+                : Padding(
+                    padding: const EdgeInsets.only(right: 8),
+                    child: Text(
+                      suffix!,
+                      style: TextStyle(color: colors.secondaryLabel),
+                    ),
+                  ),
+            onChanged: (_) => onChanged(),
+          ),
+        ),
+      ],
     );
   }
 }

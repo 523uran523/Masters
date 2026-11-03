@@ -70,8 +70,8 @@ class UpdateService {
   }
 
   Future<int> _currentVersionCode() async {
-    if (_currentVersionCodeOverride != null)
-      return _currentVersionCodeOverride!;
+    final override = _currentVersionCodeOverride;
+    if (override != null) return override;
     try {
       final info = await PackageInfo.fromPlatform();
       return int.tryParse(info.buildNumber) ?? 0;
@@ -81,9 +81,8 @@ class UpdateService {
   }
 
   Future<String> _appId() async {
-    if (_appIdOverride != null && _appIdOverride!.isNotEmpty) {
-      return _appIdOverride!;
-    }
+    final override = _appIdOverride;
+    if (override != null && override.isNotEmpty) return override;
     try {
       final info = await PackageInfo.fromPlatform();
       if (info.packageName.isNotEmpty) return info.packageName;

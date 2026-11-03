@@ -717,11 +717,17 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
                 label: 'Калькулятор цены',
                 icon: CupertinoIcons.money_dollar,
                 onPressed: () async {
+                  final materialCount = store.materialsForJob(job.id).length;
                   final result = await Navigator.of(context)
                       .push<Map<String, int>>(
                         CupertinoPageRoute(
                           builder: (_) => CostCalculatorScreen(
-                            initialMaterialsCents: materialTotal,
+                            jobId: job.id,
+                            // Старый блок «Материалы» подхватываем как стартовую
+                            // строку только если калькулятор этого заказа пуст.
+                            initialMaterialsCents: materialCount > 0
+                                ? 0
+                                : materialTotal,
                           ),
                         ),
                       );

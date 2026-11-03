@@ -7,76 +7,17 @@ import 'package:provider/provider.dart';
 
 import '../../app/theme/app_theme.dart';
 import '../../app/ui.dart';
+import '../../core/units.dart';
 import '../../data/models/inventory_item.dart';
 import '../../state/masters_store.dart';
-
-/// Единицы количества (по ТЗ calculator-v2).
-const List<String> kQtyUnits = ['шт', 'г', 'кг', 'л', 'см', 'м', 'м²'];
-
-/// Единицы цены ("цена за ...").
-const List<String> kPriceUnits = [
-  'за шт',
-  'за 100 г',
-  'за кг',
-  'за л',
-  'за м',
-  'за см',
-  'за м²',
-];
-
-/// Базовый коэффициент перевода единицы количества в "базовую" (шт/кг/л/м/м²).
-const Map<String, double> kQtyBase = {
-  'шт': 1.0,
-  'г': 0.001,
-  'кг': 1.0,
-  'л': 1.0,
-  'см': 0.01,
-  'м': 1.0,
-  'м²': 1.0,
-};
-
-/// Базовый коэффициент перевода единицы цены в "базовую" (шт/кг/л/м/м²).
-const Map<String, double> kPriceBase = {
-  'за шт': 1.0,
-  'за г': 0.001,
-  'за 100 г': 0.1,
-  'за кг': 1.0,
-  'за л': 1.0,
-  'за м': 1.0,
-  'за см': 0.01,
-  'за м²': 1.0,
-};
-
-String _defaultPriceUnit(String qtyUnit) {
-  switch (qtyUnit) {
-    case 'г':
-      return 'за г';
-    case 'см':
-      return 'за см';
-    case 'кг':
-      return 'за кг';
-    case 'л':
-      return 'за л';
-    case 'м':
-      return 'за м';
-    case 'м²':
-      return 'за м²';
-    default:
-      return 'за шт';
-  }
-}
-
-List<String> _priceUnitsFor(String qtyUnit) {
-  if (qtyUnit == 'г') return ['за г'];
-  if (qtyUnit == 'см') return ['за см'];
-  return kPriceUnits;
-}
+import 'calculator_core.dart';
 
 class CostCalculatorScreen extends StatefulWidget {
   const CostCalculatorScreen({
     super.key,
     this.initialMaterialsCents = 0,
     this.jobId,
+    this.inventoryItemId,
   });
 
   final int initialMaterialsCents;
@@ -84,6 +25,10 @@ class CostCalculatorScreen extends StatefulWidget {
   /// Если задан — состояние калькулятора сохраняется/восстанавливается
   /// в jobs.calculator_state через MastersStore.
   final String? jobId;
+
+  /// Если задан — калькулятор открыт для позиции склада: результат
+  /// записывается в её себестоимость (и цену продажи).
+  final String? inventoryItemId;
 
   @override
   State<CostCalculatorScreen> createState() => _CostCalculatorScreenState();
@@ -97,6 +42,7 @@ class _ResourceLine {
     required this.priceUnit,
     String price = '0',
     this.inventoryItemId,
+    this.writeOff = false,
   }) : nameController = TextEditingController(text: name),
        qtyController = TextEditingController(text: qty),
        priceController = TextEditingController(text: price);
@@ -108,29 +54,41 @@ class _ResourceLine {
   String priceUnit;
   final String? inventoryItemId;
 
-  double get qty =>
-      double.tryParse(qtyController.text.trim().replaceAll(',', '.')) ?? 0;
+  /// Списывать ли эту строку со склада при применении.
+  bool writeOff;
 
-  int get priceCents =>
-      ((double.tryParse(priceController.text.trim().replaceAll(',', '.')) ??
-                  0) *
-              100)
-          .round();
+  double get qty => _parse(qtyController.text);
 
-  /// Стоимость строки: qty (в своей единице) × цена (за свою единицу),
-  /// приведено к общей базовой мере, в центах.
-  int get totalCents {
-    final qtyBase = kQtyBase[qtyUnit] ?? 1.0;
-    final priceBase = kPriceBase[priceUnit] ?? 1.0;
-    return (qty * qtyBase / priceBase * priceCents).round();
-  }
+  int get priceCents => (_parse(priceController.text) * 100).round();
+
+  int get totalCents => resourceLineTotalCents(
+    qty: qty,
+    qtyUnit: qtyUnit,
+    priceCents: priceCents,
+    priceUnit: priceUnit,
+  );
+
+  /// Количество в единице склада (если единицы совместимы).
+  double? qtyInStockUnit(InventoryItem item) =>
+      convertQty(qty, qtyUnit, item.unit);
 
   void dispose() {
     nameController.dispose();
     qtyController.dispose();
     priceController.dispose();
   }
+
+  static double _parse(String value) =>
+      double.tryParse(value.trim().replaceAll(',', '.')) ?? 0;
 }
+
+/// Результат выбора в листе позиций склада.
+class _PickedStock {
+  const _PickedStock(this.item);
+  final InventoryItem item;
+}
+
+const String _kCustomRow = '__custom__';
 
 class _CostCalculatorScreenState extends State<CostCalculatorScreen> {
   final List<_ResourceLine> _resources = [];
@@ -139,11 +97,25 @@ class _CostCalculatorScreenState extends State<CostCalculatorScreen> {
   final _overheadController = TextEditingController(text: '0');
   final _otherController = TextEditingController(text: '0');
   final _marginController = TextEditingController(text: '30');
+  bool _busy = false;
+
+  InventoryItem? get _stockTarget {
+    final id = widget.inventoryItemId;
+    if (id == null) return null;
+    for (final item in context.read<MastersStore>().inventoryItems) {
+      if (item.id == id) return item;
+    }
+    return null;
+  }
+
+  bool get _isStockMode => widget.inventoryItemId != null;
 
   @override
   void initState() {
     super.initState();
-    if (widget.initialMaterialsCents > 0) {
+    if (_isStockMode) {
+      _seedFromStockItem();
+    } else if (widget.initialMaterialsCents > 0) {
       _resources.add(
         _ResourceLine(
           name: 'Материалы',
@@ -157,13 +129,71 @@ class _CostCalculatorScreenState extends State<CostCalculatorScreen> {
     _restoreIfNeeded();
   }
 
+  /// Режим склада: подставить состав позиции (BOM), если он есть,
+  /// иначе одну строку с её себестоимостью.
+  void _seedFromStockItem() {
+    final item = _stockTarget;
+    if (item == null) return;
+    final store = context.read<MastersStore>();
+    final composition = store.itemComposition(item.id);
+    if (composition.isEmpty) {
+      if (item.costCents > 0) {
+        _resources.add(
+          _ResourceLine(
+            name: item.name,
+            qty: '1',
+            qtyUnit: item.unit,
+            price: (item.costCents / 100).toStringAsFixed(2),
+            priceUnit: defaultPriceUnit(item.unit),
+            inventoryItemId: item.id,
+          ),
+        );
+      }
+      return;
+    }
+    for (final line in composition) {
+      if (line.isLabor || line.componentId == null) {
+        _resources.add(
+          _ResourceLine(
+            name: line.note?.trim().isNotEmpty == true
+                ? line.note!.trim()
+                : 'Ручной труд',
+            qty: formatQty(line.qty),
+            qtyUnit: 'шт',
+            price: (line.priceCents / 100).toStringAsFixed(2),
+            priceUnit: 'за шт',
+          ),
+        );
+        continue;
+      }
+      InventoryItem? component;
+      for (final candidate in store.inventoryItems) {
+        if (candidate.id == line.componentId) {
+          component = candidate;
+          break;
+        }
+      }
+      _resources.add(
+        _ResourceLine(
+          name: component?.name ?? 'Компонент удалён',
+          qty: formatQty(line.qty),
+          qtyUnit: component?.unit ?? 'шт',
+          price: (line.priceCents / 100).toStringAsFixed(2),
+          priceUnit: defaultPriceUnit(component?.unit ?? 'шт'),
+          inventoryItemId: component?.id,
+          writeOff: component?.trackStock ?? false,
+        ),
+      );
+    }
+  }
+
   Future<void> _restoreIfNeeded() async {
     final jobId = widget.jobId;
     if (jobId == null || !mounted) return;
     final store = Provider.of<MastersStore>(context, listen: false);
     final json = await store.calculatorStateForJob(jobId);
-    if (!mounted) return;
-    final data = json == null ? null : _decodeState(json);
+    if (!mounted || json == null) return;
+    final data = _decodeState(json);
     if (data == null) return;
     _applySaved(data);
     setState(() {});
@@ -185,30 +215,35 @@ class _CostCalculatorScreenState extends State<CostCalculatorScreen> {
       r.dispose();
     }
     _resources.clear();
-    for (final e
-        in (data['resources'] as List? ?? <dynamic>[])
-            .cast<Map<String, dynamic>>()) {
-      final qtyUnit =
-          (e['qtyUnit'] is String && kQtyUnits.contains(e['qtyUnit']))
-          ? e['qtyUnit'] as String
-          : 'шт';
-      final priceUnit =
-          (e['priceUnit'] is String &&
-              _priceUnitsFor(qtyUnit).contains(e['priceUnit']))
-          ? e['priceUnit'] as String
-          : _defaultPriceUnit(qtyUnit);
-      _resources.add(
-        _ResourceLine(
-          name: (e['name'] as String?) ?? '',
-          qty: (e['qty'] as String?) ?? '1',
-          qtyUnit: qtyUnit,
-          price: (e['price'] as String?) ?? '0',
-          priceUnit: priceUnit,
-          inventoryItemId: (e['inventoryItemId'] as String?),
-        ),
-      );
+    final rawResources = data['resources'];
+    if (rawResources is List) {
+      for (final entry in rawResources) {
+        if (entry is! Map) continue;
+        final map = entry.cast<String, dynamic>();
+        final qtyUnit = (map['qtyUnit'] is String && (map['qtyUnit'] as String).isNotEmpty)
+            ? map['qtyUnit'] as String
+            : 'шт';
+        final allowed = priceUnitsFor(qtyUnit);
+        final priceUnit =
+            (map['priceUnit'] is String && allowed.contains(map['priceUnit']))
+            ? map['priceUnit'] as String
+            : defaultPriceUnit(qtyUnit);
+        _resources.add(
+          _ResourceLine(
+            name: (map['name'] as String?) ?? '',
+            qty: (map['qty'] as String?) ?? '1',
+            qtyUnit: qtyUnit,
+            price: (map['price'] as String?) ?? '0',
+            priceUnit: priceUnit,
+            inventoryItemId: map['inventoryItemId'] as String?,
+            writeOff: map['writeOff'] == true,
+          ),
+        );
+      }
     }
-    final labor = data['labor'] as Map<String, dynamic>?;
+    final labor = data['labor'] is Map
+        ? (data['labor'] as Map).cast<String, dynamic>()
+        : null;
     _laborHoursController.text = (labor?['hours'] as String?) ?? '0';
     _laborRateController.text = (labor?['rate'] as String?) ?? '0';
     _overheadController.text = (data['overhead'] as String?) ?? '0';
@@ -226,44 +261,32 @@ class _CostCalculatorScreenState extends State<CostCalculatorScreen> {
     _overheadController.dispose();
     _otherController.dispose();
     _marginController.dispose();
-    if (widget.jobId != null) {
+    final jobId = widget.jobId;
+    if (jobId != null) {
       unawaited(
         Provider.of<MastersStore>(
           context,
           listen: false,
-        ).flushCalculatorState(widget.jobId!),
+        ).flushCalculatorState(jobId),
       );
     }
     super.dispose();
   }
 
-  double _d(String v) => double.tryParse(v.trim().replaceAll(',', '.')) ?? 0;
+  double _d(String value) =>
+      double.tryParse(value.trim().replaceAll(',', '.')) ?? 0;
 
-  int get _materialsCents => _resources.fold(0, (s, r) => s + r.totalCents);
+  int get _materialsCents => _resources.fold(0, (sum, r) => sum + r.totalCents);
 
-  int get _laborCents {
-    final hours = _d(_laborHoursController.text);
-    final rate = _d(_laborRateController.text);
-    return (hours * rate * 100).round();
-  }
+  CalculatorTotals get _totals => computeCalculatorTotals(
+    materialsCents: _materialsCents,
+    laborHours: _d(_laborHoursController.text),
+    laborRateCents: (_d(_laborRateController.text) * 100).round(),
+    otherCents: (_d(_otherController.text) * 100).round(),
+    overheadPercent: _d(_overheadController.text),
+    marginPercent: _d(_marginController.text),
+  );
 
-  int get _otherCents => (_d(_otherController.text) * 100).round();
-
-  int get _baseCents => _materialsCents + _laborCents + _otherCents;
-
-  int get _overheadCents {
-    final p = _d(_overheadController.text);
-    return (_baseCents * p / 100).round();
-  }
-
-  int get _costCents => _baseCents + _overheadCents;
-
-  int get _priceCents {
-    final m = _d(_marginController.text);
-    return (_costCents * (1 + m / 100)).round();
-  }
-
-  /// Сохранение состояния с дебаунсом в хранилище (при каждом вводе).
   void _markDirty() {
     setState(() {});
     final jobId = widget.jobId;
@@ -285,6 +308,7 @@ class _CostCalculatorScreenState extends State<CostCalculatorScreen> {
         'price': r.priceController.text,
         'priceUnit': r.priceUnit,
         if (r.inventoryItemId != null) 'inventoryItemId': r.inventoryItemId,
+        if (r.writeOff) 'writeOff': true,
       };
     }).toList(),
     'labor': {
@@ -297,6 +321,8 @@ class _CostCalculatorScreenState extends State<CostCalculatorScreen> {
     'margin': _marginController.text,
   };
 
+  String _money(int cents) => '${(cents / 100).toStringAsFixed(0)} ₽';
+
   void _addResource() {
     setState(
       () => _resources.add(_ResourceLine(qtyUnit: 'шт', priceUnit: 'за шт')),
@@ -305,42 +331,38 @@ class _CostCalculatorScreenState extends State<CostCalculatorScreen> {
   }
 
   void _removeResource(int index) {
-    final r = _resources.removeAt(index);
-    r.dispose();
-    setState(() {});
+    final line = _resources.removeAt(index);
+    line.dispose();
     _markDirty();
   }
 
-  /// Выбор единицы через CupertinoActionSheet (вместо сегментов/кнопок).
-  Future<void> _pickUnit({
-    required BuildContext context,
-    required String current,
+  Future<void> _pickOption({
+    required String title,
     required List<String> items,
+    required String current,
     required ValueChanged<String> onChanged,
   }) async {
     final result = await showCupertinoModalPopup<String>(
       context: context,
-      builder: (_) => CupertinoActionSheet(
-        title: const Text('Единица измерения'),
+      builder: (sheetContext) => CupertinoActionSheet(
+        title: Text(title),
         actions: [
           for (final item in items)
             CupertinoActionSheetAction(
+              onPressed: () => Navigator.of(sheetContext).pop(item),
               child: Text(
                 item,
                 style: TextStyle(
-                  fontSize: 16,
                   fontWeight: item == current
                       ? FontWeight.w600
                       : FontWeight.normal,
-                  color: item == current ? null : null,
                 ),
               ),
-              onPressed: () => Navigator.pop(context, item),
             ),
         ],
         cancelButton: CupertinoActionSheetAction(
           isDefaultAction: true,
-          onPressed: () => Navigator.pop(context),
+          onPressed: () => Navigator.of(sheetContext).pop(),
           child: const Text('Отмена'),
         ),
       ),
@@ -350,102 +372,511 @@ class _CostCalculatorScreenState extends State<CostCalculatorScreen> {
     }
   }
 
-  Widget _unitButton({
-    required String value,
-    required List<String> items,
-    required ValueChanged<String> onChanged,
-    required double width,
-  }) {
-    return SizedBox(
-      width: width,
-      child: CupertinoButton(
-        padding: EdgeInsets.zero,
-        onPressed: () => _pickUnit(
-          context: context,
-          current: value,
-          items: items,
-          onChanged: onChanged,
+  Future<void> _pickQtyUnit(_ResourceLine line) async {
+    final extra = line.qtyUnit.isNotEmpty && !kQtyUnits.contains(line.qtyUnit)
+        ? [line.qtyUnit]
+        : const <String>[];
+    await _pickOption(
+      title: 'Единица количества',
+      items: [...kQtyUnits, ...extra],
+      current: line.qtyUnit,
+      onChanged: (value) {
+        setState(() {
+          line.qtyUnit = value;
+          final allowed = priceUnitsFor(value);
+          if (!allowed.contains(line.priceUnit)) {
+            line.priceUnit = defaultPriceUnit(value);
+          }
+        });
+        _markDirty();
+      },
+    );
+  }
+
+  Future<void> _pickPriceUnit(_ResourceLine line) async {
+    final allowed = priceUnitsFor(line.qtyUnit);
+    await _pickOption(
+      title: 'Цена за',
+      items: allowed,
+      current: line.priceUnit,
+      onChanged: (value) {
+        setState(() => line.priceUnit = value);
+        _markDirty();
+      },
+    );
+  }
+
+  /// Лист выбора позиции склада с поиском и вариантом «Своя строка».
+  Future<void> _openStockPicker() async {
+    final store = context.read<MastersStore>();
+    final items = store.inventoryItems.where((i) => !i.archived).toList();
+    if (items.isEmpty) {
+      await showAppAlert(
+        context,
+        title: 'Склад пуст',
+        message:
+            'Добавьте позиции на складе или создайте свою строку расчёта.',
+      );
+      _addResource();
+      return;
+    }
+    final result = await showCupertinoModalPopup<Object>(
+      context: context,
+      builder: (sheetContext) => _StockPickerSheet(items: items),
+    );
+    if (result == null || !mounted) return;
+    if (result is _PickedStock) {
+      _applyInventoryItem(result.item);
+    } else if (result == _kCustomRow) {
+      _addResource();
+    }
+  }
+
+  void _applyInventoryItem(InventoryItem item) {
+    final existing = _resources.indexWhere(
+      (r) => r.inventoryItemId == item.id,
+    );
+    if (existing >= 0) {
+      final line = _resources[existing];
+      final current = line.qty;
+      line.qtyController.text = formatQty(current <= 0 ? 1 : current + 1);
+      _markDirty();
+      return;
+    }
+    final empty = _resources.indexWhere(
+      (r) => r.nameController.text.trim().isEmpty && r.inventoryItemId == null,
+    );
+    final price = item.costCents > 0 ? item.costCents : item.sellPriceCents;
+    final line = _ResourceLine(
+      name: item.name,
+      qty: '1',
+      qtyUnit: item.unit,
+      price: (price / 100).toStringAsFixed(2),
+      priceUnit: defaultPriceUnit(item.unit),
+      inventoryItemId: item.id,
+      writeOff: item.trackStock,
+    );
+    if (empty >= 0) {
+      _resources[empty].dispose();
+      _resources[empty] = line;
+    } else {
+      _resources.add(line);
+    }
+    _markDirty();
+  }
+
+  /// «На склад»: создать позицию или обновить себестоимость существующей.
+  Future<void> _saveToStock(_ResourceLine line) async {
+    final name = line.nameController.text.trim();
+    if (name.isEmpty) {
+      await showAppAlert(context, title: 'Нет названия', message: 'Введите наименование строки.');
+      return;
+    }
+    final store = context.read<MastersStore>();
+    final total = line.totalCents;
+    final existing = _lineItem(store, line);
+    setState(() => _busy = true);
+    try {
+      if (existing != null) {
+        final stockQty = convertQty(line.qty, line.qtyUnit, existing.unit);
+        await store.updateInventoryItem(
+          existing.copyWith(
+            name: name,
+            costCents: line.priceCents,
+            stockQty: stockQty == null
+                ? existing.stockQty
+                : existing.stockQty + stockQty,
+          ),
+        );
+      } else {
+        final duplicate = store.inventoryItems.where(
+          (i) => i.name.trim().toLowerCase() == name.toLowerCase(),
+        );
+        if (duplicate.isNotEmpty) {
+          final item = duplicate.first;
+          await store.updateInventoryItem(
+            item.copyWith(
+              unit: line.qtyUnit,
+              costCents: line.priceCents,
+              sellPriceCents: line.priceCents,
+            ),
+          );
+        } else {
+          await store.createInventoryItem(
+            name: name,
+            unit: line.qtyUnit,
+            sellPriceCents: line.priceCents,
+            costCents: line.priceCents,
+            trackStock: false,
+          );
+        }
+      }
+      HapticFeedback.lightImpact();
+      if (!mounted) return;
+      await showAppAlert(
+        context,
+        title: 'Сохранено на склад',
+        message: total > 0
+            ? '$name — себестоимость ${_money(line.priceCents)}.'
+            : '$name — позиция создана.',
+      );
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  /// Списать количество строки со склада.
+  Future<void> _writeOffLine(_ResourceLine line) async {
+    final store = context.read<MastersStore>();
+    final item = _lineItem(store, line);
+    if (item == null) return;
+    final qty = line.qtyInStockUnit(item);
+    if (qty == null || qty <= 0) {
+      await showAppAlert(
+        context,
+        title: 'Единицы не совпадают',
+        message:
+            'Количество указано в «${line.qtyUnit}», а склад ведётся в «${item.unit}».',
+      );
+      return;
+    }
+    setState(() => _busy = true);
+    try {
+      await store.writeOffStock(
+        itemId: item.id,
+        qty: qty,
+        note: widget.jobId == null ? 'Калькулятор' : 'Материалы заказа',
+      );
+      HapticFeedback.lightImpact();
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  /// Пополнить склад на количество строки по указанной цене.
+  Future<void> _receiveLine(_ResourceLine line) async {
+    final store = context.read<MastersStore>();
+    final item = _lineItem(store, line);
+    if (item == null) return;
+    final qty = line.qtyInStockUnit(item);
+    if (qty == null || qty <= 0) {
+      await showAppAlert(
+        context,
+        title: 'Единицы не совпадают',
+        message:
+            'Количество указано в «${line.qtyUnit}», а склад ведётся в «${item.unit}».',
+      );
+      return;
+    }
+    setState(() => _busy = true);
+    try {
+      await store.receiveStock(
+        itemId: item.id,
+        qty: qty,
+        unitPriceCents: line.priceCents,
+        note: 'Поступление из калькулятора',
+      );
+      HapticFeedback.lightImpact();
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  InventoryItem? _lineItem(MastersStore store, _ResourceLine line) {
+    final id = line.inventoryItemId;
+    if (id == null) return null;
+    for (final item in store.inventoryItems) {
+      if (item.id == id) return item;
+    }
+    return null;
+  }
+
+  Future<void> _showLineActions(_ResourceLine line) async {
+    final store = context.read<MastersStore>();
+    final item = _lineItem(store, line);
+    final action = await showCupertinoModalPopup<String>(
+      context: context,
+      builder: (sheetContext) => CupertinoActionSheet(
+        title: Text(
+          line.nameController.text.trim().isEmpty
+              ? 'Строка расчёта'
+              : line.nameController.text.trim(),
         ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        message: item == null
+            ? const Text('Строка не связана с позицией склада')
+            : Text('Остаток: ${formatQty(item.stockQty)} ${item.unit}'),
+        actions: [
+          CupertinoActionSheetAction(
+            onPressed: () => Navigator.of(sheetContext).pop('save'),
+            child: const Text('Сохранить на склад'),
+          ),
+          if (item != null) ...[
+            CupertinoActionSheetAction(
+              onPressed: () => Navigator.of(sheetContext).pop('writeoff'),
+              child: const Text('Списать со склада'),
+            ),
+            CupertinoActionSheetAction(
+              onPressed: () => Navigator.of(sheetContext).pop('receive'),
+              child: const Text('Пополнить склад'),
+            ),
+          ],
+          CupertinoActionSheetAction(
+            isDestructiveAction: true,
+            onPressed: () => Navigator.of(sheetContext).pop('delete'),
+            child: const Text('Удалить строку'),
+          ),
+        ],
+        cancelButton: CupertinoActionSheetAction(
+          isDefaultAction: true,
+          onPressed: () => Navigator.of(sheetContext).pop(),
+          child: const Text('Отмена'),
+        ),
+      ),
+    );
+    if (!mounted || action == null) return;
+    switch (action) {
+      case 'save':
+        await _saveToStock(line);
+      case 'writeoff':
+        await _writeOffLine(line);
+      case 'receive':
+        await _receiveLine(line);
+      case 'delete':
+        final index = _resources.indexOf(line);
+        if (index >= 0) _removeResource(index);
+    }
+  }
+
+  Future<void> _apply() async {
+    final totals = _totals;
+    final store = context.read<MastersStore>();
+    final stockTarget = _stockTarget;
+    if (stockTarget != null) {
+      setState(() => _busy = true);
+      try {
+        await store.updateInventoryItem(
+          stockTarget.copyWith(
+            costCents: totals.costCents,
+            sellPriceCents: totals.priceCents > 0
+                ? totals.priceCents
+                : stockTarget.sellPriceCents,
+          ),
+        );
+        if (!mounted) return;
+        Navigator.of(context).pop({
+          'costCents': totals.costCents,
+          'priceCents': totals.priceCents,
+        });
+      } finally {
+        if (mounted) setState(() => _busy = false);
+      }
+      return;
+    }
+
+    final toWriteOff = _resources
+        .where((r) => r.writeOff && r.inventoryItemId != null)
+        .toList();
+    if (toWriteOff.isNotEmpty) {
+      setState(() => _busy = true);
+      try {
+        for (final line in toWriteOff) {
+          final item = _lineItem(store, line);
+          if (item == null) continue;
+          final qty = line.qtyInStockUnit(item);
+          if (qty == null || qty <= 0) continue;
+          await store.writeOffStock(
+            itemId: item.id,
+            qty: qty,
+            note: 'Материалы заказа',
+          );
+        }
+      } finally {
+        if (mounted) setState(() => _busy = false);
+      }
+    }
+    if (!mounted) return;
+    Navigator.of(context).pop({
+      'costCents': totals.costCents,
+      'priceCents': totals.priceCents,
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.colors;
+    final store = context.watch<MastersStore>();
+    final totals = _totals;
+    final title = _isStockMode ? 'Себестоимость' : 'Калькулятор';
+
+    return CupertinoPageScaffold(
+      navigationBar: CupertinoNavigationBar(
+        middle: Text(title),
+        trailing: CupertinoButton(
+          padding: EdgeInsets.zero,
+          onPressed: _busy ? null : _apply,
+          child: Text(_isStockMode ? 'Сохранить' : 'Применить'),
+        ),
+      ),
+      child: SafeArea(
+        child: Stack(
           children: [
-            Text(value, style: const TextStyle(fontSize: 14)),
-            const Icon(CupertinoIcons.chevron_down, size: 16),
+            ListView(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 96),
+              children: [
+                _SummaryCard(totals: totals),
+                const SizedBox(height: 16),
+                Row(
+                  children: [
+                    Expanded(child: SectionLabel('Ресурсы и материалы')),
+                    CupertinoButton(
+                      padding: EdgeInsets.zero,
+                      onPressed: _openStockPicker,
+                      child: const Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(CupertinoIcons.cube_box, size: 16),
+                          SizedBox(width: 6),
+                          Text('Со склада', style: TextStyle(fontSize: 13)),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                if (_resources.isEmpty)
+                  AppCard(
+                    child: Column(
+                      children: [
+                        Text(
+                          'Добавьте материалы со склада или свою строку.',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            color: colors.secondaryLabel,
+                            fontSize: 13,
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        SecondaryButton(
+                          label: 'Добавить строку',
+                          icon: CupertinoIcons.add,
+                          onPressed: _addResource,
+                        ),
+                      ],
+                    ),
+                  )
+                else
+                  AppCard(
+                    child: Column(
+                      children: [
+                        for (var i = 0; i < _resources.length; i++) ...[
+                          _buildResourceRow(store, _resources[i], i),
+                          if (i != _resources.length - 1) const Hairline(),
+                        ],
+                        const SizedBox(height: 12),
+                        SecondaryButton(
+                          label: 'Добавить строку',
+                          icon: CupertinoIcons.add,
+                          onPressed: _addResource,
+                        ),
+                      ],
+                    ),
+                  ),
+                const SizedBox(height: 16),
+                const SectionLabel('Работа'),
+                AppCard(
+                  child: Column(
+                    children: [
+                      _NumberRow(
+                        label: 'Часы',
+                        controller: _laborHoursController,
+                        suffix: 'ч',
+                        onChanged: _markDirty,
+                      ),
+                      const SizedBox(height: 10),
+                      _NumberRow(
+                        label: 'Ставка',
+                        controller: _laborRateController,
+                        prefix: '₽',
+                        suffix: '/ч',
+                        onChanged: _markDirty,
+                      ),
+                      const SizedBox(height: 12),
+                      _AmountRow(
+                        label: 'Затраты на работу',
+                        value: _money(totals.laborCents),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 16),
+                const SectionLabel('Накладные и маржа'),
+                AppCard(
+                  child: Column(
+                    children: [
+                      _NumberRow(
+                        label: 'Прочие расходы',
+                        controller: _otherController,
+                        prefix: '₽',
+                        onChanged: _markDirty,
+                      ),
+                      const SizedBox(height: 10),
+                      _NumberRow(
+                        label: 'Накладные',
+                        controller: _overheadController,
+                        suffix: '%',
+                        onChanged: _markDirty,
+                      ),
+                      const SizedBox(height: 10),
+                      _NumberRow(
+                        label: 'Маржа',
+                        controller: _marginController,
+                        suffix: '%',
+                        onChanged: _markDirty,
+                      ),
+                      const SizedBox(height: 14),
+                      _AmountRow(
+                        label: 'Себестоимость',
+                        value: _money(totals.costCents),
+                      ),
+                      const SizedBox(height: 6),
+                      _AmountRow(
+                        label: 'Цена',
+                        value: _money(totals.priceCents),
+                        strong: true,
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  _isStockMode
+                      ? 'Сохранение запишет себестоимость и цену в позицию склада.'
+                      : 'Материалы со включённой отметкой спишутся со склада при применении.',
+                  style: TextStyle(color: colors.tertiaryLabel, fontSize: 12),
+                ),
+              ],
+            ),
+            if (_busy)
+              const Positioned.fill(
+                child: ColoredBox(
+                  color: Color(0x33000000),
+                  child: Center(child: CupertinoActivityIndicator()),
+                ),
+              ),
           ],
         ),
       ),
     );
   }
 
-  void _apply() {
-    Navigator.of(context)
-        .pop({'costCents': _costCents, 'priceCents': _priceCents});
-  }
-
-  /// Добавить строку из позиции склада (заполнить поля, не дублировать —
-  /// дублирование проверяется при сохранении на склад).
-  void _applyInventoryItem(InventoryItem item) {
-    final empty = _resources.indexWhere(
-      (r) => r.nameController.text.trim().isEmpty && r.inventoryItemId == null,
-    );
-    final line = _ResourceLine(
-      name: item.name,
-      qty: '1',
-      qtyUnit: item.unit,
-      price: (item.sellPriceCents / 100).toStringAsFixed(2),
-      priceUnit: _defaultPriceUnit(item.unit),
-      inventoryItemId: item.id,
-    );
-    if (empty >= 0) {
-      _resources[empty].dispose();
-      _resources[empty] = line;
-    } else {
-      setState(() => _resources.add(line));
-    }
-    _markDirty();
-  }
-
-  /// "Сохранить на склад": создать InventoryItem с единицей и ценой строки.
-  /// Если позиция с таким названием уже есть — не дублировать.
-  Future<void> _saveToStock(_ResourceLine r) async {
-    final name = r.nameController.text.trim();
-    if (name.isEmpty) return;
-    final store = Provider.of<MastersStore>(context, listen: false);
-    final exists = store.inventoryItems.any(
-      (i) => i.name.trim().toLowerCase() == name.toLowerCase(),
-    );
-    if (exists) {
-      HapticFeedback.lightImpact();
-      return;
-    }
-    await store.createInventoryItem(
-      name: name,
-      unit: r.qtyUnit,
-      sellPriceCents: r.priceCents,
-      stockQty: 0,
-      trackStock: false,
-    );
-    HapticFeedback.lightImpact();
-  }
-
-  Widget _buildResourceRow(_ResourceLine r, int i) {
+  Widget _buildResourceRow(MastersStore store, _ResourceLine line, int index) {
     final colors = context.colors;
-    InventoryItem? inventoryItem;
-    final itemId = r.inventoryItemId;
-    if (itemId != null) {
-      inventoryItem = Provider.of<MastersStore>(context, listen: false)
-          .inventoryItems
-          .firstWhere(
-            (it) => it.id == itemId,
-            orElse: () => throw StateError('inventory item $itemId missing'),
-          );
-    }
-    final remainder = inventoryItem == null
-        ? ''
-        : ' оств. ${inventoryItem.stockQty} ${inventoryItem.unit}';
+    final item = _lineItem(store, line);
+    final remainder = item == null
+        ? null
+        : 'Остаток: ${formatQty(item.stockQty)} ${item.unit}';
 
     return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.symmetric(vertical: 10),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -453,26 +884,31 @@ class _CostCalculatorScreenState extends State<CostCalculatorScreen> {
             children: [
               Expanded(
                 child: CupertinoTextField(
-                  controller: r.nameController,
+                  controller: line.nameController,
                   placeholder: 'Наименование',
                   onChanged: (_) => _markDirty(),
                 ),
               ),
-              const SizedBox(width: 8),
-              SecondaryButton(
-                label: 'На склад',
-                icon: CupertinoIcons.cube_box,
-                onPressed: () => _saveToStock(r),
+              const SizedBox(width: 6),
+              CupertinoButton(
+                padding: EdgeInsets.zero,
+                onPressed: () => _showLineActions(line),
+                child: Icon(
+                  CupertinoIcons.ellipsis_circle,
+                  size: 22,
+                  color: colors.secondaryLabel,
+                  semanticLabel: 'Действия со строкой',
+                ),
               ),
             ],
           ),
           const SizedBox(height: 8),
           Row(
             children: [
-              SizedBox(
-                width: 95,
+              Expanded(
+                flex: 2,
                 child: CupertinoTextField(
-                  controller: r.qtyController,
+                  controller: line.qtyController,
                   placeholder: 'Кол-во',
                   keyboardType: const TextInputType.numberWithOptions(
                     decimal: true,
@@ -481,330 +917,437 @@ class _CostCalculatorScreenState extends State<CostCalculatorScreen> {
                 ),
               ),
               const SizedBox(width: 8),
-              _unitButton(
-                value: r.qtyUnit,
-                items: kQtyUnits,
-                onChanged: (v) => setState(() => r.qtyUnit = v),
-                width: 115,
-              ),
-              const SizedBox(width: 8),
               Expanded(
+                flex: 3,
                 child: CupertinoTextField(
-                  controller: r.priceController,
+                  controller: line.priceController,
                   placeholder: 'Цена',
                   keyboardType: const TextInputType.numberWithOptions(
                     decimal: true,
                   ),
-                  prefix: const Padding(
-                    padding: EdgeInsets.only(left: 8),
-                    child: Text('₽'),
-                  ),
-                  suffix: Padding(
-                    padding: const EdgeInsets.only(right: 8),
-                    child: Icon(
-                      CupertinoIcons.plus,
-                      size: 17,
-                      color: colors.accent,
-                      semanticLabel: 'Цена за единицу',
-                    ),
+                  prefix: Padding(
+                    padding: const EdgeInsets.only(left: 8),
+                    child: Text('₽', style: TextStyle(color: colors.secondaryLabel)),
                   ),
                   onChanged: (_) => _markDirty(),
                 ),
-              ),
-              const SizedBox(width: 8),
-              _unitButton(
-                value: r.priceUnit,
-                items: _priceUnitsFor(r.qtyUnit),
-                onChanged: (v) => setState(() => r.priceUnit = v),
-                width: 110,
               ),
             ],
           ),
           const SizedBox(height: 6),
           Row(
             children: [
-              const SizedBox(width: 95 + 8 + 115 + 8),
-              Icon(CupertinoIcons.minus, size: 16, color: colors.tertiaryLabel),
-              const SizedBox(width: 6),
-              Text(
-                '${(r.totalCents / 100).toStringAsFixed(0)} ₽',
-                style: const TextStyle(fontWeight: FontWeight.w600),
+              _unitChip(
+                text: line.qtyUnit,
+                onTap: () => _pickQtyUnit(line),
               ),
-              const SizedBox(width: 10),
-              CupertinoButton(
-                padding: EdgeInsets.zero,
-                onPressed: () => _removeResource(i),
-                child: Icon(
-                  CupertinoIcons.xmark,
-                  size: 16,
-                  color: colors.tertiaryLabel,
-                  semanticLabel: 'Удалить',
-                ),
+              const SizedBox(width: 6),
+              _unitChip(
+                text: line.priceUnit,
+                onTap: () => _pickPriceUnit(line),
+              ),
+              const Spacer(),
+              Text(
+                _money(line.totalCents),
+                style: const TextStyle(fontWeight: FontWeight.w600),
               ),
             ],
           ),
-          if (remainder.isNotEmpty)
-            Padding(
-              padding: const EdgeInsets.only(top: 4),
-              child: Row(
-                children: [
-                  const SizedBox(width: 95 + 8 + 115 + 8),
+          if (remainder != null || item != null) ...[
+            const SizedBox(height: 6),
+            Row(
+              children: [
+                if (remainder != null)
                   Text(
-                    'остаток на складе$remainder',
-                    style: TextStyle(color: colors.tertiaryLabel, fontSize: 12),
+                    remainder,
+                    style: TextStyle(
+                      color: item != null && item.lowStock
+                          ? colors.orange
+                          : colors.tertiaryLabel,
+                      fontSize: 12,
+                    ),
                   ),
-                ],
-              ),
+                const Spacer(),
+                if (item != null)
+                  CupertinoButton(
+                    padding: EdgeInsets.zero,
+                    onPressed: () {
+                      setState(() => line.writeOff = !line.writeOff);
+                      _markDirty();
+                    },
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          line.writeOff
+                              ? CupertinoIcons.check_mark_circled_solid
+                              : CupertinoIcons.circle,
+                          size: 16,
+                          color: line.writeOff
+                              ? colors.accent
+                              : colors.tertiaryLabel,
+                        ),
+                        const SizedBox(width: 5),
+                        Text(
+                          'Списать',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: line.writeOff
+                                ? colors.accent
+                                : colors.secondaryLabel,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                if (item == null)
+                  CupertinoButton(
+                    padding: EdgeInsets.zero,
+                    onPressed: () => _removeResource(index),
+                    child: Icon(
+                      CupertinoIcons.xmark,
+                      size: 16,
+                      color: colors.tertiaryLabel,
+                      semanticLabel: 'Удалить',
+                    ),
+                  ),
+              ],
             ),
+          ],
         ],
       ),
     );
   }
 
-  Widget _buildAddButton() {
-    return SecondaryButton(
-      label: '+ Ресурс',
-      icon: CupertinoIcons.add,
-      onPressed: _addResource,
+  Widget _unitChip({required String text, required VoidCallback onTap}) {
+    final colors = context.colors;
+    return CupertinoButton(
+      padding: EdgeInsets.zero,
+      onPressed: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+        decoration: BoxDecoration(
+          color: colors.cardElevated,
+          borderRadius: BorderRadius.circular(9),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(text, style: const TextStyle(fontSize: 12.5)),
+            const SizedBox(width: 3),
+            Icon(
+              CupertinoIcons.chevron_down,
+              size: 11,
+              color: colors.secondaryLabel,
+            ),
+          ],
+        ),
+      ),
     );
+  }
+}
+
+class _SummaryCard extends StatelessWidget {
+  const _SummaryCard({required this.totals});
+
+  final CalculatorTotals totals;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.colors;
+    String money(int cents) => '${(cents / 100).toStringAsFixed(0)} ₽';
+
+    return AppCard(
+      padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
+      child: Row(
+        children: [
+          Expanded(
+            child: _SummaryValue(
+              label: 'Себестоимость',
+              value: money(totals.costCents),
+              color: colors.label,
+            ),
+          ),
+          Container(width: 0.5, height: 34, color: colors.separator),
+          Expanded(
+            child: _SummaryValue(
+              label: 'Цена',
+              value: money(totals.priceCents),
+              color: colors.accent,
+            ),
+          ),
+          Container(width: 0.5, height: 34, color: colors.separator),
+          Expanded(
+            child: _SummaryValue(
+              label: 'Маржа',
+              value: money(totals.marginCents),
+              color: totals.marginCents >= 0 ? colors.green : colors.red,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SummaryValue extends StatelessWidget {
+  const _SummaryValue({
+    required this.label,
+    required this.value,
+    required this.color,
+  });
+
+  final String label;
+  final String value;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        FittedBox(
+          fit: BoxFit.scaleDown,
+          child: Text(
+            value,
+            style: TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.w700,
+              letterSpacing: -0.4,
+              color: color,
+              fontFeatures: const [FontFeature.tabularFigures()],
+            ),
+          ),
+        ),
+        const SizedBox(height: 2),
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 11,
+            color: context.colors.secondaryLabel,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _NumberRow extends StatelessWidget {
+  const _NumberRow({
+    required this.label,
+    required this.controller,
+    required this.onChanged,
+    this.prefix,
+    this.suffix,
+  });
+
+  final String label;
+  final TextEditingController controller;
+  final VoidCallback onChanged;
+  final String? prefix;
+  final String? suffix;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.colors;
+    return Row(
+      children: [
+        Expanded(
+          child: Text(
+            label,
+            style: TextStyle(color: colors.secondaryLabel, fontSize: 15),
+          ),
+        ),
+        SizedBox(
+          width: 132,
+          child: CupertinoTextField(
+            controller: controller,
+            textAlign: TextAlign.right,
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            prefix: prefix == null
+                ? null
+                : Padding(
+                    padding: const EdgeInsets.only(left: 8),
+                    child: Text(
+                      prefix!,
+                      style: TextStyle(color: colors.secondaryLabel),
+                    ),
+                  ),
+            suffix: suffix == null
+                ? null
+                : Padding(
+                    padding: const EdgeInsets.only(right: 8),
+                    child: Text(
+                      suffix!,
+                      style: TextStyle(color: colors.secondaryLabel),
+                    ),
+                  ),
+            onChanged: (_) => onChanged(),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _AmountRow extends StatelessWidget {
+  const _AmountRow({
+    required this.label,
+    required this.value,
+    this.strong = false,
+  });
+
+  final String label;
+  final String value;
+  final bool strong;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.colors;
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(
+          label,
+          style: TextStyle(color: colors.secondaryLabel, fontSize: 13),
+        ),
+        Text(
+          value,
+          style: TextStyle(
+            fontWeight: FontWeight.w600,
+            fontSize: strong ? 17 : 14,
+            color: strong ? colors.accent : colors.label,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// Лист выбора позиции склада: поиск по названию, остаток и цена.
+class _StockPickerSheet extends StatefulWidget {
+  const _StockPickerSheet({required this.items});
+
+  final List<InventoryItem> items;
+
+  @override
+  State<_StockPickerSheet> createState() => _StockPickerSheetState();
+}
+
+class _StockPickerSheetState extends State<_StockPickerSheet> {
+  final _searchController = TextEditingController();
+  String _query = '';
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  List<InventoryItem> get _filtered {
+    final q = _query.trim().toLowerCase();
+    if (q.isEmpty) return widget.items;
+    return widget.items
+        .where(
+          (i) =>
+              i.name.toLowerCase().contains(q) ||
+              i.category.toLowerCase().contains(q),
+        )
+        .toList();
   }
 
   @override
   Widget build(BuildContext context) {
-    final store = Provider.of<MastersStore>(context, listen: false);
     final colors = context.colors;
-    return CupertinoPageScaffold(
-      navigationBar: CupertinoNavigationBar(
-        middle: const Text('Калькулятор расходов'),
-        trailing: CupertinoButton(
-          padding: EdgeInsets.zero,
-          onPressed: _apply,
-          child: const Text('Применить'),
-        ),
+    final items = _filtered;
+    return Container(
+      height: MediaQuery.of(context).size.height * 0.72,
+      decoration: BoxDecoration(
+        color: colors.background,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(18)),
       ),
       child: SafeArea(
-        child: ListView(
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 72),
+        top: false,
+        child: Column(
           children: [
-            Row(
-              children: [
-                SectionLabel('Ресурсы и материалы'),
-                const SizedBox(width: 8),
-                if (store.inventoryItems.isNotEmpty)
+            const SizedBox(height: 10),
+            const SheetHandle(),
+            const SizedBox(height: 10),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Row(
+                children: [
+                  const Expanded(
+                    child: Text(
+                      'Позиции склада',
+                      style: TextStyle(
+                        fontSize: 17,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
                   CupertinoButton(
-                    onPressed: () => _pickUnit(
-                      context: context,
-                      current: '',
-                      items: store.inventoryItems
-                          .map((it) => '${it.name} (${it.unit})')
-                          .toList(),
-                      onChanged: (selected) {
-                        final item = store.inventoryItems.firstWhere(
-                          (it) => '${it.name} (${it.unit})' == selected,
-                        );
-                        _applyInventoryItem(item);
-                      },
-                    ),
                     padding: EdgeInsets.zero,
-                    child: const Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(CupertinoIcons.cube_box, size: 16),
-                        SizedBox(width: 6),
-                        Text('Со склада', style: TextStyle(fontSize: 13)),
-                      ],
-                    ),
-                  ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            AppCard(
-              child: Column(
-                children: [
-                  ..._resources.asMap().entries.map((entry) {
-                    final i = entry.key;
-                    final r = entry.value;
-                    return _buildResourceRow(r, i);
-                  }),
-                  const SizedBox(height: 10),
-                  _buildAddButton(),
-                ],
-              ),
-            ),
-            const SizedBox(height: 16),
-            SectionLabel('Работа'),
-            AppCard(
-              child: Column(
-                children: [
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          'Часы',
-                          style: TextStyle(color: colors.secondaryLabel),
-                        ),
-                      ),
-                      SizedBox(
-                        width: 100,
-                        child: CupertinoTextField(
-                          controller: _laborHoursController,
-                          keyboardType: const TextInputType.numberWithOptions(
-                            decimal: true,
-                          ),
-                          onChanged: (_) => _markDirty(),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          'Ставка (₽/ч)',
-                          style: TextStyle(color: colors.secondaryLabel),
-                        ),
-                      ),
-                      SizedBox(
-                        width: 100,
-                        child: CupertinoTextField(
-                          controller: _laborRateController,
-                          keyboardType: const TextInputType.numberWithOptions(
-                            decimal: true,
-                          ),
-                          onChanged: (_) => _markDirty(),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 10),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        'Затраты на работу',
-                        style: TextStyle(
-                          color: colors.secondaryLabel,
-                          fontSize: 12,
-                        ),
-                      ),
-                      Text(
-                        '${(_laborCents / 100).toStringAsFixed(0)} ₽',
-                        style: const TextStyle(fontWeight: FontWeight.w600),
-                      ),
-                    ],
+                    onPressed: () => Navigator.of(context).pop(),
+                    child: const Text('Закрыть'),
                   ),
                 ],
               ),
             ),
-            const SizedBox(height: 16),
-            SectionLabel('Накладные и маржа'),
-            AppCard(
-              child: Column(
-                children: [
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          'Прочие расходы (₽)',
-                          style: TextStyle(color: colors.secondaryLabel),
-                        ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+              child: CupertinoSearchTextField(
+                controller: _searchController,
+                placeholder: 'Поиск по названию',
+                onChanged: (value) => setState(() => _query = value),
+              ),
+            ),
+            Expanded(
+              child: items.isEmpty
+                  ? Center(
+                      child: Text(
+                        'Ничего не найдено',
+                        style: TextStyle(color: colors.secondaryLabel),
                       ),
-                      SizedBox(
-                        width: 100,
-                        child: CupertinoTextField(
-                          controller: _otherController,
-                          keyboardType: const TextInputType.numberWithOptions(
-                            decimal: true,
+                    )
+                  : ListView.separated(
+                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+                      itemCount: items.length,
+                      separatorBuilder: (_, _) => const Hairline(),
+                      itemBuilder: (_, index) {
+                        final item = items[index];
+                        final price = item.costCents > 0
+                            ? item.costCents
+                            : item.sellPriceCents;
+                        return CupertinoListTile(
+                          padding: const EdgeInsets.symmetric(vertical: 8),
+                          title: Text(item.name),
+                          subtitle: Text(
+                            item.trackStock
+                                ? 'Остаток: ${formatQty(item.stockQty)} ${item.unit}'
+                                : 'Без учёта остатка',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: item.lowStock
+                                  ? colors.orange
+                                  : colors.secondaryLabel,
+                            ),
                           ),
-                          onChanged: (_) => _markDirty(),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 10),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          'Накладные (% от базы)',
-                          style: TextStyle(color: colors.secondaryLabel),
-                        ),
-                      ),
-                      SizedBox(
-                        width: 100,
-                        child: CupertinoTextField(
-                          controller: _overheadController,
-                          keyboardType: const TextInputType.numberWithOptions(
-                            decimal: true,
-                          ),
-                          onChanged: (_) => _markDirty(),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 10),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          'Маржа (%)',
-                          style: TextStyle(color: colors.secondaryLabel),
-                        ),
-                      ),
-                      SizedBox(
-                        width: 100,
-                        child: CupertinoTextField(
-                          controller: _marginController,
-                          keyboardType: const TextInputType.numberWithOptions(
-                            decimal: true,
-                          ),
-                          onChanged: (_) => _markDirty(),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 14),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        'Себестоимость',
-                        style: TextStyle(
-                          color: colors.secondaryLabel,
-                          fontSize: 12,
-                        ),
-                      ),
-                      Text(
-                        '${(_costCents / 100).toStringAsFixed(0)} ₽',
-                        style: const TextStyle(fontWeight: FontWeight.w600),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 6),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        'Цена',
-                        style: TextStyle(
-                          color: colors.secondaryLabel,
-                          fontSize: 12,
-                        ),
-                      ),
-                      Row(
-                        children: [
-                          Icon(
-                            CupertinoIcons.minus,
-                            size: 16,
-                            color: colors.tertiaryLabel,
-                          ),
-                          const SizedBox(width: 6),
-                          Text(
-                            '${(_priceCents / 100).toStringAsFixed(0)} ₽',
+                          trailing: Text(
+                            '${(price / 100).toStringAsFixed(0)} ₽',
                             style: const TextStyle(fontWeight: FontWeight.w600),
                           ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ],
+                          onTap: () =>
+                              Navigator.of(context).pop(_PickedStock(item)),
+                        );
+                      },
+                    ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 4, 16, 12),
+              child: SecondaryButton(
+                label: 'Своя строка',
+                icon: CupertinoIcons.add,
+                onPressed: () => Navigator.of(context).pop(_kCustomRow),
               ),
             ),
           ],

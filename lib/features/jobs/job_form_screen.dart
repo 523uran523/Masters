@@ -627,7 +627,8 @@ class _JobFormScreenState extends State<JobFormScreen> {
                   final result = await Navigator.of(context)
                       .push<Map<String, int>>(
                         CupertinoPageRoute(
-                          builder: (_) => const CostCalculatorScreen(),
+                          builder: (_) =>
+                              CostCalculatorScreen(jobId: widget.jobId),
                         ),
                       );
                   if (result == null || !mounted) return;
