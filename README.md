@@ -66,7 +66,7 @@ APK: `build\app\outputs\flutter-apk\app-release.apk`.
 `http://192.168.1.112:8080/master-updates/`.
 
 Обновление срабатывает **только по `version_code`**, поэтому каждый выпуск
-обязан поднимать build-номер в `pubspec.yaml` (`version: 0.3.16+19`).
+обязан поднимать build-номер в `pubspec.yaml` (`version: 0.3.17+20`).
 
 ## Синхронизация
 
