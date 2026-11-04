@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../../app/theme/app_theme.dart';
 import '../../app/ui.dart';
+import '../../core/utils/app_utils.dart';
 import '../../features/clients/clients_screen.dart';
 import '../../features/employees/employees_screen.dart';
 import '../../features/inventory/inventory_screen.dart';
@@ -27,20 +28,28 @@ class MoreScreen extends StatelessWidget {
       _MoreTile(
         icon: CupertinoIcons.person_2,
         title: 'Клиенты',
-        subtitle: '${store.clients.length} карточек',
+        subtitle: countLabel(store.clients.length, const [
+          'карточка',
+          'карточки',
+          'карточек',
+        ]),
         screen: const ClientsScreen(),
       ),
       if (settings.showAppointments)
         _MoreTile(
           icon: CupertinoIcons.calendar,
           title: 'Записи',
-          subtitle: '${store.appointments.length} визитов',
+          subtitle: countLabel(store.appointments.length, const [
+            'визит',
+            'визита',
+            'визитов',
+          ]),
           screen: const UnifiedBookingScreen(),
         ),
       _MoreTile(
         icon: CupertinoIcons.chart_bar,
         title: 'Аналитика',
-        subtitle: 'P&L, срезами',
+        subtitle: 'P&L, срезы и экспорт',
         screen: const StatsScreen(),
       ),
     ];
@@ -49,14 +58,22 @@ class MoreScreen extends StatelessWidget {
       _MoreTile(
         icon: CupertinoIcons.cube,
         title: 'Склад',
-        subtitle: '${store.inventoryItems.length} позиций',
+        subtitle: countLabel(store.inventoryItems.length, const [
+          'позиция',
+          'позиции',
+          'позиций',
+        ]),
         screen: const InventoryScreen(),
       ),
       if (settings.teamEnabled)
         _MoreTile(
           icon: CupertinoIcons.person,
-          title: 'Сотрудники и зарплата',
-          subtitle: '${store.employees.length} человек',
+          title: 'Команда',
+          subtitle: countLabel(store.employees.length, const [
+            'сотрудник',
+            'сотрудника',
+            'сотрудников',
+          ]),
           screen: const EmployeesScreen(),
         ),
     ];
@@ -67,26 +84,30 @@ class MoreScreen extends StatelessWidget {
         child: ListView(
           padding: const EdgeInsets.fromLTRB(16, 12, 16, 72),
           children: [
-            SectionLabel('Работа'),
+            Row(
+              children: [
+                Expanded(
+                  child: SectionLabel(
+                    'Работа',
+                    padding: const EdgeInsets.fromLTRB(4, 0, 4, 0),
+                  ),
+                ),
+                if (settings.showAppointments)
+                  ChipButton(
+                    label: 'Записи',
+                    icon: CupertinoIcons.calendar,
+                    onPressed: () => _open(context, const UnifiedBookingScreen()),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 8),
             AppCard(
+              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
               child: Column(
                 children: [
-                  for (final tile in workTiles) ...[
-                    CupertinoListTile(
-                      leading: Icon(tile.icon, color: colors.accent),
-                      title: Text(tile.title),
-                      subtitle: tile.subtitle == null
-                          ? null
-                          : Text(tile.subtitle!),
-                      trailing: const Icon(
-                        CupertinoIcons.chevron_right,
-                        size: 16,
-                      ),
-                      onTap: () => Navigator.of(
-                        context,
-                      ).push(CupertinoPageRoute(builder: (_) => tile.screen)),
-                    ),
-                    if (tile != workTiles.last) const Hairline(indent: 56),
+                  for (var i = 0; i < workTiles.length; i++) ...[
+                    if (i > 0) const Hairline(indent: 12),
+                    _tile(context, workTiles[i], colors),
                   ],
                 ],
               ),
@@ -95,49 +116,32 @@ class MoreScreen extends StatelessWidget {
             if (resourceTiles.isNotEmpty) ...[
               SectionLabel('Склад и команда'),
               AppCard(
+                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
                 child: Column(
                   children: [
-                    for (final tile in resourceTiles) ...[
-                      CupertinoListTile(
-                        leading: Icon(tile.icon, color: colors.accent),
-                        title: Text(tile.title),
-                        subtitle: tile.subtitle == null
-                            ? null
-                            : Text(tile.subtitle!),
-                        trailing: const Icon(
-                          CupertinoIcons.chevron_right,
-                          size: 16,
-                        ),
-                        onTap: () => Navigator.of(
-                          context,
-                        ).push(
-                          CupertinoPageRoute(builder: (_) => tile.screen),
-                        ),
-                      ),
-                      if (tile != resourceTiles.last) const Hairline(indent: 56),
+                    for (var i = 0; i < resourceTiles.length; i++) ...[
+                      if (i > 0) const Hairline(indent: 12),
+                      _tile(context, resourceTiles[i], colors),
                     ],
                   ],
                 ),
               ),
               const SizedBox(height: 16),
             ],
-            const SizedBox(height: 16),
             AppCard(
-              child: CupertinoListTile(
-                leading: Icon(CupertinoIcons.gear, color: colors.accent),
-                title: const Text('Настройки'),
-                subtitle: const Text('Деньги, склад, PIN, обновления'),
-                trailing: const Icon(CupertinoIcons.chevron_right, size: 16),
-                onTap: () => Navigator.of(context).push(
-                  CupertinoPageRoute(builder: (_) => const SettingsScreen()),
-                ),
+              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+              child: ListRow(
+                dense: true,
+                icon: CupertinoIcons.gear,
+                title: 'Настройки',
+                subtitle: 'Деньги, склад, PIN, обновления',
+                showChevron: true,
+                onTap: () => _open(context, const SettingsScreen()),
               ),
             ),
             const SizedBox(height: 12),
             GestureDetector(
-              onTap: () => Navigator.of(context).push(
-                CupertinoPageRoute(builder: (_) => const SettingsScreen()),
-              ),
+              onTap: () => _open(context, const SettingsScreen()),
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 4),
                 child: Row(
@@ -177,6 +181,21 @@ class MoreScreen extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  Widget _tile(BuildContext context, _MoreTile tile, AppColors colors) {
+    return ListRow(
+      dense: true,
+      icon: tile.icon,
+      title: tile.title,
+      subtitle: tile.subtitle,
+      showChevron: true,
+      onTap: () => _open(context, tile.screen),
+    );
+  }
+
+  void _open(BuildContext context, Widget screen) {
+    Navigator.of(context).push(CupertinoPageRoute(builder: (_) => screen));
   }
 }
 

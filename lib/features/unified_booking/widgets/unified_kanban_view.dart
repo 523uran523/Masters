@@ -56,6 +56,7 @@ class UnifiedKanbanView extends StatelessWidget {
         onAcceptWithDetails: (details) => _drop(details.data, group, store),
         builder: (context, candidateData, rejectedData) {
           final highlight = candidateData.isNotEmpty;
+          final tint = _columnColor(colors, group.key);
           return Container(
             width: width,
             margin: const EdgeInsets.only(right: 10),
@@ -63,30 +64,35 @@ class UnifiedKanbanView extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 10,
-                    vertical: 8,
-                  ),
+                  padding: const EdgeInsets.fromLTRB(9, 5, 7, 5),
                   decoration: BoxDecoration(
-                    color: highlight
-                        ? colors.accent.withValues(alpha: 0.12)
-                        : colors.cardElevated,
-                    borderRadius: BorderRadius.circular(12),
+                    color: highlight ? colors.tint(tint, 0.18) : colors.card,
+                    borderRadius: BorderRadius.circular(10),
                   ),
                   child: Row(
                     children: [
-                      Text(
-                        group.label,
-                        style: const TextStyle(fontWeight: FontWeight.w600),
-                      ),
-                      const SizedBox(width: 6),
-                      Text(
-                        '${group.events.length}',
-                        style: TextStyle(
-                          color: colors.secondaryLabel,
-                          fontSize: 12,
+                      Container(
+                        width: 7,
+                        height: 7,
+                        decoration: BoxDecoration(
+                          color: tint,
+                          shape: BoxShape.circle,
                         ),
                       ),
+                      const SizedBox(width: 7),
+                      Expanded(
+                        child: Text(
+                          group.label,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontWeight: FontWeight.w600,
+                            fontSize: 14.5,
+                            letterSpacing: -0.2,
+                          ),
+                        ),
+                      ),
+                      Pill('${group.events.length}', color: tint),
                     ],
                   ),
                 ),
@@ -96,11 +102,15 @@ class UnifiedKanbanView extends StatelessWidget {
                       ? Center(
                           child: Text(
                             'Событий нет',
-                            style: TextStyle(color: colors.tertiaryLabel),
+                            style: TextStyle(
+                              color: colors.tertiaryLabel,
+                              fontSize: 13,
+                            ),
                           ),
                         )
                       : ListView.builder(
                           physics: const ClampingScrollPhysics(),
+                          padding: EdgeInsets.zero,
                           itemCount: group.events.length,
                           itemBuilder: (context, i) {
                             final event = group.events[i];
@@ -149,6 +159,14 @@ class UnifiedKanbanView extends StatelessWidget {
         ],
       ],
     );
+  }
+
+  Color _columnColor(AppColors colors, String key) {
+    return switch (key) {
+      'done' => colors.green,
+      'in_progress' => colors.orange,
+      _ => colors.accent,
+    };
   }
 
   /// Порядок внутри колонки: записи раньше заказов, у записей — по

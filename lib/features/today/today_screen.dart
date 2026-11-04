@@ -10,7 +10,9 @@ import '../../app/ui.dart';
 import '../../core/deep_link_service.dart';
 import '../../core/utils/app_utils.dart';
 import '../../data/models/client_reminder.dart';
+import '../../data/models/inventory_item.dart';
 import '../../data/models/job.dart';
+import '../../data/models/recurring_payment.dart';
 import '../../state/masters_store.dart';
 import '../../state/settings_controller.dart';
 import '../jobs/job_detail_screen.dart';
@@ -142,8 +144,8 @@ class _TodayScreenState extends State<TodayScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   SectionLabel(title),
-                  ...jobs.map((job) => _jobTile(context, store, job, colors)),
-                  const SizedBox(height: 12),
+                  _jobListCard(context, store, jobs, colors),
+                  const SizedBox(height: 16),
                 ],
               );
             }
@@ -153,88 +155,36 @@ class _TodayScreenState extends State<TodayScreen> {
                 padding: const EdgeInsets.fromLTRB(16, 12, 16, 72),
                 children: [
                   _buildTodayTimerCard(store, context),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 10),
                   _buildMonthCard(store, context),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 10),
                   if (settings.taxRadarEnabled && settings.npdLimitApplies) ...[
                     AppCard(
+                      padding: const EdgeInsets.fromLTRB(14, 10, 14, 11),
                       child: TaxRadarBar(
                         compact: true,
                         incomeCents: store.annualIncomeCents(),
                         limitCents: settings.taxIncomeLimitCents,
                       ),
                     ),
-                    const SizedBox(height: 12),
+                    const SizedBox(height: 10),
                   ],
                   _buildSummaryCards(store, colors),
-                  const SizedBox(height: 12),
-                  if (unpaid.isNotEmpty) buildSection('К оплате', unpaid),
-                  if (lowStock.isNotEmpty) ...[
-                    SectionLabel('Низкий остаток (${lowStock.length})'),
-                    ...lowStock.map(
-                      (i) => Padding(
-                        padding: const EdgeInsets.only(bottom: 8),
-                        child: AppCard(
-                          child: Row(
-                            children: [
-                              Expanded(
-                                child: Text(
-                                  i.name,
-                                  style: const TextStyle(
-                                    fontWeight: FontWeight.w500,
-                                  ),
-                                ),
-                              ),
-                              Text(
-                                '${i.stockQty.toStringAsFixed(i.stockQty % 1 == 0 ? 0 : 2)} ${i.unit}',
-                                style: TextStyle(
-                                  color: colors.red,
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                  ],
-                  if (recurringDue.isNotEmpty) ...[
-                    SectionLabel(
-                      'Регулярные к оплате (${recurringDue.length})',
-                    ),
-                    ...recurringDue.map(
-                      (p) => Padding(
-                        padding: const EdgeInsets.only(bottom: 8),
-                        child: AppCard(
-                          child: Row(
-                            children: [
-                              Expanded(
-                                child: Text(
-                                  p.name,
-                                  style: const TextStyle(
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                              ),
-                              Text(
-                                '${(p.amountCents / 100).toStringAsFixed(0)} ₽',
-                                style: TextStyle(
-                                  color: colors.red,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                  ],
+                  const SizedBox(height: 16),
                   buildSection('В работе', active),
                   buildSection('Срок сегодня', dueToday),
                   buildSection('Новые', newJobs),
+                  if (lowStock.isNotEmpty) ...[
+                    SectionLabel('Низкий остаток'),
+                    _stockCard(lowStock, colors),
+                    const SizedBox(height: 16),
+                  ],
+                  if (recurringDue.isNotEmpty) ...[
+                    SectionLabel('Регулярные платежи'),
+                    _recurringCard(recurringDue, colors),
+                    const SizedBox(height: 16),
+                  ],
+                  if (unpaid.isNotEmpty) buildSection('К оплате', unpaid),
                   if (dueRems.isNotEmpty) ...[
                     SectionLabel('Напоминания'),
                     ...dueRems.map(
@@ -308,6 +258,7 @@ class _TodayScreenState extends State<TodayScreen> {
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
       child: AppCard(
+        padding: const EdgeInsets.fromLTRB(14, 11, 8, 10),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -320,36 +271,32 @@ class _TodayScreenState extends State<TodayScreen> {
                     children: [
                       Text(
                         reminder.title,
-                        style: const TextStyle(fontWeight: FontWeight.w600),
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w600,
+                          fontSize: 15,
+                        ),
                       ),
                       const SizedBox(height: 2),
                       Text(
-                        client?.name ?? 'Клиент',
-                        style: TextStyle(
-                          color: colors.secondaryLabel,
-                          fontSize: 12,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        message,
-                        style: TextStyle(
-                          color: colors.secondaryLabel,
-                          fontSize: 12,
-                          height: 1.25,
-                        ),
-                        maxLines: 3,
+                        hasPhone ? '$name · $phone' : name,
+                        maxLines: 1,
                         overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: colors.secondaryLabel,
+                          fontSize: 12.5,
+                        ),
                       ),
                     ],
                   ),
                 ),
                 CupertinoButton(
                   padding: EdgeInsets.zero,
+                  minimumSize: const Size(34, 34),
                   onPressed: () =>
                       store.setReminderStatus(reminder.id, ReminderStatus.done),
                   child: Icon(
                     CupertinoIcons.checkmark_circle,
+                    size: 22,
                     color: colors.green,
                     semanticLabel: 'Выполнено',
                   ),
@@ -357,16 +304,26 @@ class _TodayScreenState extends State<TodayScreen> {
               ],
             ),
             const SizedBox(height: 6),
+            Text(
+              message,
+              style: TextStyle(
+                color: colors.secondaryLabel,
+                fontSize: 12.5,
+                height: 1.25,
+              ),
+              maxLines: 3,
+              overflow: TextOverflow.ellipsis,
+            ),
+            const SizedBox(height: 8),
             if (hasPhone)
               Wrap(
                 spacing: 6,
-                runSpacing: 4,
+                runSpacing: 6,
                 children: [
-                  CupertinoButton(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 10,
-                      vertical: 4,
-                    ),
+                  ChipButton(
+                    label: 'WhatsApp',
+                    icon: CupertinoIcons.chat_bubble,
+                    color: colors.green,
                     onPressed: () async {
                       try {
                         await DeepLinkService.openWhatsApp(
@@ -381,19 +338,10 @@ class _TodayScreenState extends State<TodayScreen> {
                         // Platform launch errors are expected on web/simulator.
                       }
                     },
-                    child: const Text(
-                      'WhatsApp',
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
                   ),
-                  CupertinoButton(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 10,
-                      vertical: 4,
-                    ),
+                  ChipButton(
+                    label: 'SMS',
+                    icon: CupertinoIcons.chat_bubble_text,
                     onPressed: () async {
                       try {
                         await DeepLinkService.openSms(phone, message);
@@ -405,19 +353,12 @@ class _TodayScreenState extends State<TodayScreen> {
                         // Platform launch errors are expected on web/simulator.
                       }
                     },
-                    child: const Text(
-                      'SMS',
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
                   ),
                 ],
               )
             else
               Text(
-                'Без телефона',
+                'Телефон не указан',
                 style: TextStyle(color: colors.tertiaryLabel, fontSize: 12),
               ),
           ],
@@ -435,55 +376,67 @@ class _TodayScreenState extends State<TodayScreen> {
     final recurringDue = store.recurringPayments
         .where((p) => p.active && !p.nextDueAt.isAfter(DateTime.now()))
         .length;
-    return Column(
-      children: [
-        Row(
-          children: [
-            Expanded(
-              child: _SummaryTile(
-                label: 'Свободные деньги',
-                value: _money(store.totalBalanceCents()),
-                color: colors.green,
-              ),
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: _SummaryTile(
-                label: 'Должны мне',
-                value: _money(debt),
-                color: colors.orange,
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 8),
-        Row(
-          children: [
-            Expanded(
-              child: _SummaryTile(
-                label: 'Активные заказы',
-                value: store.jobs
-                    .where((j) => !j.archived && j.status != JobStatus.closed)
-                    .length
-                    .toString(),
-                color: colors.accent,
-              ),
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: _SummaryTile(
-                label: 'Требует внимания',
-                value: '${lowStock + recurringDue}',
-                color: colors.red,
-              ),
-            ),
-          ],
-        ),
-      ],
+    final attention = lowStock + recurringDue;
+    final activeJobs = store.jobs
+        .where((j) => !j.archived && j.status != JobStatus.closed)
+        .length;
+    final balance = store.totalBalanceCents();
+
+    final jobsWord = ordersWord(activeJobs);
+    final issuesWord = pluralRu(attention, ['повод', 'повода', 'поводов']);
+
+    return AppCard(
+      padding: const EdgeInsets.fromLTRB(14, 10, 14, 11),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          KeyValueRow(
+            'Свободно',
+            _money(balance),
+            valueColor: balance < 0 ? colors.red : colors.green,
+            emphasis: true,
+            dense: true,
+          ),
+          KeyValueRow(
+            'Должны мне',
+            _money(debt),
+            valueColor: debt > 0 ? colors.orange : null,
+            dense: true,
+          ),
+          KeyValueRow('В работе', '$activeJobs · $jobsWord', dense: true),
+          KeyValueRow(
+            'Требует внимания',
+            attention == 0 ? 'Нет' : '$attention · $issuesWord',
+            valueColor: attention > 0 ? colors.red : null,
+            dense: true,
+          ),
+        ],
+      ),
     );
   }
 
-  Widget _jobTile(
+  /// Одна карточка на всю секцию: строки разделены волосяными линиями,
+  /// поэтому список не превращается в стопку одинаковых плиток.
+  Widget _jobListCard(
+    BuildContext context,
+    MastersStore store,
+    List<Job> jobs,
+    AppColors colors,
+  ) {
+    return AppCard(
+      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+      child: Column(
+        children: [
+          for (var i = 0; i < jobs.length; i++) ...[
+            if (i > 0) const Hairline(indent: 12),
+            _jobRow(context, store, jobs[i], colors),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _jobRow(
     BuildContext context,
     MastersStore store,
     Job job,
@@ -491,60 +444,26 @@ class _TodayScreenState extends State<TodayScreen> {
   ) {
     final client = store.clientById(job.clientId);
     final totalMin = store.totalMinutesForJob(job.id);
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: AppCard(
-        onTap: () => Navigator.of(context).push(
-          CupertinoPageRoute(builder: (_) => JobDetailScreen(jobId: job.id)),
-        ),
-        child: Row(
-          children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    job.title,
-                    style: const TextStyle(fontWeight: FontWeight.w600),
-                  ),
-                  Text(
-                    [
-                      client?.name ?? '—',
-                      if (job.dueDate != null) formatFullDate(job.dueDate!),
-                      if (totalMin > 0) formatMinutes(totalMin),
-                    ].join(' • '),
-                    style: TextStyle(
-                      color: colors.secondaryLabel,
-                      fontSize: 12,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-              decoration: BoxDecoration(
-                color: colors.tint(colors.accent, 0.12),
-                borderRadius: BorderRadius.circular(99),
-              ),
-              child: Text(
-                job.status.label,
-                style: TextStyle(
-                  color: colors.accent,
-                  fontSize: 11,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ),
-          ],
-        ),
+    final subtitle = [
+      client?.name ?? 'Без клиента',
+      if (job.dueDate != null) formatFullDate(job.dueDate!),
+      if (totalMin > 0) formatMinutes(totalMin),
+    ].join(' • ');
+
+    return ListRow(
+      title: job.title,
+      subtitle: subtitle,
+      dense: true,
+      showChevron: true,
+      trailing: Pill(job.status.label, color: colors.accent),
+      onTap: () => Navigator.of(context).push(
+        CupertinoPageRoute(builder: (_) => JobDetailScreen(jobId: job.id)),
       ),
     );
   }
 }
 
 String _money(int cents) => '${(cents / 100).toStringAsFixed(0)} ₽';
-
 String _hms(int seconds) {
   final h = seconds ~/ 3600;
   final m = (seconds % 3600) ~/ 60;
@@ -566,62 +485,170 @@ Widget _legendDot(AppColors colors, Color dot, String label) => Row(
   ],
 );
 
+/// Компактный список низкого остатка: одна карточка вместо стопки плиток.
+Widget _stockCard(List<InventoryItem> items, AppColors colors) {
+  return AppCard(
+    padding: const EdgeInsets.fromLTRB(14, 6, 14, 8),
+    child: Column(
+      children: [
+        for (var i = 0; i < items.length; i++) ...[
+          if (i > 0) const Hairline(),
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 7),
+            child: Row(
+              children: [
+                Icon(
+                  CupertinoIcons.cube,
+                  size: 15,
+                  color: colors.secondaryLabel,
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    items[i].name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontSize: 14.5),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  '${items[i].stockQty.toStringAsFixed(items[i].stockQty % 1 == 0 ? 0 : 2)} ${items[i].unit}',
+                  style: TextStyle(
+                    color: colors.red,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ],
+    ),
+  );
+}
+
+/// Компактный список регулярных платежей к оплате.
+Widget _recurringCard(List<RecurringPayment> payments, AppColors colors) {
+  return AppCard(
+    padding: const EdgeInsets.fromLTRB(14, 6, 14, 8),
+    child: Column(
+      children: [
+        for (var i = 0; i < payments.length; i++) ...[
+          if (i > 0) const Hairline(),
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 7),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    payments[i].name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 14.5,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  _money(payments[i].amountCents),
+                  style: TextStyle(
+                    color: colors.red,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    fontFeatures: const [FontFeature.tabularFigures()],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ],
+    ),
+  );
+}
+
 Widget _buildTodayTimerCard(MastersStore store, BuildContext context) {
   final colors = context.colors;
   final open = store.openWorkSession;
   final todaySeconds = store.workSecondsToday();
+  final running = open != null;
+
   return AppCard(
+    padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(
           children: [
-            const Expanded(
+            Icon(
+              running ? CupertinoIcons.timer : CupertinoIcons.clock,
+              size: 16,
+              color: running ? colors.green : colors.secondaryLabel,
+            ),
+            const SizedBox(width: 6),
+            Expanded(
               child: Text(
-                'Рабочий день',
-                style: TextStyle(fontWeight: FontWeight.w600),
+                running ? 'Смена идёт' : 'Смена закрыта',
+                style: const TextStyle(
+                  fontWeight: FontWeight.w600,
+                  fontSize: 14.5,
+                ),
               ),
             ),
-            if (open != null)
+            if (running)
               Text(
                 _hms(store.workSeconds(open)),
                 style: TextStyle(
-                  fontWeight: FontWeight.w600,
-                  color: colors.accent,
+                  fontWeight: FontWeight.w700,
+                  fontSize: 15,
+                  color: colors.green,
+                  fontFeatures: const [FontFeature.tabularFigures()],
                 ),
               ),
           ],
         ),
-        const SizedBox(height: 10),
-        if (open != null) ...[
+        const SizedBox(height: 8),
+        if (running) ...[
+          Text(
+            open.jobId == null
+                ? 'Без привязки к заказу'
+                : (store.jobById(open.jobId!)?.title ?? 'Заказ удалён'),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(color: colors.secondaryLabel, fontSize: 13),
+          ),
+          const SizedBox(height: 8),
           Row(
             children: [
               Expanded(
-                child: Text(
-                  open.jobId == null
-                      ? 'Без заказа'
-                      : (store.jobById(open.jobId!)?.title ?? open.jobId!),
-                  style: TextStyle(color: colors.secondaryLabel, fontSize: 13),
+                child: SecondaryButton(
+                  label: 'Стоп',
+                  icon: CupertinoIcons.stop,
+                  dense: true,
+                  onPressed: () => store.stopWorkSession(open.id),
                 ),
-              ),
-              const SizedBox(width: 8),
-              CupertinoButton.filled(
-                onPressed: () => store.stopWorkSession(open.id),
-                child: const Text('Стоп'),
               ),
             ],
           ),
-        ] else ...[
-          CupertinoButton.filled(
-            onPressed: () => _pickJobAndStart(context),
-            child: const Text('Начать смену'),
+        ] else
+          Row(
+            children: [
+              Expanded(
+                child: SecondaryButton(
+                  label: 'Начать смену',
+                  icon: CupertinoIcons.play,
+                  dense: true,
+                  onPressed: () => _pickJobAndStart(context),
+                ),
+              ),
+            ],
           ),
-        ],
         const SizedBox(height: 6),
-        Text(
-          'Сегодня наработано: ${_hms(todaySeconds)}',
-          style: TextStyle(color: colors.secondaryLabel, fontSize: 12),
-        ),
+        KeyValueRow('Сегодня наработано', _hms(todaySeconds), dense: true),
       ],
     ),
   );
@@ -820,14 +847,33 @@ Widget _buildMonthCard(MastersStore store, BuildContext context) {
   final activeProfile = settings.activeTaxProfile;
 
   return AppCard(
+    padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
     onTap: () =>
         Navigator.of(context)
             .push(CupertinoPageRoute(builder: (_) => const StatsScreen())),
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text('Сводка', style: TextStyle(fontWeight: FontWeight.w600)),
-        const SizedBox(height: 10),
+        Row(
+          children: [
+            const Expanded(
+              child: Text(
+                'Сводка',
+                style: TextStyle(fontWeight: FontWeight.w600),
+              ),
+            ),
+            _legendDot(colors, colors.green, 'Доходы'),
+            const SizedBox(width: 10),
+            _legendDot(colors, colors.red, 'Расходы'),
+            const SizedBox(width: 6),
+            Icon(
+              CupertinoIcons.chevron_right,
+              size: 14,
+              color: colors.tertiaryLabel,
+            ),
+          ],
+        ),
+        const SizedBox(height: 6),
         Row(
           children: [
             Expanded(
@@ -849,20 +895,14 @@ Widget _buildMonthCard(MastersStore store, BuildContext context) {
             ),
           ],
         ),
-        const SizedBox(height: 10),
-        Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            _legendDot(colors, colors.green, 'Доходы'),
-            const SizedBox(width: 12),
-            _legendDot(colors, colors.red, 'Расходы'),
-          ],
-        ),
         if (taxRate > 0) ...[
-          const SizedBox(height: 4),
-          Text(
-            'Налоговый резерв ${activeProfile != null ? '(${activeProfile.country}, ${activeProfile.name})' : ''} ≈ ${_money(taxReserve)} ($taxRate%)',
-            style: TextStyle(color: colors.secondaryLabel, fontSize: 12),
+          const SizedBox(height: 8),
+          const Hairline(),
+          const SizedBox(height: 6),
+          KeyValueRow(
+            'Налоговый резерв${activeProfile != null ? ' (${activeProfile.country})' : ''}',
+            '${_money(taxReserve)} · $taxRate%',
+            dense: true,
           ),
         ],
       ],
@@ -905,8 +945,8 @@ class _DonutRing extends StatelessWidget {
       child: Column(
         children: [
           SizedBox(
-            height: 112,
-            width: 112,
+            height: 92,
+            width: 92,
             child: CustomPaint(
               painter: _DonutRingPainter(
                 income: income,
@@ -926,7 +966,7 @@ class _DonutRing extends StatelessWidget {
               ),
             ),
           ),
-          const SizedBox(height: 6),
+          const SizedBox(height: 4),
           Text(
             label,
             style: TextStyle(color: colors.secondaryLabel, fontSize: 12),
@@ -991,47 +1031,6 @@ class _DonutRingPainter extends CustomPainter {
       old.expenseColor != expenseColor ||
       old.trackColor != trackColor ||
       old.empty != empty;
-}
-
-class _SummaryTile extends StatelessWidget {
-  const _SummaryTile({
-    required this.label,
-    required this.value,
-    required this.color,
-  });
-  final String label;
-  final String value;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    return AppCard(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              label,
-              style: TextStyle(
-                color: context.colors.secondaryLabel,
-                fontSize: 11,
-              ),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              value,
-              style: TextStyle(
-                fontWeight: FontWeight.w700,
-                fontSize: 15,
-                color: color,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
 }
 
 String _reminderMessage(ClientReminder reminder, String clientName, Job? job) {

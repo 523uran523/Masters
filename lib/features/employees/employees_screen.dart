@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import '../../app/theme/app_theme.dart';
 import '../../app/ui.dart';
 import '../../core/document_service.dart';
+import '../../core/utils/app_utils.dart';
 import '../../data/models/employee.dart';
 import '../../data/models/recurring_payment.dart';
 import '../../state/masters_store.dart';
@@ -697,119 +698,125 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
   }
 
   Widget _buildList(MastersStore store, AppColors colors, bool wide) {
+    final employees = store.employees;
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 72),
-      children: store.employees.map((e) {
-        final earned = store.earnedCents(e.id);
-        final owed = store.employeeBalanceOwed(e.id);
-        final selected = _selectedEmployeeId == e.id;
-        return Padding(
-          padding: const EdgeInsets.only(bottom: 8),
-          child: AppCard(
-            onTap: wide
-                ? () => setState(() => _selectedEmployeeId = e.id)
-                : null,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        e.name,
-                        style: const TextStyle(fontWeight: FontWeight.w600),
-                      ),
-                    ),
-                    if (selected && wide)
-                      Icon(
-                        CupertinoIcons.checkmark_circle_fill,
-                        color: colors.accent,
-                        size: 18,
-                      ),
-                    if (selected && wide) const SizedBox(width: 6),
-                    Text(
-                      e.payTypeLabel,
-                      style: TextStyle(
-                        color: colors.secondaryLabel,
-                        fontSize: 12,
-                      ),
-                    ),
-                  ],
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: SectionLabel(
+                '${employees.length} ${employeesWord(employees.length)}',
+                padding: const EdgeInsets.fromLTRB(4, 0, 4, 0),
+              ),
+            ),
+            OverflowMenuButton(
+              title: 'Команда',
+              actions: [
+                CupertinoActionSheetAction(
+                  onPressed: _closeCurrentPayrollPeriod,
+                  child: const Text('Закрыть месяц'),
                 ),
-                const SizedBox(height: 4),
-                Text(
-                  'Заработано: ${_money(earned)} • К выплате: ${_money(owed)}',
-                  style: TextStyle(
-                    color: owed > 0 ? colors.orange : colors.secondaryLabel,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                  ),
+                CupertinoActionSheetAction(
+                  onPressed: _managePayrollPeriods,
+                  child: const Text('Периоды выплат'),
                 ),
-                const SizedBox(height: 8),
-                Wrap(
-                  spacing: 6,
-                  runSpacing: 6,
-                  children: [
-                    SecondaryButton(
-                      label: 'Часы',
-                      icon: CupertinoIcons.clock,
-                      onPressed: () => _addTime(e.id),
-                    ),
-                    SecondaryButton(
-                      label: 'Авансы',
-                      icon: CupertinoIcons.money_dollar,
-                      onPressed: () => _addPayment(e.id, 'advance', 'Авансы'),
-                    ),
-                    SecondaryButton(
-                      label: 'Бонус',
-                      icon: CupertinoIcons.plus,
-                      onPressed: () => _addPayment(e.id, 'bonus', 'Бонус'),
-                    ),
-                    SecondaryButton(
-                      label: 'Штраф',
-                      icon: CupertinoIcons.minus,
-                      onPressed: () => _addPayment(e.id, 'penalty', 'Штраф'),
-                    ),
-                    SecondaryButton(
-                      label: 'Выплата',
-                      icon: CupertinoIcons.arrow_right,
-                      onPressed: () => _addPayment(e.id, 'payout', 'Выплата'),
-                    ),
-                    SecondaryButton(
-                      label: 'Закрыть месяц',
-                      icon: CupertinoIcons.lock,
-                      onPressed: () => _closeCurrentPayrollPeriod(),
-                    ),
-                    SecondaryButton(
-                      label: 'Изменить',
-                      icon: CupertinoIcons.pencil,
-                      onPressed: () => _editEmployee(e),
-                    ),
-                    CupertinoButton(
-                      padding: EdgeInsets.zero,
-                      onPressed: () => _delete(e),
-                      child: Text(
-                        'Удалить',
-                        style: TextStyle(color: colors.red),
-                      ),
-                    ),
-                    SecondaryButton(
-                      label: 'PDF листок',
-                      icon: CupertinoIcons.doc_text,
-                      onPressed: _exportPayroll,
-                    ),
-                    SecondaryButton(
-                      label: 'PDF листок',
-                      icon: CupertinoIcons.doc_text,
-                      onPressed: () => _pickPayslipPeriod(e),
-                    ),
-                  ],
+                CupertinoActionSheetAction(
+                  onPressed: _exportPayroll,
+                  child: const Text('Сводный PDF по сотрудникам'),
                 ),
               ],
             ),
+          ],
+        ),
+        const SizedBox(height: 6),
+        AppCard(
+          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+          child: Column(
+            children: [
+              for (var i = 0; i < employees.length; i++) ...[
+                if (i > 0) const Hairline(indent: 12),
+                _employeeRow(store, colors, employees[i], wide),
+              ],
+            ],
           ),
-        );
-      }).toList(),
+        ),
+      ],
+    );
+  }
+
+  Widget _employeeRow(
+    MastersStore store,
+    AppColors colors,
+    Employee e,
+    bool wide,
+  ) {
+    final earned = store.earnedCents(e.id);
+    final owed = store.employeeBalanceOwed(e.id);
+    final selected = _selectedEmployeeId == e.id;
+    return ListRow(
+      title: e.name,
+      subtitle:
+          '${e.payTypeLabel} · Заработано ${_money(earned)} · '
+          'К выплате ${_money(owed)}',
+      icon: CupertinoIcons.person,
+      dense: true,
+      titleColor: selected && wide ? colors.accent : null,
+      trailing: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (owed > 0)
+            Text(
+              _money(owed),
+              style: TextStyle(
+                color: colors.orange,
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                fontFeatures: const [FontFeature.tabularFigures()],
+              ),
+            ),
+          OverflowMenuButton(
+            size: 18,
+            title: e.name,
+            actions: [
+              CupertinoActionSheetAction(
+                onPressed: () => _addTime(e.id),
+                child: const Text('Добавить часы'),
+              ),
+              CupertinoActionSheetAction(
+                onPressed: () => _addPayment(e.id, 'advance', 'Авансы'),
+                child: const Text('Аванс'),
+              ),
+              CupertinoActionSheetAction(
+                onPressed: () => _addPayment(e.id, 'bonus', 'Бонус'),
+                child: const Text('Бонус'),
+              ),
+              CupertinoActionSheetAction(
+                onPressed: () => _addPayment(e.id, 'penalty', 'Штраф'),
+                child: const Text('Штраф'),
+              ),
+              CupertinoActionSheetAction(
+                onPressed: () => _addPayment(e.id, 'payout', 'Выплата'),
+                child: const Text('Выплата'),
+              ),
+              CupertinoActionSheetAction(
+                onPressed: () => _pickPayslipPeriod(e),
+                child: const Text('PDF-листок за период'),
+              ),
+              CupertinoActionSheetAction(
+                onPressed: () => _editEmployee(e),
+                child: const Text('Изменить'),
+              ),
+              CupertinoActionSheetAction(
+                isDestructiveAction: true,
+                onPressed: () => _delete(e),
+                child: const Text('Удалить'),
+              ),
+            ],
+          ),
+        ],
+      ),
+      onTap: wide ? () => setState(() => _selectedEmployeeId = e.id) : null,
     );
   }
 
@@ -849,51 +856,71 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 72),
       child: AppCard(
+        padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
               employee.name,
-              style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 18),
+              style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 17),
             ),
-            const SizedBox(height: 4),
+            const SizedBox(height: 2),
             Text(
-              '${employee.payTypeLabel} • ставка ${_money(employee.rateCents)}',
-              style: TextStyle(color: colors.secondaryLabel, fontSize: 13),
+              '${employee.payTypeLabel} · ставка ${_money(employee.rateCents)}',
+              style: TextStyle(color: colors.secondaryLabel, fontSize: 12.5),
             ),
             const SizedBox(height: 8),
-            Text(
-              'Заработано: ${_money(earned)}',
-              style: const TextStyle(fontSize: 13),
-            ),
+            const Hairline(),
             const SizedBox(height: 4),
-            Text(
-              'К выплате: ${_money(owed)}',
-              style: TextStyle(
-                color: owed > 0 ? colors.orange : colors.secondaryLabel,
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
-              ),
+            KeyValueRow('Заработано', _money(earned), dense: true),
+            KeyValueRow(
+              'К выплате',
+              _money(owed),
+              valueColor: owed > 0 ? colors.orange : null,
+              emphasis: owed > 0,
+              dense: true,
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 10),
             Wrap(
-              spacing: 6,
-              runSpacing: 6,
+              spacing: 8,
+              runSpacing: 8,
               children: [
-                SecondaryButton(
-                  label: 'Редактировать',
+                ChipButton(
+                  label: 'Часы',
+                  icon: CupertinoIcons.clock,
+                  onPressed: () => _addTime(employee.id),
+                ),
+                ChipButton(
+                  label: 'Аванс',
+                  icon: CupertinoIcons.money_dollar,
+                  onPressed: () =>
+                      _addPayment(employee.id, 'advance', 'Авансы'),
+                ),
+                ChipButton(
+                  label: 'Бонус',
+                  icon: CupertinoIcons.plus,
+                  onPressed: () => _addPayment(employee.id, 'bonus', 'Бонус'),
+                ),
+                ChipButton(
+                  label: 'Выплата',
+                  icon: CupertinoIcons.arrow_right,
+                  onPressed: () => _addPayment(employee.id, 'payout', 'Выплата'),
+                ),
+                ChipButton(
+                  label: 'PDF-листок',
+                  icon: CupertinoIcons.doc_text,
+                  onPressed: () => _pickPayslipPeriod(employee),
+                ),
+                ChipButton(
+                  label: 'Изменить',
                   icon: CupertinoIcons.pencil,
                   onPressed: () => _editEmployee(employee),
                 ),
-                SecondaryButton(
-                  label: 'PDF листок',
-                  icon: CupertinoIcons.doc_text,
-                  onPressed: _exportPayroll,
-                ),
-                CupertinoButton(
-                  padding: EdgeInsets.zero,
+                ChipButton(
+                  label: 'Удалить',
+                  icon: CupertinoIcons.trash,
+                  color: colors.red,
                   onPressed: () => _delete(employee),
-                  child: Text('Удалить', style: TextStyle(color: colors.red)),
                 ),
               ],
             ),

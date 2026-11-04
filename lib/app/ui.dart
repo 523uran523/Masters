@@ -35,11 +35,48 @@ class AppCard extends StatelessWidget {
 
     if (onTap == null) return surface;
 
-    return CupertinoButton(
-      padding: EdgeInsets.zero,
-      pressedOpacity: 0.72,
-      onPressed: onTap,
-      child: surface,
+    // CupertinoButton would repaint every descendant with the theme accent,
+    // which turned card titles blue. A press effect of our own keeps the
+    // typography intact.
+    return _PressableSurface(onTap: onTap!, radius: radius, child: surface);
+  }
+}
+
+class _PressableSurface extends StatefulWidget {
+  const _PressableSurface({
+    required this.onTap,
+    required this.radius,
+    required this.child,
+  });
+
+  final VoidCallback onTap;
+  final double radius;
+  final Widget child;
+
+  @override
+  State<_PressableSurface> createState() => _PressableSurfaceState();
+}
+
+class _PressableSurfaceState extends State<_PressableSurface> {
+  bool _pressed = false;
+
+  void _set(bool value) {
+    if (_pressed != value) setState(() => _pressed = value);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTapDown: (_) => _set(true),
+      onTapUp: (_) => _set(false),
+      onTapCancel: () => _set(false),
+      onTap: widget.onTap,
+      child: AnimatedOpacity(
+        duration: const Duration(milliseconds: 110),
+        opacity: _pressed ? 0.62 : 1,
+        child: widget.child,
+      ),
     );
   }
 }
@@ -118,8 +155,7 @@ class PrimaryButton extends StatelessWidget {
                 fontSize: 17,
                 fontWeight: FontWeight.w600,
                 letterSpacing: -0.2,
-                color:
-                    active ? const Color(0xFFFFFFFF) : colors.tertiaryLabel,
+                color: active ? const Color(0xFFFFFFFF) : colors.tertiaryLabel,
               ),
             ),
           ],
@@ -128,21 +164,31 @@ class PrimaryButton extends StatelessWidget {
     );
   }
 }
+
 class SecondaryButton extends StatelessWidget {
   const SecondaryButton({
     super.key,
     required this.label,
     this.onPressed,
     this.icon,
+    this.dense = false,
+    this.alignment = MainAxisAlignment.center,
   });
 
   final String label;
   final VoidCallback? onPressed;
   final IconData? icon;
 
+  /// Уменьшенная версия: ниже по высоте и мельче шрифт. Используется там,
+  /// где действия стоят рядом и не должны занимать полстроки.
+  final bool dense;
+  final MainAxisAlignment alignment;
+
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
+    final iconSize = dense ? 15.0 : 18.0;
+    final fontSize = dense ? 14.0 : 16.0;
 
     return CupertinoButton(
       padding: EdgeInsets.zero,
@@ -150,29 +196,350 @@ class SecondaryButton extends StatelessWidget {
       onPressed: onPressed,
       child: Container(
         width: double.infinity,
-        padding: const EdgeInsets.symmetric(vertical: 13, horizontal: 18),
+        padding: EdgeInsets.symmetric(
+          vertical: dense ? 9 : 13,
+          horizontal: dense ? 10 : 18,
+        ),
         decoration: BoxDecoration(
           color: colors.cardElevated,
-          borderRadius: BorderRadius.circular(13),
+          borderRadius: BorderRadius.circular(dense ? 11 : 13),
         ),
         child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
+          mainAxisAlignment: alignment,
           children: [
             if (icon != null) ...[
-              Icon(icon, size: 18, color: colors.accent),
-              const SizedBox(width: 7),
+              Icon(icon, size: iconSize, color: colors.accent),
+              SizedBox(width: dense ? 5 : 7),
             ],
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w500,
-                color: colors.accent,
+            Flexible(
+              child: Text(
+                label,
+                maxLines: 1,
+                softWrap: false,
+                overflow: TextOverflow.fade,
+                style: TextStyle(
+                  fontSize: fontSize,
+                  fontWeight: FontWeight.w500,
+                  color: colors.accent,
+                ),
               ),
             ),
           ],
         ),
       ),
+    );
+  }
+}
+
+/// Строка «подпись — значение» с гарантированным выравниванием: подпись
+/// занимает свободное место и обрезается, значение всегда прижато вправо.
+class KeyValueRow extends StatelessWidget {
+  const KeyValueRow(
+    this.label,
+    this.value, {
+    super.key,
+    this.valueColor,
+    this.emphasis = false,
+    this.onTap,
+    this.dense = false,
+  });
+
+  final String label;
+  final String value;
+  final Color? valueColor;
+  final bool emphasis;
+  final VoidCallback? onTap;
+  final bool dense;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.colors;
+    final row = Padding(
+      padding: EdgeInsets.symmetric(vertical: dense ? 2.5 : 4),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.baseline,
+        textBaseline: TextBaseline.alphabetic,
+        children: [
+          Expanded(
+            child: Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontSize: dense ? 13 : 14.5,
+                color: colors.secondaryLabel,
+              ),
+            ),
+          ),
+          const SizedBox(width: 10),
+          Text(
+            value,
+            maxLines: 1,
+            style: TextStyle(
+              fontSize: dense ? 13.5 : 15,
+              fontWeight: emphasis ? FontWeight.w700 : FontWeight.w600,
+              color: valueColor ?? colors.label,
+              fontFeatures: const [FontFeature.tabularFigures()],
+            ),
+          ),
+        ],
+      ),
+    );
+    if (onTap == null) return row;
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: onTap,
+      child: row,
+    );
+  }
+}
+
+/// Компактная строка списка внутри карточки: иконка, заголовок, подпись и
+/// шеврон. Заменяет простыню полноширинных кнопок.
+class ListRow extends StatelessWidget {
+  const ListRow({
+    super.key,
+    required this.title,
+    this.subtitle,
+    this.icon,
+    this.iconColor,
+    this.leading,
+    this.trailing,
+    this.onTap,
+    this.dense = false,
+    this.titleColor,
+    this.subtitleColor,
+    this.showChevron = false,
+  });
+
+  final String title;
+  final String? subtitle;
+  final IconData? icon;
+  final Color? iconColor;
+  final Widget? leading;
+  final Widget? trailing;
+  final VoidCallback? onTap;
+  final bool dense;
+  final Color? titleColor;
+  final Color? subtitleColor;
+  final bool showChevron;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.colors;
+    final content = Padding(
+      padding: EdgeInsets.symmetric(
+        horizontal: dense ? 10 : 12,
+        vertical: dense ? 7 : 10,
+      ),
+      child: Row(
+        children: [
+          if (leading != null) ...[leading!, const SizedBox(width: 10)],
+          if (leading == null && icon != null) ...[
+            Icon(
+              icon,
+              size: dense ? 16 : 18,
+              color: iconColor ?? colors.accent,
+            ),
+            const SizedBox(width: 10),
+          ],
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: dense ? 14.5 : 16,
+                    fontWeight: FontWeight.w500,
+                    color: titleColor ?? colors.label,
+                    letterSpacing: -0.2,
+                  ),
+                ),
+                if (subtitle != null && subtitle!.isNotEmpty)
+                  Text(
+                    subtitle!,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: dense ? 11.5 : 12.5,
+                      color: subtitleColor ?? colors.secondaryLabel,
+                    ),
+                  ),
+              ],
+            ),
+          ),
+          if (trailing != null) ...[const SizedBox(width: 8), trailing!],
+          if (showChevron)
+            Icon(
+              CupertinoIcons.chevron_right,
+              size: 15,
+              color: colors.tertiaryLabel,
+            ),
+        ],
+      ),
+    );
+
+    if (onTap == null) return content;
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: onTap,
+      child: content,
+    );
+  }
+}
+
+/// Одна компактная кнопка-действие в ряду: иконка над подписью.
+class MiniAction extends StatelessWidget {
+  const MiniAction({
+    super.key,
+    required this.label,
+    required this.icon,
+    this.onPressed,
+    this.color,
+  });
+
+  final String label;
+  final IconData icon;
+  final VoidCallback? onPressed;
+  final Color? color;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.colors;
+    final tint = color ?? colors.accent;
+    final enabled = onPressed != null;
+
+    return CupertinoButton(
+      padding: EdgeInsets.zero,
+      pressedOpacity: 0.6,
+      onPressed: onPressed,
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
+        decoration: BoxDecoration(
+          color: colors.cardElevated,
+          borderRadius: BorderRadius.circular(11),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 17, color: enabled ? tint : colors.tertiaryLabel),
+            const SizedBox(height: 3),
+            Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontSize: 11.5,
+                fontWeight: FontWeight.w500,
+                color: enabled ? tint : colors.tertiaryLabel,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Компактная кнопка-«пилюля»: иконка и подпись в одну строку. Используется
+/// в рядах быстрых действий, где полноширинные кнопки выглядят тяжело.
+class ChipButton extends StatelessWidget {
+  const ChipButton({
+    super.key,
+    required this.label,
+    this.icon,
+    this.onPressed,
+    this.color,
+  });
+
+  final String label;
+  final IconData? icon;
+  final VoidCallback? onPressed;
+  final Color? color;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.colors;
+    final tint = color ?? colors.accent;
+    final enabled = onPressed != null;
+
+    return CupertinoButton(
+      padding: EdgeInsets.zero,
+      pressedOpacity: 0.6,
+      minimumSize: const Size(0, 32),
+      onPressed: onPressed,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 6),
+        decoration: BoxDecoration(
+          color: colors.tint(tint, enabled ? 0.12 : 0.06),
+          borderRadius: BorderRadius.circular(99),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (icon != null) ...[
+              Icon(
+                icon,
+                size: 13,
+                color: enabled ? tint : colors.tertiaryLabel,
+              ),
+              const SizedBox(width: 4),
+            ],
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 12.5,
+                fontWeight: FontWeight.w600,
+                color: enabled ? tint : colors.tertiaryLabel,
+                letterSpacing: -0.1,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Кнопка «ещё»: открывает меню действий. Держит редкие действия вне
+/// основного экрана, чтобы не растягивать его простынёй кнопок.
+class OverflowMenuButton extends StatelessWidget {
+  const OverflowMenuButton({
+    super.key,
+    required this.actions,
+    this.title,
+    this.icon = CupertinoIcons.ellipsis_circle,
+    this.size = 22,
+  });
+
+  final List<CupertinoActionSheetAction> actions;
+  final String? title;
+  final IconData icon;
+  final double size;
+
+  @override
+  Widget build(BuildContext context) {
+    return CupertinoButton(
+      padding: EdgeInsets.zero,
+      minimumSize: Size(size + 12, size + 12),
+      onPressed: actions.isEmpty
+          ? null
+          : () => showCupertinoModalPopup<void>(
+              context: context,
+              builder: (sheetContext) => CupertinoActionSheet(
+                title: title == null ? null : Text(title!),
+                actions: actions,
+                cancelButton: CupertinoActionSheetAction(
+                  onPressed: () => Navigator.of(sheetContext).pop(),
+                  child: const Text('Отмена'),
+                ),
+              ),
+            ),
+      child: Icon(icon, size: size, color: context.colors.accent),
     );
   }
 }
@@ -224,12 +591,7 @@ class ProgressBar extends StatelessWidget {
 }
 
 class Pill extends StatelessWidget {
-  const Pill(
-    this.label, {
-    super.key,
-    this.color,
-    this.icon,
-  });
+  const Pill(this.label, {super.key, this.color, this.icon});
 
   final String label;
   final Color? color;
@@ -269,11 +631,7 @@ class Pill extends StatelessWidget {
 }
 
 class Hairline extends StatelessWidget {
-  const Hairline({
-    super.key,
-    this.indent = 0,
-    this.color,
-  });
+  const Hairline({super.key, this.indent = 0, this.color});
 
   final double indent;
   final Color? color;
@@ -282,10 +640,7 @@ class Hairline extends StatelessWidget {
   Widget build(BuildContext context) {
     return Padding(
       padding: EdgeInsets.only(left: indent),
-      child: Container(
-        height: 0.5,
-        color: color ?? context.colors.separator,
-      ),
+      child: Container(height: 0.5, color: color ?? context.colors.separator),
     );
   }
 }
@@ -338,10 +693,7 @@ class StatTile extends StatelessWidget {
               unit!,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                fontSize: 12.5,
-                color: colors.secondaryLabel,
-              ),
+              style: TextStyle(fontSize: 12.5, color: colors.secondaryLabel),
             ),
           ],
           const SizedBox(height: 6),
@@ -426,10 +778,7 @@ class EmptyState extends StatelessWidget {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          if (art != null) ...[
-            art!,
-            const SizedBox(height: 28),
-          ],
+          if (art != null) ...[art!, const SizedBox(height: 28)],
           Text(
             title,
             textAlign: TextAlign.center,
@@ -450,10 +799,7 @@ class EmptyState extends StatelessWidget {
               color: colors.secondaryLabel,
             ),
           ),
-          if (actions.isNotEmpty) ...[
-            const SizedBox(height: 24),
-            ...actions,
-          ],
+          if (actions.isNotEmpty) ...[const SizedBox(height: 24), ...actions],
         ],
       ),
     );

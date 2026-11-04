@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../../app/theme/app_theme.dart';
 import '../../app/ui.dart';
+import '../../core/utils/app_utils.dart';
 import '../../state/masters_store.dart';
 import '../../data/models/client.dart';
 import '../../data/models/job.dart';
@@ -136,7 +137,7 @@ class _ClientsScreenState extends State<ClientsScreen> {
     final choice = await showCupertinoModalPopup<String?>(
       context: context,
       builder: (dialogContext) => CupertinoActionSheet(
-        title: const Text('Дополнительно'),
+        title: const Text('Клиенты'),
         actions: [
           CupertinoActionSheetAction(
             onPressed: () => Navigator.of(dialogContext).pop('filter'),
@@ -158,36 +159,40 @@ class _ClientsScreenState extends State<ClientsScreen> {
       ),
     );
     if (choice == 'filter') {
-      final v = await showCupertinoModalPopup<String>(
-        context: context,
-        builder: (dialogContext) => CupertinoActionSheet(
-          title: const Text('Фильтр клиентов'),
-          actions: [
-            CupertinoActionSheetAction(
-              onPressed: () => Navigator.of(dialogContext).pop('all'),
-              child: const Text('Все'),
-            ),
-            CupertinoActionSheetAction(
-              onPressed: () => Navigator.of(dialogContext).pop('debt'),
-              child: const Text('С долгом'),
-            ),
-            CupertinoActionSheetAction(
-              onPressed: () => Navigator.of(dialogContext).pop('paid'),
-              child: const Text('Без долга'),
-            ),
-          ],
-          cancelButton: CupertinoActionSheetAction(
-            onPressed: () => Navigator.of(dialogContext).pop(),
-            child: const Text('Отмена'),
-          ),
-        ),
-      );
-      if (v != null) setState(() => _clientFilter = v);
+      await _pickClientFilter();
     } else if (choice == 'search') {
       await _showSearch();
     } else if (choice == 'merge') {
       await _mergeDuplicates();
     }
+  }
+
+  Future<void> _pickClientFilter() async {
+    final v = await showCupertinoModalPopup<String>(
+      context: context,
+      builder: (dialogContext) => CupertinoActionSheet(
+        title: const Text('Фильтр клиентов'),
+        actions: [
+          CupertinoActionSheetAction(
+            onPressed: () => Navigator.of(dialogContext).pop('all'),
+            child: const Text('Все'),
+          ),
+          CupertinoActionSheetAction(
+            onPressed: () => Navigator.of(dialogContext).pop('debt'),
+            child: const Text('С долгом'),
+          ),
+          CupertinoActionSheetAction(
+            onPressed: () => Navigator.of(dialogContext).pop('paid'),
+            child: const Text('Без долга'),
+          ),
+        ],
+        cancelButton: CupertinoActionSheetAction(
+          onPressed: () => Navigator.of(dialogContext).pop(),
+          child: const Text('Отмена'),
+        ),
+      ),
+    );
+    if (v != null && mounted) setState(() => _clientFilter = v);
   }
 
   Future<void> _addClient() async {
@@ -273,14 +278,14 @@ class _ClientsScreenState extends State<ClientsScreen> {
         actions: [
           CupertinoDialogAction(
             onPressed: () => Navigator.of(dialogContext).pop(),
-            child: const Text('Cancel'),
+            child: const Text('Отмена'),
           ),
           CupertinoDialogAction(
             isDefaultAction: true,
             onPressed: () =>
                 Navigator.of(dialogContext)
                     .pop(_clientSearchController.text.trim()),
-            child: const Text('OK'),
+            child: const Text('ОК'),
           ),
         ],
       ),
@@ -310,8 +315,17 @@ class _ClientsScreenState extends State<ClientsScreen> {
     if (clients.isEmpty) {
       return EmptyState(
         title: 'Нет клиентов',
-        message: 'Нажмите +, чтобы добавить клиента.',
+        message: _clientQuery.isEmpty && _clientFilter == 'all'
+            ? 'Нажмите +, чтобы добавить клиента.'
+            : 'Под текущий поиск и фильтр клиентов нет.',
         art: Icon(CupertinoIcons.person, size: 48, color: colors.tertiaryLabel),
+        actions: [
+          PrimaryButton(
+            label: 'Добавить клиента',
+            icon: CupertinoIcons.plus,
+            onPressed: _addClient,
+          ),
+        ],
       );
     }
     return ListView.builder(
@@ -353,6 +367,7 @@ class _ClientsScreenState extends State<ClientsScreen> {
             ),
             onDismissed: (_) => context.read<MastersStore>().deleteClient(c.id),
             child: AppCard(
+              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
               onTap: () {
                 if (wide) {
                   setState(() => _selectedClientId = c.id);
@@ -364,43 +379,39 @@ class _ClientsScreenState extends State<ClientsScreen> {
                   );
                 }
               },
-              child: Row(
-                children: [
-                  IconBadge(color: colors.accent, icon: CupertinoIcons.person),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          c.name,
-                          style: const TextStyle(fontWeight: FontWeight.w600),
-                        ),
-                        Text(
-                          [
-                            if (c.phone.isNotEmpty) c.phone,
-                            '$objectsCount объектов',
-                            '$jobsCount заказов',
-                          ].join(' • '),
-                          style: TextStyle(
-                            color: colors.secondaryLabel,
-                            fontSize: 12,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  if (selected && wide)
-                    Icon(
-                      CupertinoIcons.checkmark_circle_fill,
-                      color: colors.accent,
-                    ),
-                  if (hasUnpaidClosed)
-                    Pill(
-                      'Не оплачен ${(debt / 100).toStringAsFixed(0)} ₽',
-                      color: colors.red,
-                    ),
-                ],
+              child: ListRow(
+                dense: true,
+                leading: IconBadge(
+                  color: colors.accent,
+                  icon: CupertinoIcons.person,
+                  size: 26,
+                ),
+                title: c.name,
+                subtitle: [
+                  if (c.phone.isNotEmpty) c.phone,
+                  countLabel(objectsCount, [
+                    'объект',
+                    'объекта',
+                    'объектов',
+                  ]),
+                  countLabel(jobsCount, ['заказ', 'заказа', 'заказов']),
+                ].join(' · '),
+                trailing: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (hasUnpaidClosed)
+                      Pill('Долг ${_money(debt)}', color: colors.red),
+                    if (selected && wide) ...[
+                      const SizedBox(width: 6),
+                      Icon(
+                        CupertinoIcons.checkmark_circle_fill,
+                        size: 18,
+                        color: colors.accent,
+                      ),
+                    ],
+                  ],
+                ),
+                showChevron: !wide,
               ),
             ),
           ),
@@ -408,6 +419,8 @@ class _ClientsScreenState extends State<ClientsScreen> {
       },
     );
   }
+
+  String _money(int cents) => '${(cents / 100).toStringAsFixed(0)} ₽';
 
   @override
   Widget build(BuildContext context) {
@@ -437,36 +450,64 @@ class _ClientsScreenState extends State<ClientsScreen> {
       child: SafeArea(
         child: Column(
           children: [
-            if (_clientQuery.isNotEmpty)
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        'Поиск: $_clientQuery',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          color: colors.secondaryLabel,
-                          fontSize: 13,
-                        ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      _clientQuery.isNotEmpty
+                          ? 'Поиск: $_clientQuery'
+                          : '${countLabel(store.clients.length, const ['клиент', 'клиента', 'клиентов'])} '
+                                '· долги ${_money(store.clients.fold(0, (sum, c) => sum + store.clientDebtCents(c.id)))}',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: colors.secondaryLabel,
+                        fontSize: 13,
                       ),
                     ),
-                    CupertinoButton(
-                      padding: EdgeInsets.zero,
+                  ),
+                  if (_clientQuery.isNotEmpty)
+                    ChipButton(
+                      label: 'Сбросить',
+                      icon: CupertinoIcons.xmark,
                       onPressed: () => setState(() {
                         _clientQuery = '';
                         _clientSearchController.clear();
                       }),
-                      child: const Icon(
-                        CupertinoIcons.xmark,
-                        semanticLabel: 'Очистить',
-                      ),
+                    )
+                  else
+                    ChipButton(
+                      label: 'Поиск',
+                      icon: CupertinoIcons.search,
+                      onPressed: _showSearch,
                     ),
-                  ],
-                ),
+                ],
               ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+              child: Row(
+                children: [
+                  ChipButton(
+                    label: switch (_clientFilter) {
+                      'debt' => 'С долгом',
+                      'paid' => 'Без долга',
+                      _ => 'Все клиенты',
+                    },
+                    icon: CupertinoIcons.line_horizontal_3_decrease,
+                    onPressed: _pickClientFilter,
+                  ),
+                  const SizedBox(width: 8),
+                  ChipButton(
+                    label: 'Дубли',
+                    icon: CupertinoIcons.rectangle_on_rectangle,
+                    onPressed: _mergeDuplicates,
+                  ),
+                ],
+              ),
+            ),
             Expanded(
               child: isWide
                   ? Row(

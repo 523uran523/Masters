@@ -294,40 +294,142 @@ class _StatsScreenState extends State<StatsScreen> {
     );
 
     return CupertinoPageScaffold(
-      navigationBar: const CupertinoNavigationBar(middle: Text('Итоги')),
+      navigationBar: CupertinoNavigationBar(
+        middle: const Text('Итоги'),
+        trailing: OverflowMenuButton(
+          title: 'Период аналитики',
+          icon: CupertinoIcons.calendar,
+          actions: [
+            CupertinoActionSheetAction(
+              onPressed: () => setState(() => _period = 0),
+              child: const Text('Неделя'),
+            ),
+            CupertinoActionSheetAction(
+              onPressed: () => setState(() => _period = 1),
+              child: const Text('Месяц'),
+            ),
+            CupertinoActionSheetAction(
+              onPressed: () => setState(() => _period = 2),
+              child: const Text('Квартал'),
+            ),
+          ],
+        ),
+      ),
       child: SafeArea(
         child: ListView(
           padding: const EdgeInsets.fromLTRB(16, 12, 16, 72),
           children: [
-            Row(
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
               children: [
-                Expanded(
-                  child: Text(
-                    'Период',
-                    style: TextStyle(
-                      color: colors.secondaryLabel,
-                      fontSize: 13,
-                    ),
-                  ),
-                ),
-                CupertinoButton(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 6,
-                  ),
+                ChipButton(
+                  label: _periodLabel(),
+                  icon: CupertinoIcons.calendar,
                   onPressed: _showPeriodPicker,
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Icon(CupertinoIcons.calendar, size: 18),
-                      const SizedBox(width: 6),
-                      Text(_periodLabel()),
-                    ],
-                  ),
+                ),
+                ChipButton(
+                  label: _employeeFilter == null
+                      ? 'Все сотрудники'
+                      : (store.employeeById(_employeeFilter!)?.name ??
+                            'Сотрудник'),
+                  icon: CupertinoIcons.person_2,
+                  onPressed: () async {
+                    final v = await showCupertinoModalPopup<String?>(
+                      context: context,
+                      builder: (dialogContext) => Container(
+                        height: 260,
+                        color: context.colors.card,
+                        child: Column(
+                          children: [
+                            CupertinoButton(
+                              child: const Text('Все сотрудники'),
+                              onPressed: () =>
+                                  Navigator.of(dialogContext).pop('__all__'),
+                            ),
+                            Expanded(
+                              child: ListView(
+                                children: [
+                                  for (final e in store.employees)
+                                    CupertinoButton(
+                                      onPressed: () =>
+                                          Navigator.of(dialogContext).pop(e.id),
+                                      child: Align(
+                                        alignment: Alignment.centerLeft,
+                                        child: Text(e.name),
+                                      ),
+                                    ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                    if (v == '__all__') {
+                      setState(() => _employeeFilter = null);
+                    } else if (v != null) {
+                      setState(() => _employeeFilter = v);
+                    }
+                  },
+                ),
+                ChipButton(
+                  label: _tagFilter ?? 'Все теги',
+                  icon: CupertinoIcons.tag,
+                  onPressed: () async {
+                    final tags =
+                        store.jobs
+                            .expand(
+                              (j) => (j.tags ?? '')
+                                  .split(',')
+                                  .map((e) => e.trim()),
+                            )
+                            .where((e) => e.isNotEmpty)
+                            .toSet()
+                            .toList()
+                          ..sort();
+                    if (tags.isEmpty) return;
+                    final v = await showCupertinoModalPopup<String?>(
+                      context: context,
+                      builder: (dialogContext) => Container(
+                        height: 260,
+                        color: context.colors.card,
+                        child: Column(
+                          children: [
+                            CupertinoButton(
+                              child: const Text('Все теги'),
+                              onPressed: () =>
+                                  Navigator.of(dialogContext).pop('__all__'),
+                            ),
+                            Expanded(
+                              child: ListView(
+                                children: [
+                                  for (final t in tags)
+                                    CupertinoButton(
+                                      onPressed: () =>
+                                          Navigator.of(dialogContext).pop(t),
+                                      child: Align(
+                                        alignment: Alignment.centerLeft,
+                                        child: Text(t),
+                                      ),
+                                    ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                    if (v == '__all__') {
+                      setState(() => _tagFilter = null);
+                    } else if (v != null) {
+                      setState(() => _tagFilter = v);
+                    }
+                  },
                 ),
               ],
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 12),
             Row(
               children: [
                 Expanded(
@@ -335,7 +437,7 @@ class _StatsScreenState extends State<StatsScreen> {
                     label: 'Прибыль',
                     value: _money(profit),
                     icon: CupertinoIcons.chart_bar,
-                    tint: colors.accent,
+                    tint: profit < 0 ? colors.red : colors.green,
                   ),
                 ),
                 const SizedBox(width: 8),
@@ -354,7 +456,7 @@ class _StatsScreenState extends State<StatsScreen> {
               children: [
                 Expanded(
                   child: StatTile(
-                    label: 'Заказов',
+                    label: 'Завершено заказов',
                     value: '${completedJobs.length}',
                     icon: CupertinoIcons.doc_text,
                     tint: colors.accent,
@@ -363,7 +465,7 @@ class _StatsScreenState extends State<StatsScreen> {
                 const SizedBox(width: 8),
                 Expanded(
                   child: StatTile(
-                    label: 'Время',
+                    label: 'Наработано времени',
                     value: _minutes(completedJobs, store),
                     icon: CupertinoIcons.clock,
                     tint: colors.orange,
@@ -373,49 +475,66 @@ class _StatsScreenState extends State<StatsScreen> {
             ),
             const SizedBox(height: 12),
             AppCard(
+              padding: const EdgeInsets.fromLTRB(14, 8, 14, 10),
               child: Column(
                 children: [
-                  _KV('Предыдущий период: прибыль', _money(profitPrev)),
-                  _KV(
-                    'Изменение',
-                    '${profit - profitPrev >= 0 ? '+' : ''}${_money(profit - profitPrev)} (${_pct(profit, profitPrev)})',
+                  KeyValueRow(
+                    'Предыдущий период',
+                    _money(profitPrev),
+                    dense: true,
                   ),
-                  _KV('Выручка заказов (цена)', _money(jobRevenue)),
-                  _KV('Себестоимость заказов', _money(jobCost)),
+                  KeyValueRow(
+                    'Изменение прибыли',
+                    '${profit - profitPrev >= 0 ? '+' : '−'}'
+                    '${_money((profit - profitPrev).abs())} '
+                    '(${_pct(profit, profitPrev)})',
+                    valueColor: profit - profitPrev >= 0
+                        ? colors.green
+                        : colors.red,
+                    dense: true,
+                  ),
+                  const Hairline(),
+                  KeyValueRow(
+                    'Сумма заказов',
+                    _money(jobRevenue),
+                    dense: true,
+                  ),
+                  KeyValueRow(
+                    'Себестоимость',
+                    _money(jobCost),
+                    dense: true,
+                  ),
                   const SizedBox(height: 8),
-                  Row(
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
                     children: [
-                      Expanded(
-                        child: SecondaryButton(
-                          label: 'Экспорт P&L в Excel',
-                          icon: CupertinoIcons.doc_on_doc,
-                          onPressed: () => _exportXlsx(
-                            revenue,
-                            expense,
-                            profit,
-                            jobRevenue,
-                            jobCost,
-                            jobMargin,
-                            completedJobs.length,
-                          ),
+                      ChipButton(
+                        label: 'Экспорт Excel',
+                        icon: CupertinoIcons.doc_on_doc,
+                        onPressed: () => _exportXlsx(
+                          revenue,
+                          expense,
+                          profit,
+                          jobRevenue,
+                          jobCost,
+                          jobMargin,
+                          completedJobs.length,
                         ),
                       ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: SecondaryButton(
-                          label: 'Экспорт P&L в PDF',
-                          icon: CupertinoIcons.doc_text,
-                          onPressed: () => _exportPnlPdf(
-                            revenue,
-                            expense,
-                            profit,
-                            jobRevenue,
-                            jobCost,
-                            jobMargin,
-                            completedJobs.length,
-                            incomeCats,
-                            expenseCats,
-                          ),
+                      ChipButton(
+                        label: 'Экспорт PDF',
+                        icon: CupertinoIcons.doc_text,
+                        onPressed: () => _exportPnlPdf(
+                          revenue,
+                          expense,
+                          profit,
+                          jobRevenue,
+                          jobCost,
+                          jobMargin,
+                          completedJobs.length,
+                          incomeCats,
+                          expenseCats,
                         ),
                       ),
                     ],
@@ -442,116 +561,6 @@ class _StatsScreenState extends State<StatsScreen> {
               ),
             ),
             const SizedBox(height: 16),
-            Row(
-              children: [
-                Expanded(
-                  child: SecondaryButton(
-                    label: _employeeFilter == null
-                        ? 'Сотрудник: все'
-                        : (store.employeeById(_employeeFilter!)?.name ??
-                              'Сотрудник'),
-                    icon: CupertinoIcons.person_2,
-                    onPressed: () async {
-                      final v = await showCupertinoModalPopup<String?>(
-                        context: context,
-                        builder: (dialogContext) => Container(
-                          height: 260,
-                          color: context.colors.card,
-                          child: Column(
-                            children: [
-                              CupertinoButton(
-                                child: const Text('Все сотрудники'),
-                                onPressed: () =>
-                                    Navigator.of(dialogContext).pop('__all__'),
-                              ),
-                              Expanded(
-                                child: ListView(
-                                  children: [
-                                    for (final e in store.employees)
-                                      CupertinoButton(
-                                        onPressed: () =>
-                                            Navigator.of(dialogContext)
-                                                .pop(e.id),
-                                        child: Align(
-                                          alignment: Alignment.centerLeft,
-                                          child: Text(e.name),
-                                        ),
-                                      ),
-                                  ],
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      );
-                      if (v == '__all__') {
-                        setState(() => _employeeFilter = null);
-                      } else if (v != null) {
-                        setState(() => _employeeFilter = v);
-                      }
-                    },
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: SecondaryButton(
-                    label: _tagFilter == null ? 'Тег: все' : _tagFilter!,
-                    icon: CupertinoIcons.tag,
-                    onPressed: () async {
-                      final tags =
-                          store.jobs
-                              .expand(
-                                (j) => (j.tags ?? '')
-                                    .split(',')
-                                    .map((e) => e.trim()),
-                              )
-                              .where((e) => e.isNotEmpty)
-                              .toSet()
-                              .toList()
-                            ..sort();
-                      if (tags.isEmpty) return;
-                      final v = await showCupertinoModalPopup<String?>(
-                        context: context,
-                        builder: (dialogContext) => Container(
-                          height: 260,
-                          color: context.colors.card,
-                          child: Column(
-                            children: [
-                              CupertinoButton(
-                                child: const Text('Все теги'),
-                                onPressed: () =>
-                                    Navigator.of(dialogContext).pop('__all__'),
-                              ),
-                              Expanded(
-                                child: ListView(
-                                  children: [
-                                    for (final t in tags)
-                                      CupertinoButton(
-                                        onPressed: () =>
-                                            Navigator.of(dialogContext).pop(t),
-                                        child: Align(
-                                          alignment: Alignment.centerLeft,
-                                          child: Text(t),
-                                        ),
-                                      ),
-                                  ],
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      );
-                      if (v == '__all__') {
-                        setState(() => _tagFilter = null);
-                      } else if (v != null) {
-                        setState(() => _tagFilter = v);
-                      }
-                    },
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
             SectionLabel('Доходы по категориям'),
             _categoryCard(colors, incomeCats, colors.green),
             const SizedBox(height: 16),
@@ -559,223 +568,41 @@ class _StatsScreenState extends State<StatsScreen> {
             _categoryCard(colors, expenseCats, colors.red),
             const SizedBox(height: 16),
             SectionLabel('Топ клиентов'),
-            AppCard(
-              child: sortedClients.isEmpty
-                  ? EmptyState(
-                      title: 'Нет данных',
-                      message: 'Завершите заказы, чтобы увидеть статистику.',
-                      art: Icon(
-                        CupertinoIcons.chart_bar,
-                        size: 36,
-                        color: colors.tertiaryLabel,
-                      ),
-                    )
-                  : Column(
-                      children: sortedClients.take(8).map((e) {
-                        final client = store.clientById(e.key);
-                        return Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 6),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                children: [
-                                  Expanded(
-                                    child: Text(
-                                      client?.name ?? 'Клиент',
-                                      style: const TextStyle(
-                                        fontWeight: FontWeight.w500,
-                                      ),
-                                    ),
-                                  ),
-                                  Text(
-                                    _money(e.value),
-                                    style: const TextStyle(
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 4),
-                              _proportionBar(
-                                e.value.toDouble(),
-                                maxTopClients.toDouble(),
-                                colors.accent.withValues(alpha: 0.16),
-                              ),
-                            ],
-                          ),
-                        );
-                      }).toList(),
-                    ),
-            ),
-            const SizedBox(height: 16),
-            SectionLabel('Маржа заказов'),
-            AppCard(
-              child: completedJobs.isEmpty
-                  ? EmptyState(
-                      title: 'Нет завершённых заказов',
-                      message: 'Маржа появится после закрытия заказа.',
-                      art: Icon(
-                        CupertinoIcons.doc_text,
-                        size: 36,
-                        color: colors.tertiaryLabel,
-                      ),
-                    )
-                  : Column(
-                      children:
-                          (completedJobs..sort(
-                                (a, b) =>
-                                    (b.priceCents -
-                                            b.costCents -
-                                            store.totalMaterialCents(b.id))
-                                        .compareTo(
-                                          a.priceCents -
-                                              a.costCents -
-                                              store.totalMaterialCents(a.id),
-                                        ),
-                              ))
-                              .take(6)
-                              .map(
-                                (j) => Padding(
-                                  padding: const EdgeInsets.symmetric(
-                                    vertical: 6,
-                                  ),
-                                  child: Row(
-                                    children: [
-                                      Expanded(
-                                        child: Text(
-                                          j.title,
-                                          style: const TextStyle(
-                                            fontWeight: FontWeight.w500,
-                                          ),
-                                        ),
-                                      ),
-                                      Text(
-                                        _money(
-                                          j.priceCents -
-                                              j.costCents -
-                                              store.totalMaterialCents(j.id),
-                                        ),
-                                        style: const TextStyle(
-                                          fontWeight: FontWeight.w600,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              )
-                              .toList(),
-                    ),
+            _barList(
+              entries: sortedClients.take(8).toList(),
+              labelOf: (key) => store.clientById(key)?.name ?? 'Клиент',
+              max: maxTopClients,
+              color: colors.accent,
+              emptyTitle: 'Нет данных',
+              emptyMessage: 'Завершите заказы, чтобы увидеть статистику.',
+              emptyIcon: CupertinoIcons.chart_bar,
             ),
             const SizedBox(height: 16),
             SectionLabel('Маржа по заказам'),
-            AppCard(
-              child: topServicesList.isEmpty
-                  ? EmptyState(
-                      title: 'Нет завершённых заказов',
-                      message: 'Маржа появится после закрытия заказа.',
-                      art: Icon(
-                        CupertinoIcons.doc_text,
-                        size: 36,
-                        color: colors.tertiaryLabel,
-                      ),
-                    )
-                  : Column(
-                      children: topServicesList
-                          .take(5)
-                          .map(
-                            (e) => Padding(
-                              padding: const EdgeInsets.symmetric(vertical: 6),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Row(
-                                    children: [
-                                      Expanded(
-                                        child: Text(
-                                          e.key,
-                                          style: const TextStyle(
-                                            fontWeight: FontWeight.w500,
-                                          ),
-                                        ),
-                                      ),
-                                      Text(
-                                        _money(e.value),
-                                        style: const TextStyle(
-                                          fontWeight: FontWeight.w600,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                  const SizedBox(height: 4),
-                                  _proportionBar(
-                                    e.value.toDouble(),
-                                    maxTopServices.toDouble(),
-                                    colors.purple.withValues(alpha: 0.16),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          )
-                          .toList(),
-                    ),
+            _barList(
+              entries: topServicesList.take(5).toList(),
+              labelOf: (key) => key,
+              max: maxTopServices,
+              color: colors.purple,
+              emptyTitle: 'Нет завершённых заказов',
+              emptyMessage: 'Маржа появится после закрытия заказа.',
+              emptyIcon: CupertinoIcons.doc_text,
             ),
             const SizedBox(height: 16),
             SectionLabel('Расходы по счетам'),
-            AppCard(
-              child: expenseByAccountList.isEmpty
-                  ? EmptyState(
-                      title: 'Нет расходов',
-                      message: 'Расходы за выбранный период появятся здесь.',
-                      art: Icon(
-                        CupertinoIcons.minus_circle,
-                        size: 36,
-                        color: colors.tertiaryLabel,
-                      ),
-                    )
-                  : Column(
-                      children: expenseByAccountList
-                          .take(5)
-                          .map(
-                            (e) => Padding(
-                              padding: const EdgeInsets.symmetric(vertical: 6),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Row(
-                                    children: [
-                                      Expanded(
-                                        child: Text(
-                                          e.key,
-                                          style: const TextStyle(
-                                            fontWeight: FontWeight.w500,
-                                          ),
-                                        ),
-                                      ),
-                                      Text(
-                                        _money(e.value),
-                                        style: const TextStyle(
-                                          fontWeight: FontWeight.w600,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                  const SizedBox(height: 4),
-                                  _proportionBar(
-                                    e.value.toDouble(),
-                                    maxTopAccounts.toDouble(),
-                                    colors.red.withValues(alpha: 0.16),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          )
-                          .toList(),
-                    ),
+            _barList(
+              entries: expenseByAccountList.take(5).toList(),
+              labelOf: (key) => key,
+              max: maxTopAccounts,
+              color: colors.red,
+              emptyTitle: 'Нет расходов',
+              emptyMessage: 'Расходы за выбранный период появятся здесь.',
+              emptyIcon: CupertinoIcons.minus_circle,
             ),
             const SizedBox(height: 16),
             SectionLabel('Динамика периода'),
             AppCard(
+              padding: const EdgeInsets.fromLTRB(14, 6, 14, 8),
               child: periodTrend.isEmpty
                   ? EmptyState(
                       title: 'Нет данных',
@@ -788,48 +615,101 @@ class _StatsScreenState extends State<StatsScreen> {
                     )
                   : Column(
                       children: [
+                        Row(
+                          children: [
+                            const Expanded(child: SizedBox.shrink()),
+                            SizedBox(
+                              width: 76,
+                              child: Text(
+                                'Доход',
+                                textAlign: TextAlign.right,
+                                style: TextStyle(
+                                  color: colors.tertiaryLabel,
+                                  fontSize: 10.5,
+                                ),
+                              ),
+                            ),
+                            SizedBox(
+                              width: 76,
+                              child: Text(
+                                'Расход',
+                                textAlign: TextAlign.right,
+                                style: TextStyle(
+                                  color: colors.tertiaryLabel,
+                                  fontSize: 10.5,
+                                ),
+                              ),
+                            ),
+                            SizedBox(
+                              width: 82,
+                              child: Text(
+                                'Итог',
+                                textAlign: TextAlign.right,
+                                style: TextStyle(
+                                  color: colors.tertiaryLabel,
+                                  fontSize: 10.5,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
                         for (final bucket in periodTrend)
                           Padding(
-                            padding: const EdgeInsets.symmetric(vertical: 4),
+                            padding: const EdgeInsets.symmetric(vertical: 3),
                             child: Row(
                               children: [
                                 Expanded(
                                   child: Text(
                                     bucket.label,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
                                     style: const TextStyle(
+                                      fontSize: 13.5,
                                       fontWeight: FontWeight.w500,
                                     ),
                                   ),
                                 ),
                                 SizedBox(
-                                  width: 78,
+                                  width: 76,
                                   child: Text(
                                     _money(bucket.revenue),
                                     style: TextStyle(
                                       color: colors.green,
-                                      fontSize: 11,
+                                      fontSize: 12,
+                                      fontFeatures: const [
+                                        FontFeature.tabularFigures(),
+                                      ],
                                     ),
                                     textAlign: TextAlign.right,
                                   ),
                                 ),
                                 SizedBox(
-                                  width: 78,
+                                  width: 76,
                                   child: Text(
                                     _money(bucket.expense),
                                     style: TextStyle(
                                       color: colors.red,
-                                      fontSize: 11,
+                                      fontSize: 12,
+                                      fontFeatures: const [
+                                        FontFeature.tabularFigures(),
+                                      ],
                                     ),
                                     textAlign: TextAlign.right,
                                   ),
                                 ),
                                 SizedBox(
-                                  width: 86,
+                                  width: 82,
                                   child: Text(
                                     _money(bucket.profit),
                                     style: TextStyle(
                                       fontWeight: FontWeight.w600,
-                                      fontSize: 11,
+                                      fontSize: 12,
+                                      color: bucket.profit >= 0
+                                          ? colors.label
+                                          : colors.red,
+                                      fontFeatures: const [
+                                        FontFeature.tabularFigures(),
+                                      ],
                                     ),
                                     textAlign: TextAlign.right,
                                   ),
@@ -842,73 +722,40 @@ class _StatsScreenState extends State<StatsScreen> {
             ),
             const SizedBox(height: 16),
             SectionLabel('По сотрудникам'),
-            AppCard(
-              child: sortedStaff.isEmpty
-                  ? EmptyState(
-                      title: 'Нет данных',
-                      message: 'Здесь появится разбор по исполнителям.',
-                      art: Icon(
-                        CupertinoIcons.person_2,
-                        size: 36,
-                        color: colors.tertiaryLabel,
-                      ),
-                    )
-                  : Column(
-                      children: sortedStaff.map((e) {
-                        final name = e.key == 'unassigned'
-                            ? 'Без исполнителя'
-                            : store.employeeById(e.key)?.name ?? e.key;
-                        return Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 6),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                children: [
-                                  Expanded(
-                                    child: Text(
-                                      name,
-                                      style: const TextStyle(
-                                        fontWeight: FontWeight.w500,
-                                      ),
-                                    ),
-                                  ),
-                                  Text(
-                                    _money(e.value),
-                                    style: const TextStyle(
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 4),
-                              _proportionBar(
-                                e.value.toDouble(),
-                                maxTopStaff.toDouble(),
-                                colors.orange.withValues(alpha: 0.16),
-                              ),
-                            ],
-                          ),
-                        );
-                      }).toList(),
-                    ),
+            _barList(
+              entries: sortedStaff,
+              labelOf: (key) => key == 'unassigned'
+                  ? 'Без исполнителя'
+                  : store.employeeById(key)?.name ?? key,
+              max: maxTopStaff,
+              color: colors.orange,
+              emptyTitle: 'Нет данных',
+              emptyMessage: 'Здесь появится разбор по исполнителям.',
+              emptyIcon: CupertinoIcons.person_2,
             ),
             const SizedBox(height: 16),
             SectionLabel('По дням недели'),
             AppCard(
+              padding: const EdgeInsets.fromLTRB(14, 8, 14, 10),
               child: Column(
                 children: List.generate(7, (i) {
                   final label = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'][i];
                   final profit = weekdayProfit[i];
                   return Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 4),
+                    padding: const EdgeInsets.symmetric(vertical: 3),
                     child: Row(
                       children: [
-                        Text(
-                          label,
-                          style: const TextStyle(fontWeight: FontWeight.w600),
+                        SizedBox(
+                          width: 26,
+                          child: Text(
+                            label,
+                            style: const TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
                         ),
-                        const SizedBox(width: 8),
+                        const SizedBox(width: 6),
                         Expanded(
                           child: Container(
                             height: 6,
@@ -950,7 +797,18 @@ class _StatsScreenState extends State<StatsScreen> {
                           ),
                         ),
                         const SizedBox(width: 8),
-                        Text(_money(profit)),
+                        SizedBox(
+                          width: 78,
+                          child: Text(
+                            _money(profit),
+                            textAlign: TextAlign.right,
+                            style: const TextStyle(
+                              fontWeight: FontWeight.w600,
+                              fontSize: 12.5,
+                              fontFeatures: [FontFeature.tabularFigures()],
+                            ),
+                          ),
+                        ),
                       ],
                     ),
                   );
@@ -960,6 +818,49 @@ class _StatsScreenState extends State<StatsScreen> {
             const SizedBox(height: 16),
           ],
         ),
+      ),
+    );
+  }
+
+  /// Секция «подпись — сумма — доля»: строки выровнены, значение прижато
+  /// вправо, под графиком проходит полоса пропорции.
+  Widget _barList({
+    required List<MapEntry<String, int>> entries,
+    required String Function(String key) labelOf,
+    required int max,
+    required Color color,
+    required String emptyTitle,
+    required String emptyMessage,
+    required IconData emptyIcon,
+  }) {
+    if (entries.isEmpty) {
+      return AppCard(
+        child: EmptyState(
+          title: emptyTitle,
+          message: emptyMessage,
+          art: Icon(emptyIcon, size: 36, color: context.colors.tertiaryLabel),
+        ),
+      );
+    }
+    return AppCard(
+      padding: const EdgeInsets.fromLTRB(14, 8, 14, 10),
+      child: Column(
+        children: [
+          for (var i = 0; i < entries.length; i++) ...[
+            if (i > 0) const SizedBox(height: 10),
+            KeyValueRow(
+              labelOf(entries[i].key),
+              _money(entries[i].value),
+              dense: true,
+            ),
+            const SizedBox(height: 3),
+            _proportionBar(
+              entries[i].value.toDouble(),
+              max == 0 ? 1.0 : max.toDouble(),
+              color,
+            ),
+          ],
+        ],
       ),
     );
   }
@@ -1142,60 +1043,47 @@ class _StatsScreenState extends State<StatsScreen> {
     }
     final max = cats.values.reduce((a, b) => a > b ? a : b);
     return AppCard(
+      padding: const EdgeInsets.fromLTRB(14, 8, 14, 10),
       child: Column(
         children: cats.entries.map((e) {
           final v = max == 0 ? 0.0 : e.value / max;
           return Padding(
-            padding: const EdgeInsets.symmetric(vertical: 6),
+            padding: const EdgeInsets.symmetric(vertical: 5),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(
+                  crossAxisAlignment: CrossAxisAlignment.baseline,
+                  textBaseline: TextBaseline.alphabetic,
                   children: [
                     Expanded(
                       child: Text(
                         e.key,
-                        style: const TextStyle(fontWeight: FontWeight.w500),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w500,
+                        ),
                       ),
                     ),
+                    const SizedBox(width: 10),
                     Text(
                       _money(e.value),
-                      style: const TextStyle(fontWeight: FontWeight.w600),
+                      style: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        fontFeatures: [FontFeature.tabularFigures()],
+                      ),
                     ),
                   ],
                 ),
                 const SizedBox(height: 4),
-                ProgressBar(value: v, color: tint),
+                ProgressBar(value: v, color: tint, height: 5),
               ],
             ),
           );
         }).toList(),
-      ),
-    );
-  }
-}
-
-class _KV extends StatelessWidget {
-  const _KV(this.label, this.value);
-  final String label;
-  final String value;
-  @override
-  Widget build(BuildContext context) {
-    final colors = context.colors;
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 3),
-      child: Row(
-        children: [
-          Expanded(
-            child: Text(
-              label,
-              style: TextStyle(color: colors.secondaryLabel),
-              overflow: TextOverflow.ellipsis,
-            ),
-          ),
-          const Spacer(),
-          Text(value, style: const TextStyle(fontWeight: FontWeight.w600)),
-        ],
       ),
     );
   }

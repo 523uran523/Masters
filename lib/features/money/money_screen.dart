@@ -9,6 +9,7 @@ import 'package:provider/provider.dart';
 import '../../app/theme/app_theme.dart';
 import '../../app/tax_radar_bar.dart';
 import '../../app/ui.dart';
+import '../../core/utils/app_utils.dart';
 import '../employees/employees_screen.dart';
 import '../stats/stats_screen.dart';
 import '../../data/models/money_transaction.dart';
@@ -180,7 +181,7 @@ class _MoneyScreenState extends State<MoneyScreen> {
     if (_dateTo != null) {
       return 'По ${f.format(_dateTo!)}';
     }
-    return 'Период: ';
+    return 'Период: все';
   }
 
   Future<void> _quickSale() async => _quickTransactionSheet(isIncome: true);
@@ -309,7 +310,7 @@ class _MoneyScreenState extends State<MoneyScreen> {
       );
       return;
     }
-    final amountStr = await _prompt(' перевода', '0');
+    final amountStr = await _prompt('Сумма перевода', '0');
     if (amountStr == null) return;
     final amount =
         ((double.tryParse(amountStr.replaceAll(',', '.')) ?? 0) * 100).round();
@@ -326,7 +327,7 @@ class _MoneyScreenState extends State<MoneyScreen> {
       await store.transferBetweenAccounts(fromId, toId, amount, note: note);
     } catch (e) {
       if (mounted) {
-        await showAppAlert(context, title: 'Архив', message: e.toString());
+        await showAppAlert(context, title: 'Ошибка', message: e.toString());
       }
     } finally {
       if (mounted) setState(() => _busy = false);
@@ -384,7 +385,9 @@ class _MoneyScreenState extends State<MoneyScreen> {
       await showAppAlert(
         context,
         title: count > 0 ? 'Импорт завершён' : 'Импорт',
-        message: count > 0 ? ' транзакций: $count.' : 'Не удалось добавить записи. Проверьте шаблон Excel (колонка amount обязательна).',
+        message: count > 0
+            ? 'Добавлено транзакций: $count.'
+            : 'Не удалось добавить записи. Проверьте шаблон Excel (колонка amount обязательна).',
       );
     } finally {
       if (mounted) setState(() => _busy = false);
@@ -404,15 +407,15 @@ class _MoneyScreenState extends State<MoneyScreen> {
     final interval = await showCupertinoModalPopup<int>(
       context: context,
       builder: (dialogContext) => CupertinoActionSheet(
-        title: const Text(' часто платёж'),
+        title: const Text('Как часто платёж'),
         actions: [
           CupertinoActionSheetAction(
             onPressed: () => Navigator.of(dialogContext).pop(7),
-            child: const Text(' неделю'),
+            child: const Text('Каждую неделю'),
           ),
           CupertinoActionSheetAction(
             onPressed: () => Navigator.of(dialogContext).pop(14),
-            child: const Text(' в 2 недели'),
+            child: const Text('Раз в 2 недели'),
           ),
           CupertinoActionSheetAction(
             onPressed: () => Navigator.of(dialogContext).pop(30),
@@ -420,7 +423,7 @@ class _MoneyScreenState extends State<MoneyScreen> {
           ),
           CupertinoActionSheetAction(
             onPressed: () => Navigator.of(dialogContext).pop(90),
-            child: const Text(' в квартал'),
+            child: const Text('Раз в квартал'),
           ),
           CupertinoActionSheetAction(
             onPressed: () => Navigator.of(dialogContext).pop(-1),
@@ -444,15 +447,15 @@ class _MoneyScreenState extends State<MoneyScreen> {
     final direction = await showCupertinoModalPopup<String>(
       context: context,
       builder: (dialogContext) => CupertinoActionSheet(
-        title: const Text(' регулярного платежа'),
+        title: const Text('Тип регулярного платежа'),
         actions: [
           CupertinoActionSheetAction(
             onPressed: () => Navigator.of(dialogContext).pop('in'),
-            child: const Text('Плановый '),
+            child: const Text('Плановый приход'),
           ),
           CupertinoActionSheetAction(
             onPressed: () => Navigator.of(dialogContext).pop('out'),
-            child: const Text('Плановый '),
+            child: const Text('Плановый расход'),
           ),
         ],
         cancelButton: CupertinoActionSheetAction(
@@ -717,8 +720,8 @@ class _MoneyScreenState extends State<MoneyScreen> {
     if (store.employees.isEmpty) {
       return [
         EmptyState(
-          title: ' сотрудников',
-          message: ' сотрудника, чтобы видеть начисления и выплаты.',
+          title: 'Нет сотрудников',
+          message: 'Добавьте сотрудника, чтобы видеть начисления и выплаты.',
           art: Icon(
             CupertinoIcons.person_2,
             size: 36,
@@ -733,6 +736,7 @@ class _MoneyScreenState extends State<MoneyScreen> {
         .clamp(1, 1 << 30);
     return [
       AppCard(
+        padding: const EdgeInsets.fromLTRB(14, 10, 14, 12),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -742,16 +746,25 @@ class _MoneyScreenState extends State<MoneyScreen> {
                   Expanded(
                     child: Text(
                       e.name,
-                      style: const TextStyle(fontWeight: FontWeight.w600),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w600,
+                        fontSize: 14.5,
+                      ),
                     ),
                   ),
                   Text(
                     _money(store.earnedCents(e.id)),
-                    style: const TextStyle(fontWeight: FontWeight.w600),
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w600,
+                      fontSize: 14.5,
+                      fontFeatures: [FontFeature.tabularFigures()],
+                    ),
                   ),
                 ],
               ),
-              const SizedBox(height: 4),
+              const SizedBox(height: 2),
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
@@ -759,14 +772,15 @@ class _MoneyScreenState extends State<MoneyScreen> {
                     'Начислено',
                     style: TextStyle(
                       color: colors.secondaryLabel,
-                      fontSize: 11,
+                      fontSize: 11.5,
                     ),
                   ),
                   Text(
-                    ' выплате ${_money(store.employeeBalanceOwed(e.id))}',
+                    'К выплате ${_money(store.employeeBalanceOwed(e.id))}',
                     style: TextStyle(
                       color: colors.secondaryLabel,
-                      fontSize: 11,
+                      fontSize: 11.5,
+                      fontFeatures: const [FontFeature.tabularFigures()],
                     ),
                   ),
                 ],
@@ -886,12 +900,12 @@ class _MoneyScreenState extends State<MoneyScreen> {
     if (shift == null) {
       await showAppAlert(
         context,
-        title: ' открытой смены',
+        title: 'Нет открытой смены',
         message: 'Откройте смену для учёта.',
       );
       return;
     }
-    final closingStr = await _prompt(' сумма при закрытии', '0');
+    final closingStr = await _prompt('Фактическая сумма при закрытии', '0');
     final closing =
         ((double.tryParse((closingStr ?? '0').replaceAll(',', '.')) ?? 0) * 100)
             .round();
@@ -1287,14 +1301,42 @@ class _MoneyScreenState extends State<MoneyScreen> {
 
     return CupertinoPageScaffold(
       navigationBar: CupertinoNavigationBar(
-        middle: const Text('деньги'),
+        middle: const Text('Деньги'),
         trailing: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
+            OverflowMenuButton(
+              title: 'Действия',
+              actions: [
+                CupertinoActionSheetAction(
+                  onPressed: _transferBetweenAccounts,
+                  child: const Text('Перевод между счетами'),
+                ),
+                CupertinoActionSheetAction(
+                  onPressed: _importTransactionsExcel,
+                  child: const Text('Импорт операций (Excel)'),
+                ),
+                if (settings.cashShiftEnabled)
+                  CupertinoActionSheetAction(
+                    onPressed: shift == null ? _openShift : _closeShift,
+                    child: Text(
+                      shift == null ? 'Открыть смену кассы' : 'Закрыть смену',
+                    ),
+                  ),
+                CupertinoActionSheetAction(
+                  onPressed: () => Navigator.of(context).push(
+                    CupertinoPageRoute(builder: (_) => const StatsScreen()),
+                  ),
+                  child: const Text('Аналитика (P&L)'),
+                ),
+              ],
+            ),
+            const SizedBox(width: 4),
             CupertinoButton(
               padding: EdgeInsets.zero,
+              minimumSize: const Size(34, 34),
               onPressed: _newAccount,
-              child: const Icon(CupertinoIcons.plus, semanticLabel: 'Добавить'),
+              child: const Icon(CupertinoIcons.plus, semanticLabel: 'Новый счёт'),
             ),
           ],
         ),
@@ -1424,117 +1466,155 @@ class _MoneyScreenState extends State<MoneyScreen> {
                         if (_selectedTab == 0) ...[
                           SectionLabel('Сегодня'),
                           AppCard(
+                            padding: const EdgeInsets.fromLTRB(14, 8, 14, 10),
                             child: Column(
                               children: [
-                                _KV('выручка', _money(todayIncome)),
-                                _KV('расходы', _money(todayExpense)),
-                                _KV(
+                                KeyValueRow(
+                                  'Выручка',
+                                  _money(todayIncome),
+                                  valueColor: todayIncome > 0
+                                      ? colors.green
+                                      : null,
+                                  dense: true,
+                                ),
+                                KeyValueRow(
+                                  'Расходы',
+                                  _money(todayExpense),
+                                  valueColor: todayExpense > 0
+                                      ? colors.red
+                                      : null,
+                                  dense: true,
+                                ),
+                                const Hairline(),
+                                KeyValueRow(
                                   'Прибыль',
                                   _money(todayIncome - todayExpense),
+                                  emphasis: true,
+                                  dense: true,
                                 ),
-                                _KV(
+                                KeyValueRow(
                                   'На счетах',
                                   _money(store.totalBalanceCents()),
+                                  dense: true,
                                 ),
-                                _KV(
+                                KeyValueRow(
                                   'Прогноз за месяц',
                                   _money(store.forecastCashToEndOfMonth()),
+                                  dense: true,
                                 ),
                                 if (taxRate > 0) ...[
-                                  _KV('Налоговый резерв', _money(reservedTax)),
-                                  _KV(
-                                    'Налоговый резерв (прогноз)',
+                                  const Hairline(),
+                                  KeyValueRow(
+                                    'Налоговый резерв',
+                                    '${_money(reservedTax)} · $taxRate%',
+                                    dense: true,
+                                  ),
+                                  KeyValueRow(
+                                    'Резерв (прогноз)',
                                     _money(
                                       store.forecastTaxReserveToEndOfMonth(),
                                     ),
+                                    dense: true,
                                   ),
-                                  _KV(
+                                  KeyValueRow(
                                     'Свободно после резерва',
                                     _money(monthIncome - reservedTax),
+                                    dense: true,
                                   ),
                                   if (taxAccountId != null)
-                                    Padding(
-                                      padding: const EdgeInsets.symmetric(
-                                        vertical: 3,
-                                      ),
-                                      child: Row(
-                                        children: [
-                                          Expanded(
-                                            child: Text(
-                                              'Счёт кармана: ${store.accountById(taxAccountId)?.name ?? 'неизвестный счёт'}',
-                                              style: TextStyle(
-                                                color: colors.secondaryLabel,
-                                                fontSize: 13,
-                                              ),
-                                            ),
-                                          ),
-                                        ],
-                                      ),
+                                    KeyValueRow(
+                                      'Счёт кармана',
+                                      store
+                                              .accountById(taxAccountId)
+                                              ?.name ??
+                                          'неизвестный',
+                                      dense: true,
                                     ),
                                 ],
                               ],
                             ),
                           ),
                           const SizedBox(height: 10),
-                          Row(
+                          Wrap(
+                            spacing: 8,
+                            runSpacing: 8,
                             children: [
-                              Expanded(
-                                child: SecondaryButton(
-                                  label: 'Продажа',
-                                  icon: CupertinoIcons.plus,
-                                  onPressed: _quickSale,
-                                ),
+                              ChipButton(
+                                label: 'Продажа',
+                                icon: CupertinoIcons.plus,
+                                color: colors.green,
+                                onPressed: _quickSale,
                               ),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: SecondaryButton(
-                                  label: 'Расход',
-                                  icon: CupertinoIcons.minus,
-                                  onPressed: _addExpense,
-                                ),
+                              ChipButton(
+                                label: 'Расход',
+                                icon: CupertinoIcons.minus,
+                                color: colors.red,
+                                onPressed: _addExpense,
+                              ),
+                              ChipButton(
+                                label: 'Перевод',
+                                icon: CupertinoIcons.arrow_left_right,
+                                onPressed: _transferBetweenAccounts,
+                              ),
+                              ChipButton(
+                                label: 'Импорт Excel',
+                                icon: CupertinoIcons.doc_on_doc,
+                                onPressed: _importTransactionsExcel,
                               ),
                             ],
-                          ),
-                          const SizedBox(height: 8),
-                          SecondaryButton(
-                            label: 'Перевод между счетами',
-                            icon: CupertinoIcons.arrow_left_right,
-                            onPressed: _transferBetweenAccounts,
-                          ),
-                          const SizedBox(height: 8),
-                          SecondaryButton(
-                            label: 'Импорт транзакций (Excel)',
-                            icon: CupertinoIcons.doc_on_doc,
-                            onPressed: _importTransactionsExcel,
                           ),
                           const SizedBox(height: 16),
                           if (settings.cashShiftEnabled) ...[
                             SectionLabel('Смена кассы'),
                             AppCard(
+                              padding: const EdgeInsets.fromLTRB(14, 10, 14, 12),
                               child: shift == null
-                                  ? SecondaryButton(
-                                      label: 'Открыть смену',
-                                      icon: CupertinoIcons.play,
-                                      onPressed: _openShift,
+                                  ? Row(
+                                      children: [
+                                        Expanded(
+                                          child: Text(
+                                            'Смена не открыта',
+                                            style: TextStyle(
+                                              color: colors.secondaryLabel,
+                                              fontSize: 14,
+                                            ),
+                                          ),
+                                        ),
+                                        ChipButton(
+                                          label: 'Открыть',
+                                          icon: CupertinoIcons.play,
+                                          onPressed: _openShift,
+                                        ),
+                                      ],
                                     )
                                   : Column(
                                       children: [
-                                        _KV('', 'Открыта'),
-                                        _KV(
-                                          'Начало',
-                                          DateFormat(
+                                        ListRow(
+                                          title: 'Смена открыта',
+                                          subtitle: DateFormat(
                                             'd MMM, HH:mm',
                                             'ru',
                                           ).format(shift.openedAt),
+                                          icon: CupertinoIcons.lock_open,
+                                          iconColor: colors.green,
+                                          dense: true,
                                         ),
-                                        _KV(
-                                          'Ожидается',
-                                          _money(store.expectedForShift(shift)),
+                                        KeyValueRow(
+                                          'Ожидается в кассе',
+                                          _money(
+                                            store.expectedForShift(shift),
+                                          ),
+                                          dense: true,
                                         ),
-                                        SecondaryButton(
-                                          label: 'Закрыть смену',
-                                          icon: CupertinoIcons.stop,
-                                          onPressed: _closeShift,
+                                        const SizedBox(height: 6),
+                                        Align(
+                                          alignment: Alignment.centerLeft,
+                                          child: ChipButton(
+                                            label: 'Закрыть смену',
+                                            icon: CupertinoIcons.stop,
+                                            color: colors.red,
+                                            onPressed: _closeShift,
+                                          ),
                                         ),
                                       ],
                                     ),
@@ -1543,49 +1623,58 @@ class _MoneyScreenState extends State<MoneyScreen> {
                           ],
                         ],
                         if (_selectedTab == 1) ...[
-                          SectionLabel('Счета (${store.accounts.length})'),
-                          SecondaryButton(
-                            label: 'Добавить счёт',
-                            icon: CupertinoIcons.plus,
-                            onPressed: _newAccount,
+                          SectionLabel('Счета'),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  '${store.accounts.length} '
+                                  '${accountsWord(store.accounts.length)} · '
+                                  '${_money(store.totalBalanceCents())}',
+                                  style: TextStyle(
+                                    color: colors.secondaryLabel,
+                                    fontSize: 13,
+                                  ),
+                                ),
+                              ),
+                              ChipButton(
+                                label: 'Добавить',
+                                icon: CupertinoIcons.plus,
+                                onPressed: _newAccount,
+                              ),
+                            ],
                           ),
                           const SizedBox(height: 8),
-                          ...store.accounts.map(
-                            (a) => Padding(
-                              padding: const EdgeInsets.only(bottom: 8),
-                              child: AppCard(
-                                child: Row(
-                                  children: [
-                                    Expanded(
-                                      child: Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        children: [
-                                          Text(
-                                            a.name,
-                                            style: const TextStyle(
-                                              fontWeight: FontWeight.w600,
-                                            ),
-                                          ),
-                                          Text(
-                                            a.type,
-                                            style: TextStyle(
-                                              color: colors.secondaryLabel,
-                                              fontSize: 12,
-                                            ),
-                                          ),
+                          AppCard(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 4,
+                              vertical: 2,
+                            ),
+                            child: Column(
+                              children: [
+                                for (var i = 0; i < store.accounts.length; i++) ...[
+                                  if (i > 0) const Hairline(indent: 12),
+                                  ListRow(
+                                    title: store.accounts[i].name,
+                                    subtitle: store.accounts[i].type,
+                                    icon: CupertinoIcons.creditcard,
+                                    dense: true,
+                                    trailing: Text(
+                                      _money(
+                                        store.balanceCents(
+                                          store.accounts[i].id,
+                                        ),
+                                      ),
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.w600,
+                                        fontFeatures: [
+                                          FontFeature.tabularFigures(),
                                         ],
                                       ),
                                     ),
-                                    Text(
-                                      _money(store.balanceCents(a.id)),
-                                      style: const TextStyle(
-                                        fontWeight: FontWeight.w600,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
+                                  ),
+                                ],
+                              ],
                             ),
                           ),
                           const SizedBox(height: 16),
@@ -1598,67 +1687,73 @@ class _MoneyScreenState extends State<MoneyScreen> {
                         // Вкладка "Операции" - продолжаем с платежей
                         if (_selectedTab == 0) ...[
                           const SizedBox(height: 8),
-                          SectionLabel(
-                            ' платежи (${recurringFiltered.length})',
-                          ),
-                          const SizedBox(height: 6),
-                          SecondaryButton(
-                            label: _recurringStatusFilter == 'all'
-                                ? '\u0421\u0442\u0430\u0442\u0443\u0441: \u0432\u0441\u0435'
-                                : (_recurringStatusFilter == 'active'
-                                      ? '\u0421\u0442\u0430\u0442\u0443\u0441: \u0430\u043a\u0442\u0438\u0432\u043d\u044b\u0435'
-                                      : '\u0421\u0442\u0430\u0442\u0443\u0441: \u0432\u044b\u043a\u043b\u044e\u0447\u0435\u043d\u043d\u044b\u0435'),
-                            icon: CupertinoIcons.line_horizontal_3_decrease,
-                            onPressed: () async {
-                              final v = await showCupertinoModalPopup<String>(
-                                context: context,
-                                builder: (dialogContext) => CupertinoActionSheet(
-                                  title: const Text(
-                                    '\u0421\u0442\u0430\u0442\u0443\u0441',
-                                  ),
-                                  actions: [
-                                    CupertinoActionSheetAction(
-                                      onPressed: () =>
-                                          Navigator.of(dialogContext)
-                                              .pop('all'),
-                                      child: const Text('\u0412\u0441\u0435'),
-                                    ),
-                                    CupertinoActionSheetAction(
-                                      onPressed: () =>
-                                          Navigator.of(dialogContext)
-                                              .pop('active'),
-                                      child: const Text(
-                                        '\u0410\u043a\u0442\u0438\u0432\u043d\u044b\u0435',
-                                      ),
-                                    ),
-                                    CupertinoActionSheetAction(
-                                      onPressed: () =>
-                                          Navigator.of(dialogContext)
-                                              .pop('disabled'),
-                                      child: const Text(
-                                        '\u0412\u044b\u043a\u043b\u044e\u0447\u0435\u043d\u043d\u044b\u0435',
-                                      ),
-                                    ),
-                                  ],
-                                  cancelButton: CupertinoActionSheetAction(
-                                    onPressed: () =>
-                                        Navigator.of(dialogContext).pop(),
-                                    child: const Text(
-                                      '\u041e\u0442\u043c\u0435\u043d\u0430',
-                                    ),
-                                  ),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: SectionLabel(
+                                  'Регулярные платежи · '
+                                  '${recurringFiltered.length}',
+                                  padding: const EdgeInsets.fromLTRB(4, 0, 4, 0),
                                 ),
-                              );
-                              if (v != null) {
-                                setState(() => _recurringStatusFilter = v);
-                              }
-                            },
+                              ),
+                              ChipButton(
+                                label: switch (_recurringStatusFilter) {
+                                  'active' => 'Активные',
+                                  'disabled' => 'Выключенные',
+                                  _ => 'Все',
+                                },
+                                icon: CupertinoIcons.line_horizontal_3_decrease,
+                                onPressed: () async {
+                                  final v =
+                                      await showCupertinoModalPopup<String>(
+                                        context: context,
+                                        builder: (dialogContext) =>
+                                            CupertinoActionSheet(
+                                              title: const Text('Статус'),
+                                              actions: [
+                                                CupertinoActionSheetAction(
+                                                  onPressed: () => Navigator.of(
+                                                    dialogContext,
+                                                  ).pop('all'),
+                                                  child: const Text('Все'),
+                                                ),
+                                                CupertinoActionSheetAction(
+                                                  onPressed: () => Navigator.of(
+                                                    dialogContext,
+                                                  ).pop('active'),
+                                                  child: const Text('Активные'),
+                                                ),
+                                                CupertinoActionSheetAction(
+                                                  onPressed: () => Navigator.of(
+                                                    dialogContext,
+                                                  ).pop('disabled'),
+                                                  child: const Text(
+                                                    'Выключенные',
+                                                  ),
+                                                ),
+                                              ],
+                                              cancelButton:
+                                                  CupertinoActionSheetAction(
+                                                    onPressed: () => Navigator.of(
+                                                      dialogContext,
+                                                    ).pop(),
+                                                    child: const Text('Отмена'),
+                                                  ),
+                                            ),
+                                      );
+                                  if (v != null) {
+                                    setState(() => _recurringStatusFilter = v);
+                                  }
+                                },
+                              ),
+                            ],
                           ),
                           const SizedBox(height: 8),
                           if (recurringFiltered.isEmpty)
                             EmptyState(
-                              title: ' регулярных платежей',
-                              message: ' регулярные расходы или поступления.',
+                              title: 'Нет регулярных платежей',
+                              message:
+                                  'Добавьте регулярные расходы или поступления.',
                               art: Icon(
                                 CupertinoIcons.repeat,
                                 size: 36,
@@ -1667,6 +1762,7 @@ class _MoneyScreenState extends State<MoneyScreen> {
                             )
                           else
                             AppCard(
+                              padding: const EdgeInsets.fromLTRB(14, 6, 14, 8),
                               child: Column(
                                 children: [
                                   for (
@@ -1674,109 +1770,79 @@ class _MoneyScreenState extends State<MoneyScreen> {
                                     gi < recurringMonthKeys.length;
                                     gi++
                                   ) ...[
-                                    if (gi > 0) const SizedBox(height: 8),
+                                    if (gi > 0) const SizedBox(height: 10),
                                     Text(
                                       DateFormat(
-                                        'MMMM yyyy',
+                                        'LLLL yyyy',
                                         'ru',
                                       ).format(recurringMonthKeys[gi]),
                                       style: TextStyle(
                                         fontWeight: FontWeight.w700,
-                                        fontSize: 13,
+                                        fontSize: 12,
+                                        letterSpacing: 0.4,
                                         color: colors.secondaryLabel,
                                       ),
                                     ),
-                                    const SizedBox(height: 4),
-                                    ...recurringGroups[recurringMonthKeys[gi]]!.map(
-                                      (p) => Padding(
-                                        padding: const EdgeInsets.symmetric(
-                                          vertical: 4,
-                                        ),
-                                        child: Row(
-                                          children: [
-                                            Expanded(
-                                              child: Column(
-                                                crossAxisAlignment:
-                                                    CrossAxisAlignment.start,
-                                                children: [
-                                                  Text(
-                                                    p.name,
-                                                    style: const TextStyle(
-                                                      fontWeight:
-                                                          FontWeight.w600,
-                                                    ),
-                                                  ),
-                                                  Text(
-                                                    '${p.direction == "in" ? "+" : "-"} ${_money(p.amountCents)} \u00b7 \u043a\u0430\u0436\u0434\u044b\u0435 ${p.intervalDays} \u0434\u043d \u00b7 \u0434\u0430\u0442\u0430 ${p.nextDueAt.day}.${p.nextDueAt.month}.${p.nextDueAt.year}',
-                                                    style: TextStyle(
-                                                      color:
-                                                          colors.secondaryLabel,
-                                                      fontSize: 12,
-                                                    ),
-                                                  ),
-                                                ],
-                                              ),
-                                            ),
-                                            CupertinoSwitch(
-                                              value: p.active,
-                                              onChanged: (v) =>
-                                                  store.updateRecurringPayment(
-                                                    p.copyWith(active: v),
-                                                  ),
-                                            ),
-                                            CupertinoButton(
-                                              padding: EdgeInsets.zero,
-                                              onPressed: () =>
-                                                  _editRecurringPayment(p),
-                                              child: Icon(
-                                                CupertinoIcons.pencil,
-                                                size: 18,
-                                                color: colors.accent,
-                                                semanticLabel: '\u0420\u0435\u0434\u0430\u043a\u0442\u0438\u0440\u043e\u0432\u0430\u0442\u044c',
-                                              ),
-                                            ),
-                                            CupertinoButton(
-                                              padding: EdgeInsets.zero,
-                                              onPressed: () => store
-                                                  .deleteRecurringPayment(p.id),
-                                              child: Icon(
-                                                CupertinoIcons.trash,
-                                                size: 18,
-                                                color: colors.red,
-                                                semanticLabel: '\u0423\u0434\u0430\u043b\u0438\u0442\u044c',
-                                              ),
-                                            ),
-                                          ],
-                                        ),
+                                    const SizedBox(height: 2),
+                                    for (
+                                      int pi = 0;
+                                      pi <
+                                          recurringGroups[recurringMonthKeys[gi]]!
+                                              .length;
+                                      pi++
+                                    ) ...[
+                                      if (pi > 0) const Hairline(),
+                                      _recurringRow(
+                                        store,
+                                        recurringGroups[recurringMonthKeys[gi]]![pi],
+                                        colors,
                                       ),
-                                    ),
+                                    ],
                                   ],
                                 ],
                               ),
                             ),
                           const SizedBox(height: 8),
-                          SecondaryButton(
-                            label: ' регулярный платёж',
-                            icon: CupertinoIcons.repeat,
-                            onPressed: _addRecurringPayment,
-                          ),
-                          const SizedBox(height: 4),
-                          SecondaryButton(
-                            label: 'Провести плановые',
-                            icon: CupertinoIcons.play,
-                            onPressed: _runDueRecurring,
+                          Wrap(
+                            spacing: 8,
+                            runSpacing: 8,
+                            children: [
+                              ChipButton(
+                                label: 'Добавить платёж',
+                                icon: CupertinoIcons.repeat,
+                                onPressed: _addRecurringPayment,
+                              ),
+                              ChipButton(
+                                label: 'Провести плановые',
+                                icon: CupertinoIcons.play,
+                                onPressed: _runDueRecurring,
+                              ),
+                            ],
                           ),
                           const SizedBox(height: 16),
                           if (settings.teamEnabled) ...[
-                            SectionLabel('Команда'),
+                            Row(
+                              children: [
+                                Expanded(child: SectionLabel('Команда')),
+                                ChipButton(
+                                  label: 'Все',
+                                  icon: CupertinoIcons.person_2,
+                                  onPressed: () => Navigator.of(context).push(
+                                    CupertinoPageRoute(
+                                      builder: (_) => const EmployeesScreen(),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
                             ..._teamCards(store, colors),
                             const SizedBox(height: 16),
                           ],
-                          SectionLabel(' клиентов (${_money(totalDebt)})'),
+                          SectionLabel('Должны мне · ${_money(totalDebt)}'),
                           debtClients.isEmpty
                               ? EmptyState(
-                                  title: 'Долгов Нет',
-                                  message: ' расчёты закрыты.',
+                                  title: 'Долгов нет',
+                                  message: 'Все расчёты закрыты.',
                                   art: Icon(
                                     CupertinoIcons.checkmark_seal,
                                     size: 36,
@@ -1784,238 +1850,198 @@ class _MoneyScreenState extends State<MoneyScreen> {
                                   ),
                                 )
                               : AppCard(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 4,
+                                    vertical: 2,
+                                  ),
                                   child: Column(
-                                    children: debtClients.map((d) {
-                                      final c = d['client'];
-                                      return Padding(
-                                        padding: const EdgeInsets.symmetric(
-                                          vertical: 4,
-                                        ),
-                                        child: Row(
-                                          children: [
-                                            Expanded(
-                                              child: Text(
-                                                c.name,
-                                                style: const TextStyle(
-                                                  fontWeight: FontWeight.w500,
-                                                ),
-                                              ),
+                                    children: [
+                                      for (
+                                        var i = 0;
+                                        i < debtClients.length;
+                                        i++
+                                      ) ...[
+                                        if (i > 0) const Hairline(indent: 12),
+                                        ListRow(
+                                          title:
+                                              (debtClients[i]['client']
+                                                      as dynamic)
+                                                  .name,
+                                          icon: CupertinoIcons.person,
+                                          iconColor: colors.orange,
+                                          dense: true,
+                                          trailing: Text(
+                                            _money(
+                                              debtClients[i]['debt'] as int,
                                             ),
-                                            Text(
-                                              _money(d['debt'] as int),
-                                              style: const TextStyle(
-                                                fontWeight: FontWeight.w600,
-                                              ),
+                                            style: const TextStyle(
+                                              fontWeight: FontWeight.w600,
+                                              fontFeatures: [
+                                                FontFeature.tabularFigures(),
+                                              ],
                                             ),
-                                          ],
+                                          ),
                                         ),
-                                      );
-                                    }).toList(),
+                                      ],
+                                    ],
                                   ),
                                 ),
-                          if (settings.teamEnabled) ...[
-                            SecondaryButton(
-                              label: ' и зарплата',
-                              icon: CupertinoIcons.person_2,
-                              onPressed: () => Navigator.of(context).push(
-                                CupertinoPageRoute(
-                                  builder: (_) => const EmployeesScreen(),
-                                ),
-                              ),
-                            ),
-                            const SizedBox(height: 8),
-                          ],
-                          SecondaryButton(
-                            label: ' аналитика (P&L)',
-                            icon: CupertinoIcons.chart_bar,
-                            onPressed: () => Navigator.of(context).push(
-                              CupertinoPageRoute(
-                                builder: (_) => const StatsScreen(),
-                              ),
-                            ),
-                          ),
-                          const SizedBox(height: 16),
                           const SizedBox(height: 8),
                           Row(
                             children: [
-                              if (_txQuery.isNotEmpty) ...[
-                                Expanded(
-                                  child: Text(
-                                    'Поиск: $_txQuery',
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: TextStyle(
-                                      color: colors.secondaryLabel,
-                                      fontSize: 13,
-                                    ),
+                              Expanded(
+                                child: Text(
+                                  _txQuery.isEmpty
+                                      ? '${store.moneyTransactions.length} '
+                                            '${operationsWord(store.moneyTransactions.length)}'
+                                      : 'Поиск: $_txQuery',
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    color: colors.secondaryLabel,
+                                    fontSize: 13,
                                   ),
                                 ),
-                                CupertinoButton(
-                                  padding: EdgeInsets.zero,
+                              ),
+                              if (_txQuery.isNotEmpty)
+                                ChipButton(
+                                  label: 'Сбросить',
+                                  icon: CupertinoIcons.xmark,
                                   onPressed: () => setState(() {
                                     _txQuery = '';
                                     _txSearchController.clear();
                                   }),
-                                  child: const Icon(
-                                    CupertinoIcons.xmark,
-                                    semanticLabel: 'Очистить',
-                                  ),
+                                )
+                              else
+                                ChipButton(
+                                  label: 'Поиск',
+                                  icon: CupertinoIcons.search,
+                                  onPressed: _showTxSearch,
                                 ),
-                              ] else
-                                const Spacer(),
-                              CupertinoButton(
-                                padding: EdgeInsets.zero,
-                                onPressed: _showTxSearch,
-                                child: const Icon(
-                                  CupertinoIcons.search,
-                                  semanticLabel: 'Поиск',
-                                ),
-                              ),
                             ],
                           ),
                           const SizedBox(height: 8),
-                          Row(
+                          Wrap(
+                            spacing: 8,
+                            runSpacing: 8,
                             children: [
-                              Expanded(
-                                child: SecondaryButton(
-                                  label: _directionFilter == 'all'
-                                      ? 'Направление: Все'
-                                      : (_directionFilter == 'in'
-                                            ? 'Приходы'
-                                            : 'расходы'),
-                                  icon:
-                                      CupertinoIcons.line_horizontal_3_decrease,
-                                  onPressed: () async {
-                                    final v =
-                                        await showCupertinoModalPopup<String>(
-                                          context: context,
-                                          builder: (dialogContext) =>
-                                              CupertinoActionSheet(
-                                                title: const Text(
-                                                  'Направление',
-                                                ),
-                                                actions: [
-                                                  CupertinoActionSheetAction(
-                                                    onPressed: () =>
-                                                        Navigator.of(
-                                                          dialogContext,
-                                                        ).pop('all'),
-                                                    child: const Text('Все'),
-                                                  ),
-                                                  CupertinoActionSheetAction(
-                                                    onPressed: () =>
-                                                        Navigator.of(
-                                                          dialogContext,
-                                                        ).pop('in'),
-                                                    child: const Text(
-                                                      'Приходы',
-                                                    ),
-                                                  ),
-                                                  CupertinoActionSheetAction(
-                                                    onPressed: () =>
-                                                        Navigator.of(
-                                                          dialogContext,
-                                                        ).pop('out'),
-                                                    child: const Text(
-                                                      'расходы',
-                                                    ),
-                                                  ),
-                                                ],
-                                                cancelButton:
-                                                    CupertinoActionSheetAction(
-                                                      onPressed: () =>
-                                                          Navigator.of(
-                                                            dialogContext,
-                                                          ).pop(),
-                                                      child: const Text(
-                                                        'Отмена',
-                                                      ),
-                                                    ),
-                                              ),
-                                        );
-                                    if (v != null)
-                                      setState(() => _directionFilter = v);
-                                  },
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: SecondaryButton(
-                                  label: _accountFilter == null
-                                      ? 'Счёт: Все'
-                                      : (store
-                                                .accountById(_accountFilter!)
-                                                ?.name ??
-                                            'Счёт'),
-                                  icon: CupertinoIcons.money_dollar,
-                                  onPressed: () async {
-                                    final v =
-                                        await showCupertinoModalPopup<String?>(
-                                          context: context,
-                                          builder: (dialogContext) => Container(
-                                            height: 280,
-                                            color: context.colors.card,
-                                            child: Column(
-                                              children: [
-                                                CupertinoButton(
-                                                  child: const Text(
-                                                    'Все счета',
-                                                  ),
-                                                  onPressed: () => Navigator.of(
-                                                    dialogContext,
-                                                  ).pop('__all__'),
-                                                ),
-                                                Expanded(
-                                                  child: ListView(
-                                                    children: [
-                                                      for (final a
-                                                          in store.accounts
-                                                              .where(
-                                                                (x) =>
-                                                                    !x.archived,
-                                                              ))
-                                                        CupertinoButton(
-                                                          onPressed: () =>
-                                                              Navigator.of(
-                                                                dialogContext,
-                                                              ).pop(a.id),
-                                                          child: Align(
-                                                            alignment: Alignment
-                                                                .centerLeft,
-                                                            child: Text(a.name),
-                                                          ),
-                                                        ),
-                                                    ],
-                                                  ),
-                                                ),
-                                              ],
+                              ChipButton(
+                                label: switch (_directionFilter) {
+                                  'in' => 'Приходы',
+                                  'out' => 'Расходы',
+                                  _ => 'Все операции',
+                                },
+                                icon: CupertinoIcons.arrow_left_right,
+                                onPressed: () async {
+                                  final v = await showCupertinoModalPopup<String>(
+                                    context: context,
+                                    builder: (dialogContext) =>
+                                        CupertinoActionSheet(
+                                          title: const Text('Направление'),
+                                          actions: [
+                                            CupertinoActionSheetAction(
+                                              onPressed: () => Navigator.of(
+                                                dialogContext,
+                                              ).pop('all'),
+                                              child: const Text('Все'),
                                             ),
+                                            CupertinoActionSheetAction(
+                                              onPressed: () => Navigator.of(
+                                                dialogContext,
+                                              ).pop('in'),
+                                              child: const Text('Приходы'),
+                                            ),
+                                            CupertinoActionSheetAction(
+                                              onPressed: () => Navigator.of(
+                                                dialogContext,
+                                              ).pop('out'),
+                                              child: const Text('Расходы'),
+                                            ),
+                                          ],
+                                          cancelButton: CupertinoActionSheetAction(
+                                            onPressed: () =>
+                                                Navigator.of(dialogContext).pop(),
+                                            child: const Text('Отмена'),
                                           ),
-                                        );
-                                    if (v == '__all__') {
-                                      setState(() => _accountFilter = null);
-                                    } else if (v != null) {
-                                      setState(() => _accountFilter = v);
-                                    }
-                                  },
-                                ),
+                                        ),
+                                  );
+                                  if (v != null) {
+                                    setState(() => _directionFilter = v);
+                                  }
+                                },
+                              ),
+                              ChipButton(
+                                label: _accountFilter == null
+                                    ? 'Все счета'
+                                    : (store
+                                              .accountById(_accountFilter!)
+                                              ?.name ??
+                                          'Счёт'),
+                                icon: CupertinoIcons.creditcard,
+                                onPressed: () async {
+                                  final v =
+                                      await showCupertinoModalPopup<String?>(
+                                        context: context,
+                                        builder: (dialogContext) => Container(
+                                          height: 280,
+                                          color: context.colors.card,
+                                          child: Column(
+                                            children: [
+                                              CupertinoButton(
+                                                child: const Text('Все счета'),
+                                                onPressed: () => Navigator.of(
+                                                  dialogContext,
+                                                ).pop('__all__'),
+                                              ),
+                                              Expanded(
+                                                child: ListView(
+                                                  children: [
+                                                    for (final a
+                                                        in store.accounts
+                                                            .where(
+                                                              (x) =>
+                                                                  !x.archived,
+                                                            ))
+                                                      CupertinoButton(
+                                                        onPressed: () =>
+                                                            Navigator.of(
+                                                              dialogContext,
+                                                            ).pop(a.id),
+                                                        child: Align(
+                                                          alignment: Alignment
+                                                              .centerLeft,
+                                                          child: Text(a.name),
+                                                        ),
+                                                      ),
+                                                  ],
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      );
+                                  if (v == '__all__') {
+                                    setState(() => _accountFilter = null);
+                                  } else if (v != null) {
+                                    setState(() => _accountFilter = v);
+                                  }
+                                },
+                              ),
+                              ChipButton(
+                                label: _formatDate(),
+                                icon: CupertinoIcons.calendar,
+                                onPressed: _openDateFilter,
                               ),
                             ],
-                          ),
-                          const SizedBox(height: 8),
-                          SecondaryButton(
-                            label: _formatDate(),
-                            icon: CupertinoIcons.calendar,
-                            onPressed: _openDateFilter,
                           ),
                           const SizedBox(height: 16),
                           SectionLabel(
-                            'Журнал (${store.moneyTransactions.length})',
+                            'Журнал · ${store.moneyTransactions.length}',
                           ),
                           store.moneyTransactions.isEmpty
                               ? EmptyState(
-                                  title: ' операций',
-                                  message: ' продажу или .',
+                                  title: 'Нет операций',
+                                  message: 'Добавьте продажу или расход.',
                                   art: Icon(
                                     CupertinoIcons.doc_text,
                                     size: 36,
@@ -2170,7 +2196,7 @@ class _MoneyScreenState extends State<MoneyScreen> {
                                                                 );
                                                               },
                                                               child: Text(
-                                                                ' → исходная',
+                                                                '↩ исходная',
                                                                 style: TextStyle(
                                                                   fontSize: 11,
                                                                   color: colors
@@ -2340,6 +2366,62 @@ class _MoneyScreenState extends State<MoneyScreen> {
     );
   }
 
+  Widget _recurringRow(
+    MastersStore store,
+    RecurringPayment p,
+    AppColors colors,
+  ) {
+    final due = p.nextDueAt;
+    final dueText =
+        '${due.day.toString().padLeft(2, '0')}.'
+        '${due.month.toString().padLeft(2, '0')}.${due.year}';
+    final everyN = p.intervalDays == 1
+        ? 'каждый день'
+        : 'каждые ${p.intervalDays} ${daysWord(p.intervalDays)}';
+    return ListRow(
+      title: p.name,
+      subtitle:
+          '${p.direction == 'in' ? 'Приход' : 'Расход'} · $everyN · $dueText',
+      dense: true,
+      trailing: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            '${p.direction == 'in' ? '+' : '−'}${_money(p.amountCents)}',
+            style: TextStyle(
+              fontSize: 13.5,
+              fontWeight: FontWeight.w600,
+              color: p.direction == 'in' ? colors.green : colors.red,
+              fontFeatures: const [FontFeature.tabularFigures()],
+            ),
+          ),
+          const SizedBox(width: 4),
+          OverflowMenuButton(
+            size: 18,
+            title: p.name,
+            actions: [
+              CupertinoActionSheetAction(
+                onPressed: () => _editRecurringPayment(p),
+                child: const Text('Изменить'),
+              ),
+              CupertinoActionSheetAction(
+                onPressed: () => store.updateRecurringPayment(
+                  p.copyWith(active: !p.active),
+                ),
+                child: Text(p.active ? 'Выключить' : 'Включить'),
+              ),
+              CupertinoActionSheetAction(
+                isDestructiveAction: true,
+                onPressed: () => store.deleteRecurringPayment(p.id),
+                child: const Text('Удалить'),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildCategoriesSection(MastersStore store) {
     final incomeCats = <String>{};
     final expenseCats = <String>{};
@@ -2367,64 +2449,58 @@ class _MoneyScreenState extends State<MoneyScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         if (incomeList.isNotEmpty) ...[
-          Text(
-            'Доходы',
-            style: TextStyle(
-              fontWeight: FontWeight.w600,
-              color: context.colors.secondaryLabel,
-            ),
-          ),
-          const SizedBox(height: 4),
-          Wrap(
-            spacing: 8,
-            runSpacing: 4,
-            children: incomeList
-                .map(
-                  (c) => Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 4,
-                    ),
-                    decoration: BoxDecoration(
-                      color: context.colors.green.withValues(alpha: 0.15),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Text(c, style: const TextStyle(fontSize: 13)),
-                  ),
-                )
-                .toList(),
-          ),
+          _categoryGroup('Доходы', incomeList, context.colors.green),
           const SizedBox(height: 12),
         ],
         if (expenseList.isNotEmpty) ...[
-          Text(
-            'Расходы',
-            style: TextStyle(
-              fontWeight: FontWeight.w600,
-              color: context.colors.secondaryLabel,
-            ),
-          ),
-          const SizedBox(height: 4),
-          Wrap(
-            spacing: 8,
-            runSpacing: 4,
-            children: expenseList
-                .map(
-                  (c) => Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 4,
-                    ),
-                    decoration: BoxDecoration(
-                      color: context.colors.red.withValues(alpha: 0.15),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Text(c, style: const TextStyle(fontSize: 13)),
-                  ),
-                )
-                .toList(),
-          ),
+          _categoryGroup('Расходы', expenseList, context.colors.red),
         ],
+      ],
+    );
+  }
+
+  Widget _categoryGroup(String title, List<String> categories, Color tint) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Expanded(child: SectionLabel(title)),
+            Text(
+              '${categories.length} ${itemsWord(categories.length)}',
+              style: TextStyle(
+                color: context.colors.tertiaryLabel,
+                fontSize: 11.5,
+              ),
+            ),
+          ],
+        ),
+        Wrap(
+          spacing: 8,
+          runSpacing: 6,
+          children: [
+            for (final category in categories)
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 5,
+                ),
+                decoration: BoxDecoration(
+                  color: context.colors.tint(tint, 0.12),
+                  borderRadius: BorderRadius.circular(99),
+                ),
+                child: Text(
+                  category,
+                  style: TextStyle(
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w600,
+                    color: tint,
+                    letterSpacing: -0.1,
+                  ),
+                ),
+              ),
+          ],
+        ),
       ],
     );
   }
@@ -2436,31 +2512,14 @@ class _KV extends StatelessWidget {
   final String value;
   final bool isLink;
   final VoidCallback? onTap;
+
   @override
   Widget build(BuildContext context) {
-    final colors = context.colors;
-    final valueWidget = isLink && onTap != null
-        ? GestureDetector(
-            onTap: onTap,
-            child: Text(
-              value,
-              style: const TextStyle(
-                fontWeight: FontWeight.w600,
-                color: Color(0xFF007AFF),
-                decoration: TextDecoration.underline,
-              ),
-            ),
-          )
-        : Text(value, style: const TextStyle(fontWeight: FontWeight.w600));
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 3),
-      child: Row(
-        children: [
-          Text(label, style: TextStyle(color: colors.secondaryLabel)),
-          const Spacer(),
-          valueWidget,
-        ],
-      ),
+    return KeyValueRow(
+      label,
+      value,
+      onTap: isLink ? onTap : null,
+      valueColor: isLink && onTap != null ? context.colors.accent : null,
     );
   }
 }

@@ -76,22 +76,42 @@ class ClientDetailScreen extends StatelessWidget {
         trailing: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            CupertinoButton(
-              padding: EdgeInsets.zero,
-              onPressed: () => _editClient(context, store, client),
-              child: const Icon(
-                CupertinoIcons.pencil,
-                semanticLabel: 'Редактировать',
+            if (client.phone.isNotEmpty)
+              CupertinoButton(
+                padding: EdgeInsets.zero,
+                minimumSize: const Size(34, 34),
+                onPressed: () => _sendMessage(context, client),
+                child: const Icon(
+                  CupertinoIcons.chat_bubble,
+                  size: 21,
+                  semanticLabel: 'Написать клиенту',
+                ),
               ),
-            ),
-            CupertinoButton(
-              padding: EdgeInsets.zero,
-              onPressed: () => _deleteClient(context, store, client),
-              child: Icon(
-                CupertinoIcons.trash,
-                color: context.colors.red,
-                semanticLabel: 'Удалить',
-              ),
+            OverflowMenuButton(
+              title: client.name,
+              actions: [
+                CupertinoActionSheetAction(
+                  onPressed: () => _editClient(context, store, client),
+                  child: const Text('Редактировать'),
+                ),
+                CupertinoActionSheetAction(
+                  onPressed: () => _addReminder(context, store, client),
+                  child: const Text('Напоминание'),
+                ),
+                CupertinoActionSheetAction(
+                  onPressed: () => _bookAppointment(context, store, client),
+                  child: const Text('Записать на приём'),
+                ),
+                CupertinoActionSheetAction(
+                  onPressed: () => _shareSummary(context, store, client),
+                  child: const Text('Поделиться сводкой'),
+                ),
+                CupertinoActionSheetAction(
+                  isDestructiveAction: true,
+                  onPressed: () => _deleteClient(context, store, client),
+                  child: const Text('Удалить'),
+                ),
+              ],
             ),
           ],
         ),
@@ -101,6 +121,7 @@ class ClientDetailScreen extends StatelessWidget {
           padding: const EdgeInsets.fromLTRB(16, 12, 16, 72),
           children: [
             AppCard(
+              padding: const EdgeInsets.fromLTRB(14, 12, 14, 10),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -111,145 +132,144 @@ class ClientDetailScreen extends StatelessWidget {
                       fontSize: 17,
                     ),
                   ),
+                  const SizedBox(height: 6),
                   if (client.phone.isNotEmpty)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 2),
-                      child: Text(
-                        client.phone,
-                        style: TextStyle(color: context.colors.secondaryLabel),
-                      ),
+                    KeyValueRow(
+                      'Телефон',
+                      client.phone,
+                      dense: true,
+                      onTap: () => _sendMessage(context, client),
                     ),
-                  if (client.note != null)
+                  KeyValueRow(
+                    'Долг',
+                    _money(store.clientDebtCents(clientId)),
+                    dense: true,
+                    emphasis: store.clientDebtCents(clientId) > 0,
+                    valueColor: store.clientDebtCents(clientId) > 0
+                        ? context.colors.red
+                        : null,
+                  ),
+                  KeyValueRow(
+                    'Заказов',
+                    '${jobs.length}',
+                    dense: true,
+                  ),
+                  KeyValueRow(
+                    'Объектов',
+                    '${objects.length}',
+                    dense: true,
+                  ),
+                  if (client.note != null && client.note!.trim().isNotEmpty)
                     Padding(
-                      padding: const EdgeInsets.only(top: 6),
+                      padding: const EdgeInsets.only(top: 8),
                       child: Text(
                         client.note!,
-                        style: TextStyle(color: context.colors.secondaryLabel),
-                      ),
-                    ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 16),
-            SectionLabel('Связь и напоминания'),
-            AppCard(
-              child: Column(
-                children: [
-                  if (client.phone.isNotEmpty)
-                    SecondaryButton(
-                      label: 'Написать клиенту',
-                      icon: CupertinoIcons.chat_bubble,
-                      onPressed: () => _sendMessage(context, client),
-                    ),
-                  if (!client.phone.isNotEmpty)
-                    EmptyState(
-                      title: 'Телефон не указан',
-                      message:
-                          'Добавьте телефон, чтобы быстро написать клиенту.',
-                      art: Icon(
-                        CupertinoIcons.phone,
-                        size: 32,
-                        color: context.colors.tertiaryLabel,
-                      ),
-                    ),
-                  const SizedBox(height: 8),
-                  SecondaryButton(
-                    label: 'Поделиться сводкой',
-                    icon: CupertinoIcons.share,
-                    onPressed: () async {
-                      final store = context.read<MastersStore>();
-                      final reminders = store.remindersForClient(clientId);
-                      final debt = store.clientDebtCents(clientId);
-                      final jobs = store.jobsForClient(clientId);
-                      final text = StringBuffer()
-                        ..writeln('Клиент: ${client.name}')
-                        ..writeln('Телефон: ${client.phone}')
-                        ..writeln('Долг: ${(debt / 100).toStringAsFixed(0)} ₽')
-                        ..writeln('Заказов: ${jobs.length}')
-                        ..writeln('Напоминаний: ${reminders.length}');
-                      for (final r in reminders) {
-                        text.writeln(
-                          '- ${r.title} (${r.dueAt.day}.${r.dueAt.month}.${r.dueAt.year})',
-                        );
-                      }
-                      // ignore: deprecated_member_use
-                      await Share.share(text.toString());
-                    },
-                  ),
-                  const SizedBox(height: 8),
-                  SecondaryButton(
-                    label: 'Создать напоминание',
-                    icon: CupertinoIcons.bell,
-                    onPressed: () => _addReminder(context, store, client),
-                  ),
-                  const SizedBox(height: 8),
-                  SecondaryButton(
-                    label: 'Записать на приём',
-                    icon: CupertinoIcons.calendar,
-                    onPressed: () => _bookAppointment(context, store, client),
-                  ),
-                  ...store
-                      .remindersForClient(clientId)
-                      .map(
-                        (r) => Padding(
-                          padding: const EdgeInsets.only(top: 8),
-                          child: Row(
-                            children: [
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      r.title,
-                                      style: const TextStyle(
-                                        fontWeight: FontWeight.w500,
-                                      ),
-                                    ),
-                                    Text(
-                                      DateFormat(
-                                        'd MMM yyyy',
-                                        'ru',
-                                      ).format(r.dueAt),
-                                      style: TextStyle(
-                                        color: context.colors.secondaryLabel,
-                                        fontSize: 12,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              CupertinoButton(
-                                padding: EdgeInsets.zero,
-                                onPressed: () => store.setReminderStatus(
-                                  r.id,
-                                  ReminderStatus.done,
-                                ),
-                                child: Icon(
-                                  CupertinoIcons.checkmark_circle,
-                                  color: context.colors.green,
-                                  semanticLabel: 'Выполнено',
-                                ),
-                              ),
-                              CupertinoButton(
-                                padding: EdgeInsets.zero,
-                                onPressed: () => store.deleteReminder(r.id),
-                                child: Icon(
-                                  CupertinoIcons.xmark,
-                                  size: 14,
-                                  color: context.colors.tertiaryLabel,
-                                  semanticLabel: 'Удалить',
-                                ),
-                              ),
-                            ],
-                          ),
+                        style: TextStyle(
+                          color: context.colors.secondaryLabel,
+                          fontSize: 13,
+                          height: 1.3,
                         ),
                       ),
+                    ),
                 ],
               ),
             ),
-            const SizedBox(height: 16),
-            SectionLabel('История'),
+            const SizedBox(height: 12),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                if (client.phone.isNotEmpty)
+                  ChipButton(
+                    label: 'Написать',
+                    icon: CupertinoIcons.chat_bubble,
+                    onPressed: () => _sendMessage(context, client),
+                  ),
+                ChipButton(
+                  label: 'Напоминание',
+                  icon: CupertinoIcons.bell,
+                  onPressed: () => _addReminder(context, store, client),
+                ),
+                ChipButton(
+                  label: 'На приём',
+                  icon: CupertinoIcons.calendar,
+                  onPressed: () => _bookAppointment(context, store, client),
+                ),
+                ChipButton(
+                  label: 'Редактировать',
+                  icon: CupertinoIcons.pencil,
+                  onPressed: () => _editClient(context, store, client),
+                ),
+              ],
+            ),
+            if (reminders.isNotEmpty) ...[
+              const SizedBox(height: 18),
+              Row(
+                children: [
+                  Expanded(
+                    child: SectionLabel(
+                      'Напоминания · ${reminders.length}',
+                      padding: const EdgeInsets.fromLTRB(4, 0, 4, 0),
+                    ),
+                  ),
+                  ChipButton(
+                    label: 'Добавить',
+                    icon: CupertinoIcons.plus,
+                    onPressed: () => _addReminder(context, store, client),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              AppCard(
+                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                child: Column(
+                  children: [
+                    for (var i = 0; i < reminders.length; i++) ...[
+                      if (i > 0) const Hairline(indent: 12),
+                      ListRow(
+                        dense: true,
+                        icon: CupertinoIcons.bell,
+                        iconColor: context.colors.orange,
+                        title: reminders[i].title,
+                        subtitle: DateFormat(
+                          'd MMM yyyy',
+                          'ru',
+                        ).format(reminders[i].dueAt),
+                        trailing: OverflowMenuButton(
+                          size: 18,
+                          title: reminders[i].title,
+                          actions: [
+                            CupertinoActionSheetAction(
+                              onPressed: () => store.setReminderStatus(
+                                reminders[i].id,
+                                ReminderStatus.done,
+                              ),
+                              child: const Text('Отметить выполненным'),
+                            ),
+                            CupertinoActionSheetAction(
+                              isDestructiveAction: true,
+                              onPressed: () =>
+                                  store.deleteReminder(reminders[i].id),
+                              child: const Text('Удалить'),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ],
+            const SizedBox(height: 18),
+            SectionLabel(
+              historyItems.isEmpty
+                  ? 'История'
+                  : 'История · ${historyItems.length}',
+            ),
             AppCard(
+              padding: historyItems.isEmpty
+                  ? EdgeInsets.zero
+                  : const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
               child: historyItems.isEmpty
                   ? EmptyState(
                       title: 'Нет истории',
@@ -261,137 +281,109 @@ class ClientDetailScreen extends StatelessWidget {
                       ),
                     )
                   : Column(
-                      children: historyItems
-                          .map(
-                            (item) => Padding(
-                              padding: const EdgeInsets.symmetric(vertical: 6),
-                              child: Row(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  IconBadge(
-                                    icon: item.icon,
-                                    color: item.color,
-                                    size: 26,
-                                  ),
-                                  const SizedBox(width: 10),
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          item.title,
-                                          style: TextStyle(
-                                            fontWeight: FontWeight.w500,
-                                            decoration:
-                                                item.jobStatus ==
-                                                        JobStatus.done ||
-                                                    item.jobStatus ==
-                                                        JobStatus.closed
-                                                ? TextDecoration.lineThrough
-                                                : null,
-                                            color:
-                                                item.jobStatus ==
-                                                        JobStatus.done ||
-                                                    item.jobStatus ==
-                                                        JobStatus.closed
-                                                ? context.colors.tertiaryLabel
-                                                : null,
-                                          ),
-                                        ),
-                                        if (item.line.isNotEmpty)
-                                          Text(
-                                            item.line,
-                                            style: TextStyle(
-                                              color:
-                                                  context.colors.secondaryLabel,
-                                              fontSize: 12,
-                                            ),
-                                          ),
-                                        Text(
-                                          DateFormat(
-                                            'd MMM yyyy, HH:mm',
-                                            'ru',
-                                          ).format(item.date),
-                                          style: TextStyle(
-                                            color: context.colors.tertiaryLabel,
-                                            fontSize: 11,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          )
-                          .toList(),
+                      children: [
+                        for (var i = 0; i < historyItems.length; i++) ...[
+                          if (i > 0) const Hairline(indent: 12),
+                          _historyRow(context, historyItems[i]),
+                        ],
+                      ],
                     ),
             ),
-            const SizedBox(height: 16),
-            SectionLabel('Объекты (${objects.length})'),
-            AppCard(
-              child: Column(
-                children: [
-                  ...objects.map(
-                    (o) => Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 4),
-                      child: Row(
-                        children: [
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  o.title,
-                                  style: const TextStyle(
-                                    fontWeight: FontWeight.w500,
-                                  ),
-                                ),
-                                if (o.address.isNotEmpty)
-                                  Text(
-                                    o.address,
-                                    style: TextStyle(
-                                      color: context.colors.secondaryLabel,
-                                      fontSize: 12,
-                                    ),
-                                  ),
-                              ],
+            const SizedBox(height: 18),
+            Row(
+              children: [
+                Expanded(
+                  child: SectionLabel(
+                    objects.isEmpty
+                        ? 'Объекты'
+                        : 'Объекты · ${objects.length}',
+                    padding: const EdgeInsets.fromLTRB(4, 0, 4, 0),
+                  ),
+                ),
+                ChipButton(
+                  label: 'Добавить',
+                  icon: CupertinoIcons.plus,
+                  onPressed: () => _addObject(context, store),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            if (objects.isEmpty)
+              EmptyState(
+                title: 'Нет объектов',
+                message: 'Добавьте адрес, чтобы привязывать к нему заказы.',
+                art: Icon(
+                  CupertinoIcons.building_2_fill,
+                  size: 32,
+                  color: context.colors.tertiaryLabel,
+                ),
+              )
+            else
+              AppCard(
+                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                child: Column(
+                  children: [
+                    for (var i = 0; i < objects.length; i++) ...[
+                      if (i > 0) const Hairline(indent: 12),
+                      ListRow(
+                        dense: true,
+                        icon: CupertinoIcons.building_2_fill,
+                        title: objects[i].title,
+                        subtitle: objects[i].address.isEmpty
+                            ? null
+                            : objects[i].address,
+                        trailing: OverflowMenuButton(
+                          size: 18,
+                          title: objects[i].title,
+                          actions: [
+                            CupertinoActionSheetAction(
+                              isDestructiveAction: true,
+                              onPressed: () async {
+                                final confirm = await showAppConfirm(
+                                  context,
+                                  title: 'Удалить объект?',
+                                  message:
+                                      'Заказы останутся, но без привязки к объекту.',
+                                  destructive: true,
+                                  confirmLabel: 'Удалить',
+                                );
+                                if (confirm) await store.deleteObject(objects[i].id);
+                              },
+                              child: const Text('Удалить'),
                             ),
-                          ),
-                          CupertinoButton(
-                            padding: EdgeInsets.zero,
-                            onPressed: () async {
-                              final confirm = await showAppConfirm(
-                                context,
-                                title: 'Удалить объект?',
-                                message: 'Заказы останутся, но без привязки к объекту.',
-                                destructive: true,
-                                confirmLabel: 'Удалить',
-                              );
-                              if (confirm) await store.deleteObject(o.id);
-                            },
-                            child: Icon(
-                              CupertinoIcons.xmark,
-                              size: 14,
-                              color: context.colors.tertiaryLabel,
-                              semanticLabel: 'Удалить',
-                            ),
-                          ),
-                        ],
+                          ],
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            const SizedBox(height: 18),
+            Row(
+              children: [
+                Expanded(
+                  child: SectionLabel(
+                    jobs.isEmpty ? 'Заказы' : 'Заказы · ${jobs.length}',
+                    padding: const EdgeInsets.fromLTRB(4, 0, 4, 0),
+                  ),
+                ),
+                ChipButton(
+                  label: 'Новый заказ',
+                  icon: CupertinoIcons.plus,
+                  onPressed: () => Navigator.of(context).push(
+                    CupertinoPageRoute(
+                      builder: (_) => JobFormScreen(
+                        initialClientId: clientId,
+                        initialObjectId: objects.length == 1
+                            ? objects.first.id
+                            : null,
                       ),
                     ),
                   ),
-                  SecondaryButton(
-                    label: 'Добавить объект',
-                    icon: CupertinoIcons.plus,
-                    onPressed: () => _addObject(context, store),
-                  ),
-                ],
-              ),
+                ),
+              ],
             ),
-            const SizedBox(height: 16),
-            SectionLabel('Заказы (${jobs.length})'),
+            const SizedBox(height: 8),
             jobs.isEmpty
                 ? EmptyState(
                     title: 'Нет заказов',
@@ -401,81 +393,106 @@ class ClientDetailScreen extends StatelessWidget {
                       size: 36,
                       color: context.colors.tertiaryLabel,
                     ),
-                  )
-                : Column(
-                    children: jobs.map((job) {
-                      final unpaidCents =
-                          job.priceCents - store.paidForJob(job.id);
-                      return Padding(
-                        padding: const EdgeInsets.only(bottom: 8),
-                        child: AppCard(
-                          onTap: () => Navigator.of(context).push(
-                            CupertinoPageRoute(
-                              builder: (_) => JobDetailScreen(jobId: job.id),
+                    actions: [
+                      PrimaryButton(
+                        label: 'Новый заказ',
+                        icon: CupertinoIcons.plus,
+                        onPressed: () => Navigator.of(context).push(
+                          CupertinoPageRoute(
+                            builder: (_) => JobFormScreen(
+                              initialClientId: clientId,
+                              initialObjectId: objects.length == 1
+                                  ? objects.first.id
+                                  : null,
                             ),
                           ),
-                          child: Row(
-                            children: [
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      job.title,
-                                      style: const TextStyle(
-                                        fontWeight: FontWeight.w600,
-                                      ),
-                                    ),
-                                    Text(
-                                      '${job.status.label} • ${(job.priceCents / 100).toStringAsFixed(0)} ₽',
-                                      style: TextStyle(
-                                        color: context.colors.secondaryLabel,
-                                        fontSize: 12,
-                                      ),
-                                    ),
-                                    if (job.status == JobStatus.closed &&
-                                        unpaidCents > 0)
-                                      Padding(
-                                        padding: const EdgeInsets.only(top: 6),
-                                        child: Pill(
-                                          'Не оплачен ${(unpaidCents / 100).toStringAsFixed(0)} ₽',
-                                          color: context.colors.red,
-                                        ),
-                                      ),
-                                  ],
-                                ),
-                              ),
-                              Icon(
-                                CupertinoIcons.chevron_forward,
-                                size: 16,
-                                color: context.colors.tertiaryLabel,
-                              ),
-                            ],
-                          ),
                         ),
-                      );
-                    }).toList(),
+                      ),
+                    ],
+                  )
+                : AppCard(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 4,
+                      vertical: 2,
+                    ),
+                    child: Column(
+                      children: [
+                        for (var i = 0; i < jobs.length; i++) ...[
+                          if (i > 0) const Hairline(indent: 12),
+                          Builder(
+                            builder: (_) {
+                              final job = jobs[i];
+                              final unpaidCents =
+                                  job.priceCents - store.paidForJob(job.id);
+                              return ListRow(
+                                dense: true,
+                                icon: CupertinoIcons.doc_text,
+                                title: job.title,
+                                subtitle:
+                                    '${job.status.label} · ${_money(job.priceCents)}'
+                                    '${job.status == JobStatus.closed && unpaidCents > 0 ? ' · долг ${_money(unpaidCents)}' : ''}',
+                                subtitleColor:
+                                    job.status == JobStatus.closed &&
+                                        unpaidCents > 0
+                                    ? context.colors.red
+                                    : null,
+                                showChevron: true,
+                                onTap: () => Navigator.of(context).push(
+                                  CupertinoPageRoute(
+                                    builder: (_) =>
+                                        JobDetailScreen(jobId: job.id),
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
+                        ],
+                      ],
+                    ),
                   ),
-            const SizedBox(height: 12),
-            PrimaryButton(
-              label: 'Новый заказ',
-              icon: CupertinoIcons.plus,
-              onPressed: () => Navigator.of(context).push(
-                CupertinoPageRoute(
-                  builder: (_) => JobFormScreen(
-                    initialClientId: clientId,
-                    initialObjectId: objects.length == 1
-                        ? objects.first.id
-                        : null,
-                  ),
-                ),
-              ),
-            ),
           ],
         ),
       ),
     );
   }
+
+  Widget _historyRow(BuildContext context, _HistoryItem item) {
+    final muted =
+        item.jobStatus == JobStatus.done || item.jobStatus == JobStatus.closed;
+    final date = DateFormat('d MMM yyyy, HH:mm', 'ru').format(item.date);
+    return ListRow(
+      dense: true,
+      leading: IconBadge(icon: item.icon, color: item.color, size: 26),
+      title: item.title,
+      titleColor: muted ? context.colors.tertiaryLabel : null,
+      subtitle: item.line.isEmpty ? date : '${item.line} · $date',
+    );
+  }
+
+  Future<void> _shareSummary(
+    BuildContext context,
+    MastersStore store,
+    Client client,
+  ) async {
+    final reminders = store.remindersForClient(clientId);
+    final debt = store.clientDebtCents(clientId);
+    final jobs = store.jobsForClient(clientId);
+    final text = StringBuffer()
+      ..writeln('Клиент: ${client.name}')
+      ..writeln('Телефон: ${client.phone}')
+      ..writeln('Долг: ${_money(debt)}')
+      ..writeln('Заказов: ${jobs.length}')
+      ..writeln('Напоминаний: ${reminders.length}');
+    for (final r in reminders) {
+      text.writeln(
+        '- ${r.title} (${r.dueAt.day}.${r.dueAt.month}.${r.dueAt.year})',
+      );
+    }
+    // ignore: deprecated_member_use
+    await Share.share(text.toString());
+  }
+
+  String _money(int cents) => '${(cents / 100).toStringAsFixed(0)} ₽';
 
   Future<void> _addReminder(
     BuildContext context,

@@ -14,7 +14,10 @@ String newId() {
   final part2 = timestamp & 0xFFFF;
   final randomA = random.nextInt(0x1000) & 0xFFF;
   final randomB = random.nextInt(0x8000) & 0x7FFF;
-  final tail = List.generate(14, (_) => random.nextInt(16)).map((v) => v.toRadixString(16)).join();
+  final tail = List.generate(
+    14,
+    (_) => random.nextInt(16),
+  ).map((v) => v.toRadixString(16)).join();
   return '${hex(part1, 8)}-${hex(part2, 4)}-7${hex(randomA, 3)}-'
       '${hex((randomB & 0x3FFF) | 0x8000, 4)}-$tail';
 }
@@ -51,6 +54,35 @@ String sessionsWord(int value) =>
     pluralRu(value, ['сессия', 'сессии', 'сессий']);
 String daysWord(int value) => pluralRu(value, ['день', 'дня', 'дней']);
 
+String cardsWord(int value) =>
+    pluralRu(value, ['карточка', 'карточки', 'карточек']);
+String visitsWord(int value) => pluralRu(value, ['визит', 'визита', 'визитов']);
+String ordersWord(int value) => pluralRu(value, ['заказ', 'заказа', 'заказов']);
+String itemsWord(int value) =>
+    pluralRu(value, ['позиция', 'позиции', 'позиций']);
+String peopleWord(int value) =>
+    pluralRu(value, ['человек', 'человека', 'человек']);
+String eventsWord(int value) =>
+    pluralRu(value, ['событие', 'события', 'событий']);
+String objectsWord(int value) =>
+    pluralRu(value, ['объект', 'объекта', 'объектов']);
+String recordsWord(int value) =>
+    pluralRu(value, ['запись', 'записи', 'записей']);
+String operationsWord(int value) =>
+    pluralRu(value, ['операция', 'операции', 'операций']);
+String accountsWord(int value) => pluralRu(value, ['счёт', 'счёта', 'счетов']);
+String suppliersWord(int value) =>
+    pluralRu(value, ['поставщик', 'поставщика', 'поставщиков']);
+String clientsWord(int value) =>
+    pluralRu(value, ['клиент', 'клиента', 'клиентов']);
+String employeesWord(int value) =>
+    pluralRu(value, ['сотрудник', 'сотрудника', 'сотрудников']);
+String minutesWord(int value) => pluralRu(value, ['минута', 'минуты', 'минут']);
+
+/// «2 карточки», «5 заказов» — число вместе с правильной формой слова.
+String countLabel(int value, List<String> forms) =>
+    '${formatNumber(value)} ${pluralRu(value, forms)}';
+
 DateTime? parseDateOrNull(String? value) {
   if (value == null || value.trim().isEmpty) return null;
   final normalized = value.trim().replaceAll('/', '-');
@@ -65,14 +97,16 @@ String formatFullDate(DateTime date) =>
 String formatMonthShort(int month) =>
     DateFormat('LLL', 'ru').format(DateTime(2020, month)).replaceAll('.', '');
 
-String formatNumber(num value) => NumberFormat.decimalPattern('ru').format(value);
+String formatNumber(num value) =>
+    NumberFormat.decimalPattern('ru').format(value);
 
 String formatIsoDay(DateTime? date) =>
     date == null ? '' : DateFormat('yyyy-MM-dd').format(date);
 
 String dayKey(DateTime date) => '${date.year}-${date.month}-${date.day}';
 
-String pluralShelfCount(int count) => '${formatNumber(count)} ${booksWord(count)}';
+String pluralShelfCount(int count) =>
+    '${formatNumber(count)} ${booksWord(count)}';
 
 double clamp01(double value) => value.clamp(0.0, 1.0);
 
@@ -81,9 +115,7 @@ int clampInt(int value, int min, int max) =>
 
 String timerLabel(Duration duration) {
   final hours = duration.inHours;
-  final minutes =
-      duration.inMinutes.remainder(60).toString().padLeft(2, '0');
-  final seconds =
-      duration.inSeconds.remainder(60).toString().padLeft(2, '0');
+  final minutes = duration.inMinutes.remainder(60).toString().padLeft(2, '0');
+  final seconds = duration.inSeconds.remainder(60).toString().padLeft(2, '0');
   return hours > 0 ? '$hours:$minutes:$seconds' : '$minutes:$seconds';
 }

@@ -661,12 +661,12 @@ class MastersStore extends ChangeNotifier {
     required String targetId,
   }) async {
     if (sourceId == targetId) {
-      throw ArgumentError(' должны различаться.');
+      throw ArgumentError('Клиенты должны различаться.');
     }
     final source = clientById(sourceId);
     final target = clientById(targetId);
     if (source == null || target == null) {
-      throw StateError(' не .');
+      throw StateError('Клиент не найден.');
     }
     ensurePeriodOpen();
 
@@ -1282,7 +1282,7 @@ class MastersStore extends ChangeNotifier {
     String? reversesId,
     String? receiptPath,
   }) async {
-    if (amountCents <= 0) throw ArgumentError('  быть больше 0.');
+    if (amountCents <= 0) throw ArgumentError('Сумма должна быть больше 0.');
     ensurePeriodOpen();
     final tx = MoneyTransaction(
       id: newId(),
@@ -1444,7 +1444,7 @@ class MastersStore extends ChangeNotifier {
     int amountCents, {
     String? note,
   }) async {
-    if (amountCents <= 0) throw ArgumentError('  быть больше 0.');
+    if (amountCents <= 0) throw ArgumentError('Сумма должна быть больше 0.');
     ensurePeriodOpen();
     if (fromAccountId == toAccountId)
       throw ArgumentError('Счета должны различаться.');
@@ -1782,7 +1782,9 @@ class MastersStore extends ChangeNotifier {
       (a) => a.resourceId == r && !a.endAt.isBefore(s) && !a.startAt.isAfter(e),
     );
     if (conflicts.isNotEmpty) {
-      throw StateError(' уже  в  время. Выберите другое время.');
+      throw StateError(
+        'Ресурс уже занят в это время. Выберите другое время.',
+      );
     }
     final appt = Appointment(
       id: newId(),
@@ -2288,7 +2290,7 @@ class MastersStore extends ChangeNotifier {
       final direction =
           directionRaw == 'out' ||
               directionRaw == 'expense' ||
-              directionRaw == ' расход'
+              directionRaw == 'расход'
           ? 'out'
           : 'in';
       final kindRaw = kindIdx >= 0
@@ -3268,7 +3270,7 @@ class MastersStore extends ChangeNotifier {
     final account = _accounts.firstWhere(
       (a) => !a.archived,
       orElse: () =>
-          _accounts.isNotEmpty ? _accounts.first : throw StateError(' счёта.'),
+          _accounts.isNotEmpty ? _accounts.first           : throw StateError('Нет счёта.'),
     );
     return account.id;
   }
@@ -3585,8 +3587,9 @@ class MastersStore extends ChangeNotifier {
       }
     }
 
-    if (purchaseLines.isEmpty) throw ArgumentError(' не содержит .');
-    if (total <= 0) throw ArgumentError('   быть больше 0.');
+    if (purchaseLines.isEmpty)
+      throw ArgumentError('Закупка не содержит строк.');
+    if (total <= 0) throw ArgumentError('Сумма закупки должна быть больше 0.');
     final purchase = Purchase(
       id: purchaseId,
       supplierId: supplierId,
@@ -3608,7 +3611,7 @@ class MastersStore extends ChangeNotifier {
         kind: 'purchase_payment',
         direction: 'out',
         amountCents: paidCents,
-        category: ' у ',
+        category: 'Закупка у поставщика',
         note: purchase.note,
         relatedTransactionId: purchase.id,
       );

@@ -195,7 +195,11 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
     if (amount <= 0) return;
     if (amount > remaining) {
       if (mounted) {
-        await showAppAlert(context, title: 'Архив', message: ' не   .');
+        await showAppAlert(
+          context,
+          title: 'Ошибка',
+          message: 'Сумма не может превышать остаток.',
+        );
       }
       return;
     }
@@ -214,7 +218,7 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
       );
     } catch (e) {
       if (mounted) {
-        await showAppAlert(context, title: 'Архив', message: e.toString());
+        await showAppAlert(context, title: 'Ошибка', message: e.toString());
       }
     }
   }
@@ -270,18 +274,20 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
       final choice = await showCupertinoDialog<String?>(
         context: context,
         builder: (dialogContext) => CupertinoAlertDialog(
-          title: const Text('Закрыть ?'),
-          content: Text(' к оплате: ${(remaining / 100).toStringAsFixed(0)} ₽'),
+          title: const Text('Закрыть заказ?'),
+          content: Text(
+            'Остаток к оплате: ${(remaining / 100).toStringAsFixed(0)} ₽',
+          ),
           actions: [
             CupertinoDialogAction(
               isDefaultAction: true,
               onPressed: () => Navigator.of(dialogContext).pop('accept'),
-              child: const Text('Принять  и '),
+              child: const Text('Принять остаток и закрыть'),
             ),
             CupertinoDialogAction(
               isDestructiveAction: true,
               onPressed: () => Navigator.of(dialogContext).pop('debt'),
-              child: const Text('Закрыть с '),
+              child: const Text('Закрыть с долгом'),
             ),
             CupertinoDialogAction(
               onPressed: () => Navigator.of(dialogContext).pop(null),
@@ -307,8 +313,9 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
         if (amount <= 0 || amount > remaining) {
           await showAppAlert(
             context,
-            title: ' сумма',
-            message: '  быть  1  ${(remaining / 100).toStringAsFixed(0)} ₽.',
+            title: 'Неверная сумма',
+            message:
+                'Сумма должна быть от 1 до ${(remaining / 100).toStringAsFixed(0)} ₽.',
           );
           return;
         }
@@ -327,7 +334,7 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
           if (mounted) {
             await showAppAlert(
               context,
-              title: 'Архив оплаты',
+              title: 'Ошибка оплаты',
               message: e.toString(),
             );
           }
@@ -342,8 +349,9 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
         } else {
           await showAppAlert(
             context,
-            title: ' принята',
-            message: ' не  . Заказ  .',
+            title: 'Оплата принята',
+            message:
+                'Остаток не погашен полностью. Заказ остаётся неоплаченным.',
           );
         }
         return;
@@ -359,12 +367,12 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
           context,
           title: 'Внимание',
           message:
-              'Заказ закрыт с .  : ${(remaining / 100).toStringAsFixed(0)} ₽.',
+              'Заказ закрыт с долгом. Неоплаченный остаток: ${(remaining / 100).toStringAsFixed(0)} ₽.',
         );
       }
     } catch (e) {
       if (mounted) {
-        await showAppAlert(context, title: 'Архив', message: e.toString());
+        await showAppAlert(context, title: 'Ошибка', message: e.toString());
       }
     }
   }

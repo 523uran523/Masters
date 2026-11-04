@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 
 import '../../../app/theme/app_theme.dart';
 import '../../../app/ui.dart';
+import '../../../core/utils/app_utils.dart';
 import '../../../data/models/appointment.dart';
 import '../../../data/models/job.dart';
 import '../../../data/models/unified_event.dart';
@@ -99,35 +100,60 @@ class _UnifiedCalendarViewState extends State<UnifiedCalendarView> {
     return Column(
       children: [
         Padding(
-          padding: const EdgeInsets.fromLTRB(8, 8, 8, 4),
+          padding: const EdgeInsets.fromLTRB(8, 6, 8, 4),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               CupertinoButton(
                 padding: EdgeInsets.zero,
+                minimumSize: const Size(34, 34),
                 onPressed: () => _shiftMonth(-1),
                 child: const Icon(
                   CupertinoIcons.chevron_left,
+                  size: 19,
                   semanticLabel: 'Предыдущий месяц',
                 ),
               ),
-              const SizedBox(width: 8),
+              const SizedBox(width: 4),
               Text(
-                DateFormat('LLLL yyyy', 'ru').format(_monthStart),
+                _monthLabel(_monthStart),
                 style: const TextStyle(
                   fontWeight: FontWeight.w600,
                   fontSize: 16,
+                  letterSpacing: -0.2,
                 ),
               ),
-              const SizedBox(width: 8),
+              const SizedBox(width: 4),
               CupertinoButton(
                 padding: EdgeInsets.zero,
+                minimumSize: const Size(34, 34),
                 onPressed: () => _shiftMonth(1),
                 child: const Icon(
                   CupertinoIcons.chevron_right,
+                  size: 19,
                   semanticLabel: 'Следующий месяц',
                 ),
               ),
+            ],
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(8, 0, 8, 2),
+          child: Row(
+            children: [
+              for (var i = 0; i < kWeekdayShort.length; i++)
+                Expanded(
+                  child: Center(
+                    child: Text(
+                      kWeekdayShort[i],
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                        color: colors.tertiaryLabel,
+                      ),
+                    ),
+                  ),
+                ),
             ],
           ),
         ),
@@ -138,7 +164,7 @@ class _UnifiedCalendarViewState extends State<UnifiedCalendarView> {
             physics: const NeverScrollableScrollPhysics(),
             gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
               crossAxisCount: 7,
-              childAspectRatio: 0.9,
+              childAspectRatio: 0.92,
             ),
             itemCount: cells.length,
             itemBuilder: (context, index) {
@@ -152,17 +178,18 @@ class _UnifiedCalendarViewState extends State<UnifiedCalendarView> {
                   day.year == _selectedDay.year &&
                   day.month == _selectedDay.month &&
                   day.day == _selectedDay.day;
+              final isWeekend = day.weekday >= DateTime.saturday;
               final hasAppts = apptDays.contains(day.day);
               final hasJobs = jobDays.contains(day.day);
               return GestureDetector(
                 onTap: () => setState(() => _selectedDay = day),
                 child: Container(
-                  margin: const EdgeInsets.all(2),
+                  margin: const EdgeInsets.all(1.5),
                   decoration: BoxDecoration(
                     color: isSelected
-                        ? colors.accent.withValues(alpha: 0.12)
+                        ? colors.tint(colors.accent, 0.14)
                         : (isToday
-                              ? colors.accent.withValues(alpha: 0.06)
+                              ? colors.tint(colors.accent, 0.07)
                               : null),
                     borderRadius: BorderRadius.circular(8),
                     border: Border.all(
@@ -179,8 +206,15 @@ class _UnifiedCalendarViewState extends State<UnifiedCalendarView> {
                           fontWeight: isToday
                               ? FontWeight.w700
                               : FontWeight.w500,
-                          color: isToday ? colors.accent : colors.label,
+                          color: isToday
+                              ? colors.accent
+                              : (isWeekend
+                                    ? colors.secondaryLabel
+                                    : colors.label),
                           fontSize: 12,
+                          fontFeatures: const [
+                            FontFeature.tabularFigures(),
+                          ],
                         ),
                       ),
                       if (hasAppts || hasJobs)
@@ -209,15 +243,22 @@ class _UnifiedCalendarViewState extends State<UnifiedCalendarView> {
           padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
           child: Row(
             children: [
-              Text(
-                DateFormat('d MMMM yyyy', 'ru').format(_selectedDay),
-                style: const TextStyle(fontWeight: FontWeight.w600),
+              Expanded(
+                child: Text(
+                  _dayLabel(_selectedDay),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: -0.2,
+                  ),
+                ),
               ),
-              const Spacer(),
-              Text(
-                '${dayEvents.length} событий',
-                style: TextStyle(color: colors.secondaryLabel, fontSize: 12),
-              ),
+              if (dayEvents.isNotEmpty)
+                Pill(
+                  '${dayEvents.length} ${eventsWord(dayEvents.length)}',
+                  color: colors.accent,
+                ),
             ],
           ),
         ),
@@ -262,7 +303,45 @@ class _UnifiedCalendarViewState extends State<UnifiedCalendarView> {
       decoration: BoxDecoration(color: color, shape: BoxShape.circle),
     );
   }
+
+  /// «ноябрь 2026» — месяц строчными, как принято в русской дате.
+  String _monthLabel(DateTime month) {
+    final label = DateFormat('LLLL yyyy', 'ru').format(month);
+    return label.isEmpty ? label : label[0].toUpperCase() + label.substring(1);
+  }
+
+  /// «4 ноября, среда» — день недели рядом с датой, чтобы не заглядывать
+  /// в календарь за ориентацией.
+  String _dayLabel(DateTime day) {
+    final date = DateFormat('d MMMM', 'ru').format(day);
+    final dateCapitalized = date.isEmpty
+        ? date
+        : date[0].toUpperCase() + date.substring(1);
+    return '$dateCapitalized, ${kWeekdayFull[day.weekday - 1]}';
+  }
 }
+
+/// Сокращённые названия дней недели, начиная с понедельника
+/// (в русском календаре неделя начинается с понедельника).
+const List<String> kWeekdayShort = [
+  'пн',
+  'вт',
+  'ср',
+  'чт',
+  'пт',
+  'сб',
+  'вс',
+];
+
+const List<String> kWeekdayFull = [
+  'понедельник',
+  'вторник',
+  'среда',
+  'четверг',
+  'пятница',
+  'суббота',
+  'воскресенье',
+];
 
 class _AppointmentDayCard extends StatelessWidget {
   const _AppointmentDayCard({

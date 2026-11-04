@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import '../../app/theme/app_theme.dart';
 import '../../app/ui.dart';
 import '../../core/units.dart';
+import '../../core/utils/app_utils.dart';
 import '../../data/models/inventory_composition.dart';
 import '../../data/models/inventory_item.dart';
 import '../../data/models/supplier.dart';
@@ -859,10 +860,32 @@ class _InventoryScreenState extends State<InventoryScreen> {
         trailing: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
+            OverflowMenuButton(
+              title: 'Склад',
+              actions: [
+                CupertinoActionSheetAction(
+                  onPressed: _recordPurchase,
+                  child: const Text('Записать закупку'),
+                ),
+                CupertinoActionSheetAction(
+                  onPressed: _newSupplier,
+                  child: const Text('Новый поставщик'),
+                ),
+                CupertinoActionSheetAction(
+                  onPressed: _importInventoryExcel,
+                  child: const Text('Импорт из Excel'),
+                ),
+              ],
+            ),
+            const SizedBox(width: 4),
             CupertinoButton(
               padding: EdgeInsets.zero,
+              minimumSize: const Size(34, 34),
               onPressed: _newItem,
-              child: const Icon(CupertinoIcons.plus, semanticLabel: 'Добавить'),
+              child: const Icon(
+                CupertinoIcons.plus,
+                semanticLabel: 'Новая позиция',
+              ),
             ),
           ],
         ),
@@ -873,28 +896,33 @@ class _InventoryScreenState extends State<InventoryScreen> {
               child: ListView(
                 padding: const EdgeInsets.fromLTRB(16, 12, 16, 72),
                 children: [
-                  if (store.suppliers.isNotEmpty || true) ...[
-                    const SizedBox(height: 0),
-                  ],
-                  SectionLabel(
-                    'Поставщики и закупки (${store.suppliers.length})',
-                  ),
-                  PrimaryButton(
-                    label: 'Новый поставщик',
-                    icon: CupertinoIcons.person_badge_plus,
-                    onPressed: _newSupplier,
-                  ),
-                  const SizedBox(height: 8),
-                  SecondaryButton(
-                    label: 'Записать закупку',
-                    icon: CupertinoIcons.doc_on_clipboard,
-                    onPressed: _recordPurchase,
+                  Row(
+                    children: [
+                      Expanded(
+                        child: SectionLabel(
+                          'Поставщики · ${store.suppliers.length}',
+                          padding: const EdgeInsets.fromLTRB(4, 0, 4, 0),
+                        ),
+                      ),
+                      ChipButton(
+                        label: 'Закупка',
+                        icon: CupertinoIcons.doc_on_clipboard,
+                        onPressed: _recordPurchase,
+                      ),
+                      const SizedBox(width: 8),
+                      ChipButton(
+                        label: 'Добавить',
+                        icon: CupertinoIcons.person_badge_plus,
+                        onPressed: _newSupplier,
+                      ),
+                    ],
                   ),
                   const SizedBox(height: 8),
                   if (store.suppliers.isEmpty)
                     EmptyState(
                       title: 'Нет поставщиков',
-                      message: 'Добавьте поставщика, чтобы учитывать закупки и долги.',
+                      message:
+                          'Добавьте поставщика, чтобы учитывать закупки и долги.',
                       art: Icon(
                         CupertinoIcons.person_2,
                         size: 36,
@@ -903,153 +931,114 @@ class _InventoryScreenState extends State<InventoryScreen> {
                     )
                   else
                     AppCard(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 4,
+                        vertical: 2,
+                      ),
                       child: Column(
                         children: [
-                          for (final supplier in store.suppliers)
-                            Padding(
-                              padding: const EdgeInsets.symmetric(vertical: 4),
-                              child: Row(
-                                children: [
-                                  Expanded(
-                                    child: GestureDetector(
-                                      onTap: () =>
-                                          _showSupplierDetail(supplier),
-                                      child: Text(
-                                        supplier.name,
-                                        style: const TextStyle(
-                                          fontWeight: FontWeight.w600,
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                  Text(
-                                    'Долг: ${_money(store.supplierDebtCents(supplier.id))}',
-                                    style: TextStyle(
-                                      color: colors.secondaryLabel,
-                                      fontSize: 12,
-                                    ),
-                                  ),
-                                  CupertinoButton(
-                                    padding: EdgeInsets.zero,
-                                    onPressed: () => _paySupplier(supplier),
-                                    child: const Icon(
-                                      CupertinoIcons.money_dollar,
-                                      size: 18,
-                                      semanticLabel: 'Оплатить',
-                                    ),
-                                  ),
-                                  CupertinoButton(
-                                    padding: EdgeInsets.zero,
-                                    onPressed: () => _deleteSupplier(supplier),
-                                    child: Icon(
-                                      CupertinoIcons.xmark,
-                                      size: 16,
-                                      color: colors.tertiaryLabel,
-                                      semanticLabel: 'Удалить',
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
+                          for (var i = 0; i < store.suppliers.length; i++) ...[
+                            if (i > 0) const Hairline(indent: 12),
+                            _supplierRow(store, colors, store.suppliers[i]),
+                          ],
                         ],
                       ),
                     ),
                   const SizedBox(height: 16),
                   if (low.isNotEmpty) ...[
-                    SectionLabel('Низкий остаток (${low.length})'),
+                    SectionLabel('Низкий остаток · ${low.length}'),
                     AppCard(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 4,
+                        vertical: 2,
+                      ),
                       child: Column(
-                        children: low
-                            .map(
-                              (i) => Padding(
-                                padding: const EdgeInsets.symmetric(
-                                  vertical: 4,
-                                ),
-                                child: Row(
-                                  children: [
-                                    Expanded(
-                                      child: Text(
-                                        i.name,
-                                        style: const TextStyle(
-                                          fontWeight: FontWeight.w500,
-                                        ),
-                                      ),
-                                    ),
-                                    Text(
-                                      '${i.stockQty.toStringAsFixed(i.stockQty % 1 == 0 ? 0 : 2)} ${i.unit} (мин ${i.minQty})',
-                                      style: TextStyle(
-                                        color: colors.red,
-                                        fontSize: 12,
-                                        fontWeight: FontWeight.w600,
-                                      ),
-                                    ),
+                        children: [
+                          for (var i = 0; i < low.length; i++) ...[
+                            if (i > 0) const Hairline(indent: 12),
+                            ListRow(
+                              title: low[i].name,
+                              subtitle:
+                                  'Минимум ${formatQty(low[i].minQty)} '
+                                  '${low[i].unit}',
+                              icon: CupertinoIcons.cube,
+                              iconColor: colors.red,
+                              dense: true,
+                              trailing: Text(
+                                '${formatQty(low[i].stockQty)} ${low[i].unit}',
+                                style: TextStyle(
+                                  color: colors.red,
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w600,
+                                  fontFeatures: const [
+                                    FontFeature.tabularFigures(),
                                   ],
                                 ),
                               ),
-                            )
-                            .toList(),
+                            ),
+                          ],
+                        ],
                       ),
                     ),
                     const SizedBox(height: 16),
                   ],
-                  SecondaryButton(
-                    label: 'Импорт из Excel',
-                    icon: CupertinoIcons.doc_on_doc,
-                    onPressed: _importInventoryExcel,
-                  ),
-                  const SizedBox(height: 8),
-                  const SizedBox(height: 8),
                   Row(
                     children: [
-                      if (_invQuery.isNotEmpty) ...[
-                        Expanded(
-                          child: Text(
-                            'Поиск: $_invQuery',
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              color: colors.secondaryLabel,
-                              fontSize: 13,
-                            ),
+                      Expanded(
+                        child: Text(
+                          _invQuery.isEmpty
+                              ? '${_filteredInventory(store).length} '
+                                    '${itemsWord(_filteredInventory(store).length)} · '
+                                    'себестоимость ${_money(store.inventoryItems.fold(0, (sum, i) => sum + (i.trackStock ? i.costCents * i.stockQty.round() : 0)))}'
+                              : 'Поиск: $_invQuery',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: colors.secondaryLabel,
+                            fontSize: 13,
                           ),
                         ),
-                        CupertinoButton(
-                          padding: EdgeInsets.zero,
+                      ),
+                      if (_invQuery.isNotEmpty)
+                        ChipButton(
+                          label: 'Сбросить',
+                          icon: CupertinoIcons.xmark,
                           onPressed: () => setState(() {
                             _invQuery = '';
                             _searchController.clear();
                           }),
-                          child: const Icon(
-                            CupertinoIcons.xmark,
-                            semanticLabel: 'Очистить',
-                          ),
+                        )
+                      else
+                        ChipButton(
+                          label: 'Поиск',
+                          icon: CupertinoIcons.search,
+                          onPressed: _showSearch,
                         ),
-                      ] else
-                        const Spacer(),
-                      CupertinoButton(
-                        padding: EdgeInsets.zero,
-                        onPressed: _showSearch,
-                        child: const Icon(
-                          CupertinoIcons.search,
-                          semanticLabel: 'Поиск',
-                        ),
-                      ),
                     ],
                   ),
                   const SizedBox(height: 8),
-                  SecondaryButton(
-                    label: _invFilter == 'all'
-                        ? 'Фильтр: все'
-                        : (_invFilter == 'good'
-                              ? 'Товары'
-                              : (_invFilter == 'service' ? 'Услуги' : 'Мало')),
-                    icon: CupertinoIcons.line_horizontal_3_decrease,
-                    onPressed: _pickInventoryFilter,
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      ChipButton(
+                        label: switch (_invFilter) {
+                          'good' => 'Товары',
+                          'service' => 'Услуги',
+                          'low' => 'Мало',
+                          _ => 'Все позиции',
+                        },
+                        icon: CupertinoIcons.line_horizontal_3_decrease,
+                        onPressed: _pickInventoryFilter,
+                      ),
+                      ChipButton(
+                        label: 'Импорт Excel',
+                        icon: CupertinoIcons.doc_on_doc,
+                        onPressed: _importInventoryExcel,
+                      ),
+                    ],
                   ),
-                  const SizedBox(height: 8),
-                  SectionLabel(
-                    'Позиции (${_filteredInventory(store).length})',
-                  ),
+                  const SizedBox(height: 14),
                   if (store.inventoryItems.isEmpty)
                     EmptyState(
                       title: 'Нет позиций',
@@ -1096,6 +1085,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
                         return Padding(
                           padding: const EdgeInsets.only(bottom: 8),
                           child: AppCard(
+                            padding: const EdgeInsets.fromLTRB(14, 10, 8, 10),
                             onTap: () => _showItemSheet(item),
                             child: Row(
                               children: [
@@ -1106,55 +1096,62 @@ class _InventoryScreenState extends State<InventoryScreen> {
                                     children: [
                                       Text(
                                         item.name,
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
                                         style: const TextStyle(
                                           fontWeight: FontWeight.w600,
+                                          fontSize: 15,
                                         ),
                                       ),
+                                      const SizedBox(height: 2),
                                       Text(
-                                        '${item.kind == 'service' ? 'Услуга' : 'Товар'} · ${item.unit} · '
-                                        'себестоимость ${_money(item.costCents)} · '
-                                        'продажа ${_money(item.sellPriceCents)}',
+                                        '${item.kind == 'service' ? 'Услуга' : 'Товар'} · '
+                                        '${_money(item.costCents)} → '
+                                        '${_money(item.sellPriceCents)}',
                                         style: TextStyle(
                                           color: colors.secondaryLabel,
-                                          fontSize: 12,
+                                          fontSize: 12.5,
                                         ),
                                       ),
-                                      if (store
-                                          .itemComposition(item.id)
-                                          .isNotEmpty)
-                                        ..._compositionBlock(store, item),
                                       if (item.trackStock)
                                         Text(
-                                          'Остаток: ${formatQty(item.stockQty)} ${item.unit}'
-                                          '${item.stockQty < 0 ? ' · отрицательный остаток' : (item.lowStock ? ' (мало)' : '')}',
+                                          'Остаток ${formatQty(item.stockQty)} ${item.unit}'
+                                          '${item.stockQty < 0 ? ' · отрицательный' : (item.lowStock ? ' · мало' : '')}',
                                           style: TextStyle(
                                             color:
                                                 item.stockQty < 0 ||
                                                     item.lowStock
                                                 ? colors.red
                                                 : colors.secondaryLabel,
-                                            fontSize: 12,
+                                            fontSize: 12.5,
+                                            fontWeight: FontWeight.w500,
                                           ),
                                         ),
+                                      if (store
+                                          .itemComposition(item.id)
+                                          .isNotEmpty)
+                                        ..._compositionBlock(store, item),
                                     ],
                                   ),
                                 ),
                                 CupertinoButton(
                                   padding: EdgeInsets.zero,
+                                  minimumSize: const Size(32, 32),
                                   onPressed: () => _openCalculator(item),
                                   child: Icon(
                                     CupertinoIcons.function,
-                                    size: 20,
+                                    size: 18,
                                     color: colors.accent,
                                     semanticLabel: 'Калькулятор',
                                   ),
                                 ),
                                 CupertinoButton(
                                   padding: EdgeInsets.zero,
+                                  minimumSize: const Size(32, 32),
                                   onPressed: () => _showItemSheet(item),
                                   child: Icon(
                                     CupertinoIcons.ellipsis_circle,
-                                    size: 21,
+                                    size: 19,
                                     color: colors.secondaryLabel,
                                     semanticLabel: 'Действия',
                                   ),
@@ -1168,6 +1165,41 @@ class _InventoryScreenState extends State<InventoryScreen> {
                 ],
               ),
             ),
+    );
+  }
+
+  Widget _supplierRow(
+    MastersStore store,
+    AppColors colors,
+    Supplier supplier,
+  ) {
+    final debt = store.supplierDebtCents(supplier.id);
+    return ListRow(
+      title: supplier.name,
+      subtitle: debt > 0 ? 'Долг ${_money(debt)}' : 'Без долга',
+      subtitleColor: debt > 0 ? colors.orange : null,
+      icon: CupertinoIcons.person_2,
+      dense: true,
+      trailing: OverflowMenuButton(
+        size: 18,
+        title: supplier.name,
+        actions: [
+          CupertinoActionSheetAction(
+            onPressed: () => _paySupplier(supplier),
+            child: const Text('Оплатить'),
+          ),
+          CupertinoActionSheetAction(
+            onPressed: () => _showSupplierDetail(supplier),
+            child: const Text('История закупок'),
+          ),
+          CupertinoActionSheetAction(
+            isDestructiveAction: true,
+            onPressed: () => _deleteSupplier(supplier),
+            child: const Text('Удалить'),
+          ),
+        ],
+      ),
+      onTap: () => _showSupplierDetail(supplier),
     );
   }
 }
