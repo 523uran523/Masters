@@ -9,12 +9,13 @@ import '../../core/reminder_service.dart';
 import '../../core/app_biometric.dart';
 import '../../core/update_service.dart';
 import '../../data/models/job.dart';
-import '../../data/app_database.dart';
 import '../../state/masters_store.dart';
 import '../../state/settings_controller.dart';
 import '../jobs/job_constants.dart';
 import 'sync_card.dart';
 
+/// Настройки разложены по шести группам: каждая группа — отдельная
+/// подвкладка, поэтому экран не превращается в простыню на 2000 строк.
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
 
@@ -23,126 +24,34 @@ class SettingsScreen extends StatefulWidget {
 }
 
 class _SettingsScreenState extends State<SettingsScreen> {
+  static const _sections = <(String, IconData)>[
+    ('Работа', CupertinoIcons.settings_solid),
+    ('Деньги', CupertinoIcons.money_dollar),
+    ('Вид', CupertinoIcons.paintbrush),
+    ('Защита', CupertinoIcons.lock),
+    ('Данные', CupertinoIcons.archivebox),
+    ('Обновления', CupertinoIcons.cloud_download),
+  ];
+
+  int _section = 0;
   bool _busy = false;
   bool _auditBusy = false;
-  List<Map<String, Object?>> _auditEntries = const [];
   bool _updateBusy = false;
+  bool _mirrorBusy = false;
   UpdateInfo? _updateInfo;
   String _updateStatus = '';
-  final Set<String> _expanded = {'features', 'orders', 'money', 'app'};
-  static const List<String> _tabLabels = [
-    'Сегодня',
-    'Заказы',
-    'Клиенты',
-    'Деньги',
-    'Склад',
-    'Бронь',
-    'Настройки',
-  ];
-  final _tagController = TextEditingController();
-  final _mirrorUrlController = TextEditingController();
   String _mirrorStatus = '';
-  bool _mirrorBusy = false;
   bool _mirrorInitialized = false;
-
-  Future<void> _checkForUpdates() async {
-    setState(() {
-      _updateBusy = true;
-      _updateStatus = 'Проверка обновлений...';
-    });
-    try {
-      final settings = context.read<SettingsController>();
-      final update = await UpdateService(
-        mirrorUrl: settings.updateMirrorUrl,
-        isMirrorEnabled: settings.updateMirrorEnabled,
-        channel: settings.updateChannel,
-      ).checkForUpdate();
-      if (!mounted) return;
-      setState(() {
-        _updateInfo = update;
-        _updateStatus = update.updateAvailable
-            ? 'Доступно обновление: ${update.latestVersionName} (код ${update.latestVersionCode})'
-            : 'У вас актуальная версия.';
-      });
-      if (update.updateAvailable) {
-        final proceed = await showAppConfirm(
-          context,
-          title: 'Доступно обновление',
-          message: '${update.changelog}\n\nУстановить сейчас?',
-          confirmLabel: 'Скачать и установить',
-        );
-        if (proceed && mounted) await _downloadAndInstallUpdate(update);
-      }
-    } catch (e) {
-      if (!mounted) return;
-      setState(() => _updateStatus = 'Ошибка обновления: $e');
-    } finally {
-      if (mounted) setState(() => _updateBusy = false);
-    }
-  }
-
-  Future<void> _checkMirror() async {
-    final settings = context.read<SettingsController>();
-    final url = _mirrorUrlController.text.trim();
-    await settings.setUpdateMirrorUrl(url);
-    setState(() {
-      _mirrorBusy = true;
-      _mirrorStatus = 'Проверка зеркала...';
-    });
-    try {
-      final service = UpdateService(
-        mirrorUrl: url,
-        isMirrorEnabled: true,
-        channel: 'beta',
-      );
-      final update = await service.checkForUpdate(mirrorOnly: true);
-      if (!mounted) return;
-      setState(() {
-        _mirrorStatus = update.updateAvailable
-            ? 'Доступно обновление: ${update.latestVersionName} (код ${update.latestVersionCode})'
-            : 'У вас актуальная версия.';
-      });
-    } catch (e) {
-      if (!mounted) return;
-      setState(() => _mirrorStatus = 'Ошибка зеркала: $e');
-    } finally {
-      if (mounted) setState(() => _mirrorBusy = false);
-    }
-  }
-
-  Future<void> _downloadAndInstallUpdate(UpdateInfo update) async {
-    setState(() {
-      _updateBusy = true;
-      _updateStatus = 'Скачивание APK...';
-    });
-    try {
-      final file = await UpdateService().downloadVerifiedApk(
-        update,
-        onProgress: (received, total) {
-          if (!mounted) return;
-          final mb = (received / (1024 * 1024)).toStringAsFixed(1);
-          setState(() => _updateStatus = 'Скачивание APK: $mb МБ');
-        },
-      );
-      if (!mounted) return;
-      setState(() => _updateStatus = 'Проверка и запуск установщика...');
-      await UpdateService().installApk(file);
-      if (mounted)
-        setState(
-          () => _updateStatus =
-              'Установщик запущен. Подтвердите установку Android.',
-        );
-    } catch (e) {
-      if (!mounted) return;
-      setState(() => _updateStatus = 'Ошибка установки: $e');
-    } finally {
-      if (mounted) setState(() => _updateBusy = false);
-    }
-  }
+  final _tagController = TextEditingController();
+  final _objectTermController = TextEditingController();
+  final _clientTermController = TextEditingController();
+  final _mirrorUrlController = TextEditingController();
 
   @override
   void dispose() {
     _tagController.dispose();
+    _objectTermController.dispose();
+    _clientTermController.dispose();
     _mirrorUrlController.dispose();
     super.dispose();
   }
@@ -152,21 +61,587 @@ class _SettingsScreenState extends State<SettingsScreen> {
     super.didChangeDependencies();
     if (!_mirrorInitialized) {
       _mirrorInitialized = true;
-      _mirrorUrlController.text = context
-          .read<SettingsController>()
-          .updateMirrorUrl;
+      final settings = context.read<SettingsController>();
+      _mirrorUrlController.text = settings.updateMirrorUrl;
+      _objectTermController.text = settings.objectTerm;
+      _clientTermController.text = settings.clientTerm;
     }
   }
 
+  // ─────────────────────────── ввод значения ───────────────────────────
+
+  Future<String?> _promptValue(
+    String title,
+    String initial, {
+    bool obscure = false,
+    bool numeric = false,
+  }) {
+    final controller = TextEditingController(text: initial);
+    return showCupertinoDialog<String?>(
+      context: context,
+      builder: (dialogContext) => CupertinoAlertDialog(
+        title: Text(title),
+        content: Padding(
+          padding: const EdgeInsets.only(top: 12),
+          child: CupertinoTextField(
+            controller: controller,
+            obscureText: obscure,
+            autofocus: true,
+            keyboardType: numeric ? TextInputType.number : null,
+            decoration: BoxDecoration(
+              color: context.colors.card,
+              border: Border.all(color: context.colors.separator),
+              borderRadius: BorderRadius.circular(8),
+            ),
+          ),
+        ),
+        actions: [
+          CupertinoDialogAction(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: const Text('Отмена'),
+          ),
+          CupertinoDialogAction(
+            isDefaultAction: true,
+            onPressed: () =>
+                Navigator.of(dialogContext).pop(controller.text.trim()),
+            child: const Text('OK'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ─────────────────────────── работа ───────────────────────────
+
+  Future<void> _applyPreset(String preset) async {
+    await context.read<SettingsController>().applyConfigPreset(preset);
+    if (mounted) setState(() {});
+  }
+
+  Future<void> _saveTerms() async {
+    final settings = context.read<SettingsController>();
+    await settings.setObjectTerm(_objectTermController.text.trim());
+    await settings.setClientTerm(_clientTermController.text.trim());
+    if (!mounted) return;
+    await showAppAlert(
+      context,
+      title: 'Готово',
+      message: 'Термины сохранены.',
+    );
+  }
+
+  Widget _workSection(SettingsController settings) {
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 72),
+      children: [
+        SectionLabel('Режим работы'),
+        AppCard(
+          padding: EdgeInsets.zero,
+          child: Column(
+            children: [
+              _CheckRow(
+                title: 'Только заказы (дедлайны)',
+                checked: settings.workMode == 'orders',
+                onTap: () => settings.setWorkMode('orders'),
+              ),
+              const Hairline(),
+              _CheckRow(
+                title: 'Только записи (календарь)',
+                checked: settings.workMode == 'appointments',
+                onTap: () => settings.setWorkMode('appointments'),
+              ),
+              const Hairline(),
+              _CheckRow(
+                title: 'Оба потока (гибрид)',
+                checked: settings.workMode == 'hybrid',
+                onTap: () => settings.setWorkMode('hybrid'),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 16),
+        SectionLabel('Что показывать'),
+        AppCard(
+          padding: EdgeInsets.zero,
+          child: Column(
+            children: [
+              _SwitchRow(
+                title: 'Калькулятор цен',
+                value: settings.calculatorEnabled,
+                onChanged: settings.setCalculatorEnabled,
+              ),
+              const Hairline(),
+              _SwitchRow(
+                title: 'Сотрудники и зарплата',
+                value: settings.teamEnabled,
+                onChanged: settings.setTeamEnabled,
+              ),
+              const Hairline(),
+              _SwitchRow(
+                title: 'Теги в заказах',
+                value: settings.jobTagsEnabled,
+                onChanged: settings.setJobTagsEnabled,
+              ),
+              const Hairline(),
+              _SwitchRow(
+                title: 'Смена кассы',
+                value: settings.cashShiftEnabled,
+                onChanged: settings.setCashShiftEnabled,
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 16),
+        SectionLabel('Колонки канбана'),
+        AppCard(
+          padding: EdgeInsets.zero,
+          child: Column(
+            children: [
+              for (var i = 0; i < kanbanColumns.length; i++) ...[
+                if (i > 0) const Hairline(),
+                _CheckRow(
+                  title: kanbanColumns[i].label,
+                  checked: settings.kanbanColumnEnabled(kanbanColumns[i].key),
+                  onTap: () => _toggleKanbanColumn(kanbanColumns[i].key),
+                ),
+              ],
+            ],
+          ),
+        ),
+        const SizedBox(height: 16),
+        SectionLabel('Теги заказов'),
+        AppCard(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: CupertinoTextField(
+                      controller: _tagController,
+                      placeholder: 'Новый тег',
+                      padding: const EdgeInsets.all(10),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  ChipButton(
+                    label: 'Добавить',
+                    icon: CupertinoIcons.plus,
+                    onPressed: () async {
+                      await settings.addJobTag(_tagController.text);
+                      _tagController.clear();
+                      if (mounted) setState(() {});
+                    },
+                  ),
+                ],
+              ),
+              if (settings.jobTags.isNotEmpty) ...[
+                const SizedBox(height: 10),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    for (final tag in settings.jobTags)
+                      GestureDetector(
+                        onTap: () async {
+                          await settings.removeJobTag(tag);
+                          if (mounted) setState(() {});
+                        },
+                        child: Pill(tag, icon: CupertinoIcons.xmark),
+                      ),
+                  ],
+                ),
+              ],
+            ],
+          ),
+        ),
+        const SizedBox(height: 16),
+        SectionLabel('Термины и ставка'),
+        AppCard(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              CupertinoTextField(
+                controller: _objectTermController,
+                placeholder: 'Термин объекта',
+                padding: const EdgeInsets.all(10),
+              ),
+              const SizedBox(height: 8),
+              CupertinoTextField(
+                controller: _clientTermController,
+                placeholder: 'Термин клиента',
+                padding: const EdgeInsets.all(10),
+              ),
+              const SizedBox(height: 10),
+              SecondaryButton(
+                label: 'Сохранить термины',
+                icon: CupertinoIcons.checkmark,
+                onPressed: _saveTerms,
+              ),
+              const SizedBox(height: 12),
+              const Hairline(),
+              const SizedBox(height: 12),
+              KeyValueRow(
+                'Ставка за час',
+                '${(settings.hourRateCents / 100).toStringAsFixed(0)} ₽',
+                emphasis: true,
+                onTap: _editHourRate,
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 16),
+        SectionLabel('Типовые конфигурации'),
+        Wrap(
+          spacing: 10,
+          runSpacing: 10,
+          children: [
+            ChipButton(
+              label: 'Соло-мастер',
+              icon: CupertinoIcons.person,
+              onPressed: () => _applyPreset('solo'),
+            ),
+            ChipButton(
+              label: 'Мастер + бригада',
+              icon: CupertinoIcons.person_2,
+              onPressed: () => _applyPreset('team'),
+            ),
+            ChipButton(
+              label: 'Мастер + клиенты',
+              icon: CupertinoIcons.person_crop_circle_badge_plus,
+              onPressed: () => _applyPreset('clients'),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Future<void> _toggleKanbanColumn(String key) async {
+    final settings = context.read<SettingsController>();
+    final next = <String>[...settings.kanbanColumns];
+    if (next.contains(key)) {
+      next.remove(key);
+    } else {
+      next.add(key);
+    }
+    await settings.setKanbanColumns(next);
+    if (mounted) setState(() {});
+  }
+
+  Future<void> _editHourRate() async {
+    final settings = context.read<SettingsController>();
+    final v = await _promptValue(
+      'Ставка за час, ₽',
+      settings.hourRateCents.toString(),
+      numeric: true,
+    );
+    if (v == null || !mounted) return;
+    await settings.setHourRateCents(int.tryParse(v) ?? 0);
+    if (mounted) setState(() {});
+  }
+
+  // ─────────────────────────── деньги ───────────────────────────
+
+  String _taxFlag(String country) => switch (country.toUpperCase()) {
+    'RU' => '🇷🇺',
+    'KZ' => '🇰🇿',
+    'US' => '🇺🇸',
+    _ => '🌐',
+  };
+
+  Future<void> _editTaxProfile({TaxProfile? existing}) async {
+    final countryController = TextEditingController(
+      text: existing?.country ?? '',
+    );
+    final nameController = TextEditingController(text: existing?.name ?? '');
+    final rateController = TextEditingController(
+      text: existing?.ratePercent.toString() ?? '',
+    );
+
+    final result = await showCupertinoDialog<bool>(
+      context: context,
+      builder: (dialogContext) => CupertinoAlertDialog(
+        title: Text(existing == null ? 'Налоговый профиль' : 'Профиль'),
+        content: Padding(
+          padding: const EdgeInsets.only(top: 12),
+          child: Column(
+            children: [
+              CupertinoTextField(
+                controller: countryController,
+                placeholder: 'Страна (RU, KZ, US)',
+                autofocus: true,
+                textCapitalization: TextCapitalization.characters,
+                decoration: BoxDecoration(
+                  color: context.colors.card,
+                  border: Border.all(color: context.colors.separator),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+              ),
+              const SizedBox(height: 8),
+              CupertinoTextField(
+                controller: nameController,
+                placeholder: 'Название (например, УСН 6%)',
+                decoration: BoxDecoration(
+                  color: context.colors.card,
+                  border: Border.all(color: context.colors.separator),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+              ),
+              const SizedBox(height: 8),
+              CupertinoTextField(
+                controller: rateController,
+                placeholder: 'Ставка % (0-100)',
+                keyboardType: TextInputType.number,
+                decoration: BoxDecoration(
+                  color: context.colors.card,
+                  border: Border.all(color: context.colors.separator),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          CupertinoDialogAction(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Отмена'),
+          ),
+          CupertinoDialogAction(
+            isDefaultAction: true,
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('Сохранить'),
+          ),
+        ],
+      ),
+    );
+
+    if (result != true || !mounted) return;
+
+    final country = countryController.text.trim().toUpperCase();
+    final name = nameController.text.trim();
+    final rate = int.tryParse(rateController.text.trim()) ?? 0;
+    if (country.isEmpty || name.isEmpty) {
+      await showAppAlert(
+        context,
+        title: 'Ошибка',
+        message: 'Заполните страну и название.',
+      );
+      return;
+    }
+
+    final settings = context.read<SettingsController>();
+    if (existing == null) {
+      await settings.addTaxProfile(
+        TaxProfile(
+          id: DateTime.now().millisecondsSinceEpoch.toString(),
+          country: country,
+          name: name,
+          ratePercent: rate.clamp(0, 100),
+        ),
+      );
+    } else {
+      await settings.updateTaxProfile(
+        existing.copyWith(
+          country: country,
+          name: name,
+          ratePercent: rate.clamp(0, 100),
+        ),
+      );
+    }
+    if (mounted) setState(() {});
+  }
+
+  Widget _moneySection(SettingsController settings, MastersStore store) {
+    final colors = context.colors;
+    final taxPocketId = settings.taxAccountId;
+
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 72),
+      children: [
+        SectionLabel('Налоговые профили'),
+        AppCard(
+          padding: EdgeInsets.zero,
+          child: Column(
+            children: [
+              for (final profile in settings.taxProfiles) ...[
+                if (profile.id != settings.taxProfiles.first.id)
+                  const Hairline(),
+                _TaxProfileRow(
+                  profile: profile,
+                  flag: _taxFlag(profile.country),
+                  isActive: profile.id == settings.activeTaxProfileId,
+                  onTap: () => _editTaxProfile(existing: profile),
+                  onDelete: () async {
+                    final ok = await showAppConfirm(
+                      context,
+                      title: 'Удалить профиль?',
+                      message:
+                          '${profile.country}, ${profile.name} (${profile.ratePercent}%)',
+                      destructive: true,
+                      confirmLabel: 'Удалить',
+                    );
+                    if (!ok || !mounted) return;
+                    final removed = await settings.removeTaxProfile(profile.id);
+                    if (!mounted) return;
+                    if (!removed) {
+                      await showAppAlert(
+                        context,
+                        title: 'Нельзя удалить',
+                        message: 'Это активный профиль. Сначала выберите другой.',
+                      );
+                    }
+                    if (mounted) setState(() {});
+                  },
+                ),
+              ],
+            ],
+          ),
+        ),
+        const SizedBox(height: 10),
+        Row(
+          children: [
+            ChipButton(
+              label: 'Добавить профиль',
+              icon: CupertinoIcons.plus,
+              onPressed: () => _editTaxProfile(),
+            ),
+            const SizedBox(width: 10),
+            ChipButton(
+              label: taxPocketId == null
+                  ? 'Счёт-карман: нет'
+                  : 'Карман: ${store.accountById(taxPocketId)?.name ?? '—'}',
+              icon: CupertinoIcons.money_dollar_circle,
+              onPressed: () => _pickTaxAccount(store),
+            ),
+          ],
+        ),
+        const SizedBox(height: 16),
+        SectionLabel('Налоговый радар (НПД)'),
+        AppCard(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              KeyValueRow(
+                'Учитывать лимит 2,4 млн ₽/год',
+                settings.taxRadarEnabled ? 'вкл' : 'выкл',
+                onTap: () async {
+                  await settings.setTaxRadarEnabled(!settings.taxRadarEnabled);
+                  if (mounted) setState(() {});
+                },
+              ),
+              KeyValueRow(
+                'Лимит дохода',
+                '${(settings.taxIncomeLimitCents / 100).toStringAsFixed(0)} ₽',
+                onTap: () async {
+                  final v = await _promptValue(
+                    'Лимит дохода, ₽',
+                    settings.taxIncomeLimitCents.toString(),
+                    numeric: true,
+                  );
+                  if (v == null || !mounted) return;
+                  await settings.setTaxIncomeLimitCents(
+                    int.tryParse(v) ?? settings.taxIncomeLimitCents,
+                  );
+                  if (mounted) setState(() {});
+                },
+              ),
+              if (settings.taxRadarEnabled && settings.npdLimitApplies) ...[
+                const SizedBox(height: 8),
+                TaxRadarBar(
+                  incomeCents: store.annualIncomeCents(),
+                  limitCents: settings.taxIncomeLimitCents,
+                ),
+              ],
+              const SizedBox(height: 6),
+              Text(
+                'При превышении лимита нужно зарегистрировать ИП или сменить схему.',
+                style: TextStyle(fontSize: 12, color: colors.secondaryLabel),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 16),
+        SectionLabel('Касса'),
+        AppCard(
+          padding: EdgeInsets.zero,
+          child: _SwitchRow(
+            title: 'Показывать смены кассы',
+            value: settings.cashShiftEnabled,
+            onChanged: settings.setCashShiftEnabled,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Future<void> _pickTaxAccount(MastersStore store) async {
+    final settings = context.read<SettingsController>();
+    final choice = await showCupertinoModalPopup<String?>(
+      context: context,
+      builder: (sheetContext) => CupertinoActionSheet(
+        title: const Text('Счёт-карман для налогов'),
+        actions: [
+          CupertinoActionSheetAction(
+            onPressed: () => Navigator.of(sheetContext).pop('__none__'),
+            child: const Text('Без кармана'),
+          ),
+          for (final account in store.accounts.where((a) => !a.archived))
+            CupertinoActionSheetAction(
+              onPressed: () => Navigator.of(sheetContext).pop(account.id),
+              child: Text(account.name),
+            ),
+        ],
+        cancelButton: CupertinoActionSheetAction(
+          onPressed: () => Navigator.of(sheetContext).pop(),
+          child: const Text('Отмена'),
+        ),
+      ),
+    );
+    if (choice == null) return;
+    await settings.setTaxAccount(choice == '__none__' ? null : choice);
+    if (mounted) setState(() {});
+  }
+
+  // ─────────────────────────── вид ───────────────────────────
+
+  Future<void> _pickTheme() async {
+    final settings = context.read<SettingsController>();
+    final choice = await showCupertinoModalPopup<String>(
+      context: context,
+      builder: (sheetContext) => CupertinoActionSheet(
+        title: const Text('Тема оформления'),
+        actions: [
+          for (final mode in AppThemeMode.values)
+            CupertinoActionSheetAction(
+              onPressed: () => Navigator.of(sheetContext).pop(mode.name),
+              child: Text(mode.label),
+            ),
+        ],
+        cancelButton: CupertinoActionSheetAction(
+          onPressed: () => Navigator.of(sheetContext).pop(),
+          child: const Text('Отмена'),
+        ),
+      ),
+    );
+    if (choice == null || !mounted) return;
+    await settings.setThemeMode(
+      AppThemeMode.values.firstWhere(
+        (mode) => mode.name == choice,
+        orElse: () => settings.themeMode,
+      ),
+    );
+    if (mounted) setState(() {});
+  }
+
   Future<void> _pickReminderTime(SettingsController settings) async {
-    final initial = DateTime(
+    var selected = DateTime(
       2024,
       1,
       1,
       settings.reminderHour,
       settings.reminderMinute,
     );
-    DateTime selected = initial;
     await showCupertinoModalPopup<void>(
       context: context,
       builder: (modalContext) => Container(
@@ -189,14 +664,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       hour: selected.hour,
                       minute: selected.minute,
                     );
-                    if (settings.reminderEnabled) {
-                      await ReminderService.scheduleDaily(
-                        selected.hour,
-                        selected.minute,
-                      );
-                    }
+                    await ReminderService.scheduleDaily(
+                      selected.hour,
+                      selected.minute,
+                    );
                     if (modalContext.mounted) Navigator.of(modalContext).pop();
-                    setState(() {});
+                    if (mounted) setState(() {});
                   },
                 ),
               ],
@@ -204,7 +677,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             Expanded(
               child: CupertinoDatePicker(
                 mode: CupertinoDatePickerMode.time,
-                initialDateTime: initial,
+                initialDateTime: selected,
                 onDateTimeChanged: (dt) => selected = dt,
               ),
             ),
@@ -213,6 +686,257 @@ class _SettingsScreenState extends State<SettingsScreen> {
       ),
     );
   }
+
+  Widget _appearanceSection(SettingsController settings) {
+    final colors = context.colors;
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 72),
+      children: [
+        SectionLabel('Оформление'),
+        AppCard(
+          child: Column(
+            children: [
+              KeyValueRow(
+                'Тема',
+                settings.themeMode.label,
+                emphasis: true,
+                onTap: _pickTheme,
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 16),
+        SectionLabel('Вкладки'),
+        AppCard(
+          padding: EdgeInsets.zero,
+          child: Column(
+            children: [
+              for (var i = 0; i < _navTabLabels.length; i++) ...[
+                if (i > 0) const Hairline(),
+                _SwitchRow(
+                  title: _navTabLabels[i],
+                  value: settings.isTabVisible(i),
+                  onChanged: (v) => settings.toggleTabVisible(i, visible: v),
+                ),
+              ],
+            ],
+          ),
+        ),
+        const SizedBox(height: 16),
+        SectionLabel('Напоминания'),
+        AppCard(
+          child: Column(
+            children: [
+              KeyValueRow(
+                'Ежедневное напоминание',
+                settings.reminderEnabled ? 'вкл' : 'выкл',
+                onTap: () async {
+                  final next = !settings.reminderEnabled;
+                  await settings.setReminder(next);
+                  if (next) {
+                    await ReminderService.scheduleDaily(
+                      settings.reminderHour,
+                      settings.reminderMinute,
+                    );
+                  } else {
+                    await ReminderService.cancel();
+                  }
+                  if (mounted) setState(() {});
+                },
+              ),
+              if (settings.reminderEnabled)
+                KeyValueRow(
+                  'Время',
+                  '${settings.reminderHour.toString().padLeft(2, '0')}:'
+                      '${settings.reminderMinute.toString().padLeft(2, '0')}',
+                  valueColor: colors.accent,
+                  onTap: () => _pickReminderTime(settings),
+                ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  // ─────────────────────────── защита ───────────────────────────
+
+  Future<void> _managePin() async {
+    final settings = context.read<SettingsController>();
+    if (settings.hasAppPin) {
+      final current = await _promptValue(
+        'Текущий PIN (4-6 цифр)',
+        '',
+        obscure: true,
+        numeric: true,
+      );
+      if (!mounted) return;
+      if (current == null || !settings.verifyAppPin(current)) {
+        await showAppAlert(context, title: 'Ошибка', message: 'PIN не совпал.');
+        return;
+      }
+    }
+    final next = await _promptValue(
+      'Новый PIN (пусто — убрать)',
+      '',
+      obscure: true,
+      numeric: true,
+    );
+    if (next == null || !mounted) return;
+    await settings.setAppPin(next.isEmpty ? null : next);
+    if (!mounted) return;
+    await showAppAlert(
+      context,
+      title: 'Готово',
+      message: next.isEmpty ? 'PIN отключён.' : 'PIN установлен.',
+    );
+    if (mounted) setState(() {});
+  }
+
+  Future<void> _checkDataIntegrity() async {
+    setState(() => _busy = true);
+    try {
+      final issues = await context.read<MastersStore>().checkDataIntegrity();
+      if (!mounted) return;
+      await showAppAlert(
+        context,
+        title: issues.isEmpty ? 'Проверка завершена' : 'Нарушения целостности',
+        message: issues.isEmpty ? 'Нарушений не найдено.' : issues.join('\n'),
+      );
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _closeCurrentPeriod() async {
+    final now = DateTime.now();
+    final store = context.read<MastersStore>();
+    try {
+      await store.closePeriod(
+        start: DateTime(now.year, now.month, 1),
+        end: DateTime(now.year, now.month + 1, 0, 23, 59, 59, 999),
+        note: 'Закрытие месяца из настроек',
+      );
+      if (!mounted) return;
+      await showAppAlert(
+        context,
+        title: 'Период закрыт',
+        message:
+            'Месяц закрыт для редактирования. Записи сохранены, период можно переоткрыть.',
+      );
+    } catch (e) {
+      if (!mounted) return;
+      await showAppAlert(context, title: 'Не удалось закрыть', message: '$e');
+    }
+  }
+
+  Future<void> _reopenLastClosedPeriod() async {
+    final store = context.read<MastersStore>();
+    if (store.closedPeriods.isEmpty) {
+      if (!mounted) return;
+      await showAppAlert(
+        context,
+        title: 'Закрытых периодов нет',
+        message: 'Сначала закройте период.',
+      );
+      return;
+    }
+    try {
+      await store.reopenPeriod(store.closedPeriods.first.id);
+      if (!mounted) return;
+      await showAppAlert(
+        context,
+        title: 'Период открыт',
+        message: 'Последний закрытый период снова доступен для правок.',
+      );
+    } catch (e) {
+      if (!mounted) return;
+      await showAppAlert(context, title: 'Не удалось открыть', message: '$e');
+    }
+  }
+
+  Widget _securitySection(SettingsController settings) {
+    final colors = context.colors;
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 72),
+      children: [
+        SectionLabel('Блокировка'),
+        AppCard(
+          child: Column(
+            children: [
+              KeyValueRow(
+                'PIN-код',
+                settings.hasAppPin ? 'установлен' : 'не задан',
+                valueColor: settings.hasAppPin
+                    ? colors.green
+                    : colors.secondaryLabel,
+                onTap: _managePin,
+              ),
+              if (settings.hasAppPin)
+                KeyValueRow(
+                  'Сменить или убрать',
+                  'изменить',
+                  valueColor: colors.accent,
+                  onTap: _managePin,
+                ),
+              FutureBuilder<bool>(
+                future: AppBiometricService.isAvailable(),
+                builder: (context, snapshot) {
+                  if (!(snapshot.data ?? false)) {
+                    return const SizedBox.shrink();
+                  }
+                  return _SwitchRow(
+                    title: 'Разблокировка биометрией',
+                    value: settings.biometricEnabled,
+                    onChanged: settings.setBiometricEnabled,
+                  );
+                },
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 16),
+        SectionLabel('Закрытые периоды'),
+        AppCard(
+          child: Column(
+            children: [
+              KeyValueRow(
+                'Закрыто периодов',
+                '${context.watch<MastersStore>().closedPeriods.length}',
+              ),
+              const SizedBox(height: 6),
+              SecondaryButton(
+                label: 'Закрыть текущий месяц',
+                icon: CupertinoIcons.lock_shield,
+                onPressed: _closeCurrentPeriod,
+              ),
+              const SizedBox(height: 8),
+              SecondaryButton(
+                label: 'Переоткрыть последний период',
+                icon: CupertinoIcons.lock_open,
+                onPressed: _reopenLastClosedPeriod,
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 16),
+        SectionLabel('Целостность'),
+        AppCard(
+          child: Column(
+            children: [
+              SecondaryButton(
+                label: _busy ? 'Проверка...' : 'Проверить данные',
+                icon: CupertinoIcons.shield_fill,
+                onPressed: _busy ? null : _checkDataIntegrity,
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  // ─────────────────────────── данные ───────────────────────────
 
   Future<void> _exportBackup() async {
     setState(() => _busy = true);
@@ -235,7 +959,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final choice = await showCupertinoDialog<String>(
       context: context,
       builder: (dialogContext) => CupertinoAlertDialog(
-        title: const Text('Восстановить резервную копию?'),
+        title: const Text('Восстановить копию?'),
         content: const Text(
           'Полная замена удалит текущие данные. Объединение сохранит локальные изменения и добавит недостающие записи из файла.',
         ),
@@ -256,7 +980,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         ],
       ),
     );
-    if (choice == null || choice == 'cancel') return;
+    if (choice == null || choice == 'cancel' || !mounted) return;
 
     final store = context.read<MastersStore>();
     setState(() => _busy = true);
@@ -272,68 +996,55 @@ class _SettingsScreenState extends State<SettingsScreen> {
             message: 'Копия полностью восстановлена.',
           );
         }
-      } else {
-        setState(() => _busy = true);
-        BackupMergeResult preview;
-        try {
-          preview = await store.mergeFromBackup(
-            data,
-            dryRun: true,
-            applyConflictIds: const <String>{},
-          );
-        } finally {
-          if (mounted) setState(() => _busy = false);
-        }
-        if (!mounted) return;
-        if (preview.conflicts.isEmpty) {
+        return;
+      }
+
+      final preview = await store.mergeFromBackup(
+        data,
+        dryRun: true,
+        applyConflictIds: const <String>{},
+      );
+      if (!mounted) return;
+      if (preview.conflicts.isEmpty) {
+        final applied = await store.mergeFromBackup(data);
+        if (mounted) {
           await showAppAlert(
             context,
             title: 'Объединение завершено',
             message:
-                'Добавлено/обновлено: ${preview.affected}, сохранено локально: ${preview.keptLocal}',
+                'Добавлено/обновлено: ${applied.affected}, сохранено локально: ${applied.keptLocal}',
           );
-        } else {
-          final selected = await _showImportConflictsModal(preview.conflicts);
-          if (selected == null) {
-            if (mounted) {
-              await showAppAlert(
-                context,
-                title: 'Объединение завершено',
-                message: 'Изменения не применены',
-              );
-            }
-          } else {
-            setState(() => _busy = true);
-            try {
-              final applied = await store.mergeFromBackup(
-                data,
-                applyConflictIds: selected,
-              );
-              if (mounted) {
-                await showAppAlert(
-                  context,
-                  title: 'Объединение завершено',
-                  message:
-                      'Добавлено/обновлено: ${applied.affected}, сохранено локально: ${applied.keptLocal}',
-                );
-              }
-            } catch (e) {
-              if (mounted) {
-                await showAppAlert(
-                  context,
-                  title: 'Ошибка',
-                  message: e.toString(),
-                );
-              }
-            } finally {
-              if (mounted) setState(() => _busy = false);
-            }
-          }
         }
+        return;
+      }
+
+      final selected = await _showImportConflictsModal(preview.conflicts);
+      if (selected == null) {
+        if (mounted) {
+          await showAppAlert(
+            context,
+            title: 'Отменено',
+            message: 'Изменения не применены.',
+          );
+        }
+        return;
+      }
+      final applied = await store.mergeFromBackup(
+        data,
+        applyConflictIds: selected,
+      );
+      if (mounted) {
+        await showAppAlert(
+          context,
+          title: 'Объединение завершено',
+          message:
+              'Добавлено/обновлено: ${applied.affected}, сохранено локально: ${applied.keptLocal}',
+        );
       }
     } catch (e) {
-      if (mounted)
-        await showAppAlert(context, title: 'Ошибка', message: e.toString());
+      if (mounted) {
+        await showAppAlert(context, title: 'Ошибка', message: '$e');
+      }
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -351,7 +1062,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('Конфликты (совпали по дате): ${conflicts.length}.'),
+                Text('Совпали по дате: ${conflicts.length}.'),
                 const SizedBox(height: 8),
                 for (final conflict in conflicts)
                   Row(
@@ -393,7 +1104,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
-  Future<void> _exportExcel() async {
+  Future<void> _exportCsv() async {
     final store = context.read<MastersStore>();
     setState(() => _busy = true);
     try {
@@ -429,7 +1140,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         await showAppAlert(
           context,
           title: 'Готово',
-          message: 'Excel-таблица сохранена.',
+          message: 'Таблица сохранена.',
         );
       }
     } finally {
@@ -437,75 +1148,28 @@ class _SettingsScreenState extends State<SettingsScreen> {
     }
   }
 
-  Future<void> _checkDataIntegrity() async {
-    final issues = await context.read<MastersStore>().checkDataIntegrity();
-    if (!mounted) return;
-    await showAppAlert(
+  Future<void> _clearData() async {
+    final ok = await showAppConfirm(
       context,
-      title: issues.isEmpty
-          ? '\u041fроверка завершена'
-          : 'Нарушения целостности',
-      message: issues.isEmpty ? 'Нарушений не найдено.' : issues.join('\n'),
+      title: 'Очистить данные?',
+      message: 'Все заказы, клиенты и объекты будут удалены.',
+      destructive: true,
+      confirmLabel: 'Очистить',
     );
-  }
-
-  Future<void> _closeCurrentPeriod() async {
-    final now = DateTime.now();
-    final store = context.read<MastersStore>();
-    try {
-      await store.closePeriod(
-        start: DateTime(now.year, now.month, 1),
-        end: DateTime(now.year, now.month + 1, 0, 23, 59, 59, 999),
-        note: 'Закрытие текущего месяца из настроек',
-      );
-      if (!mounted) return;
-      await showAppAlert(
-        context,
-        title: 'Период закрыт',
-        message: 'Текущий месяц закрыт для редактирования. Записи за этот период сохраняются и могут быть переоткрыты.',
-      );
-    } catch (e) {
-      if (!mounted) return;
-      await showAppAlert(
-        context,
-        title: 'Не удалось закрыть период',
-        message: '$e',
-      );
-    }
-  }
-
-  Future<void> _reopenLastClosedPeriod() async {
-    final store = context.read<MastersStore>();
-    if (store.closedPeriods.isEmpty) {
-      if (!mounted) return;
-      await showAppAlert(
-        context,
-        title: 'Закрытых периодов нет',
-        message: 'Сначала закройте период.',
-      );
-      return;
-    }
-    final period = store.closedPeriods.first;
-    try {
-      await store.reopenPeriod(period.id);
-      if (!mounted) return;
-      await showAppAlert(
-        context,
-        title: 'Период открыт',
-        message: 'Последний закрытый период снова доступен для редактирования.',
-      );
-    } catch (e) {
-      if (!mounted) return;
-      await showAppAlert(
-        context,
-        title: 'Не удалось открыть период',
-        message: '$e',
-      );
-    }
+    if (!ok || !mounted) return;
+    await context.read<MastersStore>().clearAll();
+    if (!mounted) return;
+    await showAppAlert(context, title: 'Готово', message: 'Данные очищены.');
   }
 
   Future<void> _showAuditLog() async {
-    final entries = await context.read<MastersStore>().auditEntries(limit: 100);
+    setState(() => _auditBusy = true);
+    List<Map<String, Object?>> entries;
+    try {
+      entries = await context.read<MastersStore>().auditEntries(limit: 100);
+    } finally {
+      if (mounted) setState(() => _auditBusy = false);
+    }
     if (!mounted) return;
     final filterController = TextEditingController();
     await showCupertinoModalPopup<void>(
@@ -532,6 +1196,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
+                  const SheetHandle(),
                   const Text(
                     'Журнал аудита',
                     style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
@@ -539,58 +1204,65 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   const SizedBox(height: 12),
                   CupertinoTextField(
                     controller: filterController,
-                    placeholder: 'Фильтр по action/entity',
+                    placeholder: 'Фильтр по действию или сущности',
                     onChanged: (_) => setModalState(() {}),
-                    decoration: BoxDecoration(
-                      color: const Color(0x00FFFFFF),
-                      border: Border.all(color: context.colors.separator),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
+                    padding: const EdgeInsets.all(10),
                   ),
                   const SizedBox(height: 12),
                   Expanded(
-                    child: ListView.builder(
-                      itemCount: rows.length,
-                      itemBuilder: (_, i) {
-                        final e = rows[i];
-                        final at = e['at'] is int
-                            ? DateTime.fromMillisecondsSinceEpoch(
-                                e['at'] as int,
-                              )
-                            : DateTime.now();
-                        return Padding(
-                          padding: const EdgeInsets.only(bottom: 8),
-                          child: AppCard(
-                            onTap: () => _showAuditDetail(e),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  e['action']?.toString() ?? '',
-                                  style: const TextStyle(
-                                    fontWeight: FontWeight.w600,
+                    child: rows.isEmpty
+                        ? const EmptyState(
+                            title: 'Записей нет',
+                            message: 'Действия появятся, когда начнёте работать с данными.',
+                          )
+                        : ListView.builder(
+                            itemCount: rows.length,
+                            itemBuilder: (_, i) {
+                              final e = rows[i];
+                              final at = e['at'] is int
+                                  ? DateTime.fromMillisecondsSinceEpoch(
+                                      e['at'] as int,
+                                    )
+                                  : DateTime.now();
+                              return Padding(
+                                padding: const EdgeInsets.only(bottom: 8),
+                                child: AppCard(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 12,
+                                    vertical: 10,
+                                  ),
+                                  onTap: () => _showAuditDetail(e),
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        e['action']?.toString() ?? '',
+                                        style: const TextStyle(
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                      Text(
+                                        '${e['entity']} ${e['entity_id'] ?? ''}',
+                                        style: TextStyle(
+                                          color: context.colors.secondaryLabel,
+                                          fontSize: 12,
+                                        ),
+                                      ),
+                                      Text(
+                                        '${at.day}.${at.month}.${at.year} ${at.hour}:'
+                                        '${at.minute.toString().padLeft(2, '0')}',
+                                        style: TextStyle(
+                                          color: context.colors.tertiaryLabel,
+                                          fontSize: 11,
+                                        ),
+                                      ),
+                                    ],
                                   ),
                                 ),
-                                Text(
-                                  '${e['entity']} ${e['entity_id'] ?? ''}',
-                                  style: TextStyle(
-                                    color: context.colors.secondaryLabel,
-                                    fontSize: 12,
-                                  ),
-                                ),
-                                Text(
-                                  '${at.day}.${at.month}.${at.year} ${at.hour}:${at.minute.toString().padLeft(2, '0')}',
-                                  style: TextStyle(
-                                    color: context.colors.tertiaryLabel,
-                                    fontSize: 11,
-                                  ),
-                                ),
-                              ],
-                            ),
+                              );
+                            },
                           ),
-                        );
-                      },
-                    ),
                   ),
                   SecondaryButton(
                     label: 'Закрыть',
@@ -613,7 +1285,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         : DateTime.now();
     await showCupertinoDialog<void>(
       context: context,
-      builder: (context) => CupertinoAlertDialog(
+      builder: (dialogContext) => CupertinoAlertDialog(
         title: Text(e['action']?.toString() ?? 'Детали аудита'),
         content: SingleChildScrollView(
           child: Text(
@@ -628,67 +1300,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         ),
         actions: [
           CupertinoDialogAction(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('OK'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Future<void> _managePin() async {
-    final settings = context.read<SettingsController>();
-    if (settings.hasAppPin) {
-      final current = await _promptPin('Текущий PIN (4-6 цифр)', '****');
-      if (!mounted) return;
-      if (current == null || !settings.verifyAppPin(current)) {
-        await showAppAlert(context, title: 'Ошибка', message: 'PIN не совпал.');
-        return;
-      }
-    }
-    final next = await _promptPin('Новый PIN (пусто - убрать)', '****');
-    if (!mounted) return;
-    if (next == null) return;
-    await settings.setAppPin(next.trim().isEmpty ? null : next.trim());
-    if (mounted) {
-      await showAppAlert(
-        context,
-        title: 'Готово',
-        message: next.trim().isEmpty ? 'PIN отключён.' : 'PIN установлен.',
-      );
-    }
-  }
-
-  Future<String?> _promptPin(String title, String placeholder) async {
-    final controller = TextEditingController();
-    return showCupertinoDialog<String?>(
-      context: context,
-      builder: (dialogContext) => CupertinoAlertDialog(
-        title: Text(title),
-        content: Padding(
-          padding: const EdgeInsets.only(top: 12),
-          child: CupertinoTextField(
-            controller: controller,
-            placeholder: placeholder,
-            obscureText: true,
-            autofocus: true,
-            keyboardType: TextInputType.number,
-            decoration: BoxDecoration(
-              color: context.colors.card,
-              border: Border.all(color: context.colors.separator),
-              borderRadius: BorderRadius.circular(8),
-            ),
-          ),
-        ),
-        actions: [
-          CupertinoDialogAction(
             onPressed: () => Navigator.of(dialogContext).pop(),
-            child: const Text('Отмена'),
-          ),
-          CupertinoDialogAction(
-            isDefaultAction: true,
-            onPressed: () =>
-                Navigator.of(dialogContext).pop(controller.text.trim()),
             child: const Text('OK'),
           ),
         ],
@@ -696,1504 +1308,542 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
-  Future<void> _addTaxProfile() async {
-    final countryController = TextEditingController();
-    final nameController = TextEditingController();
-    final rateController = TextEditingController();
-
-    final result = await showCupertinoDialog<bool>(
-      context: context,
-      builder: (dialogContext) => CupertinoAlertDialog(
-        title: const Text('Налоговый профиль'),
-        content: Padding(
-          padding: const EdgeInsets.only(top: 12),
-          child: Column(
-            children: [
-              CupertinoTextField(
-                controller: countryController,
-                placeholder: 'Страна (RU, KZ, US)',
-                autofocus: true,
-                textCapitalization: TextCapitalization.characters,
-                decoration: BoxDecoration(
-                  color: context.colors.card,
-                  border: Border.all(color: context.colors.separator),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-              ),
-              const SizedBox(height: 8),
-              CupertinoTextField(
-                controller: nameController,
-                placeholder: 'Название (например, УСН 6%)',
-                decoration: BoxDecoration(
-                  color: context.colors.card,
-                  border: Border.all(color: context.colors.separator),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-              ),
-              const SizedBox(height: 8),
-              CupertinoTextField(
-                controller: rateController,
-                placeholder: 'Ставка % (0-100)',
-                keyboardType: TextInputType.number,
-                decoration: BoxDecoration(
-                  color: context.colors.card,
-                  border: Border.all(color: context.colors.separator),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-              ),
-            ],
-          ),
-        ),
-        actions: [
-          CupertinoDialogAction(
-            onPressed: () => Navigator.of(dialogContext).pop(false),
-            child: const Text('Отмена'),
-          ),
-          CupertinoDialogAction(
-            isDefaultAction: true,
-            onPressed: () => Navigator.of(dialogContext).pop(true),
-            child: const Text('Сохранить'),
-          ),
-        ],
-      ),
-    );
-
-    if (result != true || !mounted) return;
-
-    final country = countryController.text.trim().toUpperCase();
-    final name = nameController.text.trim();
-    final rate = int.tryParse(rateController.text.trim()) ?? 0;
-
-    if (country.isEmpty || name.isEmpty) {
-      await showAppAlert(
-        context,
-        title: 'Ошибка',
-        message: 'Заполните все поля.',
-      );
-      return;
-    }
-
-    final settings = context.read<SettingsController>();
-    await settings.addTaxProfile(
-      TaxProfile(
-        id: DateTime.now().millisecondsSinceEpoch.toString(),
-        country: country,
-        name: name,
-        ratePercent: rate.clamp(0, 100),
-      ),
-    );
-    if (mounted) setState(() {});
-  }
-
-  Future<void> _editTaxProfile(TaxProfile profile) async {
-    final countryController = TextEditingController(text: profile.country);
-    final nameController = TextEditingController(text: profile.name);
-    final rateController = TextEditingController(
-      text: profile.ratePercent.toString(),
-    );
-
-    final result = await showCupertinoDialog<bool>(
-      context: context,
-      builder: (dialogContext) => CupertinoAlertDialog(
-        title: const Text('Редактировать профиль'),
-        content: Padding(
-          padding: const EdgeInsets.only(top: 12),
-          child: Column(
-            children: [
-              CupertinoTextField(
-                controller: countryController,
-                placeholder: 'Страна (RU, KZ, US)',
-                autofocus: true,
-                textCapitalization: TextCapitalization.characters,
-                decoration: BoxDecoration(
-                  color: context.colors.card,
-                  border: Border.all(color: context.colors.separator),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-              ),
-              const SizedBox(height: 8),
-              CupertinoTextField(
-                controller: nameController,
-                placeholder: 'Название (например, УСН 6%)',
-                decoration: BoxDecoration(
-                  color: context.colors.card,
-                  border: Border.all(color: context.colors.separator),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-              ),
-              const SizedBox(height: 8),
-              CupertinoTextField(
-                controller: rateController,
-                placeholder: 'Ставка % (0-100)',
-                keyboardType: TextInputType.number,
-                decoration: BoxDecoration(
-                  color: context.colors.card,
-                  border: Border.all(color: context.colors.separator),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-              ),
-            ],
-          ),
-        ),
-        actions: [
-          CupertinoDialogAction(
-            onPressed: () => Navigator.of(dialogContext).pop(false),
-            child: const Text('Отмена'),
-          ),
-          CupertinoDialogAction(
-            isDefaultAction: true,
-            onPressed: () => Navigator.of(dialogContext).pop(true),
-            child: const Text('Сохранить'),
-          ),
-        ],
-      ),
-    );
-
-    if (result != true || !mounted) return;
-
-    final country = countryController.text.trim().toUpperCase();
-    final name = nameController.text.trim();
-    final rate = int.tryParse(rateController.text.trim()) ?? 0;
-
-    if (country.isEmpty || name.isEmpty) {
-      await showAppAlert(
-        context,
-        title: 'Ошибка',
-        message: 'Заполните все поля.',
-      );
-      return;
-    }
-
-    final settings = context.read<SettingsController>();
-    await settings.updateTaxProfile(
-      profile.copyWith(
-        country: country,
-        name: name,
-        ratePercent: rate.clamp(0, 100),
-      ),
-    );
-    if (mounted) setState(() {});
-  }
-
-  Future<void> _clearData() async {
-    final store = context.read<MastersStore>();
-    final ok = await showAppConfirm(
-      context,
-      title: 'Очистить данные?',
-      message: 'Все заказы, клиенты, объекты будут удалены.',
-      destructive: true,
-      confirmLabel: 'Очистить',
-    );
-    if (!ok) return;
-    await store.clearAll();
-    if (mounted)
-      await showAppAlert(context, title: 'Готово', message: 'Данные очищены.');
-  }
-
-  Widget _buildStatusChip(SettingsController settings, AppColors colors) {
-    final tabEnabled = [
-      0,
-      1,
-      2,
-      3,
-      4,
-      5,
-    ].where((i) => settings.isTabVisible(i)).length;
-    final enabled =
-        [
-          settings.jobTagsEnabled,
-          settings.calculatorEnabled,
-          settings.teamEnabled,
-          settings.cashShiftEnabled,
-          settings.reminderEnabled,
-          settings.biometricEnabled,
-        ].where((v) => v).length +
-        tabEnabled;
-    const total = 6 + 6;
-    return AppCard(
-      child: Row(
-        children: [
-          IconBadge(icon: CupertinoIcons.settings_solid, color: colors.accent),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Text(
-              'Конфигурация: $enabled из $total возможностей включено',
-              style: const TextStyle(fontWeight: FontWeight.w600),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildPresets(AppColors colors) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+  Widget _dataSection() {
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 72),
       children: [
-        const Padding(
-          padding: EdgeInsets.only(bottom: 8, left: 4),
-          child: Text('Пресеты', style: TextStyle(fontWeight: FontWeight.w600)),
+        SectionLabel('Резервная копия'),
+        AppCard(
+          padding: EdgeInsets.zero,
+          child: Column(
+            children: [
+              ListRow(
+                dense: true,
+                icon: CupertinoIcons.cloud_download,
+                title: 'Экспорт JSON',
+                subtitle: 'Снимок всех данных',
+                showChevron: true,
+                onTap: _busy ? null : _exportBackup,
+              ),
+              const Hairline(indent: 12),
+              ListRow(
+                dense: true,
+                icon: CupertinoIcons.cloud_upload,
+                title: 'Восстановить JSON',
+                subtitle: 'Замена или объединение',
+                showChevron: true,
+                onTap: _busy ? null : _importBackup,
+              ),
+              const Hairline(indent: 12),
+              ListRow(
+                dense: true,
+                icon: CupertinoIcons.table,
+                title: 'Экспорт в Excel',
+                subtitle: 'Заказы для внешних отчётов',
+                showChevron: true,
+                onTap: _busy ? null : _exportCsv,
+              ),
+            ],
+          ),
         ),
-        Wrap(
-          spacing: 10,
-          runSpacing: 10,
-          children: [
-            _presetButton(
-              label: 'Соло-мастер',
-              icon: CupertinoIcons.person,
-              color: colors.accent,
-              onTap: () => _applyConfigPreset('solo'),
-            ),
-            _presetButton(
-              label: 'Мастер + бригада',
-              icon: CupertinoIcons.person_2,
-              color: colors.green,
-              onTap: () => _applyConfigPreset('team'),
-            ),
-            _presetButton(
-              label: 'Мастер + клиенты',
-              icon: CupertinoIcons.person_crop_circle_badge_plus,
-              color: colors.orange,
-              onTap: () => _applyConfigPreset('clients'),
-            ),
-          ],
+        const SizedBox(height: 16),
+        SectionLabel('Облако'),
+        const SyncCard(),
+        const SizedBox(height: 16),
+        SectionLabel('Журнал'),
+        AppCard(
+          padding: EdgeInsets.zero,
+          child: ListRow(
+            dense: true,
+            icon: CupertinoIcons.doc_text_search,
+            title: _auditBusy ? 'Загрузка...' : 'Журнал действий',
+            subtitle: 'Кто и когда менял данные',
+            showChevron: true,
+            onTap: _auditBusy ? null : _showAuditLog,
+          ),
+        ),
+        const SizedBox(height: 16),
+        SectionLabel('Опасные действия'),
+        AppCard(
+          padding: EdgeInsets.zero,
+          child: ListRow(
+            dense: true,
+            icon: CupertinoIcons.trash,
+            iconColor: context.colors.red,
+            title: 'Очистить все данные',
+            titleColor: context.colors.red,
+            showChevron: true,
+            onTap: _clearData,
+          ),
         ),
       ],
     );
   }
 
-  Widget _presetButton({
-    required String label,
-    required IconData icon,
-    required Color color,
-    required VoidCallback onTap,
-  }) {
-    return CupertinoButton(
-      padding: EdgeInsets.zero,
-      onPressed: onTap,
-      child: Container(
-        width: 112,
-        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [color, color.withValues(alpha: 0.72)],
-          ),
-          borderRadius: BorderRadius.circular(14),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, color: const Color(0xFFFFFFFF), size: 22),
-            const SizedBox(height: 6),
-            Text(
-              label,
-              textAlign: TextAlign.center,
-              style: const TextStyle(
-                color: Color(0xFFFFFFFF),
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
+  // ─────────────────────────── обновления ───────────────────────────
+
+  Future<void> _checkForUpdates() async {
+    setState(() {
+      _updateBusy = true;
+      _updateStatus = 'Проверка обновлений...';
+    });
+    try {
+      final settings = context.read<SettingsController>();
+      final update = await UpdateService(
+        mirrorUrl: settings.updateMirrorUrl,
+        isMirrorEnabled: settings.updateMirrorEnabled,
+        channel: settings.updateChannel,
+      ).checkForUpdate();
+      if (!mounted) return;
+      setState(() {
+        _updateInfo = update;
+        _updateStatus = update.updateAvailable
+            ? 'Доступно: ${update.latestVersionName} (код ${update.latestVersionCode})'
+            : 'У вас актуальная версия.';
+      });
+      if (update.updateAvailable) {
+        final proceed = await showAppConfirm(
+          context,
+          title: 'Доступно обновление',
+          message: '${update.changelog}\n\nУстановить сейчас?',
+          confirmLabel: 'Скачать и установить',
+        );
+        if (proceed && mounted) await _downloadAndInstallUpdate(update);
+      }
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _updateStatus = 'Ошибка: $e');
+    } finally {
+      if (mounted) setState(() => _updateBusy = false);
+    }
   }
 
-  Widget _settingsGroup(
-    String key,
-    String title, {
-    required IconData icon,
-    Color? accent,
-    required List<Widget> children,
-  }) {
-    final expanded = _expanded.contains(key);
-    final tone = accent ?? context.colors.accent;
-    return AppCard(
-      padding: EdgeInsets.zero,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          CupertinoButton(
-            padding: const EdgeInsets.all(16),
-            onPressed: () => setState(() {
-              if (expanded) {
-                _expanded.remove(key);
-              } else {
-                _expanded.add(key);
-              }
-            }),
-            child: Row(
-              children: [
-                Icon(icon, size: 20, color: tone),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Text(
-                    title,
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
+  Future<void> _checkMirror() async {
+    final settings = context.read<SettingsController>();
+    final url = _mirrorUrlController.text.trim();
+    await settings.setUpdateMirrorUrl(url);
+    setState(() {
+      _mirrorBusy = true;
+      _mirrorStatus = 'Проверка зеркала...';
+    });
+    try {
+      final update = await UpdateService(
+        mirrorUrl: url,
+        isMirrorEnabled: true,
+        channel: settings.updateChannel,
+      ).checkForUpdate(mirrorOnly: true);
+      if (!mounted) return;
+      setState(() {
+        _mirrorStatus = update.updateAvailable
+            ? 'Доступно: ${update.latestVersionName} (код ${update.latestVersionCode})'
+            : 'На зеркале новее нет.';
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _mirrorStatus = 'Ошибка зеркала: $e');
+    } finally {
+      if (mounted) setState(() => _mirrorBusy = false);
+    }
+  }
+
+  Future<void> _downloadAndInstallUpdate(UpdateInfo update) async {
+    setState(() {
+      _updateBusy = true;
+      _updateStatus = 'Скачивание APK...';
+    });
+    try {
+      final file = await UpdateService().downloadVerifiedApk(
+        update,
+        onProgress: (received, total) {
+          if (!mounted) return;
+          final mb = (received / (1024 * 1024)).toStringAsFixed(1);
+          setState(() => _updateStatus = 'Скачивание APK: $mb МБ');
+        },
+      );
+      if (!mounted) return;
+      setState(() => _updateStatus = 'Запуск установщика...');
+      await UpdateService().installApk(file);
+      if (mounted) {
+        setState(() => _updateStatus = 'Подтвердите установку в Android.');
+      }
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _updateStatus = 'Ошибка установки: $e');
+    } finally {
+      if (mounted) setState(() => _updateBusy = false);
+    }
+  }
+
+  Widget _updateSection(SettingsController settings) {
+    final colors = context.colors;
+    final info = _updateInfo;
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 72),
+      children: [
+        SectionLabel('Канал обновлений'),
+        AppCard(
+          padding: EdgeInsets.zero,
+          child: Column(
+            children: [
+              _CheckRow(
+                title: 'Стабильный',
+                checked: settings.updateChannel == 'stable',
+                onTap: () => settings.setUpdateChannel('stable'),
+              ),
+              const Hairline(),
+              _CheckRow(
+                title: 'Бета',
+                checked: settings.updateChannel == 'beta',
+                onTap: () => settings.setUpdateChannel('beta'),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 16),
+        SectionLabel('Проверка'),
+        AppCard(
+          child: Column(
+            children: [
+              KeyValueRow(
+                'Текущая сборка',
+                info == null ? '—' : '${info.currentVersionCode}',
+              ),
+              if (info != null && info.updateAvailable)
+                KeyValueRow(
+                  'Доступно',
+                  '${info.latestVersionName} (${info.latestVersionCode})',
+                  valueColor: colors.green,
+                ),
+              if (_updateStatus.isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.only(top: 4),
+                  child: Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      _updateStatus,
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: colors.secondaryLabel,
+                      ),
                     ),
                   ),
                 ),
-                Icon(
-                  expanded
-                      ? CupertinoIcons.chevron_up
-                      : CupertinoIcons.chevron_down,
-                  size: 18,
-                  color: tone,
+              const SizedBox(height: 8),
+              SecondaryButton(
+                label: _updateBusy ? 'Проверка...' : 'Проверить обновления',
+                icon: CupertinoIcons.cloud_download,
+                onPressed: _updateBusy ? null : _checkForUpdates,
+              ),
+              if (info != null && info.updateAvailable) ...[
+                const SizedBox(height: 8),
+                PrimaryButton(
+                  label: 'Установить ${info.latestVersionName}',
+                  icon: CupertinoIcons.arrow_down_circle,
+                  onPressed: _updateBusy
+                      ? null
+                      : () => _downloadAndInstallUpdate(info),
                 ),
               ],
-            ),
+            ],
           ),
-          if (expanded) ...[
-            const Hairline(),
-            Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: children,
-              ),
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-
-  Widget _groupedCard(List<Widget> children) {
-    final lined = <Widget>[];
-    for (var i = 0; i < children.length; i++) {
-      if (i > 0) lined.add(const Hairline());
-      lined.add(
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-          child: children[i],
         ),
-      );
-    }
-    return AppCard(
-      padding: EdgeInsets.zero,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: lined,
-      ),
-    );
-  }
-
-  /// Строка выбора режима работы (только заказы / только записи / гибрид).
-  Widget _workModeChoice(String value, String label) {
-    final settings = context.read<SettingsController>();
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 6),
-      child: Row(
-        children: [
-          CupertinoCheckbox(
-            value: settings.workMode == value,
-            onChanged: (v) async {
-              if (v == true) {
-                await settings.setWorkMode(value);
-                if (mounted) setState(() {});
-              }
-            },
+        const SizedBox(height: 16),
+        SectionLabel('Зеркало в локальной сети'),
+        AppCard(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              KeyValueRow(
+                'Зеркало включено',
+                settings.updateMirrorEnabled ? 'вкл' : 'выкл',
+                onTap: () async {
+                  await settings.setUpdateMirrorEnabled(
+                    !settings.updateMirrorEnabled,
+                  );
+                  if (mounted) setState(() {});
+                },
+              ),
+              const SizedBox(height: 8),
+              CupertinoTextField(
+                controller: _mirrorUrlController,
+                placeholder: 'http://192.168.1.112:8080',
+                padding: const EdgeInsets.all(10),
+              ),
+              const SizedBox(height: 8),
+              SecondaryButton(
+                label: _mirrorBusy ? 'Проверка...' : 'Проверить зеркало',
+                icon: CupertinoIcons.wifi,
+                onPressed: _mirrorBusy ? null : _checkMirror,
+              ),
+              if (_mirrorStatus.isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.only(top: 6),
+                  child: Text(
+                    _mirrorStatus,
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: colors.secondaryLabel,
+                    ),
+                  ),
+                ),
+            ],
           ),
-          const SizedBox(width: 8),
-          Expanded(child: Text(label)),
-        ],
-      ),
+        ),
+      ],
     );
   }
 
-  Future<void> _applyConfigPreset(String preset) async {
-    await context.read<SettingsController>().applyConfigPreset(preset);
-    if (mounted) setState(() {});
-  }
+  // ─────────────────────────── сборка ───────────────────────────
 
-  String _taxFlag(String country) {
-    switch (country.toUpperCase()) {
-      case 'RU':
-        return '🇷🇺';
-      case 'KZ':
-        return '🇰🇿';
-      case 'US':
-        return '🇺🇸';
-      default:
-        return '🌐';
-    }
-  }
+  static const _navTabLabels = [
+    'Сегодня',
+    'Клиенты',
+    'События',
+    'Деньги',
+    'Склад',
+    'Ещё',
+  ];
 
   @override
   Widget build(BuildContext context) {
-    final colors = context.colors;
     final settings = context.watch<SettingsController>();
+    final store = context.watch<MastersStore>();
+
+    final body = switch (_section) {
+      0 => _workSection(settings),
+      1 => _moneySection(settings, store),
+      2 => _appearanceSection(settings),
+      3 => _securitySection(settings),
+      4 => _dataSection(),
+      _ => _updateSection(settings),
+    };
 
     return CupertinoPageScaffold(
       navigationBar: const CupertinoNavigationBar(middle: Text('Настройки')),
-      child: _busy
-          ? const Center(child: CupertinoActivityIndicator())
-          : ListView(
-              padding: const EdgeInsets.fromLTRB(16, 12, 16, 72),
-              children: [
-                _buildStatusChip(settings, colors),
-                const SizedBox(height: 12),
-                _buildPresets(colors),
-                const SizedBox(height: 16),
-                _settingsGroup(
-                  'features',
-                  'Общие возможности',
-                  icon: CupertinoIcons.settings_solid,
-                  accent: colors.accent,
-                  children: [
-                    AppCard(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text(
-                            'Режим работы',
-                            style: TextStyle(fontWeight: FontWeight.w600),
-                          ),
-                          const SizedBox(height: 2),
-                          Text(
-                            'Заказы, записи или оба потока в едином экране',
-                            style: TextStyle(
-                              color: context.colors.tertiaryLabel,
-                              fontSize: 12,
-                            ),
-                          ),
-                          const SizedBox(height: 10),
-                          _workModeChoice('orders', 'Только заказы (дедлайны)'),
-                          _workModeChoice(
-                            'appointments',
-                            'Только записи (календарь)',
-                          ),
-                          _workModeChoice('hybrid', 'Оба (гибрид)'),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    AppCard(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              const Expanded(
-                                child: Text('Показывать теги в заказах'),
-                              ),
-                              CupertinoSwitch(
-                                value: settings.jobTagsEnabled,
-                                onChanged: (value) async {
-                                  await settings.setJobTagsEnabled(value);
-                                  if (mounted) setState(() {});
-                                },
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 8),
-                          Row(
-                            children: [
-                              Expanded(
-                                child: CupertinoTextField(
-                                  controller: _tagController,
-                                  placeholder: 'Новый тег',
-                                ),
-                              ),
-                              CupertinoButton(
-                                padding: EdgeInsets.zero,
-                                child: const Icon(
-                                  CupertinoIcons.plus,
-                                  semanticLabel: 'Добавить',
-                                ),
-                                onPressed: () async {
-                                  await context
-                                      .read<SettingsController>()
-                                      .addJobTag(_tagController.text);
-                                  _tagController.clear();
-                                  if (mounted) setState(() {});
-                                },
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 8),
-                          Wrap(
-                            spacing: 8,
-                            runSpacing: 8,
-                            children: [
-                              for (final tag
-                                  in context
-                                      .watch<SettingsController>()
-                                      .jobTags)
-                                GestureDetector(
-                                  onTap: () async {
-                                    await context
-                                        .read<SettingsController>()
-                                        .removeJobTag(tag);
-                                    if (mounted) setState(() {});
-                                  },
-                                  child: Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 10,
-                                      vertical: 6,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color: context.colors.cardElevated,
-                                      borderRadius: BorderRadius.circular(99),
-                                    ),
-                                    child: Text(tag),
-                                  ),
-                                ),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    _groupedCard([
-                      Row(
-                        children: [
-                          const Expanded(child: Text('Калькулятор цен')),
-                          CupertinoSwitch(
-                            value: settings.calculatorEnabled,
-                            onChanged: (v) async {
-                              await settings.setCalculatorEnabled(v);
-                              if (mounted) setState(() {});
-                            },
-                          ),
-                        ],
-                      ),
-                      Row(
-                        children: [
-                          const Expanded(child: Text('Сотрудники и зарплата')),
-                          CupertinoSwitch(
-                            value: settings.teamEnabled,
-                            onChanged: (v) async {
-                              await settings.setTeamEnabled(v);
-                              if (mounted) setState(() {});
-                            },
-                          ),
-                        ],
-                      ),
-                    ]),
-                    const SizedBox(height: 16),
-                    _groupedCard([
-                      for (var i = 0; i < kanbanColumns.length; i++)
-                        SizedBox(
-                          height: 44,
-                          child: Row(
-                            children: [
-                              Expanded(child: Text(kanbanColumns[i].label)),
-                              CupertinoCheckbox(
-                                value: settings.kanbanColumnEnabled(
-                                  kanbanColumns[i].key,
-                                ),
-                                onChanged: (value) async {
-                                  final next = <String>[
-                                    ...settings.kanbanColumns,
-                                  ];
-                                  if (value == true) {
-                                    if (!next.contains(kanbanColumns[i].key)) {
-                                      next.add(kanbanColumns[i].key);
-                                    }
-                                  } else {
-                                    next.remove(kanbanColumns[i].key);
-                                  }
-                                  await context
-                                      .read<SettingsController>()
-                                      .setKanbanColumns(next);
-                                  if (mounted) setState(() {});
-                                },
-                              ),
-                            ],
-                          ),
-                        ),
-                    ]),
-                    const SizedBox(height: 16),
-                    AppCard(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text(
-                            'Типичные конфигурации',
-                            style: TextStyle(fontWeight: FontWeight.w600),
-                          ),
-                          const SizedBox(height: 8),
-                          SecondaryButton(
-                            label: 'Соло-мастер',
-                            onPressed: () => _applyConfigPreset('solo'),
-                          ),
-                          const SizedBox(height: 8),
-                          SecondaryButton(
-                            label: 'Мастер + бригада',
-                            onPressed: () => _applyConfigPreset('team'),
-                          ),
-                          const SizedBox(height: 8),
-                          SecondaryButton(
-                            label: 'Мастер + клиенты',
-                            onPressed: () => _applyConfigPreset('clients'),
-                          ),
-                        ],
-                      ),
+      child: SafeArea(
+        bottom: false,
+        child: Column(
+          children: [
+            SizedBox(
+              height: 44,
+              child: ListView(
+                scrollDirection: Axis.horizontal,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 6,
+                ),
+                children: [
+                  for (var i = 0; i < _sections.length; i++) ...[
+                    if (i > 0) const SizedBox(width: 8),
+                    _SectionChip(
+                      label: _sections[i].$1,
+                      icon: _sections[i].$2,
+                      selected: _section == i,
+                      onTap: () => setState(() => _section = i),
                     ),
                   ],
-                ),
-                const SizedBox(height: 16),
-                _settingsGroup(
-                  'orders',
-                  'Заказы',
-                  icon: CupertinoIcons.doc_text,
-                  accent: colors.orange,
-                  children: [
-                    _TermsCard(),
-                    const SizedBox(height: 16),
-                    _groupedCard([
-                      Row(
-                        children: [
-                          const Expanded(child: Text('Ставка за час, ₽')),
-                          Text(
-                            '${(settings.hourRateCents / 100).toStringAsFixed(0)}',
-                            style: const TextStyle(fontWeight: FontWeight.w600),
-                          ),
-                          const Text(
-                            ' ₽',
-                            style: TextStyle(fontWeight: FontWeight.w600),
-                          ),
-                        ],
-                      ),
-                    ]),
-                    const SizedBox(height: 8),
-                    SecondaryButton(
-                      label: 'Изменить ставку за час',
-                      icon: CupertinoIcons.clock,
-                      onPressed: () async {
-                        final v = await _promptPin(
-                          'Ставка за час, ₽',
-                          settings.hourRateCents.toString(),
-                        );
-                        if (v == null || !mounted) return;
-                        final cents = int.tryParse(v.trim()) ?? 0;
-                        await settings.setHourRateCents(cents);
-                        if (mounted) setState(() {});
-                      },
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 16),
-                _settingsGroup(
-                  'money',
-                  'Деньги',
-                  icon: CupertinoIcons.money_dollar_circle,
-                  accent: colors.green,
-                  children: [
-                    AppCard(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text(
-                            'Налоговые профили',
-                            style: TextStyle(fontWeight: FontWeight.w600),
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            settings.activeTaxProfileId == null
-                                ? 'Активный профиль: не выбран'
-                                : 'Активный профиль: ${settings.taxProfiles.firstWhere((p) => p.id == settings.activeTaxProfileId, orElse: () => settings.taxProfiles.first).name}',
-                            style: TextStyle(
-                              color: colors.secondaryLabel,
-                              fontSize: 12,
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          ...settings.taxProfiles.map((profile) {
-                            final isActive =
-                                profile.id == settings.activeTaxProfileId;
-                            return Container(
-                              margin: const EdgeInsets.only(bottom: 8),
-                              decoration: BoxDecoration(
-                                color: isActive
-                                    ? context.colors.tint(
-                                        context.colors.accent,
-                                        0.10,
-                                      )
-                                    : null,
-                                borderRadius: BorderRadius.circular(10),
-                              ),
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 6,
-                                vertical: 4,
-                              ),
-                              child: Row(
-                                children: [
-                                  CupertinoCheckbox(
-                                    value: isActive,
-                                    onChanged: (v) async {
-                                      if (v == true) {
-                                        await settings.setActiveTaxProfile(
-                                          profile.id,
-                                        );
-                                        if (mounted) setState(() {});
-                                      }
-                                    },
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Expanded(
-                                    child: GestureDetector(
-                                      onTap: () => _editTaxProfile(profile),
-                                      child: Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        children: [
-                                          Text(
-                                            '${_taxFlag(profile.country)} ${profile.country}, ${profile.name}',
-                                            style: TextStyle(
-                                              fontSize: 14,
-                                              color: isActive
-                                                  ? context.colors.accent
-                                                  : context.colors.label,
-                                              fontWeight: isActive
-                                                  ? FontWeight.w600
-                                                  : FontWeight.w400,
-                                            ),
-                                          ),
-                                          Text(
-                                            '${profile.ratePercent}%',
-                                            style: TextStyle(
-                                              color:
-                                                  context.colors.secondaryLabel,
-                                              fontSize: 12,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                  ),
-                                  CupertinoButton(
-                                    padding: EdgeInsets.zero,
-                                    onPressed: isActive
-                                        ? null
-                                        : () async {
-                                            final ok = await showAppConfirm(
-                                              context,
-                                              title: 'Удалить профиль?',
-                                              message:
-                                                  '${profile.country}, ${profile.name} (${profile.ratePercent}%)',
-                                              destructive: true,
-                                              confirmLabel: 'Удалить',
-                                            );
-                                            if (ok) {
-                                              await settings.removeTaxProfile(
-                                                profile.id,
-                                              );
-                                              if (mounted) setState(() {});
-                                            }
-                                          },
-                                    child: Icon(
-                                      CupertinoIcons.trash,
-                                      color: isActive
-                                          ? context.colors.tertiaryLabel
-                                          : context.colors.red,
-                                      size: 20,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            );
-                          }),
-                          const SizedBox(height: 8),
-                          SecondaryButton(
-                            label: 'Добавить профиль',
-                            icon: CupertinoIcons.plus,
-                            onPressed: () => _addTaxProfile(),
-                          ),
-                          const SizedBox(height: 16),
-                          // Счёт-карман для налогов
-                          Builder(
-                            builder: (context) {
-                              final taxPocketId = settings.taxAccountId;
-                              final store = context.read<MastersStore>();
-                              return SecondaryButton(
-                                label: taxPocketId == null
-                                    ? 'Счёт-карман: не выбран'
-                                    : 'Счёт-карман: ${store.accountById(taxPocketId)?.name ?? 'неизвестный счёт'}',
-                                icon: CupertinoIcons.money_dollar_circle,
-                                onPressed: () async {
-                                  final choice =
-                                      await showCupertinoModalPopup<String?>(
-                                        context: context,
-                                        builder: (dialogContext) =>
-                                            CupertinoActionSheet(
-                                              actions: [
-                                                CupertinoActionSheetAction(
-                                                  onPressed: () => Navigator.of(
-                                                    dialogContext,
-                                                  ).pop('__none__'),
-                                                  child: const Text(
-                                                    'Без кармана',
-                                                  ),
-                                                ),
-                                                for (final account
-                                                    in store.accounts.where(
-                                                      (a) => !a.archived,
-                                                    ))
-                                                  CupertinoActionSheetAction(
-                                                    onPressed: () =>
-                                                        Navigator.of(
-                                                          dialogContext,
-                                                        ).pop(account.id),
-                                                    child: Text(account.name),
-                                                  ),
-                                              ],
-                                              cancelButton:
-                                                  CupertinoActionSheetAction(
-                                                    onPressed: () =>
-                                                        Navigator.of(
-                                                          dialogContext,
-                                                        ).pop(),
-                                                    child: const Text('Отмена'),
-                                                  ),
-                                            ),
-                                      );
-                                  if (choice == '__none__') {
-                                    await context
-                                        .read<SettingsController>()
-                                        .setTaxAccount(null);
-                                  } else if (choice != null) {
-                                    await context
-                                        .read<SettingsController>()
-                                        .setTaxAccount(choice);
-                                  }
-                                  if (mounted) setState(() {});
-                                },
-                              );
-                            },
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    AppCard(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text(
-                            'Налоговый радар (НПД)',
-                            style: TextStyle(fontWeight: FontWeight.w600),
-                          ),
-                          const SizedBox(height: 8),
-                          Row(
-                            children: [
-                              const Expanded(
-                                child: Text('Учитывать лимит НПД (2,4M/год)'),
-                              ),
-                              CupertinoSwitch(
-                                value: settings.taxRadarEnabled,
-                                onChanged: (v) async {
-                                  await settings.setTaxRadarEnabled(v);
-                                  if (mounted) setState(() {});
-                                },
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 8),
-                          SecondaryButton(
-                            label:
-                                'Лимит дохода, ₽: ${(settings.taxIncomeLimitCents / 100).toStringAsFixed(0)}',
-                            icon: CupertinoIcons.pencil,
-                            onPressed: () async {
-                              final v = await _promptPin(
-                                'Лимит дохода, ₽',
-                                settings.taxIncomeLimitCents.toString(),
-                              );
-                              if (v == null || !mounted) return;
-                              final cents =
-                                  int.tryParse(v.trim()) ??
-                                  settings.taxIncomeLimitCents;
-                              await settings.setTaxIncomeLimitCents(cents);
-                              if (mounted) setState(() {});
-                            },
-                          ),
-                          const SizedBox(height: 8),
-                          if (settings.taxRadarEnabled &&
-                              settings.npdLimitApplies) ...[
-                            TaxRadarBar(
-                              incomeCents: context
-                                  .read<MastersStore>()
-                                  .annualIncomeCents(),
-                              limitCents: settings.taxIncomeLimitCents,
-                            ),
-                            const SizedBox(height: 8),
-                          ],
-                          Text(
-                            'Внимание: при превышении 2,4M ₽ зарегистрируйтесь как ИП или измените налоговую схему.',
-                            style: TextStyle(
-                              color: colors.secondaryLabel,
-                              fontSize: 12,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    _groupedCard([
-                      Row(
-                        children: [
-                          const Expanded(child: Text('Показывать смену кассы')),
-                          CupertinoSwitch(
-                            value: settings.cashShiftEnabled,
-                            onChanged: (v) async {
-                              await settings.setCashShiftEnabled(v);
-                              if (mounted) setState(() {});
-                            },
-                          ),
-                        ],
-                      ),
-                    ]),
-                  ],
-                ),
-                const SizedBox(height: 16),
-                _settingsGroup(
-                  'app',
-                  'Приложение',
-                  icon: CupertinoIcons.gear_solid,
-                  accent: colors.tertiaryLabel,
-                  children: [
-                    SecondaryButton(
-                      label: 'Тема: ${settings.themeName}',
-                      icon: CupertinoIcons.moon_stars,
-                      onPressed: () async {
-                        final choice = await showCupertinoModalPopup<String?>(
-                          context: context,
-                          builder: (dialogContext) => CupertinoActionSheet(
-                            actions: [
-                              CupertinoActionSheetAction(
-                                onPressed: () =>
-                                    Navigator.of(dialogContext).pop('system'),
-                                child: const Text('System'),
-                              ),
-                              CupertinoActionSheetAction(
-                                onPressed: () =>
-                                    Navigator.of(dialogContext).pop('light'),
-                                child: const Text('Light'),
-                              ),
-                              CupertinoActionSheetAction(
-                                onPressed: () =>
-                                    Navigator.of(dialogContext).pop('dark'),
-                                child: const Text('Dark'),
-                              ),
-                            ],
-                            cancelButton: CupertinoActionSheetAction(
-                              onPressed: () =>
-                                  Navigator.of(dialogContext).pop(),
-                              child: const Text('Отмена'),
-                            ),
-                          ),
-                        );
-                        if (choice != null) {
-                          await settings.setThemeMode(
-                            AppThemeMode.values.firstWhere(
-                              (mode) => mode.name == choice,
-                              orElse: () => settings.themeMode,
-                            ),
-                          );
-                          if (mounted) {
-                            setState(() {});
-                          }
-                        }
-                      },
-                    ),
-                    const SizedBox(height: 16),
-                    AppCard(
-                      child: Column(
-                        children: [
-                          for (var i = 0; i < 7; i++) ...[
-                            if (i != 6)
-                              Row(
-                                children: [
-                                  Expanded(child: Text(_tabLabels[i])),
-                                  CupertinoSwitch(
-                                    value: settings.isTabVisible(i),
-                                    onChanged: (v) async {
-                                      await context
-                                          .read<SettingsController>()
-                                          .toggleTabVisible(i, visible: v);
-                                      if (!context.mounted) return;
-                                      setState(() {});
-                                    },
-                                  ),
-                                ],
-                              ),
-                            if (i != 6 && i != 5) const SizedBox(height: 8),
-                          ],
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    AppCard(
-                      child: Column(
-                        children: [
-                          Row(
-                            children: [
-                              const Text('Ежедневное напоминание'),
-                              const Spacer(),
-                              CupertinoSwitch(
-                                value: settings.reminderEnabled,
-                                onChanged: (v) async {
-                                  if (v) {
-                                    await settings.setReminder(true);
-                                    await ReminderService.scheduleDaily(
-                                      settings.reminderHour,
-                                      settings.reminderMinute,
-                                    );
-                                  } else {
-                                    await settings.setReminder(false);
-                                    await ReminderService.cancel();
-                                  }
-                                  setState(() {});
-                                },
-                              ),
-                            ],
-                          ),
-                          if (settings.reminderEnabled) ...[
-                            const SizedBox(height: 10),
-                            Row(
-                              children: [
-                                Text(
-                                  'Время',
-                                  style: TextStyle(
-                                    color: colors.secondaryLabel,
-                                  ),
-                                ),
-                                const Spacer(),
-                                CupertinoButton(
-                                  padding: EdgeInsets.zero,
-                                  onPressed: () => _pickReminderTime(settings),
-                                  child: Text(
-                                    '${settings.reminderHour.toString().padLeft(2, '0')}:${settings.reminderMinute.toString().padLeft(2, '0')}',
-                                    style: const TextStyle(
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ],
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    AppCard(
-                      child: Column(
-                        children: [
-                          CupertinoListTile(
-                            title: Text(
-                              settings.hasAppPin
-                                  ? 'PIN-код активен'
-                                  : 'PIN-код не установлен',
-                            ),
-                            subtitle: const Text(
-                              'Экран блокируется при запуске. Биометрия — в плане.',
-                            ),
-                          ),
-                          SecondaryButton(
-                            label: settings.hasAppPin
-                                ? 'Сменить или убрать PIN'
-                                : 'Установить PIN',
-                            icon: CupertinoIcons.lock,
-                            onPressed: _managePin,
-                          ),
-                          if (settings.hasAppPin) ...[
-                            const SizedBox(height: 8),
-                            SecondaryButton(
-                              label: 'Выключить PIN',
-                              icon: CupertinoIcons.lock_open,
-                              onPressed: () async {
-                                final ok = await showAppConfirm(
-                                  context,
-                                  title: 'Выключить PIN?',
-                                  message: 'После этого приложение будет открываться без PIN.',
-                                  destructive: true,
-                                  confirmLabel: 'Выключить',
-                                );
-                                if (!ok || !context.mounted) return;
-                                await context
-                                    .read<SettingsController>()
-                                    .setAppPin(null);
-                                if (context.mounted)
-                                  await showAppAlert(
-                                    context,
-                                    title: 'Готово',
-                                    message: 'PIN выключен.',
-                                  );
-                                if (mounted) setState(() {});
-                              },
-                            ),
-                          ],
-                          const SizedBox(height: 8),
-                          FutureBuilder<bool>(
-                            future: AppBiometricService.isAvailable(),
-                            builder: (context, snapshot) {
-                              final available = snapshot.data ?? false;
-                              if (!available) return const SizedBox.shrink();
-                              return Row(
-                                children: [
-                                  const Expanded(
-                                    child: Text('Биометрия (разблокировка)'),
-                                  ),
-                                  CupertinoSwitch(
-                                    value: settings.biometricEnabled,
-                                    onChanged: (v) async {
-                                      await context
-                                          .read<SettingsController>()
-                                          .setBiometricEnabled(v);
-                                      if (!context.mounted) return;
-                                      setState(() {});
-                                    },
-                                  ),
-                                ],
-                              );
-                            },
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    AppCard(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text('Записей: ${_auditEntries.length}'),
-                          const SizedBox(height: 8),
-                          SecondaryButton(
-                            label: _auditBusy
-                                ? 'Загрузка...'
-                                : 'Показать журнал аудита',
-                            icon: CupertinoIcons.doc_text_search,
-                            onPressed: _auditBusy ? () {} : _showAuditLog,
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    AppCard(
-                      child: Column(
-                        children: [
-                          _ActionTile(
-                            icon: CupertinoIcons.list_bullet,
-                            label: 'Журнал действий',
-                            onTap: _showAuditLog,
-                          ),
-                          Hairline(indent: 0),
-                          _ActionTile(
-                            icon: CupertinoIcons.cloud_download,
-                            label: 'Экспорт JSON',
-                            onTap: _exportBackup,
-                          ),
-                          Hairline(indent: 0),
-                          _ActionTile(
-                            icon: CupertinoIcons.cloud_upload,
-                            label: 'Восстановить JSON',
-                            onTap: _importBackup,
-                          ),
-                          Hairline(indent: 0),
-                          _ActionTile(
-                            icon: CupertinoIcons.table,
-                            label: 'Экспорт CSV',
-                            onTap: _exportExcel,
-                          ),
-                          Hairline(indent: 0),
-                          _ActionTile(
-                            icon: CupertinoIcons.trash,
-                            label: 'Очистить данные',
-                            destructive: true,
-                            onTap: _clearData,
-                          ),
-                          Hairline(indent: 0),
-                          _ActionTile(
-                            icon: CupertinoIcons.shield_fill,
-                            label: 'Проверить целостность данных',
-                            onTap: _checkDataIntegrity,
-                          ),
-                          Hairline(indent: 0),
-                          _ActionTile(
-                            icon: CupertinoIcons.lock_shield,
-                            label: 'Закрыть текущий месяц',
-                            onTap: _closeCurrentPeriod,
-                          ),
-                          Hairline(indent: 0),
-                          _ActionTile(
-                            icon: CupertinoIcons.lock_open,
-                            label: 'Переоткрыть последний период',
-                            onTap: _reopenLastClosedPeriod,
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    const SyncCard(),
-                    const SizedBox(height: 16),
-                    AppCard(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text(
-                            'Канал обновлений',
-                            style: TextStyle(fontWeight: FontWeight.w600),
-                          ),
-                          const SizedBox(height: 8),
-                          CupertinoSegmentedControl<String>(
-                            groupValue: settings.updateChannel,
-                            children: const {
-                              'stable': Padding(
-                                padding: EdgeInsets.symmetric(horizontal: 8),
-                                child: Text('Стабильный'),
-                              ),
-                              'beta': Padding(
-                                padding: EdgeInsets.symmetric(horizontal: 8),
-                                child: Text('Бета'),
-                              ),
-                            },
-                            onValueChanged: (value) async {
-                              await settings.setUpdateChannel(value);
-                              if (mounted) setState(() {});
-                            },
-                          ),
-                          const SizedBox(height: 12),
-                          Row(
-                            children: [
-                              const Expanded(child: Text('Зеркало включено')),
-                              CupertinoSwitch(
-                                value: settings.updateMirrorEnabled,
-                                onChanged: (value) async {
-                                  await settings.setUpdateMirrorEnabled(value);
-                                  if (mounted) setState(() {});
-                                },
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 8),
-                          CupertinoTextField(
-                            controller: _mirrorUrlController,
-                            placeholder: 'http://10.181.239.143:8080',
-                            decoration: BoxDecoration(
-                              color: context.colors.card,
-                              border: Border.all(
-                                color: context.colors.separator,
-                              ),
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          SecondaryButton(
-                            label: _mirrorBusy
-                                ? 'Проверка...'
-                                : 'Проверить зеркало',
-                            icon: CupertinoIcons.cloud_download,
-                            onPressed: _mirrorBusy ? () {} : _checkMirror,
-                          ),
-                          if (_mirrorStatus.isNotEmpty) ...[
-                            const SizedBox(height: 4),
-                            Text(
-                              _mirrorStatus,
-                              style: TextStyle(
-                                color: context.colors.secondaryLabel,
-                                fontSize: 12,
-                              ),
-                            ),
-                          ],
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    AppCard(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Текущая версия: ${_updateInfo?.currentVersionCode ?? '...'}',
-                          ),
-                          if (_updateStatus.isNotEmpty) ...[
-                            const SizedBox(height: 4),
-                            Text(
-                              _updateStatus,
-                              style: TextStyle(
-                                color: context.colors.secondaryLabel,
-                                fontSize: 12,
-                              ),
-                            ),
-                          ],
-                          const SizedBox(height: 8),
-                          SecondaryButton(
-                            label: _updateBusy
-                                ? 'Проверка...'
-                                : 'Проверить обновления',
-                            icon: CupertinoIcons.cloud_download,
-                            onPressed: _updateBusy ? () {} : _checkForUpdates,
-                          ),
-                          if (_updateInfo != null &&
-                              _updateInfo!.updateAvailable) ...[
-                            const SizedBox(height: 8),
-                            SecondaryButton(
-                              label:
-                                  'Скачать и установить ${_updateInfo!.latestVersionName}',
-                              icon: CupertinoIcons.arrow_down_circle,
-                              onPressed: _updateBusy
-                                  ? () {}
-                                  : () =>
-                                        _downloadAndInstallUpdate(_updateInfo!),
-                            ),
-                          ],
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    AppCard(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text(
-                            'Masters',
-                            style: TextStyle(fontWeight: FontWeight.w600),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            'Локальный трекер мастера/бригады. Все данные хранятся на устройстве.',
-                            style: TextStyle(
-                              color: colors.secondaryLabel,
-                              fontSize: 13,
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            'Версия 0.1.0',
-                            style: TextStyle(
-                              color: colors.tertiaryLabel,
-                              fontSize: 12,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ],
+                ],
+              ),
             ),
+            Expanded(child: body),
+          ],
+        ),
+      ),
     );
   }
 }
 
-class _ActionTile extends StatelessWidget {
-  const _ActionTile({
-    required this.icon,
+/// Чип-переключатель группы настроек.
+class _SectionChip extends StatelessWidget {
+  const _SectionChip({
     required this.label,
+    required this.icon,
+    required this.selected,
     required this.onTap,
-    this.destructive = false,
   });
 
-  final IconData icon;
   final String label;
+  final IconData icon;
+  final bool selected;
   final VoidCallback onTap;
-  final bool destructive;
 
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
-    final color = destructive ? colors.red : colors.accent;
-    return CupertinoButton(
-      padding: const EdgeInsets.symmetric(vertical: 8),
-      onPressed: onTap,
-      child: Row(
-        children: [
-          Icon(icon, color: color, size: 20),
-          const SizedBox(width: 10),
-          Text(
-            label,
-            style: TextStyle(
-              color: destructive ? colors.red : colors.label,
-              fontSize: 16,
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        alignment: Alignment.center,
+        padding: const EdgeInsets.symmetric(horizontal: 12),
+        decoration: BoxDecoration(
+          color: selected
+              ? colors.tint(colors.accent, 0.16)
+              : colors.cardElevated,
+          borderRadius: BorderRadius.circular(99),
+          border: Border.all(
+            color: selected ? colors.accent : colors.separator,
+            width: selected ? 1.2 : 0.5,
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              icon,
+              size: 13,
+              color: selected ? colors.accent : colors.secondaryLabel,
             ),
-          ),
-          const Spacer(),
-          Icon(
-            CupertinoIcons.chevron_forward,
-            size: 16,
-            color: colors.tertiaryLabel,
-          ),
-        ],
+            const SizedBox(width: 5),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                color: selected ? colors.accent : colors.label,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
 }
 
-class _TermsCard extends StatefulWidget {
-  const _TermsCard();
+/// Строка «название + переключатель» внутри карточки.
+class _SwitchRow extends StatelessWidget {
+  const _SwitchRow({
+    required this.title,
+    required this.value,
+    required this.onChanged,
+  });
 
-  @override
-  State<_TermsCard> createState() => _TermsCardState();
-}
-
-class _TermsCardState extends State<_TermsCard> {
-  late final TextEditingController _objectTermController;
-  late final TextEditingController _clientTermController;
-
-  @override
-  void initState() {
-    super.initState();
-    final settings = context.read<SettingsController>();
-    _objectTermController = TextEditingController(text: settings.objectTerm);
-    _clientTermController = TextEditingController(text: settings.clientTerm);
-  }
-
-  @override
-  void dispose() {
-    _objectTermController.dispose();
-    _clientTermController.dispose();
-    super.dispose();
-  }
-
-  Future<void> _save() async {
-    final store = context.read<SettingsController>();
-    await store.setObjectTerm(_objectTermController.text.trim());
-    await store.setClientTerm(_clientTermController.text.trim());
-    if (mounted) setState(() {});
-  }
+  final String title;
+  final bool value;
+  final ValueChanged<bool> onChanged;
 
   @override
   Widget build(BuildContext context) {
-    return AppCard(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+      child: Row(
         children: [
-          const Text(
-            'Термины записей',
-            style: TextStyle(fontWeight: FontWeight.w600),
-          ),
-          const SizedBox(height: 8),
-          CupertinoTextField(
-            controller: _objectTermController,
-            placeholder: 'Термин объекта',
-          ),
-          const SizedBox(height: 8),
-          CupertinoTextField(
-            controller: _clientTermController,
-            placeholder: 'Термин клиента',
-          ),
-          const SizedBox(height: 8),
-          SecondaryButton(
-            label: 'Сохранить термины',
-            icon: CupertinoIcons.checkmark,
-            onPressed: _save,
-          ),
+          Expanded(child: Text(title)),
+          CupertinoSwitch(value: value, onChanged: onChanged),
         ],
       ),
     );
   }
 }
 
-extension _MastersSettingsThemeName on SettingsController {
-  String get themeName => switch (themeMode) {
-    AppThemeMode.system => 'System',
-    AppThemeMode.light => 'Light',
-    AppThemeMode.dark => 'Dark',
-  };
+/// Строка «название + галочка выбора одного из вариантов».
+class _CheckRow extends StatelessWidget {
+  const _CheckRow({
+    required this.title,
+    required this.checked,
+    required this.onTap,
+  });
+
+  final String title;
+  final bool checked;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.colors;
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+        child: Row(
+          children: [
+            Expanded(child: Text(title)),
+            if (checked)
+              Icon(CupertinoIcons.checkmark, size: 17, color: colors.accent),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Строка налогового профиля: выбор активного, правка, удаление.
+class _TaxProfileRow extends StatelessWidget {
+  const _TaxProfileRow({
+    required this.profile,
+    required this.flag,
+    required this.isActive,
+    required this.onTap,
+    required this.onDelete,
+  });
+
+  final TaxProfile profile;
+  final String flag;
+  final bool isActive;
+  final VoidCallback onTap;
+  final VoidCallback onDelete;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.colors;
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      child: Row(
+        children: [
+          GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: onTap,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
+              child: Row(
+                children: [
+                  Icon(
+                    isActive
+                        ? CupertinoIcons.checkmark_circle_fill
+                        : CupertinoIcons.circle,
+                    size: 19,
+                    color: isActive ? colors.accent : colors.tertiaryLabel,
+                  ),
+                  const SizedBox(width: 9),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        '$flag ${profile.country} · ${profile.name}',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: isActive
+                              ? FontWeight.w600
+                              : FontWeight.w400,
+                          color: isActive ? colors.accent : colors.label,
+                        ),
+                      ),
+                      Text(
+                        '${profile.ratePercent}%',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: colors.secondaryLabel,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const Spacer(),
+          CupertinoButton(
+            padding: const EdgeInsets.all(8),
+            minimumSize: Size.zero,
+            onPressed: isActive ? null : onDelete,
+            child: Icon(
+              CupertinoIcons.trash,
+              size: 17,
+              color: isActive ? colors.tertiaryLabel : colors.red,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }

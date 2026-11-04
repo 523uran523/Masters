@@ -7,6 +7,8 @@ import '../features/more/more_screen.dart';
 import '../features/today/today_screen.dart';
 import '../features/unified_booking/unified_booking_screen.dart';
 import '../features/money/money_screen.dart';
+import '../features/clients/clients_screen.dart';
+import '../features/inventory/inventory_screen.dart';
 import '../state/settings_controller.dart';
 import 'theme/app_theme.dart';
 
@@ -127,8 +129,10 @@ List<_TabDef> _buildTabDefs(String workMode) {
   };
   return [
     _TabDef(CupertinoIcons.house, 'Сегодня', TodayScreen()),
+    _TabDef(CupertinoIcons.person_2, 'Клиенты', const ClientsScreen()),
     bookingTab,
     _TabDef(CupertinoIcons.money_dollar, 'Деньги', MoneyScreen()),
+    _TabDef(CupertinoIcons.cube, 'Склад', const InventoryScreen()),
     _TabDef(CupertinoIcons.ellipsis_circle, 'Ещё', const MoreScreen()),
   ];
 }

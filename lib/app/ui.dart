@@ -173,11 +173,13 @@ class SecondaryButton extends StatelessWidget {
     this.icon,
     this.dense = false,
     this.alignment = MainAxisAlignment.center,
+    this.destructive = false,
   });
 
   final String label;
   final VoidCallback? onPressed;
   final IconData? icon;
+  final bool destructive;
 
   /// Уменьшенная версия: ниже по высоте и мельче шрифт. Используется там,
   /// где действия стоят рядом и не должны занимать полстроки.
@@ -189,6 +191,7 @@ class SecondaryButton extends StatelessWidget {
     final colors = context.colors;
     final iconSize = dense ? 15.0 : 18.0;
     final fontSize = dense ? 14.0 : 16.0;
+    final tone = destructive ? colors.red : colors.accent;
 
     return CupertinoButton(
       padding: EdgeInsets.zero,
@@ -201,14 +204,16 @@ class SecondaryButton extends StatelessWidget {
           horizontal: dense ? 10 : 18,
         ),
         decoration: BoxDecoration(
-          color: colors.cardElevated,
+          color: destructive
+              ? colors.tint(colors.red, 0.10)
+              : colors.cardElevated,
           borderRadius: BorderRadius.circular(dense ? 11 : 13),
         ),
         child: Row(
           mainAxisAlignment: alignment,
           children: [
             if (icon != null) ...[
-              Icon(icon, size: iconSize, color: colors.accent),
+              Icon(icon, size: iconSize, color: tone),
               SizedBox(width: dense ? 5 : 7),
             ],
             Flexible(
@@ -220,7 +225,7 @@ class SecondaryButton extends StatelessWidget {
                 style: TextStyle(
                   fontSize: fontSize,
                   fontWeight: FontWeight.w500,
-                  color: colors.accent,
+                  color: tone,
                 ),
               ),
             ),

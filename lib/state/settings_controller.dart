@@ -107,7 +107,7 @@ class SettingsController extends ChangeNotifier {
   static const _reminderHourKey = 'reminder_hour';
   static const _reminderMinuteKey = 'reminder_minute';
   static const _dndEnabledKey = 'dnd_enabled';
-  static const _hiddenTabsKey = 'hidden_tabs';
+  static const _hiddenTabsKey = 'hidden_tabs_v2';
   static const _taxRateKey = 'tax_rate';
   static const _taxProfilesKey = 'tax_profiles';
   static const _activeTaxProfileIdKey = 'active_tax_profile_id';
@@ -180,7 +180,7 @@ class SettingsController extends ChangeNotifier {
   bool isTabVisible(int index) => !hiddenTabs.contains(index);
 
   Future<void> toggleTabVisible(int index, {required bool visible}) async {
-    if (index < 0 || index >= 7) return;
+    if (index < 0 || index > 5) return;
     final list = <int>[...hiddenTabs];
     if (visible) {
       list.remove(index);
