@@ -1,463 +1,157 @@
-# Masters — архитектура приложения (актуальная на состояние репозитория)
-
-Дата: 01.11.2026
-ОС проекта: Windows 10/11, Flutter (Dart), SQLite.
-Стиль: локальный-first учёт, Cupertino UI, поддержка горизонтальной раскладки, пресеты по бизнес-типам.
-Основной репозиторий: `C:\Users\523ur\Documents\MyProjects\Apps\Masters`.
-
----
-
-## 3. Точка входа
-
-`lib/main.dart`
-
-Основные шаги:
-1. `WidgetsFlutterBinding.ensureInitialized()`
-2. Настройка `databaseFactory`:
-   - Web: `databaseFactoryFfiWebNoWebWorker`
-   - Windows/Linux: `databaseFactoryFfi`
-3. Запуск `BrowserTabCoordinator.instance.start()` на Web
-4. Инициализация дат
-5. Открытие БД: `AppDatabase.open()`
-6. Загрузка настроек `SettingsController.load()`
-7. Yandex OAuth callback, если присутствует OAuth code
-8. Планировщик напоминаний в фоновом Future
-9. Настройка ориентации экрана
-10. Загрузка `MastersStore`
-11. Автобэкап (если включён)
-12. `runApp(MastersApp(...))`
-
----
-
-## 4. Сервисный слой `lib/core`
-
-### Основные утилиты
-- `app_utils.dart`
-  - `newId()` — sortable идентификатор вида UUIDv7-ish
-  - `formatMinutes`, `formatDay`, `formatFullDate`, `formatNumber`, `formatIsoDay`
-  - `pluralRu`, `clamp*`, `timerLabel`.
-- `app_pin_service.dart`: локальный PIN store/hash/verification
-- `app_biometric.dart`: обёртка над `local_auth`, проверка доступности и auth request.
-- `backup_service.dart`: JSON backup/import и CSV/Excel export/import.
-- Yandex:
-  - `yandex_oauth.dart`
-  - `yandex_disk_service.dart`
-  - `yandex_sync.dart`
-  - browser-based OAuth, REST Disk API, auto upload/merge.
-- `document_service.dart`:
-  - `buildJobPdf`
-  - `buildPayrollPdf`
-  - `savePdf`
-- `reminder_service.dart`, web URL wrappers, deep link service, single-tab warning.
-
----
-
-## 5. Данные: модели
-
-Директория: `lib/data/models`
-
-Основные модели:
-- `account.dart`
-- `cash_shift.dart`
-- `money_transaction.dart`
-- `client.dart`
-- `work_object.dart`
-- `job.dart`, `job_items.dart`
-- `inventory_item.dart`, `stock_movement.dart`
-- `appointment.dart`, `booking_resource.dart`
-- `client_reminder.dart`
-- `employee.dart`, `time_entry.dart`, `employee_payment.dart`
-- `recurring_payment.dart`, `closed_period.dart`-related embedded/default model.
-
-Все суммы хранятся в центах (целые числа).
-
----
-
-## 6. Репозитории
-
-Директория: `lib/data/repositories`
-
-Repository pattern: `getAll`, `byId`, `save`, `delete`/specific queries. Многие `getAll()` фильтруют `deleted_at IS NULL`.
-
-Реализованные репозитории:
-- ClientRepository
-- ObjectRepository
-- JobRepository
-- StageRepository
-- MaterialRepository
-- SessionRepository
-- AccountRepository
-- CashShiftRepository
-- MoneyTransactionRepository
-- InventoryItemRepository
-- StockMovementRepository
-- AppointmentRepository
-- BookingResourceRepository
-- ClientReminderRepository
-- EmployeeRepository
-- TimeEntryRepository
-- EmployeePaymentRepository
-- RecurringPaymentRepository
-- PayrollPeriodRepository
-
----
-
-## 7. База данных
-
-Файл: `lib/data/app_database.dart`
-
-### Версия БД
-**Version 19**.
-
-### Миграции
-- v1: ядро, money
-- v2: money
-- v3: inventory
-- v4: booking
-- v5: reminders
-- v6: jobs assignee/team
-- v7: sync columns (`updated_at`, `deleted_at`, `device_id`)
-- v8: audit log
-- v9: period closures
-- v10: recurring payments + payroll periods
-- v11: DB audit triggers
-- v12: job_attachments
-- v13: receipt_path + money audit triggers
-- v14: pinned jobs
-- v15: job calculator state
-- v16: work_sessions timer refactor
-- v17: reverses_id
-- v18: inventory composition (BOM)
-- v19: unified booking indexes (appointments/jobs по датам)
-
-### Таблицы
-`clients`, `objects`, `jobs`, `job_stages`, `materials`, `work_sessions`, `accounts`, `cash_shifts`, `money_transactions`, `inventory_items`, `suppliers`, `purchases`, `purchase_lines`, `stock_movements`, `recipe_lines`, `inventory_compositions`, `booking_resources`, `appointments`, `client_reminders`, `employees`, `time_entries`, `employee_payments`, `audit_log`, `period_closures`, `recurring_payments`, `payroll_periods`, `job_attachments`.
-
-### Integrity
-- `integrityIssues()` — `PRAGMA foreign_key_check` + `PRAGMA quick_check`.
-- trigger-based audit.
-
----
-
-## 8. Центральное состояние: `MastersStore`
-
-Файл: `lib/state/masters_store.dart`
-
-### Роль
-Хранит все typed-списки, агрегаты и бизнес-логику.
-
-### Кэши
-- `_intCache`, `_earnedCache`, `_balanceCache`
-- view caches, invalidation in `notifyListeners()`.
-
-### API (кратко)
-**Clients / Objects / Jobs**
-- create/update/delete
-- materials, sessions, stages
-- `jobById`, `materialsForJob`, `totalMaterialCents`, `totalMinutesForJob`
-
-**Money**
-- accounts, balances, cash shifts
-- `addTransaction`, `transferBetweenAccounts`, `voidTransaction`
-- Excel import
-- recurring payments + `runDueRecurringPayments()`
-- closed periods
-- `forecastCashToEndOfMonth()`
-
-**Employees**
-- employees, time entries, payments
-- `earnedCents`, `employeeBalanceOwed`
-- `earnedCentsForPeriod`
-- `paymentTotalsForPeriod`
-- `payrollSummary(start, end)`
-
-**Sync / backup**
-- `backupData()`
-- `restoreFromBackup()`
-- `mergeFromBackup()`
-
-**Safety**
-- `checkDataIntegrity()`
-- `_reconcileEmployeePayments()`
-- closed period guard `ensurePeriodOpen()`.
-
----
-
-## 9. Настройки
-
-`lib/state/settings_controller.dart` + `lib/features/settings/settings_screen.dart`.
-
-- theme, business type, modules, terms;
-- Yandex OAuth tokens, auto backup;
-- hidden tabs;
-- reminders, DND;
-- PIN, unlock, biometrics;
-- audit log UI;
-- integrity check UI;
-- backup import/export.
-
----
-
-## 10. UI экраны
-
-- Today: money/day summary.
-- Money: accounts, balances, cash shifts, transfers, recurring payments, Excel, forecast.
-- Stats: P&L by category/client/staff/day/margin/account/trend.
-- Jobs: pipeline, details, cost calculator.
-- Clients/Objects: client objects and job history.
-- Inventory: items, stock stats, low stock, Excel import/export.
-- Booking: calendar, appointments, deadlines.
-- Employees: payroll, time, payments, PDF payslip.
-- Settings: config, sync, security, integrity, audit.
-
----
-
-## 11. Синхронизация и резервные копии
-
-### JSON backup
-`backupData()` экспортирует все сущности, включая period closures и recurring payments.
-
-### Restore
-- `restoreFromBackup` fully replaces tables transactionally.
-- `mergeFromBackup` uses per-ID merge by `updated_at`.
-
-### Incremental merge result
-`BackupMergeResult { affected, keptLocal, conflicts }`.
-
-### Audit
-- app-level audit calls;
-- DB triggers from v11 write insert/update/delete snapshots.
-
----
-
-## 12. Soft delete / sync columns
-
-- v7 adds `updated_at`, `deleted_at`, `device_id`.
-- Repositories `getAll()` filter `deleted_at IS NULL`.
-- `delete()` marks deleted.
-- `mergeSnapshot` preserves fallback.
-
----
-
-## 13. PDF и Excel
-
-### PDF
-- `buildJobPdf`: quote/invoice job PDF.
-- `buildPayrollPdf`: payroll ledger.
-- `savePdf`.
-
-### Excel
-- export inventory/money;
-- import inventory and transactions.
-- JSON remains canonical for sync.
-
----
-
-## 14. Yandex Disk
-
-- browser-based OAuth and REST Disk API.
-- `YandexSyncService.sync` downloads and merges if remote newer, otherwise uploads.
-- Auto backup on app start if enabled and newer.
-- No user password stored; only token.
-
----
-
-## 15. Web / сервер
-
-- Web SQLite via wasm + persistent IndexedDB.
-- `web/index.html`: bootstrap, loading/error UI, strftime wasm.
-- `web_server/server.dart`: static server and SPA fallback.
-- Yandex proxy files.
-
----
-
-## 16. Android / release
-
-- Namespace/applicationId: `com.mastersapp.masters`.
-- Release config via `key.properties.example`.
-- `ci.yml` for CI.
-- ADB deployment path `build/app/outputs/flutter-apk/app-debug.apk` / `app-release.apk`.
-
----
-
-## 17. Тесты
-
-Файлы:
-- `test/database_test.dart`
-- `test/integrations_test.dart`
-- `test/store_aggregates_test.dart`
-- `test/widget_test.dart`
-
-Покрыто:
-- DB/store load;
-- employee balances;
-- transfer invariant;
-- payment journal;
-- integrity;
-- newId uniqueness;
-- minutes/paid/debt/balance;
-- hourly earned;
-- recurring due;
-- payroll summary;
-- closed-period guard.
-
----
-
-## 18. Реализованные элементы roadmap
-
-1. Offline DB + Web persistence.
-2. Multi-tab helper.
-3. Calendar jobs/deadlines.
-4. Settings hidden tabs.
-5. Finance transfers.
-6. Team earnings chart and payroll on-fly.
-7. Inventory CRUD and low stock.
-8. Clients/objects/jobs and materials.
-9. Booking/reminders.
-10. Yandex OAuth + sync + auto backup.
-11. PIN/biometrics unlock.
-12. DB integrity.
-13. Export/import JSON.
-14. Soft delete repository filtering.
-15. Audit log + DB triggers.
-16. Closed accounting period.
-17. Recurring payment execution.
-18. Excel import/export.
-19. P&L analytics, accounts, trends, forecast.
-20. Payroll PDF ledger.
-21. Printable documents.
-22. Web wasm and local server.
-
----
-
-## 18a. Вложения к заказам (attachments, v12)
-
-- Таблица `job_attachments` (v12): `id`, `job_id`, `file_name`, `file_path`, `mime_type`, `created_at`, `updated_at`, `deleted_at`.
-- Модель `JobAttachment`, репозиторий `JobAttachmentRepository`.
-- `MastersStore.attachmentsForJob`, `addJobAttachment`, `deleteJobAttachment`.
-- Файлы копируются в каталог приложения `job_attachments`, в БД хранится локальный путь; UI в карточке заказа: список, добавление через file picker, удаление, счётчик.
-
-## 18b. Автообновление приложения (UpdateService)
-
-- Сервис `lib/core/update_service.dart` (`UpdateService`) обращается к серверу обновлений (`base` URL).
-- `checkForUpdate()` сравнивает `version_code`, получает `latest_version_code`, `min_supported_version_code`, `apk_url`, `sha256`, `changelog`, флаги доступности/принудительного обновления.
-- `downloadVerifiedApk()` скачивает APK с поддержкой докачки (HTTP Range), кэширует уже проверенный файл и проверяет SHA-256; при несовпадении хеша файл удаляется.
-- `installApk()` открывает APK через `open_filex`.
-- UI обновления находится в настройках: проверка, скачивание с прогрессом, установка.
-
-## 18c. Просмотрщик аудита (audit viewer)
-
-- `MastersStore.auditEntries(limit)`, DB-таблица `audit_log`, app-level и trigger-based записи.
-- Настройки: загрузка и просмотр последних записей, детальный просмотр изменений, ручное действие аудита.
-
-## 18d. Быстрая запись (appointment quick booking)
-
-- Быстрое создание записи из карточки клиента: заголовок, заметка, выбор даты/времени, создание напоминания.
-- `MastersStore.createAppointment` проверяет конфликты по ресурсу и интервалу времени и бросает `StateError` при пересечении.
-- Создание связанных записей (`client_reminder` типа `appointment`) через один сценарий.
-
-## 18e. Унифицированное бронирование (unified booking)
-- Адаптер `UnifiedEvent` в `MastersStore` поверх таблиц `appointments` и `jobs` (без изменения схемы).
-- Конвертация job↔appointment, проверка конфликтов ресурсов и слотов.
-- Spec: `docs/specs/2026-11-01-unified-booking-design.md`, `docs/specs/2026-11-01-unified-booking-ui-tight.md`.
-
-## 18f. Налоговые профили (tax profiles)
-- Профили налогов по странам и активный профиль в `SettingsController` с fallback на legacy-параметры.
-- Использование ставки активного налогового профиля в расчёте tax reserve.
-- Spec: `docs/specs/2026-11-01-tax-profiles.md`.
-
----
-
-## 19. Что осталось по планам
-
-### A. Sync v2 / multi-device
-- Полное применение `device_id`, `deleted_at`, `updated_at` на уровне моделей.
-- Правильное merge по ключам и UI conflicts.
-- Безопасная обработка IndexedDB reset/multi-tabs.
-- Ручной выбор replace vs merge в UI (уже есть import choice).
-
-### B. Финансовая аналитика
-- Deep P&L over periods with richer charting.
-- Supplier debts / prepayments / refunds.
-- recurring frequencies forms.
-- richer forecast inclusing recurring due schedule.
-- account-level analytics modularity.
-
-### C. Зарплата
-- Salary rules by service, `pay_rules`, `payroll_accruals`.
-- no on-fly recalc snapshots.
-- period close UI for payroll;
-- per-employee payslip export;
-- advances/bonuses policies.
-
-### D. Надежность
-- migrations matrix from old DB snapshots;
-- richer conflict view;
-- web `foreign_keys` still off but app checks exist.
-
-### E. Планшет и доступность
-- responsive tiers;
-- accessibility screen-reader/tap targets;
-- landscape polish;
-- onboarding demos.
-
-### F. Релиз
-- real keystore in two safe places;
-- release CI artifacts;
-- remove debug fallback for production.
-
----
-
-## 20. Команды запуска и тестирования
-
-```bash
-flutter pub get
-flutter analyze --no-pub
-flutter test
-flutter build web --release --no-web-resources-cdn --no-wasm-dry-run
-flutter build apk --release
-dart run web_server/server.dart
+# Masters — архитектура
+
+Обновлено: 05.11.2026. Приложение `0.3.16+19`, схема БД **v21**, тесты 131/131.
+Всё, что связано с запуском, сборкой, релизами и синхронизацией — в `README.md`.
+
+Local-first учёт для мастера/бригады: один код на Android/iOS/Windows/Web,
+Cupertino UI, SQLite как единственный источник правды, работает без интернета.
+
+## 1. Слои и пути
+
+```
+lib/main.dart                 инициализация: БД → настройки → стор → runApp
+lib/app/
+  app.dart                    корень: PIN/биометрия, авторизация, автосинк
+  root_shell.dart             нижняя навигация, скрытие вкладок из настроек
+  tax_radar_bar.dart          полоса налоговой подушки
+  ui.dart                     библиотека компактных компонентов (см. §3)
+  theme/                      палитра и темы
+lib/state/
+  masters_store.dart          центральное состояние и вся бизнес-логика
+  settings_controller.dart    настройки (SharedPreferences)
+  sync_service.dart           фоновый обмен с meaxis-sync
+lib/data/
+  app_database.dart           схема, миграции v1→v21, аудит-триггеры, integrity
+  models/                     сущности (sums — целые, в копейках)
+  repositories/               CRUD; getAll() фильтрует deleted_at IS NULL
+lib/features/<модуль>/        экраны: today money stats jobs clients inventory
+                              booking unified_booking employees more settings
+                              onboarding
+lib/core/                     сервисы: backup, document (PDF), update, oauth,
+                              disk, sync_client, pin, biometric, reminder,
+                              deep_link, text_encoding, units, api_config
+test/                         131 тестов: БД, миграции, стор, деньги, кодировки
+web/ web_server/              web-ассеты, wasm, локальный сервер и прокси
 ```
 
-Device install:
-```bash
-flutter build apk --debug
-adb install -r build/app/outputs/flutter-apk/app-debug.apk
-adb shell monkey -p com.mastersapp.masters -c android.intent.category.LAUNCHER 1
-```
+Платформенные различия — только через `kIsWeb` и условные импорты
+(`dart.library.*`), как в `web_url.dart` и `main.dart`. `dart:io`/`dart:html`
+в общей логике запрещены.
 
----
+## 2. Данные
 
-## 21. Текущие артефакты
+Все суммы — целые в минимальных единицах, `double` для денег запрещён.
+`newId()` даёт sortable-идентификатор; на web — два 30-битных числа
+(`1 << 32` в JS даёт `RangeError`).
 
-- Release APK path:
-  `build/app/outputs/flutter-apk/app-release.apk`
-- Phone installed app:
-  - package `com.mastersapp.masters`
-  - version `0.3.12+15`
-  - APK copied to phone `/sdcard/Download/Masters-release.apk`.
-- GitHub:
-  - `origin/main`
-  - latest pushed commits include app, tests, DB and triggers.
-- Текущий test baseline:
-  - `flutter test`: 101/101.
-  - `flutter analyze --no-pub`: 59 issues (info/warning, без ошибок).
+Мягкое удаление и синхронизация (v7): `updated_at`, `deleted_at`, `device_id`
+во всех таблицах; `delete()` только помечает запись.
 
----
+Ключевые миграции:
 
-## 22. Структура путей (фокус на разработку)
+| v | Что добавлено |
+|---|---|
+| 1–6 | ядро, деньги, склад, бронирования, напоминания, исполнители |
+| 7 | sync-колонки |
+| 8, 11 | аудит: уровень приложения + DB-триггеры |
+| 9–10 | закрытые периоды, регулярные платежи, расчётные периоды |
+| 12–14 | вложения к заказам, фото чека, закреплённые заказы |
+| 15–17 | состояние калькулятора, таймер сессий, сторно (`reverses_id`) |
+| 18 | рецептуры/составы изделий (BOM) |
+| 19 | индексы единого бронирования (appointments + jobs по датам) |
+| 20 | синхронизация между устройствами (meaxis-sync) |
+| 21 | исправление битой кириллицы в уже сохранённых данных |
 
-- `lib/main.dart`: entry + boot
-- `lib/app/app.dart`: app/PIN/biometrics/auto sync
-- `lib/state/masters_store.dart`: central domain/state
-- `lib/data/app_database.dart`: schema versions/migrations/triggers
-- `lib/data/repositories/*`: CRUD
-- `lib/data/models/*`: entity models
-- `lib/features/*`: UI screens
-- `lib/core/*`: auth, backup, pdf, oauth, services
-- `test/*`: automated tests
-- `web/*`: wasm bootstrap and static assets
-- `web_server/*`: local static server and Yandex proxy
-EOF
+Целостность: `integrityIssues()` (`foreign_key_check` + `quick_check`).
+На web `PRAGMA foreign_keys = ON` не выполняется — в wasm это «SQL logic
+error», поэтому целостность проверяет приложение.
 
-## 23. ����������\\n\\n- Web ������ ���� ������� �� Android � �� ��������� �� ����� ���������.\\n- ������� �����: Android-first (�����, ������, ������, ���������/UI ������������, �������� ��������).\\n- ���������/������, ������������ � ����������� �� Android, ����������� �� Web ����� ������������ Android-������.\\n- Web-������ �������� ���������� ������� (SQLite wasm + IndexedDB) � ������������ ��� secondary target ��� preview, �� ����� UX-����������� ���� ������ �����.\\n
+## 3. UI-конвенции (с 0.3.16)
+
+Правило: экран не должен быть «простынёй» полноширинных кнопок. Редкие
+действия уходят в меню, повторяющиеся — в чипы, список — в строки.
+
+Примитивы (`lib/app/ui.dart`):
+
+| Компонент | Назначение |
+|---|---|
+| `AppCard` | карточка-секция; `onTap` ведёт себя как нажатие, но **не** перекрашивает заголовок в акцент (обёртка `CupertinoButton` убрана намеренно) |
+| `ListRow` | строка списка: иконка, подпись, подпись справа, шеврон; есть dense-вариант |
+| `KeyValueRow` | выровненная строка «подпись — значение» для любых сводок |
+| `ChipButton` | пилюля «иконка + подпись» для частых действий |
+| `OverflowMenuButton` | меню редких действий вместо ряда кнопок |
+| `MiniAction` | компактное действие внутри строки |
+| `Pill` | счётчик/статус |
+| `StatTile`, `ProgressBar`, `Hairline`, `SectionLabel`, `IconBadge`, `EmptyState`, `SheetHandle` | вспомогательные |
+
+Склонения русских существительных — только из `lib/core/utils/app_utils.dart`
+(`pluralRu` + `ordersWord`, `itemsWord`, `accountsWord`, `employeesWord`,
+`clientsWord`, `suppliersWord`, `daysWord`, `eventsWord`, `operationsWord`,
+`minutesWord` и др.). Конкатенация числа со словом в экранах запрещена.
+
+Что это дало по экранам: «Сегодня» — сводка карточкой `KeyValueRow`, заказы
+одним списком с `Pill` статуса, действия WhatsApp/SMS чипами; «Деньги» —
+карточка «Сегодня», чипы операций, компактные регулярные платежи; «Итоги» —
+`StatTile` без обрезки подписей и единый барный список срезов; «Команда»,
+«Склад», «Клиенты» — `ListRow` + `OverflowMenuButton`; «Ещё» — вместо
+`CupertinoListTile` те же `ListRow`; «События» — компактные заголовки колонок
+канбана и строка дней недели в календаре.
+
+## 4. Состояние: `MastersStore`
+
+Один `ChangeNotifier` на всё приложение: typed-списки, агрегаты, кэши
+(`_intCache`, `_earnedCache`, `_balanceCache`), инвалидация в
+`notifyListeners()`. Экраны читают стор синхронно, стор вызывает репозитории.
+
+Группы API: клиенты/объекты/заказы (+материалы, сессии, этапы, себестоимость,
+минуты); деньги (счета, смены, транзакции, переводы, сторно, Excel-импорт,
+регулярные платежи, закрытые периоды, прогноз до конца месяца); люди
+(табель, выплаты, начисления за период, ведомость); синхронизация и бэкап
+(`backupData`, `restoreFromBackup`, `mergeFromBackup` →
+`BackupMergeResult { affected, keptLocal, conflicts }`); безопасность
+(`checkDataIntegrity`, guard `ensurePeriodOpen`).
+
+Закрытые смены и периоды не редактируются — только корректировочная запись.
+
+## 5. Синхронизация и бэкап
+
+Три независимых канала:
+
+1. **JSON-бэкап** — `backupData()` снимает все таблицы, `restoreFromBackup()`
+   заменяет транзакционно, `mergeFromBackup()` сливает по `updated_at`.
+2. **Яндекс.Диск** — OAuth (PKCE) + REST, файл `disk:/Masters/
+   masters-backup-latest.json`, общий для web и Android. Секрет в браузер не
+   попадает: его подставляет локальный сервер/прокси из переменной окружения.
+   Регистрация приложения и redirect URI — в `README.md`.
+3. **meaxis-sync** (v20) — собственный сервер, слияние по записям; клиент в
+   `lib/core/sync_client.dart` + `lib/state/sync_service.dart`.
+
+CSV — только ручная выгрузка «для Excel», на синхронизацию не влияет.
+
+## 6. Обновления и безопасность
+
+`lib/core/update_service.dart`: сверяет `version_code`, скачивает APK с
+дозагрузкой по HTTP Range, проверяет SHA-256 (несовпадение — файл удаляется),
+устанавливает через `open_filex`. **Клиент обновляется только по `version_code`**,
+поэтому каждый выпуск обязан поднимать и build-номер.
+
+PIN и биометрия (`app_pin_service.dart`, `app_biometric.dart`), журнал
+действий (`audit_log` + триггеры), защита закрытых периодов.
+
+## 7. Web-специфика
+
+- `databaseFactoryFfiWebNoWebWorker` (без worker — проще отлаживать),
+  `web/sqlite3.wasm` зафиксирован под пакет `sqlite3 3.5.2`.
+  `dart run sqflite_common_ffi_web:setup` вслепую не запускать: он ставит
+  несовместимый wasm.
+- `web_server/server.dart` — статика + SPA-fallback; `api_proxy.dart` —
+  маршруты `/api/oauth/token`, `/api/disk/*`, `/api/upload`, `/api/fetch`.
+- Две вкладки приложения пишут в одну IndexedDB; `single_tab_coordinator*`
+  показывает предупреждение.
+
+## 8. Что дальше
+
+Синхронизация: довести конфликты до UI и вынести обмен токена с мобильных
+сборок на backend. Зарплата: ставки по услугам и снимки начислений (сейчас
+`earnedCents` считает на лету — правка ставки меняет историю). Пилот на 3–5
+реальных бизнесах. Очередь задач — в `docs/specs/_queue.md`.
