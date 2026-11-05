@@ -7,6 +7,7 @@ import '../../core/utils/app_utils.dart';
 import '../../data/models/inventory_composition.dart';
 import '../../data/models/inventory_item.dart';
 import '../../state/masters_store.dart';
+import '../../core/money_format.dart';
 
 /// Редактор состава себестоимости (BOM) товара склада:
 /// компоненты из других позиций склада + ручной труд. В стиле
@@ -113,7 +114,7 @@ class _InventoryCompositionScreenState
 
   int get _totalCents => _rows.fold(0, (sum, row) => sum + row.totalCents);
 
-  String _money(int cents) => '${(cents / 100).toStringAsFixed(0)} ₽';
+  String _money(int cents) => money(cents);
 
   /// Пикер компонентов со склада (кроме самого товара). Если [rowIndex]
   /// задан — заменяет компонент в этой строке и подтягивает его цену.
@@ -219,7 +220,7 @@ class _InventoryCompositionScreenState
     final ok = await showAppConfirm(
       context,
       title: 'Удалить состав?',
-      message: 'Состав стоимости будет удалён, себестоимость станет 0 ₽.',
+      message: 'Состав стоимости будет удалён, себестоимость станет 0 ${moneySymbol}.',
       destructive: true,
       confirmLabel: 'Удалить',
     );
@@ -232,7 +233,7 @@ class _InventoryCompositionScreenState
       await showAppAlert(
         context,
         title: 'Готово',
-        message: 'Состав удалён, себестоимость обновлена: 0 ₽.',
+        message: 'Состав удалён, себестоимость обновлена: 0 ${moneySymbol}.',
       );
       if (!mounted) return;
       Navigator.of(context).pop();
@@ -347,9 +348,9 @@ class _InventoryCompositionScreenState
             controller: row.priceController,
             placeholder: 'Цена',
             keyboardType: const TextInputType.numberWithOptions(decimal: true),
-            prefix: const Padding(
-              padding: EdgeInsets.only(left: 8),
-              child: Text('₽'),
+            prefix: Padding(
+              padding: const EdgeInsets.only(left: 8),
+              child: Text(moneySymbol),
             ),
             suffix: Padding(
               padding: const EdgeInsets.only(right: 8),

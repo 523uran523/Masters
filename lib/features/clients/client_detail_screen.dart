@@ -15,6 +15,7 @@ import '../../data/models/job.dart';
 import '../../state/masters_store.dart';
 import '../jobs/job_detail_screen.dart';
 import '../jobs/job_form_screen.dart';
+import '../../core/money_format.dart';
 
 class ClientDetailScreen extends StatelessWidget {
   const ClientDetailScreen({super.key, required this.clientId});
@@ -43,7 +44,7 @@ class ClientDetailScreen extends StatelessWidget {
           color: context.colors.accent,
           title: job.title,
           line:
-              '${job.status.label} • ${(job.priceCents / 100).toStringAsFixed(0)} ₽',
+              '${job.status.label} • ${money(job.priceCents)}',
           date: job.updatedAt,
           jobStatus: job.status,
         ),
@@ -492,7 +493,7 @@ class ClientDetailScreen extends StatelessWidget {
     await Share.share(text.toString());
   }
 
-  String _money(int cents) => '${(cents / 100).toStringAsFixed(0)} ₽';
+  String _money(int cents) => money(cents);
 
   Future<void> _addReminder(
     BuildContext context,

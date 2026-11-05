@@ -8,6 +8,7 @@ import '../../data/models/job.dart';
 import 'cost_calculator_screen.dart';
 import '../../state/masters_store.dart';
 import '../../state/settings_controller.dart';
+import '../../core/money_format.dart';
 
 class JobFormScreen extends StatefulWidget {
   const JobFormScreen({
@@ -581,7 +582,7 @@ class _JobFormScreenState extends State<JobFormScreen> {
                       suffix: Padding(
                         padding: const EdgeInsets.only(right: 6),
                         child: Text(
-                          '₽',
+                          '${moneySymbol}',
                           style: TextStyle(color: colors.secondaryLabel),
                         ),
                       ),
@@ -609,7 +610,7 @@ class _JobFormScreenState extends State<JobFormScreen> {
                       suffix: Padding(
                         padding: const EdgeInsets.only(right: 6),
                         child: Text(
-                          '₽',
+                          '${moneySymbol}',
                           style: TextStyle(color: colors.secondaryLabel),
                         ),
                       ),

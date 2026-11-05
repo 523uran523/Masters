@@ -56,6 +56,10 @@ class MaterialItem {
     this.quantity = 1,
     this.unit = 'шт',
     this.priceCents = 0,
+    this.itemId,
+    this.kind = 'work',
+    this.costAtOrderCents = 0,
+    this.discountCents = 0,
     required this.createdAt,
   });
 
@@ -64,10 +68,31 @@ class MaterialItem {
   final String name;
   final double quantity;
   final String unit;
+
+  /// Цена продажи строки.
   final int priceCents;
+
+  /// Позиция каталога, из которой пришла строка (`null` — введена вручную).
+  final String? itemId;
+
+  /// work / good.
+  final String kind;
+
+  /// Снимок себестоимости на момент оформления заказа.
+  ///
+  /// Хранится в строке, а не читается из каталога: правка цены товара не
+  /// должна переписывать маржу уже закрытых заказов.
+  final int costAtOrderCents;
+
+  final int discountCents;
+
   final DateTime createdAt;
 
   int get totalCents => (priceCents * quantity).round();
+
+  int get costTotalCents => (costAtOrderCents * quantity).round();
+
+  int get marginCents => totalCents - discountCents - costTotalCents;
 
   MaterialItem copyWith({
     Object? id = _unset,
@@ -76,6 +101,10 @@ class MaterialItem {
     Object? quantity = _unset,
     Object? unit = _unset,
     Object? priceCents = _unset,
+    Object? itemId = _unset,
+    Object? kind = _unset,
+    Object? costAtOrderCents = _unset,
+    Object? discountCents = _unset,
     Object? createdAt = _unset,
   }) {
     return MaterialItem(
@@ -85,6 +114,14 @@ class MaterialItem {
       quantity: quantity == _unset ? this.quantity : quantity as double,
       unit: unit == _unset ? this.unit : unit as String,
       priceCents: priceCents == _unset ? this.priceCents : priceCents as int,
+      itemId: itemId == _unset ? this.itemId : itemId as String?,
+      kind: kind == _unset ? this.kind : kind as String,
+      costAtOrderCents: costAtOrderCents == _unset
+          ? this.costAtOrderCents
+          : costAtOrderCents as int,
+      discountCents: discountCents == _unset
+          ? this.discountCents
+          : discountCents as int,
       createdAt: createdAt == _unset ? this.createdAt : createdAt as DateTime,
     );
   }
@@ -96,6 +133,10 @@ class MaterialItem {
     'quantity': quantity,
     'unit': unit,
     'price_cents': priceCents,
+    'item_id': itemId,
+    'kind': kind,
+    'cost_at_order_cents': costAtOrderCents,
+    'discount_cents': discountCents,
     'created_at': createdAt.millisecondsSinceEpoch,
   };
 
@@ -106,6 +147,10 @@ class MaterialItem {
     quantity: (m['quantity'] as num?)?.toDouble() ?? 1,
     unit: m['unit'] as String? ?? 'шт',
     priceCents: m['price_cents'] as int? ?? 0,
+    itemId: m['item_id'] as String?,
+    kind: m['kind'] as String? ?? 'work',
+    costAtOrderCents: (m['cost_at_order_cents'] as num?)?.toInt() ?? 0,
+    discountCents: (m['discount_cents'] as num?)?.toInt() ?? 0,
     createdAt: DateTime.fromMillisecondsSinceEpoch(
       m['created_at'] as int? ?? 0,
     ),

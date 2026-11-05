@@ -12,6 +12,7 @@ import '../../data/models/supplier.dart';
 import '../../state/masters_store.dart';
 import '../jobs/cost_calculator_screen.dart';
 import 'inventory_composition_screen.dart';
+import '../../core/money_format.dart';
 
 class InventoryScreen extends StatefulWidget {
   const InventoryScreen({super.key});
@@ -191,7 +192,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
     if (qty == null || qty <= 0) return;
     final costStr =
         await _prompt(
-          'Цена за ед. (₽)',
+          'Цена за ед. (${moneySymbol})',
           (item.costCents / 100).toStringAsFixed(0),
         ) ??
         '0';
@@ -549,7 +550,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
     );
   }
 
-  String _money(int cents) => '${(cents / 100).toStringAsFixed(0)} ₽';
+  String _money(int cents) => money(cents);
 
   Future<void> _delete(InventoryItem item) async {
     final ok = await showAppConfirm(
@@ -1442,7 +1443,7 @@ class _ItemEditorSheetState extends State<_ItemEditorSheet> {
                         _SheetField(
                           label: 'Себестоимость',
                           controller: _cost,
-                          suffix: '₽',
+                          suffix: '${moneySymbol}',
                           placeholder: '0',
                           onChanged: () => setState(() {}),
                         ),
@@ -1450,7 +1451,7 @@ class _ItemEditorSheetState extends State<_ItemEditorSheet> {
                         _SheetField(
                           label: 'Цена продажи',
                           controller: _sell,
-                          suffix: '₽',
+                          suffix: '${moneySymbol}',
                           placeholder: '0',
                           onChanged: () => setState(() {}),
                         ),
@@ -1553,7 +1554,7 @@ class _ItemEditorSheetState extends State<_ItemEditorSheet> {
 
   int _marginCents() => _cents(_sell.text) - _cents(_cost.text);
 
-  String _marginLabel() => '${(_marginCents() / 100).toStringAsFixed(0)} ₽';
+  String _marginLabel() => '${money(_marginCents())}';
 
   String _marginPercent() {
     final cost = _cents(_cost.text);

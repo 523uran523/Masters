@@ -14,6 +14,7 @@ import '../../state/masters_store.dart';
 
 import 'package:share_plus/share_plus.dart';
 import 'package:path_provider/path_provider.dart';
+import '../../core/money_format.dart';
 
 class StatsScreen extends StatefulWidget {
   const StatsScreen({super.key});
@@ -865,7 +866,7 @@ class _StatsScreenState extends State<StatsScreen> {
     );
   }
 
-  String _money(int cents) => '${(cents / 100).toStringAsFixed(0)} ₽';
+  String _money(int cents) => money(cents);
 
   String _minutes(List<Job> jobs, MastersStore store) {
     final total = jobs.fold(0, (s, j) => s + store.totalMinutesForJob(j.id));

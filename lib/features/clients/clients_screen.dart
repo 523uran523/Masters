@@ -8,6 +8,7 @@ import '../../state/masters_store.dart';
 import '../../data/models/client.dart';
 import '../../data/models/job.dart';
 import 'client_detail_screen.dart';
+import '../../core/money_format.dart';
 
 class ClientsScreen extends StatefulWidget {
   const ClientsScreen({super.key});
@@ -420,7 +421,7 @@ class _ClientsScreenState extends State<ClientsScreen> {
     );
   }
 
-  String _money(int cents) => '${(cents / 100).toStringAsFixed(0)} ₽';
+  String _money(int cents) => money(cents);
 
   @override
   Widget build(BuildContext context) {

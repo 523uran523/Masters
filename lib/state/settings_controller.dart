@@ -6,6 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:timezone/data/latest.dart' as tzdata;
 
 import '../core/app_pin_service.dart';
+import '../core/money_format.dart';
 import '../core/utils/app_utils.dart';
 import '../core/yandex_oauth.dart';
 
@@ -128,14 +129,20 @@ class SettingsController extends ChangeNotifier {
   static const _updateMirrorEnabledKey = 'update_mirror_enabled';
   static const _updateMirrorUrlKey = 'update_mirror_url';
   static const _updateChannelKey = 'update_channel';
+  static const _currencyCodeKey = 'currency_code';
+  static const _currencySymbolKey = 'currency_symbol';
+  static const _currencyDecimalsKey = 'currency_decimals';
+  static const _moneySeparatorsKey = 'money_separators';
 
   static Future<SettingsController> load() async {
     tzdata.initializeTimeZones();
     final prefs = await SharedPreferences.getInstance();
+    final settings = SettingsController._(prefs);
+    currentMoneyFormat = settings.moneyFormat;
     // Миграция: пароли Яндекс Диска больше не хранятся в приложении.
     await prefs.remove(_legacyYandexLoginKey);
     await prefs.remove(_legacyYandexPasswordKey);
-    return SettingsController._(prefs);
+    return settings;
   }
 
   AppThemeMode get themeMode {
@@ -202,6 +209,65 @@ class SettingsController extends ChangeNotifier {
   String get objectTerm => _prefs.getString(_objectTermKey) ?? 'Объект';
   String get clientTerm => _prefs.getString(_clientTermKey) ?? 'Клиент';
   int get taxRate => _prefs.getInt(_taxRateKey) ?? 0;
+
+  /// Код валюты (`RUB`, `KZT`, `USD`…). Хранится отдельно от знака:
+  /// знак меняется вместе с локалью, а код нужен отчётам и экспорту.
+  String get currencyCode => _prefs.getString(_currencyCodeKey) ?? 'RUB';
+
+  /// Валюты, у которых знак ставится перед суммой.
+  static const _symbolBeforeCurrencies = <String>{'USD', 'EUR', r'$', '€'};
+
+  /// Денежный формат для экранов и документов.
+  ///
+  /// Знак и число знаков после запятой берутся из настроек, разделители —
+  /// из одной строки `money_separators` (`" |,"` — группа и дробь). Так
+  /// пользователь получает `1 200,50 ₽` или `$1,200.50`.
+  MoneyFormat get moneyFormat {
+    final raw = _prefs.getString(_moneySeparatorsKey) ?? '';
+    final parts = raw.split('|');
+    final group = parts.isNotEmpty && parts[0].isNotEmpty ? parts[0] : ' ';
+    final decimal = parts.length > 1 && parts[1].isNotEmpty ? parts[1] : ',';
+    final symbol = _prefs.getString(_currencySymbolKey) ?? '₽';
+    final decimals = _prefs.getInt(_currencyDecimalsKey) ?? 0;
+    return MoneyFormat(
+      symbol: symbol,
+      decimals: decimals.clamp(0, 2),
+      groupSeparator: group,
+      decimalSeparator: decimal,
+      // Рубль и тенге пишутся после суммы, доллар и евро — перед ней.
+      symbolAfter:
+          !_symbolBeforeCurrencies.contains(currencyCode) &&
+          !_symbolBeforeCurrencies.contains(symbol),
+    );
+  }
+
+  /// Сохраняет валюту и разделители.
+  ///
+  /// Пустой [symbol] означает «без знака»: часть пользователей ведёт учёт
+  /// в условных единицах и не хочет видеть чужой символ.
+  Future<void> setCurrency({
+    String? code,
+    String? symbol,
+    int? decimals,
+    String? groupSeparator,
+    String? decimalSeparator,
+  }) async {
+    if (code != null) await _prefs.setString(_currencyCodeKey, code);
+    if (symbol != null) await _prefs.setString(_currencySymbolKey, symbol);
+    if (decimals != null) {
+      await _prefs.setInt(_currencyDecimalsKey, decimals.clamp(0, 2));
+    }
+    if (groupSeparator != null || decimalSeparator != null) {
+      final current = moneyFormat;
+      await _prefs.setString(
+        _moneySeparatorsKey,
+        '${groupSeparator ?? current.groupSeparator}|'
+        '${decimalSeparator ?? current.decimalSeparator}',
+      );
+    }
+    currentMoneyFormat = moneyFormat;
+    notifyListeners();
+  }
 
   /// Список налоговых профилей. При первом чтении лениво инициализируется
   /// пресетами, если профилей ещё нет и старый taxRate не задан.

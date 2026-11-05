@@ -1038,6 +1038,10 @@ class MastersStore extends ChangeNotifier {
     double quantity = 1,
     String unit = 'шт',
     int priceCents = 0,
+    String? itemId,
+    String kind = 'work',
+    int costAtOrderCents = 0,
+    int discountCents = 0,
   }) async {
     final item = MaterialItem(
       id: newId(),
@@ -1046,17 +1050,55 @@ class MastersStore extends ChangeNotifier {
       quantity: quantity,
       unit: unit.trim().isEmpty ? 'шт' : unit.trim(),
       priceCents: priceCents,
+      itemId: itemId,
+      kind: kind,
+      costAtOrderCents: costAtOrderCents,
+      discountCents: discountCents,
       createdAt: DateTime.now(),
     );
     await _materialRepo.save(item);
     _materials = [..._materials, item];
+    _intCache.remove('cost:$jobId');
     notifyListeners();
     return item;
   }
 
+  /// Добавляет в заказ строку из каталога со снимком себестоимости.
+  ///
+  /// Снимок берётся здесь, а не в UI: цена каталога может измениться, пока
+  /// заказ открыт, и маржа не должна «поехать» задним числом.
+  Future<MaterialItem> addCatalogLine({
+    required String jobId,
+    required String itemId,
+    double quantity = 1,
+  }) async {
+    final item = _inventoryItems.firstWhere(
+      (i) => i.id == itemId,
+      orElse: () => throw ArgumentError('Позиция каталога не найдена'),
+    );
+    return addMaterial(
+      jobId: jobId,
+      name: item.name,
+      quantity: quantity,
+      unit: item.unit,
+      priceCents: item.sellPriceCents,
+      itemId: item.id,
+      kind: item.kind == 'service' ? 'work' : 'good',
+      costAtOrderCents: item.costCents,
+    );
+  }
+
   Future<void> deleteMaterial(String id) async {
+    String? jobId;
+    for (final m in _materials) {
+      if (m.id == id) {
+        jobId = m.jobId;
+        break;
+      }
+    }
     await _materialRepo.delete(id);
     _materials = _materials.where((m) => m.id != id).toList();
+    if (jobId != null) _intCache.remove('cost:$jobId');
     notifyListeners();
   }
 
@@ -1523,6 +1565,26 @@ class MastersStore extends ChangeNotifier {
         .fold(0, (s, t) => s + t.amountCents),
   );
 
+  /// Себестоимость заказа по строкам.
+  ///
+  /// `jobs.cost_cents` — ручное число из старых сборок. Как только у заказа
+  /// есть строки с себестоимостью, сумма по строкам точнее: цена каталога
+  /// могла измениться после оформления. Если строк нет — возвращаем ручное
+  /// значение, иначе старые заказы показывали бы нулевую себестоимость.
+  int jobCostCents(String jobId) => _intCache.putIfAbsent('cost:$jobId', () {
+    final job = _jobs.firstWhere(
+      (j) => j.id == jobId,
+      orElse: () => throw ArgumentError('Заказ $jobId не найден'),
+    );
+    final lines = _materials.where((m) => m.jobId == jobId);
+    if (lines.isEmpty) return job.costCents;
+    var total = 0;
+    for (final line in lines) {
+      total += (line.costAtOrderCents * line.quantity).round();
+    }
+    return total;
+  });
+
   int clientDebtCents(String clientId) =>
       _intCache.putIfAbsent('debt:$clientId', () {
         final price = _jobs
@@ -1651,45 +1713,83 @@ class MastersStore extends ChangeNotifier {
           ? price
           : ((item.costCents * prevQty + price * qty) / totalQty).round();
     }
-    final updated = item.copyWith(
-      stockQty: item.stockQty + qty,
-      costCents: costCents,
-      updatedAt: DateTime.now(),
-    );
-    await _inventoryRepo.save(updated);
-    _inventoryItems[idx] = updated;
-    final movement = StockMovement(
-      id: newId(),
+    await adjustStock(
       itemId: itemId,
+      delta: qty,
       type: 'in',
-      qty: qty,
-      note: note?.trim().isEmpty == true ? null : note?.trim(),
-      createdAt: DateTime.now(),
+      note: note,
+      refType: 'manual',
+      unitCostCents: price > 0 ? price : item.costCents,
+      costCentsAfter: costCents,
     );
-    await _stockMovementRepo.save(movement);
-    _stockMovements = [movement, ..._stockMovements];
-    notifyListeners();
   }
 
   Future<void> writeOffStock({
     required String itemId,
     required double qty,
     String? note,
+    String? reason,
   }) async {
+    if (qty <= 0) return;
+    await adjustStock(
+      itemId: itemId,
+      delta: -qty,
+      type: 'writeoff',
+      note: note,
+      reason: reason ?? 'other',
+      refType: 'manual',
+    );
+  }
+
+  /// Единственная точка изменения остатка позиции.
+  ///
+  /// До Э0 остаток правили в четырёх местах (`receiveStock`,
+  /// `writeOffStock`, `createPurchase`, импорт), и каждое обязано было не
+  /// забыть движение склада — забывало. Теперь остаток, движение и
+  /// себестоимость пишутся здесь, а вызывающие передают только причину.
+  ///
+  /// [delta] положительна для прихода, отрицательна для расхода.
+  /// [type] — `in` / `out` / `writeoff` / `adjust`.
+  Future<void> adjustStock({
+    required String itemId,
+    required double delta,
+    required String type,
+    String? note,
+    String? reason,
+    String? refType,
+    String? refId,
+    String? locationId,
+    int? unitCostCents,
+    int? costCentsAfter,
+  }) async {
+    if (delta == 0) return;
     final idx = _inventoryItems.indexWhere((i) => i.id == itemId);
-    if (idx == -1 || qty <= 0) return;
+    if (idx == -1) return;
     final item = _inventoryItems[idx];
-    final newQty = item.stockQty - qty;
-    final updated = item.copyWith(stockQty: newQty, updatedAt: DateTime.now());
-    await _inventoryRepo.save(updated);
+    final now = DateTime.now();
+    // `copyWith` не принимает `null` как «оставить как было» для int:
+    // передаём себестоимость только когда её действительно пересчитали.
+    final updated = costCentsAfter == null
+        ? item.copyWith(stockQty: item.stockQty + delta, updatedAt: now)
+        : item.copyWith(
+            stockQty: item.stockQty + delta,
+            costCents: costCentsAfter,
+            updatedAt: now,
+          );    await _inventoryRepo.save(updated);
     _inventoryItems[idx] = updated;
+
     final movement = StockMovement(
       id: newId(),
       itemId: itemId,
-      type: 'writeoff',
-      qty: qty,
+      type: type,
+      qty: delta.abs(),
       note: note?.trim().isEmpty == true ? null : note?.trim(),
-      createdAt: DateTime.now(),
+      reason: reason,
+      refType: refType,
+      refId: refId,
+      locationId: locationId,
+      unitCostCents: unitCostCents ?? item.costCents,
+      createdAt: now,
     );
     await _stockMovementRepo.save(movement);
     _stockMovements = [movement, ..._stockMovements];
@@ -3449,26 +3549,15 @@ class MastersStore extends ChangeNotifier {
       );
       purchaseLines.add(pl);
       // add stock without changing item cost for existing prices
-      final idx = _inventoryItems.indexWhere((i) => i.id == itemId);
-      if (idx != -1) {
-        final item = _inventoryItems[idx];
-        final updated = item.copyWith(
-          stockQty: item.stockQty + qty,
-          updatedAt: now,
-        );
-        await _inventoryRepo.save(updated);
-        _inventoryItems[idx] = updated;
-        final movement = StockMovement(
-          id: newId(),
-          itemId: itemId,
-          type: 'in',
-          qty: qty,
-          note: note?.trim().isEmpty == true ? 'Закупка' : note?.trim(),
-          createdAt: now,
-        );
-        await _stockMovementRepo.save(movement);
-        _stockMovements = [movement, ..._stockMovements];
-      }
+      await adjustStock(
+        itemId: itemId,
+        delta: qty,
+        type: 'in',
+        note: note?.trim().isEmpty == true ? 'Закупка' : note?.trim(),
+        refType: 'purchase',
+        refId: purchaseId,
+        unitCostCents: price,
+      );
     }
 
     if (purchaseLines.isEmpty)

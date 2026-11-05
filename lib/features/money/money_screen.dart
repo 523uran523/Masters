@@ -16,6 +16,7 @@ import '../../data/models/money_transaction.dart';
 import '../../data/models/recurring_payment.dart';
 import '../../state/masters_store.dart';
 import '../../state/settings_controller.dart';
+import '../../core/money_format.dart';
 
 class MoneyScreen extends StatefulWidget {
   const MoneyScreen({super.key});
@@ -36,7 +37,7 @@ class _MoneyScreenState extends State<MoneyScreen> {
   int _selectedTab = 0; // 0: Операции, 1: Счета, 2: Категории
   bool _taxRadarExpanded = false;
 
-  String _money(int cents) => '${(cents / 100).toStringAsFixed(0)} ₽';
+  String _money(int cents) => money(cents);
 
   Future<String?> _pickAccount() async {
     final store = context.read<MastersStore>();

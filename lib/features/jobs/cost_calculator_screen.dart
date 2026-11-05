@@ -11,6 +11,7 @@ import '../../core/units.dart';
 import '../../data/models/inventory_item.dart';
 import '../../state/masters_store.dart';
 import 'calculator_core.dart';
+import '../../core/money_format.dart';
 
 class CostCalculatorScreen extends StatefulWidget {
   const CostCalculatorScreen({
@@ -321,7 +322,7 @@ class _CostCalculatorScreenState extends State<CostCalculatorScreen> {
     'margin': _marginController.text,
   };
 
-  String _money(int cents) => '${(cents / 100).toStringAsFixed(0)} ₽';
+  String _money(int cents) => money(cents);
 
   void _addResource() {
     setState(
@@ -795,7 +796,7 @@ class _CostCalculatorScreenState extends State<CostCalculatorScreen> {
                       _NumberRow(
                         label: 'Ставка',
                         controller: _laborRateController,
-                        prefix: '₽',
+                        prefix: '${moneySymbol}',
                         suffix: '/ч',
                         onChanged: _markDirty,
                       ),
@@ -815,7 +816,7 @@ class _CostCalculatorScreenState extends State<CostCalculatorScreen> {
                       _NumberRow(
                         label: 'Прочие расходы',
                         controller: _otherController,
-                        prefix: '₽',
+                        prefix: '${moneySymbol}',
                         onChanged: _markDirty,
                       ),
                       const SizedBox(height: 10),
@@ -927,7 +928,7 @@ class _CostCalculatorScreenState extends State<CostCalculatorScreen> {
                   ),
                   prefix: Padding(
                     padding: const EdgeInsets.only(left: 8),
-                    child: Text('₽', style: TextStyle(color: colors.secondaryLabel)),
+                    child: Text('${moneySymbol}', style: TextStyle(color: colors.secondaryLabel)),
                   ),
                   onChanged: (_) => _markDirty(),
                 ),
@@ -1055,7 +1056,7 @@ class _SummaryCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
-    String money(int cents) => '${(cents / 100).toStringAsFixed(0)} ₽';
+    String money(int cents) => '${money(cents)}';
 
     return AppCard(
       padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
@@ -1333,7 +1334,7 @@ class _StockPickerSheetState extends State<_StockPickerSheet> {
                             ),
                           ),
                           trailing: Text(
-                            '${(price / 100).toStringAsFixed(0)} ₽',
+                            '${money(price)}',
                             style: const TextStyle(fontWeight: FontWeight.w600),
                           ),
                           onTap: () =>

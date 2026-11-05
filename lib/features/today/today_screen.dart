@@ -18,6 +18,7 @@ import '../../state/settings_controller.dart';
 import '../jobs/job_detail_screen.dart';
 import '../jobs/job_form_screen.dart';
 import '../stats/stats_screen.dart';
+import '../../core/money_format.dart';
 
 class TodayScreen extends StatefulWidget {
   const TodayScreen({super.key});
@@ -101,9 +102,9 @@ class _TodayScreenState extends State<TodayScreen> {
             CupertinoButton(
               padding: EdgeInsets.zero,
               onPressed: () => _openQuickMoney(context),
-              child: const Text(
-                '₽',
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 20),
+              child: Text(
+                moneySymbol,
+                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 20),
               ),
             ),
           ],
@@ -463,7 +464,7 @@ class _TodayScreenState extends State<TodayScreen> {
   }
 }
 
-String _money(int cents) => '${(cents / 100).toStringAsFixed(0)} ₽';
+String _money(int cents) => money(cents);
 String _hms(int seconds) {
   final h = seconds ~/ 3600;
   final m = (seconds % 3600) ~/ 60;

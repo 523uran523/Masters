@@ -9,6 +9,7 @@ import '../../core/utils/app_utils.dart';
 import '../../data/models/employee.dart';
 import '../../data/models/recurring_payment.dart';
 import '../../state/masters_store.dart';
+import '../../core/money_format.dart';
 
 class EmployeesScreen extends StatefulWidget {
   const EmployeesScreen({super.key});
@@ -20,7 +21,7 @@ class EmployeesScreen extends StatefulWidget {
 class _EmployeesScreenState extends State<EmployeesScreen> {
   bool _busy = false;
   String? _selectedEmployeeId;
-  String _money(int cents) => '${(cents / 100).toStringAsFixed(0)} ₽';
+  String _money(int cents) => money(cents);
 
   Future<String?> _prompt(
     String title,
@@ -71,7 +72,7 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
     if (name == null || name.trim().isEmpty) return;
     final payType = await _pickPayType();
     if (payType == null) return;
-    final rateStr = await _prompt('Ставка (₽/ч или за услугу)', '0') ?? '0';
+    final rateStr = await _prompt('Ставка (${moneySymbol}/ч или за услугу)', '0') ?? '0';
     final percentStr = await _prompt('Процент от выручки', '0') ?? '0';
     final rate = ((double.tryParse(rateStr.replaceAll(',', '.')) ?? 0) * 100)
         .round();
@@ -188,7 +189,7 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
     setState(() => _busy = true);
     try {
       final data = store.payslipDataForEmployee(employee.id, start, end);
-      String money(int cents) => '${(cents / 100).toStringAsFixed(2)} ₽';
+      String money(int cents) => '${money(cents)}';
       final lines = <String>[
         'Сотрудник: ${employee.name}',
         'Период: ${DateFormat('dd.MM.yyyy', 'ru').format(start)} — ${DateFormat('dd.MM.yyyy', 'ru').format(end)}',
@@ -605,7 +606,7 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
                 const SizedBox(height: 10),
                 CupertinoTextField(
                   controller: rateController,
-                  placeholder: 'Ставка (₽)',
+                  placeholder: 'Ставка (${moneySymbol})',
                   keyboardType: const TextInputType.numberWithOptions(
                     decimal: true,
                   ),

@@ -20,6 +20,7 @@ import 'job_form_screen.dart';
 import 'cost_calculator_screen.dart';
 import '../../state/masters_store.dart';
 import '../../state/settings_controller.dart';
+import '../../core/money_format.dart';
 
 class JobDetailScreen extends StatefulWidget {
   const JobDetailScreen({super.key, required this.jobId});
@@ -170,7 +171,7 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
     final qtyStr = await _promptText('Количество', '1');
     final qty = double.tryParse((qtyStr ?? '1').replaceAll(',', '.')) ?? 1;
     final unit = await _promptText('Единица', 'м') ?? 'шт';
-    final priceStr = await _promptText('Цена за единицу (₽)', '0');
+    final priceStr = await _promptText('Цена за единицу (${moneySymbol})', '0');
     final priceCents =
         ((double.tryParse((priceStr ?? '0').replaceAll(',', '.')) ?? 0) * 100)
             .round();
@@ -276,7 +277,7 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
         builder: (dialogContext) => CupertinoAlertDialog(
           title: const Text('Закрыть заказ?'),
           content: Text(
-            'Остаток к оплате: ${(remaining / 100).toStringAsFixed(0)} ₽',
+            'Остаток к оплате: ${money(remaining)}',
           ),
           actions: [
             CupertinoDialogAction(
@@ -315,7 +316,7 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
             context,
             title: 'Неверная сумма',
             message:
-                'Сумма должна быть от 1 до ${(remaining / 100).toStringAsFixed(0)} ₽.',
+                'Сумма должна быть от 1 до ${money(remaining)}.',
           );
           return;
         }
@@ -367,7 +368,7 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
           context,
           title: 'Внимание',
           message:
-              'Заказ закрыт с долгом. Неоплаченный остаток: ${(remaining / 100).toStringAsFixed(0)} ₽.',
+              'Заказ закрыт с долгом. Неоплаченный остаток: ${money(remaining)}.',
         );
       }
     } catch (e) {
@@ -435,7 +436,7 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
       'progress' =>
         'Здравствуйте, ${client.name}! Работа "${job.title}" в процессе.',
       'pay' =>
-        'Здравствуйте, ${client.name}! Осталось оплатить ${(debt / 100).toStringAsFixed(0)} ₽ по заказу "${job.title}".',
+        'Здравствуйте, ${client.name}! Осталось оплатить ${money(debt)} по заказу "${job.title}".',
       'whatsapp' => 'Здравствуйте, ${client.name}! По заказу "${job.title}".',
       'telegram' => 'Здравствуйте, ${client.name}! По заказу "${job.title}".',
       _ => '',
@@ -691,22 +692,22 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
             AppCard(
               child: Column(
                 children: [
-                  _KV('Цена', '${(job.priceCents / 100).toStringAsFixed(0)} ₽'),
+                  _KV('Цена', '${money(job.priceCents)}'),
                   _KV(
                     'Расход (введённый)',
-                    '${(job.costCents / 100).toStringAsFixed(0)} ₽',
+                    '${money(job.costCents)}',
                   ),
                   _KV(
                     'Материалы',
-                    '${(materialTotal / 100).toStringAsFixed(0)} ₽',
+                    '${money(materialTotal)}',
                   ),
                   _KV(
                     'Итого расход',
-                    '${(totalCost / 100).toStringAsFixed(0)} ₽',
+                    '${money(totalCost)}',
                   ),
                   _KV(
                     'Маржа',
-                    '${((job.priceCents - totalCost) / 100).toStringAsFixed(0)} ₽',
+                    '${money((job.priceCents - totalCost))}',
                   ),
                   _KV('Время', formatMinutes(totalMin)),
                   if (job.dueDate != null)
@@ -828,7 +829,7 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
                           ),
                           const SizedBox(width: 8),
                           Text(
-                            '${(m.totalCents / 100).toStringAsFixed(0)} ₽',
+                            '${money(m.totalCents)}',
                             style: const TextStyle(fontWeight: FontWeight.w600),
                           ),
                           CupertinoButton(
@@ -899,7 +900,7 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
                         if (settings.hourRateCents > 0) ...[
                           const SizedBox(width: 8),
                           Text(
-                            '≈ ${((todaySeconds * settings.hourRateCents) / (3600 * 100)).toStringAsFixed(0)} ₽',
+                            '≈ ${money(((todaySeconds * settings.hourRateCents) / 3600).round())}',
                             style: TextStyle(
                               color: colors.accent,
                               fontWeight: FontWeight.w600,
@@ -957,11 +958,11 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
                   children: [
                     _KV(
                       'Оплачено',
-                      '${(store.paidForJob(job.id) / 100).toStringAsFixed(0)} ₽',
+                      '${money(store.paidForJob(job.id))}',
                     ),
                     _KV(
                       'Остаток',
-                      '${((job.priceCents - store.paidForJob(job.id)) / 100).toStringAsFixed(0)} ₽',
+                      '${money((job.priceCents - store.paidForJob(job.id)))}',
                     ),
                     SecondaryButton(
                       label: 'Принять оплату',

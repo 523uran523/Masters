@@ -11,6 +11,7 @@ import 'job_constants.dart';
 import '../../state/masters_store.dart';
 import '../../state/settings_controller.dart';
 import 'job_detail_screen.dart';
+import '../../core/money_format.dart';
 
 class JobsScreen extends StatefulWidget {
   const JobsScreen({super.key});
@@ -1283,7 +1284,7 @@ class _JobCard extends StatelessWidget {
             Padding(
               padding: const EdgeInsets.only(top: 4),
               child: Text(
-                '${(job.priceCents / 100).toStringAsFixed(0)} ₽',
+                '${money(job.priceCents)}',
                 style: TextStyle(
                   color: colors.accent,
                   fontSize: 12,

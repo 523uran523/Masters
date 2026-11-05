@@ -2,6 +2,7 @@ import 'package:flutter/cupertino.dart';
 
 import 'theme/app_theme.dart';
 import 'ui.dart';
+import '../core/money_format.dart';
 
 /// Компактный индикатор расхода годового лимита НПД (2.4М ₽ по умолчанию).
 class TaxRadarBar extends StatelessWidget {
@@ -28,7 +29,7 @@ class TaxRadarBar extends StatelessWidget {
     return colors.green;
   }
 
-  String _money(int cents) => '${(cents / 100).toStringAsFixed(0)} ₽';
+  String _money(int cents) => money(cents);
 
   @override
   Widget build(BuildContext context) {
@@ -41,7 +42,7 @@ class TaxRadarBar extends StatelessWidget {
 
     final warningText = pct >= 95
         ? 'Лимит НПД почти исчерпан. Измените налоговую схему.'
-        : (pct >= 80 ? 'Приближение к лимиту НПД (2.4М ₽/год).' : null);
+        : (pct >= 80 ? 'Приближение к лимиту НПД (2.4М ${moneySymbol}/год).' : null);
 
     if (compact) {
       return Column(
@@ -112,7 +113,7 @@ class TaxRadarBar extends StatelessWidget {
         ProgressBar(value: progress, color: barColor, height: 8),
         const SizedBox(height: 6),
         Text(
-          '${_money(incomeCents)} из ${_money(limitCents)} ₽',
+          '${_money(incomeCents)} из ${_money(limitCents)}',
           style: TextStyle(color: colors.secondaryLabel, fontSize: 12),
         ),
         Text(

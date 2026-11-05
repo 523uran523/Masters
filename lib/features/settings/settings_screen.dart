@@ -13,6 +13,7 @@ import '../../state/masters_store.dart';
 import '../../state/settings_controller.dart';
 import '../jobs/job_constants.dart';
 import 'sync_card.dart';
+import '../../core/money_format.dart';
 
 /// Настройки разложены по шести группам: каждая группа — отдельная
 /// подвкладка, поэтому экран не превращается в простыню на 2000 строк.
@@ -283,7 +284,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               const SizedBox(height: 12),
               KeyValueRow(
                 'Ставка за час',
-                '${(settings.hourRateCents / 100).toStringAsFixed(0)} ₽',
+                '${money(settings.hourRateCents)}',
                 emphasis: true,
                 onTap: _editHourRate,
               ),
@@ -332,7 +333,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Future<void> _editHourRate() async {
     final settings = context.read<SettingsController>();
     final v = await _promptValue(
-      'Ставка за час, ₽',
+      'Ставка за час, ${moneySymbol}',
       settings.hourRateCents.toString(),
       numeric: true,
     );
@@ -523,7 +524,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               KeyValueRow(
-                'Учитывать лимит 2,4 млн ₽/год',
+                'Учитывать лимит 2,4 млн ${moneySymbol}/год',
                 settings.taxRadarEnabled ? 'вкл' : 'выкл',
                 onTap: () async {
                   await settings.setTaxRadarEnabled(!settings.taxRadarEnabled);
@@ -532,10 +533,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ),
               KeyValueRow(
                 'Лимит дохода',
-                '${(settings.taxIncomeLimitCents / 100).toStringAsFixed(0)} ₽',
+                '${money(settings.taxIncomeLimitCents)}',
                 onTap: () async {
                   final v = await _promptValue(
-                    'Лимит дохода, ₽',
+                    'Лимит дохода, ${moneySymbol}',
                     settings.taxIncomeLimitCents.toString(),
                     numeric: true,
                   );

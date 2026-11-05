@@ -8,6 +8,7 @@ import 'package:pdf/widgets.dart' as pw;
 import 'utils/app_utils.dart';
 import '../data/models/job.dart';
 import '../state/masters_store.dart';
+import '../core/money_format.dart';
 
 class DocumentService {
   static Future<Uint8List> buildJobPdf({
@@ -110,7 +111,7 @@ class DocumentService {
                     ),
                   ),
                   pw.Text(
-                    '${(job.priceCents / 100).toStringAsFixed(2)} ₽',
+                    '${money(job.priceCents)}',
                     style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
                   ),
                 ],
@@ -118,14 +119,14 @@ class DocumentService {
               pw.Row(
                 children: [
                   pw.Expanded(child: pw.Text('Уже оплачено')),
-                  pw.Text('${(paid / 100).toStringAsFixed(2)} ₽'),
+                  pw.Text('${money(paid)}'),
                 ],
               ),
               pw.Row(
                 children: [
                   pw.Expanded(child: pw.Text('Остаток')),
                   pw.Text(
-                    '${((job.priceCents - paid) / 100).toStringAsFixed(2)} ₽',
+                    '${money((job.priceCents - paid))}',
                   ),
                 ],
               ),
@@ -257,12 +258,12 @@ class DocumentService {
               pw.TableHelper.fromTextArray(
                 headers: const ['Показатель', 'Значение'],
                 data: [
-                  ['Выручка', '${money(revenue)} ₽'],
-                  ['Расходы', '${money(expense)} ₽'],
-                  ['Прибыль', '${money(profit)} ₽'],
-                  ['Выручка заказов', '${money(jobRevenue)} ₽'],
-                  ['Расход заказов', '${money(jobCost)} ₽'],
-                  ['Маржа заказов', '${money(jobMargin)} ₽'],
+                  ['Выручка', '${money(revenue)}'],
+                  ['Расходы', '${money(expense)}'],
+                  ['Прибыль', '${money(profit)}'],
+                  ['Выручка заказов', '${money(jobRevenue)}'],
+                  ['Расход заказов', '${money(jobCost)}'],
+                  ['Маржа заказов', '${money(jobMargin)}'],
                   ['Завершённых заказов', completedCount.toString()],
                 ],
                 cellStyle: const pw.TextStyle(fontSize: 10),
@@ -283,7 +284,7 @@ class DocumentService {
               pw.TableHelper.fromTextArray(
                 headers: const ['Название', 'Сумма'],
                 data: [
-                  for (final e in incSorted) [e.key, '${money(e.value)} ₽'],
+                  for (final e in incSorted) [e.key, '${money(e.value)}'],
                 ],
                 cellStyle: const pw.TextStyle(fontSize: 9),
                 headerStyle: pw.TextStyle(
@@ -303,7 +304,7 @@ class DocumentService {
               pw.TableHelper.fromTextArray(
                 headers: const ['Название', 'Сумма'],
                 data: [
-                  for (final e in expSorted) [e.key, '${money(e.value)} ₽'],
+                  for (final e in expSorted) [e.key, '${money(e.value)}'],
                 ],
                 cellStyle: const pw.TextStyle(fontSize: 9),
                 headerStyle: pw.TextStyle(
