@@ -8,6 +8,19 @@ import 'package:masters/data/app_database.dart';
 import 'package:masters/state/masters_store.dart';
 import 'package:masters/state/settings_controller.dart';
 
+/// Audit-триггеры строятся по фактическим колонкам таблицы, поэтому перед
+/// `DROP COLUMN` их нужно снять: SQLite не даёт удалить колонку, на которую
+/// ссылается триггер. При обновлении схемы триггеры создаются заново.
+Future<void> _dropTriggersOf(Database db, String table) async {
+  final rows = await db.rawQuery(
+    "SELECT name FROM sqlite_master WHERE type='trigger' AND tbl_name = ?",
+    [table],
+  );
+  for (final row in rows) {
+    await db.execute('DROP TRIGGER IF EXISTS ${row['name']}');
+  }
+}
+
 void main() {
   setUpAll(() {
     TestWidgetsFlutterBinding.ensureInitialized();
@@ -96,6 +109,7 @@ void main() {
       final appDb = await AppDatabase.open(path: inMemoryDatabasePath);
       try {
         final db = appDb.database;
+        await _dropTriggersOf(db, 'jobs');
         await db.execute('ALTER TABLE jobs DROP COLUMN calculator_state');
         await db.execute('PRAGMA user_version = 14');
       } finally {
