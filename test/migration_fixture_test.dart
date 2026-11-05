@@ -1,5 +1,5 @@
 // ignore_for_file: prefer_const_constructors
-// This file generates DB fixtures for schema versions 1..19.
+// This file generates DB fixtures for schema versions 1..21.
 // Run with: flutter test test/migration_fixture_test.dart
 // Generates fixtures in test/fixtures/dbs/
 
@@ -117,7 +117,7 @@ void main() {
     databaseFactory = databaseFactoryFfi;
   });
 
-  group('DB schema fixtures v1..v19', () {
+  group('DB schema fixtures v1..v21', () {
     late String fixturesDir;
 
     setUp(() async {
@@ -128,8 +128,8 @@ void main() {
       }
     });
 
-    // Generate fixtures for versions 1..19
-    for (int v = 1; v <= 19; v++) {
+    // Generate fixtures for versions 1..21
+    for (int v = 1; v <= 21; v++) {
       test('generates fixture v$v.db', () async {
         final dbPath = p.join(fixturesDir, 'v$v.db');
         final file = File(dbPath);

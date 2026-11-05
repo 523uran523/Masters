@@ -83,7 +83,7 @@ class AppDatabase {
 
     final database = await openDatabase(
       resolved,
-      version: 21,
+      version: 22,
       onConfigure: (db) async {
         if (!kIsWeb) await db.execute('PRAGMA foreign_keys = ON');
       },
@@ -219,8 +219,144 @@ class AppDatabase {
     await _createPayrollPeriodSchema(db);
     await _ensureSyncColumns(db);
     await _createAttachmentSchema(db);
+    await _ensureFoundationColumns(db);
+    await _createFoundationSchema(db);
     await _createAuditTriggers(db);
     await _createSyncSchema(db);
+  }
+
+  /// Колонки v22 «фундамента» (Э0).
+  ///
+  /// Одна и та же функция вызывается из `onCreate` и из миграции, поэтому
+  /// новая установка и обновление не могут разойтись по набору колонок.
+  /// `ALTER ... ADD COLUMN` в `try/catch` — шаг идемпотентен по природе.
+  static Future<void> _ensureFoundationColumns(Database db) async {
+    Future<void> add(String table, String column, String definition) async {
+      try {
+        await db.execute('ALTER TABLE $table ADD COLUMN $column $definition');
+      } catch (_) {
+        // Колонка уже есть (повторный проход) или таблицы нет.
+      }
+    }
+
+    // Строки заказа: ссылка на каталог и снимок себестоимости.
+    await add(
+      'materials',
+      'item_id',
+      'TEXT REFERENCES inventory_items(id) ON DELETE SET NULL',
+    );
+    await add('materials', 'kind', "TEXT NOT NULL DEFAULT 'work'");
+    await add('materials', 'cost_at_order_cents', 'INTEGER NOT NULL DEFAULT 0');
+    await add('materials', 'discount_cents', 'INTEGER NOT NULL DEFAULT 0');
+    // Движения склада: причина и ссылка на документ.
+    await add('stock_movements', 'reason', 'TEXT');
+    await add('stock_movements', 'ref_type', 'TEXT');
+    await add('stock_movements', 'ref_id', 'TEXT');
+    await add('stock_movements', 'location_id', 'TEXT');
+    await add('stock_movements', 'unit_cost_cents', 'INTEGER NOT NULL DEFAULT 0');
+    // Оплата обязательства — единая точка обновления paid_cents/status.
+    await add('money_transactions', 'obligation_id', 'TEXT');
+    // Задел на Э5/Э6: гарантия и плановая длительность операции.
+    await add('inventory_items', 'warranty_days', 'INTEGER NOT NULL DEFAULT 0');
+    await add('job_stages', 'lead_hours', 'REAL');
+    await add('jobs', 'delivered_at', 'INTEGER');
+
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_materials_item ON materials(item_id)',
+    );
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_stock_moves_ref '
+      'ON stock_movements(ref_type, ref_id)',
+    );
+  }
+
+  /// Новые таблицы v22: обязательства, деньги клиента, атрибуты сущностей.
+  ///
+  /// `IF NOT EXISTS` держит шаг идемпотентным; индексы создаются отдельно,
+  /// потому что частичный уникальный индекс по атрибутам — не часть DDL
+  /// таблицы.
+  static Future<void> _createFoundationSchema(Database db) async {
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS obligations (
+        id TEXT PRIMARY KEY,
+        direction TEXT NOT NULL,          -- receivable / payable
+        kind TEXT NOT NULL,               -- client_payment / supplier_bill / tax / salary / rent / loan / other
+        counterparty_type TEXT,           -- client / supplier / employee / none
+        counterparty_id TEXT,
+        job_id TEXT REFERENCES jobs(id) ON DELETE SET NULL,
+        title TEXT NOT NULL,
+        amount_cents INTEGER NOT NULL,
+        paid_cents INTEGER NOT NULL DEFAULT 0,
+        due_at INTEGER NOT NULL,
+        status TEXT NOT NULL DEFAULT 'planned',
+        account_id TEXT REFERENCES accounts(id) ON DELETE SET NULL,
+        note TEXT,
+        created_at INTEGER NOT NULL,
+        updated_at INTEGER NOT NULL,
+        deleted_at INTEGER,
+        device_id TEXT
+      )
+    ''');
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_oblig_due ON obligations(due_at) '
+      'WHERE deleted_at IS NULL',
+    );
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_oblig_job ON obligations(job_id)',
+    );
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_oblig_counterparty '
+      'ON obligations(counterparty_type, counterparty_id)',
+    );
+
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS client_credits (
+        id TEXT PRIMARY KEY,
+        client_id TEXT NOT NULL REFERENCES clients(id) ON DELETE CASCADE,
+        kind TEXT NOT NULL,               -- deposit / pass / certificate / rental_deposit
+        title TEXT NOT NULL,
+        amount_cents INTEGER NOT NULL,
+        remaining_cents INTEGER NOT NULL,
+        units_total INTEGER,
+        units_left INTEGER,
+        expires_at INTEGER,
+        status TEXT NOT NULL DEFAULT 'active',
+        note TEXT,
+        created_at INTEGER NOT NULL,
+        updated_at INTEGER NOT NULL,
+        deleted_at INTEGER,
+        device_id TEXT
+      )
+    ''');
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_credits_client '
+      'ON client_credits(client_id, status)',
+    );
+
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS entity_attributes (
+        id TEXT PRIMARY KEY,
+        entity_type TEXT NOT NULL,        -- item / job / client
+        entity_id TEXT NOT NULL,
+        key TEXT NOT NULL,
+        value_text TEXT,
+        value_num REAL,
+        sort_order REAL NOT NULL DEFAULT 0,
+        created_at INTEGER NOT NULL,
+        updated_at INTEGER NOT NULL,
+        deleted_at INTEGER,
+        device_id TEXT
+      )
+    ''');
+    await db.execute(
+      'CREATE UNIQUE INDEX IF NOT EXISTS idx_attr_unique '
+      'ON entity_attributes(entity_type, entity_id, key) '
+      'WHERE deleted_at IS NULL',
+    );
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_attr_entity '
+      'ON entity_attributes(entity_type, entity_id)',
+    );
   }
 
   static Future<void> _createAuditLogSchema(Database db) async {
@@ -839,6 +975,317 @@ class AppDatabase {
       // но строки остаются в БД — лечим их один раз здесь.
       await repairStoredMojibake(db);
     }
+    if (oldVersion < 22 && newVersion >= 22) {
+      // v22 «фундамент»: только аддитивные изменения — новые колонки,
+      // новые таблицы, индексы и разовый бэкфилл. Порядок шагов важен:
+      // бэкфилл пишет в obligations, триггеры читают колонки таблиц.
+      await _ensureFoundationColumns(db);
+      await _createFoundationSchema(db);
+      await _backfillFoundation(db);
+      await _createAuditTriggers(db);
+      await _createSyncTriggers(db);
+      // Ссылочная целостность после аддитивной миграции обязана остаться
+      // прежней. Если нет — бросаем: sqflite откатит транзакцию апгрейда,
+      // и пользователь увидит предложение восстановить резервную копию.
+      final violations = await db.rawQuery('PRAGMA foreign_key_check');
+      if (violations.isNotEmpty) {
+        final sample = violations.first;
+        throw StateError(
+          'v22: foreign_key_check нашёл нарушения '
+          '(${sample['table']}.rowid=${sample['rowid']} -> '
+          '${sample['parent']}). Миграция отменена, восстановите копию.',
+        );
+      }
+    }
+  }
+
+  /// Сколько строк обрабатывает один пакет бэкфилла v22.
+  ///
+  /// Бэкфилл идёт внутри транзакции апгрейда: пакеты нужны не ради
+  /// атомарности (её даёт сама миграция), а чтобы не держать в памяти
+  /// всю таблицу на большой базе.
+  static const int _backfillBatchSize = 200;
+
+  /// Разовый бэкфилл v22: долги из истории и себестоимость движений склада.
+  ///
+  /// Идемпотентен: обязательства получают детерминированный id
+  /// (`obl_mig_*`), поэтому повторный проход ничего не дублирует.
+  static Future<void> _backfillFoundation(Database db) async {
+    await _backfillPurchaseObligations(db);
+    await _backfillJobObligations(db);
+    await _backfillStockMovementCosts(db);
+  }
+
+  /// Закупки с недоплатой → `obligations(payable, supplier_bill)`.
+  ///
+  /// Сумма оплаты берётся из кассовых операций `purchase_payment`: в схеме
+  /// у закупки нет собственного поля «оплачено».
+  static Future<void> _backfillPurchaseObligations(Database db) async {
+    final columns = await _tableColumns(db, 'purchases');
+    if (columns.isEmpty) return;
+    final voidedFilter = await _hasColumn(db, 'money_transactions', 'voided')
+        ? 'AND t.voided = 0'
+        : '';
+    final alive = columns.contains('deleted_at')
+        ? 'AND p.deleted_at IS NULL'
+        : '';
+
+    var lastId = '';
+    var batch = 0;
+    while (true) {
+      final rows = await db.rawQuery('''
+        SELECT p.id AS id,
+               p.supplier_id AS supplier_id,
+               p.total_cents AS total_cents,
+               p.created_at AS created_at,
+               COALESCE((
+                 SELECT SUM(t.amount_cents) FROM money_transactions t
+                 WHERE t.kind = 'purchase_payment'
+                   AND t.related_transaction_id = p.id
+                   $voidedFilter
+               ), 0) AS paid_cents
+        FROM purchases p
+        WHERE p.id > ? $alive
+        ORDER BY p.id
+        LIMIT ?
+      ''', [lastId, _backfillBatchSize]);
+      if (rows.isEmpty) break;
+
+      var inserted = 0;
+      for (final row in rows) {
+        lastId = row['id'] as String;
+        final total = (row['total_cents'] as num?)?.toInt() ?? 0;
+        final paid = (row['paid_cents'] as num?)?.toInt() ?? 0;
+        if (total <= 0 || paid >= total) continue;
+        final created = (row['created_at'] as num?)?.toInt() ??
+            DateTime.now().millisecondsSinceEpoch;
+        final supplierId = row['supplier_id'] as String?;
+        inserted += await _insertBackfillObligation(
+          db,
+          id: 'obl_mig_purchase_$lastId',
+          direction: 'payable',
+          kind: 'supplier_bill',
+          counterpartyType: supplierId == null ? 'none' : 'supplier',
+          counterpartyId: supplierId,
+          title: await _supplierBillTitle(db, supplierId),
+          amountCents: total,
+          paidCents: paid,
+          dueAt: created,
+          createdAt: created,
+        );
+      }
+
+      await _logBackfillBatch(db, table: 'purchases', batch: batch++, count: inserted);
+      if (rows.length < _backfillBatchSize) break;
+    }
+  }
+
+  /// Заказы с недоплатой → `obligations(receivable, client_payment)`.
+  static Future<void> _backfillJobObligations(Database db) async {
+    final columns = await _tableColumns(db, 'jobs');
+    if (columns.isEmpty) return;
+    final voidedFilter = await _hasColumn(db, 'money_transactions', 'voided')
+        ? 'AND t.voided = 0'
+        : '';
+    final alive = columns.contains('deleted_at')
+        ? 'AND j.deleted_at IS NULL'
+        : '';
+    final dueAt = columns.contains('due_date')
+        ? 'COALESCE(j.due_date, j.created_at)'
+        : 'j.created_at';
+
+    var lastId = '';
+    var batch = 0;
+    while (true) {
+      final rows = await db.rawQuery('''
+        SELECT j.id AS id,
+               j.client_id AS client_id,
+               j.title AS title,
+               j.price_cents AS price_cents,
+               $dueAt AS due_at,
+               j.created_at AS created_at,
+               COALESCE((
+                 SELECT SUM(t.amount_cents) FROM money_transactions t
+                 WHERE t.direction = 'in' AND t.job_id = j.id $voidedFilter
+               ), 0) AS paid_cents
+        FROM jobs j
+        WHERE j.id > ? $alive
+        ORDER BY j.id
+        LIMIT ?
+      ''', [lastId, _backfillBatchSize]);
+      if (rows.isEmpty) break;
+
+      var inserted = 0;
+      for (final row in rows) {
+        lastId = row['id'] as String;
+        final price = (row['price_cents'] as num?)?.toInt() ?? 0;
+        final paid = (row['paid_cents'] as num?)?.toInt() ?? 0;
+        if (price <= 0 || paid >= price) continue;
+        final created = (row['created_at'] as num?)?.toInt() ??
+            DateTime.now().millisecondsSinceEpoch;
+        final due = (row['due_at'] as num?)?.toInt() ?? created;
+        inserted += await _insertBackfillObligation(
+          db,
+          id: 'obl_mig_job_$lastId',
+          direction: 'receivable',
+          kind: 'client_payment',
+          counterpartyType: 'client',
+          counterpartyId: row['client_id'] as String?,
+          title: (row['title'] as String?)?.trim().isNotEmpty == true
+              ? row['title'] as String
+              : 'Оплата заказа',
+          amountCents: price,
+          paidCents: paid,
+          dueAt: due,
+          createdAt: created,
+          jobId: lastId,
+        );
+      }
+
+      await _logBackfillBatch(db, table: 'jobs', batch: batch++, count: inserted);
+      if (rows.length < _backfillBatchSize) break;
+    }
+  }
+
+  /// Себестоимость движений склада задним числом.
+  ///
+  /// Точная цена на момент движения не сохранялась, поэтому берём текущую
+  /// `cost_cents` позиции: для оценки потерь этого достаточно, а нули
+  /// оставлять нельзя — иначе отчёт по списаниям покажет нулевую стоимость.
+  static Future<void> _backfillStockMovementCosts(Database db) async {
+    if ((await _tableColumns(db, 'stock_movements')).isEmpty) return;
+    if (!await _hasColumn(db, 'inventory_items', 'cost_cents')) return;
+
+    var lastId = '';
+    var batch = 0;
+    while (true) {
+      final rows = await db.rawQuery(
+        'SELECT id FROM stock_movements '
+        'WHERE unit_cost_cents = 0 AND id > ? '
+        'ORDER BY id LIMIT ?',
+        [lastId, _backfillBatchSize],
+      );
+      if (rows.isEmpty) break;
+
+      var updated = 0;
+      for (final row in rows) {
+        lastId = row['id'] as String;
+        updated += await db.rawUpdate('''
+          UPDATE stock_movements
+          SET unit_cost_cents = COALESCE((
+            SELECT i.cost_cents FROM inventory_items i
+            WHERE i.id = stock_movements.item_id
+          ), 0)
+          WHERE id = ?
+        ''', [lastId]);
+      }
+
+      await _logBackfillBatch(
+        db,
+        table: 'stock_movements',
+        batch: batch++,
+        count: updated,
+      );
+      if (rows.length < _backfillBatchSize) break;
+    }
+  }
+
+  /// Вставка бэкфилл-обязательства. Возвращает 1, если строка появилась.
+  ///
+  /// `OR IGNORE` по первичному ключу и есть идемпотентность: id выводится
+  /// из id заказа/закупки, поэтому второй проход не создаёт дубль.
+  static Future<int> _insertBackfillObligation(
+    Database db, {
+    required String id,
+    required String direction,
+    required String kind,
+    required String counterpartyType,
+    required String? counterpartyId,
+    required String title,
+    required int amountCents,
+    required int paidCents,
+    required int dueAt,
+    required int createdAt,
+    String? jobId,
+  }) async {
+    return db.rawInsert(
+      '''
+      INSERT OR IGNORE INTO obligations (
+        id, direction, kind, counterparty_type, counterparty_id, job_id,
+        title, amount_cents, paid_cents, due_at, status, created_at,
+        updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ''',
+      [
+        id,
+        direction,
+        kind,
+        counterpartyType,
+        counterpartyId,
+        jobId,
+        title,
+        amountCents,
+        paidCents,
+        dueAt,
+        paidCents > 0 ? 'partial' : 'planned',
+        createdAt,
+        createdAt,
+      ],
+    );
+  }
+
+  static Future<String> _supplierBillTitle(
+    Database db,
+    String? supplierId,
+  ) async {
+    const fallback = 'Долг поставщику';
+    if (supplierId == null) return fallback;
+    if ((await _tableColumns(db, 'suppliers')).isEmpty) return fallback;
+    final rows = await db.query(
+      'suppliers',
+      columns: ['name'],
+      where: 'id = ?',
+      whereArgs: [supplierId],
+      limit: 1,
+    );
+    final name = rows.isEmpty ? null : rows.first['name'] as String?;
+    if (name == null || name.trim().isEmpty) return fallback;
+    return 'Долг поставщику: ${name.trim()}';
+  }
+
+  /// Отметка о пакете бэкфилла в журнале: видно, что данные дописаны
+  /// миграцией, а не пользователем.
+  static Future<void> _logBackfillBatch(
+    Database db, {
+    required String table,
+    required int batch,
+    required int count,
+  }) async {
+    if (count <= 0) return;
+    if ((await _tableColumns(db, 'audit_log')).isEmpty) return;
+    await db.insert('audit_log', {
+      'id': newId(),
+      'actor': 'migration',
+      'action': 'backup.migrate',
+      'entity': table,
+      'entity_id': 'v22',
+      'after_json': jsonEncode({'batch': batch, 'rows': count}),
+      'at': DateTime.now().millisecondsSinceEpoch,
+    });
+  }
+
+  static Future<Set<String>> _tableColumns(Database db, String table) async {
+    final rows = await db.rawQuery('PRAGMA table_info($table)');
+    return rows.map((row) => row['name'] as String).toSet();
+  }
+
+  static Future<bool> _hasColumn(
+    Database db,
+    String table,
+    String column,
+  ) async {
+    final columns = await _tableColumns(db, table);
+    return columns.contains(column);
   }
 
   /// Текстовые колонки, где живут пользовательские строки на русском.

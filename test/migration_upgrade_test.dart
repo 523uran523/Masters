@@ -16,7 +16,7 @@ void main() {
     databaseFactory = databaseFactoryFfi;
   });
 
-  group('Migration upgrade regression v1..v21', () {
+  group('Migration upgrade regression v1..v22', () {
     late String fixturesDir;
     late Directory tempDir;
 
@@ -32,7 +32,7 @@ void main() {
     });
 
     for (int v = 1; v <= 19; v++) {
-      test('upgrades v$v fixture to v21', () async {
+      test('upgrades v$v fixture to v22', () async {
         final fixturePath = p.join(fixturesDir, 'v$v.db');
         final fixtureFile = File(fixturePath);
         expect(
@@ -50,7 +50,7 @@ void main() {
         try {
           db = await openDatabase(
             tempPath,
-            version: 21,
+            version: 22,
             onConfigure: (database) async {
               await database.execute('PRAGMA foreign_keys = ON');
             },
@@ -61,8 +61,8 @@ void main() {
 
           expect(
             (await db.rawQuery('PRAGMA user_version')).first.values.first,
-            21,
-            reason: 'v$v -> v21: user_version should be 21',
+            22,
+            reason: 'v$v -> v22: user_version should be 22',
           );
 
           final tables = (await db.rawQuery(
@@ -78,7 +78,7 @@ void main() {
             expect(
               tables.contains(table),
               isTrue,
-              reason: 'v$v -> v21: missing $table',
+              reason: 'v$v -> v22: missing $table',
             );
           }
 
@@ -88,12 +88,12 @@ void main() {
           expect(
             jobCols.contains('pinned'),
             isTrue,
-            reason: 'v$v -> v21: missing jobs.pinned',
+            reason: 'v$v -> v22: missing jobs.pinned',
           );
           expect(
             jobCols.contains('calculator_state'),
             isTrue,
-            reason: 'v$v -> v21: missing jobs.calculator_state',
+            reason: 'v$v -> v22: missing jobs.calculator_state',
           );
 
           final txCols = (await db.rawQuery(
@@ -102,13 +102,13 @@ void main() {
           expect(
             txCols.contains('reverses_id'),
             isTrue,
-            reason: 'v$v -> v21: missing money_transactions.reverses_id',
+            reason: 'v$v -> v22: missing money_transactions.reverses_id',
           );
 
           expect(
             tables.contains('sync_outbox'),
             isTrue,
-            reason: 'v$v -> v21: missing sync_outbox',
+            reason: 'v$v -> v22: missing sync_outbox',
           );
           final triggers = (await db.rawQuery(
             "SELECT name FROM sqlite_master WHERE type='trigger'",
@@ -119,7 +119,7 @@ void main() {
               expect(
                 triggers.contains(name),
                 isTrue,
-                reason: 'v$v -> v21: missing $name',
+                reason: 'v$v -> v22: missing $name',
               );
             }
           }
@@ -130,12 +130,12 @@ void main() {
           expect(
             indexes.contains('idx_appts_start'),
             isTrue,
-            reason: 'v$v -> v21: missing idx_appts_start',
+            reason: 'v$v -> v22: missing idx_appts_start',
           );
           expect(
             indexes.contains('idx_jobs_due'),
             isTrue,
-            reason: 'v$v -> v21: missing idx_jobs_due',
+            reason: 'v$v -> v22: missing idx_jobs_due',
           );
 
           final integrity = (await db.rawQuery('PRAGMA integrity_check'))
@@ -146,14 +146,14 @@ void main() {
           expect(
             integrity.toLowerCase(),
             'ok',
-            reason: 'v$v -> v21: integrity_check failed',
+            reason: 'v$v -> v22: integrity_check failed',
           );
 
           final fkViolations = await db.rawQuery('PRAGMA foreign_key_check');
           expect(
             fkViolations,
             isEmpty,
-            reason: 'v$v -> v21: foreign_key_check has violations',
+            reason: 'v$v -> v22: foreign_key_check has violations',
           );
         } finally {
           try {
