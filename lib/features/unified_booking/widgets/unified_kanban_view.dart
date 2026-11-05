@@ -299,6 +299,7 @@ class _UnifiedKanbanCard extends StatelessWidget {
 
   Widget _cardBody(AppColors colors, String subLine) {
     final color = event.isJob ? colors.orange : colors.accent;
+    final isDone = event.kanbanKey == 'done';
     return AppCard(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       child: Row(
@@ -318,7 +319,11 @@ class _UnifiedKanbanCard extends StatelessWidget {
               children: [
                 Text(
                   event.title,
-                  style: const TextStyle(fontWeight: FontWeight.w600),
+                  // В колонке «Готово» название перечёркнуто.
+                  style: TextStyle(
+                    fontWeight: FontWeight.w600,
+                    decoration: isDone ? TextDecoration.lineThrough : null,
+                  ),
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                 ),

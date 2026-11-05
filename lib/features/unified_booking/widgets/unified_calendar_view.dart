@@ -188,9 +188,7 @@ class _UnifiedCalendarViewState extends State<UnifiedCalendarView> {
                   decoration: BoxDecoration(
                     color: isSelected
                         ? colors.tint(colors.accent, 0.14)
-                        : (isToday
-                              ? colors.tint(colors.accent, 0.07)
-                              : null),
+                        : (isToday ? colors.tint(colors.accent, 0.07) : null),
                     borderRadius: BorderRadius.circular(8),
                     border: Border.all(
                       color: isSelected ? colors.accent : colors.separator,
@@ -212,9 +210,7 @@ class _UnifiedCalendarViewState extends State<UnifiedCalendarView> {
                                     ? colors.secondaryLabel
                                     : colors.label),
                           fontSize: 12,
-                          fontFeatures: const [
-                            FontFeature.tabularFigures(),
-                          ],
+                          fontFeatures: const [FontFeature.tabularFigures()],
                         ),
                       ),
                       if (hasAppts || hasJobs)
@@ -323,15 +319,7 @@ class _UnifiedCalendarViewState extends State<UnifiedCalendarView> {
 
 /// Сокращённые названия дней недели, начиная с понедельника
 /// (в русском календаре неделя начинается с понедельника).
-const List<String> kWeekdayShort = [
-  'пн',
-  'вт',
-  'ср',
-  'чт',
-  'пт',
-  'сб',
-  'вс',
-];
+const List<String> kWeekdayShort = ['пн', 'вт', 'ср', 'чт', 'пт', 'сб', 'вс'];
 
 const List<String> kWeekdayFull = [
   'понедельник',
@@ -410,7 +398,13 @@ class _AppointmentDayCard extends StatelessWidget {
                   children: [
                     Text(
                       a.title,
-                      style: const TextStyle(fontWeight: FontWeight.w600),
+                      // События из колонки «Готово» — перечёркнуты.
+                      style: TextStyle(
+                        fontWeight: FontWeight.w600,
+                        decoration: event.kanbanKey == 'done'
+                            ? TextDecoration.lineThrough
+                            : null,
+                      ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
@@ -502,7 +496,13 @@ class _JobDayCard extends StatelessWidget {
                 children: [
                   Text(
                     j.title,
-                    style: const TextStyle(fontWeight: FontWeight.w600),
+                    // События из колонки «Готово» — перечёркнуты.
+                    style: TextStyle(
+                      fontWeight: FontWeight.w600,
+                      decoration: event.kanbanKey == 'done'
+                          ? TextDecoration.lineThrough
+                          : null,
+                    ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
