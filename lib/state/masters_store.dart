@@ -8,6 +8,7 @@ import 'package:flutter/foundation.dart';
 import '../core/backup_service.dart';
 import '../core/reminder_service.dart';
 import '../core/utils/app_utils.dart';
+import '../data/schema_tables.dart';
 import '../data/app_database.dart';
 import '../data/models/account.dart';
 import '../data/models/appointment.dart';
@@ -561,8 +562,7 @@ class MastersStore extends ChangeNotifier {
     }
     _timeEntries = rest[10] as List<TimeEntry>;
     _employeePayments = rest[11] as List<EmployeePayment>;
-    _purchaseLines = [];
-    _employeePayments = rest[11] as List<EmployeePayment>;
+    _purchaseLines = await _purchaseRepo.getAllLines();
     _compositionLines = await _compositionRepo.getAll();
 
     _closedPeriods = (await _appDatabase.periodClosures())
@@ -2382,27 +2382,70 @@ class MastersStore extends ChangeNotifier {
   Map<String, dynamic> backupData() {
     return {
       'format': 'masters-backup',
-      'version': 8,
+      'version': 9,
       'exported_at': DateTime.now().toIso8601String(),
-      'clients': _clients.map((c) => c.toMap()).toList(),
-      'objects': _objects.map((o) => o.toMap()).toList(),
-      'jobs': _jobs.map((j) => j.toMap()).toList(),
-      'stages': _stages.map((s) => s.toMap()).toList(),
-      'materials': _materials.map((m) => m.toMap()).toList(),
-      'sessions': _sessions.map((s) => s.toMap()).toList(),
-      'accounts': _accounts.map((a) => a.toMap()).toList(),
-      'shifts': _shifts.map((s) => s.toMap()).toList(),
-      'money_transactions': _moneyTransactions.map((t) => t.toMap()).toList(),
-      'inventory_items': _inventoryItems.map((i) => i.toMap()).toList(),
-      'stock_movements': _stockMovements.map((m) => m.toMap()).toList(),
-      'appointments': _appointments.map((a) => a.toMap()).toList(),
-      'booking_resources': _bookingResources.map((r) => r.toMap()).toList(),
-      'client_reminders': _reminders.map((r) => r.toMap()).toList(),
-      'employees': _employees.map((e) => e.toMap()).toList(),
-      'time_entries': _timeEntries.map((t) => t.toMap()).toList(),
-      'employee_payments': _employeePayments.map((p) => p.toMap()).toList(),
-      'period_closures': _closedPeriods.map((p) => p.toMap()).toList(),
+      for (final mapping in kBackupTables)
+        mapping.key: _tableRows(mapping.table),
     };
+  }
+
+  /// Данные таблицы для бэкапа. Если таблицы в базе ещё нет (старая схема),
+  /// возвращаем пустой список — она просто не попадёт в JSON.
+  List<Map<String, Object?>> _tableRows(String table) {
+    switch (table) {
+      case 'clients':
+        return _clients.map((c) => c.toMap()).toList();
+      case 'objects':
+        return _objects.map((o) => o.toMap()).toList();
+      case 'jobs':
+        return _jobs.map((j) => j.toMap()).toList();
+      case 'job_stages':
+        return _stages.map((s) => s.toMap()).toList();
+      case 'materials':
+        return _materials.map((m) => m.toMap()).toList();
+      case 'work_sessions':
+        return _sessions.map((s) => s.toMap()).toList();
+      case 'accounts':
+        return _accounts.map((a) => a.toMap()).toList();
+      case 'cash_shifts':
+        return _shifts.map((s) => s.toMap()).toList();
+      case 'money_transactions':
+        return _moneyTransactions.map((t) => t.toMap()).toList();
+      case 'inventory_items':
+        return _inventoryItems.map((i) => i.toMap()).toList();
+      case 'stock_movements':
+        return _stockMovements.map((m) => m.toMap()).toList();
+      case 'inventory_compositions':
+        return _compositionLines.map((c) => c.toMap()).toList();
+      case 'appointments':
+        return _appointments.map((a) => a.toMap()).toList();
+      case 'booking_resources':
+        return _bookingResources.map((r) => r.toMap()).toList();
+      case 'client_reminders':
+        return _reminders.map((r) => r.toMap()).toList();
+      case 'employees':
+        return _employees.map((e) => e.toMap()).toList();
+      case 'time_entries':
+        return _timeEntries.map((t) => t.toMap()).toList();
+      case 'employee_payments':
+        return _employeePayments.map((p) => p.toMap()).toList();
+      case 'suppliers':
+        return _suppliers.map((s) => s.toMap()).toList();
+      case 'purchases':
+        return _purchases.map((p) => p.toMap()).toList();
+      case 'purchase_lines':
+        return _purchaseLines.map((l) => l.toMap()).toList();
+      case 'recurring_payments':
+        return _recurringPayments.map((p) => p.toMap()).toList();
+      case 'payroll_periods':
+        return _payrollPeriods.map((p) => p.toMap()).toList();
+      case 'period_closures':
+        return _closedPeriods.map((p) => p.toMap()).toList();
+      default:
+        // Таблица из реестра ещё не загружена в store (например, v22) —
+        // возвращаем пустой список, чтобы не ломать формат.
+        return <Map<String, Object?>>[];
+    }
   }
 
   Future<void> restoreFromBackup(Map<String, dynamic> data) async {
@@ -2410,237 +2453,78 @@ class MastersStore extends ChangeNotifier {
       throw const FormatException('Это не резервная копия Masters.');
     }
     final version = data['version'];
-    if (version is! int || version > 8) {
+    if (version is! int || version > 9) {
       throw const FormatException('Неподдерживаемая версия копии.');
     }
 
-    final clients = <Client>[];
-    final objects = <WorkObject>[];
-    final jobs = <Job>[];
-    final stages = <JobStage>[];
-    final materials = <MaterialItem>[];
-    final sessions = <WorkSession>[];
-
-    if (data['clients'] is List) {
-      for (final item in data['clients'] as List) {
-        if (item is Map)
-          clients.add(Client.fromMap(Map<String, Object?>.from(item)));
+    final restored = <String, List<Map<String, Object?>>>{};
+    for (final mapping in kBackupTables) {
+      final rows = data[mapping.key];
+      if (rows is! List) continue;
+      final list = <Map<String, Object?>>[];
+      for (final item in rows) {
+        if (item is Map) {
+          list.add(Map<String, Object?>.from(item));
+        }
       }
-    }
-    if (data['objects'] is List) {
-      for (final item in data['objects'] as List) {
-        if (item is Map)
-          objects.add(WorkObject.fromMap(Map<String, Object?>.from(item)));
-      }
-    }
-    if (data['jobs'] is List) {
-      for (final item in data['jobs'] as List) {
-        if (item is Map) jobs.add(Job.fromMap(Map<String, Object?>.from(item)));
-      }
-    }
-    if (data['stages'] is List) {
-      for (final item in data['stages'] as List) {
-        if (item is Map)
-          stages.add(JobStage.fromMap(Map<String, Object?>.from(item)));
-      }
-    }
-    if (data['materials'] is List) {
-      for (final item in data['materials'] as List) {
-        if (item is Map)
-          materials.add(MaterialItem.fromMap(Map<String, Object?>.from(item)));
-      }
-    }
-    if (data['sessions'] is List) {
-      for (final item in data['sessions'] as List) {
-        if (item is Map)
-          sessions.add(WorkSession.fromMap(Map<String, Object?>.from(item)));
-      }
+      restored[mapping.table] = list;
     }
 
-    final accounts = <Account>[];
-    if (data['accounts'] is List) {
-      for (final item in data['accounts'] as List) {
-        if (item is Map)
-          accounts.add(Account.fromMap(Map<String, Object?>.from(item)));
-      }
-    }
-    final shifts = <CashShift>[];
-    if (data['shifts'] is List) {
-      for (final item in data['shifts'] as List) {
-        if (item is Map)
-          shifts.add(CashShift.fromMap(Map<String, Object?>.from(item)));
-      }
-    }
-    final moneyTransactions = <MoneyTransaction>[];
-    if (data['money_transactions'] is List) {
-      for (final item in data['money_transactions'] as List) {
-        if (item is Map)
-          moneyTransactions.add(
-            MoneyTransaction.fromMap(Map<String, Object?>.from(item)),
-          );
-      }
-    }
-
-    final inventoryItems = <InventoryItem>[];
-    if (data['inventory_items'] is List) {
-      for (final item in data['inventory_items'] as List) {
-        if (item is Map)
-          inventoryItems.add(
-            InventoryItem.fromMap(Map<String, Object?>.from(item)),
-          );
-      }
-    }
-    final stockMovements = <StockMovement>[];
-    if (data['stock_movements'] is List) {
-      for (final item in data['stock_movements'] as List) {
-        if (item is Map)
-          stockMovements.add(
-            StockMovement.fromMap(Map<String, Object?>.from(item)),
-          );
-      }
-    }
-
-    final appointments = <Appointment>[];
-    if (data['appointments'] is List) {
-      for (final item in data['appointments'] as List) {
-        if (item is Map)
-          appointments.add(
-            Appointment.fromMap(Map<String, Object?>.from(item)),
-          );
-      }
-    }
-    final bookingResources = <BookingResource>[];
-    if (data['booking_resources'] is List) {
-      for (final item in data['booking_resources'] as List) {
-        if (item is Map)
-          bookingResources.add(
-            BookingResource.fromMap(Map<String, Object?>.from(item)),
-          );
-      }
-    }
-
-    final reminders = <ClientReminder>[];
-    if (data['client_reminders'] is List) {
-      for (final item in data['client_reminders'] as List) {
-        if (item is Map)
-          reminders.add(
-            ClientReminder.fromMap(Map<String, Object?>.from(item)),
-          );
-      }
-    }
-
-    final employees = <Employee>[];
-    if (data['employees'] is List) {
-      for (final item in data['employees'] as List) {
-        if (item is Map)
-          employees.add(Employee.fromMap(Map<String, Object?>.from(item)));
-      }
-    }
-    final timeEntries = <TimeEntry>[];
-    if (data['time_entries'] is List) {
-      for (final item in data['time_entries'] as List) {
-        if (item is Map)
-          timeEntries.add(TimeEntry.fromMap(Map<String, Object?>.from(item)));
-      }
-    }
-    final employeePayments = <EmployeePayment>[];
-    final closedPeriods = <ClosedPeriod>[];
-    if (data['employee_payments'] is List) {
-      for (final item in data['employee_payments'] as List) {
-        if (item is Map)
-          employeePayments.add(
-            EmployeePayment.fromMap(Map<String, Object?>.from(item)),
-          );
-      }
-    }
-
-    if (data['period_closures'] is List) {
-      for (final item in data['period_closures'] as List) {
-        if (item is Map)
-          closedPeriods.add(
-            ClosedPeriod.fromMap(Map<String, Object?>.from(item)),
-          );
-      }
-    }
-
-    final jobIds = jobs.map((j) => j.id).toSet();
+    // Таблицы, которые реально существуют в базе.
+    final existing = await _appDatabase.existingTables();
 
     await _appDatabase.database.transaction((txn) async {
-      await txn.delete('appointments');
-      await txn.delete('booking_resources');
-      await txn.delete('client_reminders');
-      await txn.delete('employee_payments');
-      await txn.delete('time_entries');
-      await txn.delete('employees');
-      await txn.delete('stock_movements');
-      await txn.delete('inventory_items');
-      await txn.delete('money_transactions');
-      await txn.delete('cash_shifts');
-      await txn.delete('accounts');
-      await txn.delete('work_sessions');
-      await txn.delete('materials');
-      await txn.delete('job_stages');
-      await txn.delete('jobs');
-      await txn.delete('objects');
-      await txn.delete('clients');
+      // Удаляем в обратном порядке: сначала дети, потом родители.
+      for (final mapping in kBackupTables.reversed) {
+        final table = mapping.table;
+        if (!existing.contains(table)) continue;
+        await txn.delete(table);
+      }
 
       final batch = txn.batch();
-      for (final c in clients) {
-        batch.insert('clients', c.toMap());
+      final idCache = <String, Set<String>>{};
+
+      String? parentId(Map<String, Object?> row, String column) {
+        final v = row[column];
+        return v is String ? v : null;
       }
-      for (final o in objects) {
-        batch.insert('objects', o.toMap());
+
+      bool parentExists(String table, String? id) {
+        if (id == null || id.isEmpty) return true;
+        final cache = idCache[table] ??= <String>{};
+        if (cache.isEmpty) {
+          final rows = restored[table] ?? <Map<String, Object?>>[];
+          for (final r in rows) {
+            final rid = r['id'];
+            if (rid is String) cache.add(rid);
+          }
+        }
+        return cache.contains(id);
       }
-      for (final j in jobs) {
-        batch.insert('jobs', j.toMap());
-      }
-      for (final s in stages) {
-        if (!jobIds.contains(s.jobId)) continue;
-        batch.insert('job_stages', s.toMap());
-      }
-      for (final m in materials) {
-        if (!jobIds.contains(m.jobId)) continue;
-        batch.insert('materials', m.toMap());
-      }
-      for (final s in sessions) {
-        if (!jobIds.contains(s.jobId)) continue;
-        batch.insert('work_sessions', s.toMap());
-      }
-      for (final a in accounts) {
-        batch.insert('accounts', a.toMap());
-      }
-      for (final sh in shifts) {
-        batch.insert('cash_shifts', sh.toMap());
-      }
-      for (final t in moneyTransactions) {
-        batch.insert('money_transactions', t.toMap());
-      }
-      for (final i in inventoryItems) {
-        batch.insert('inventory_items', i.toMap());
-      }
-      for (final m in stockMovements) {
-        batch.insert('stock_movements', m.toMap());
-      }
-      for (final a in appointments) {
-        batch.insert('appointments', a.toMap());
-      }
-      for (final r in bookingResources) {
-        batch.insert('booking_resources', r.toMap());
-      }
-      for (final r in reminders) {
-        batch.insert('client_reminders', r.toMap());
-      }
-      for (final e in employees) {
-        batch.insert('employees', e.toMap());
-      }
-      for (final t in timeEntries) {
-        batch.insert('time_entries', t.toMap());
-      }
-      for (final p in employeePayments) {
-        batch.insert('employee_payments', p.toMap());
-      }
-      for (final p in closedPeriods) {
-        batch.insert('period_closures', p.toMap());
+
+      for (final mapping in kBackupTables) {
+        final table = mapping.table;
+        if (!existing.contains(table)) continue;
+        final rows = restored[table] ?? <Map<String, Object?>>[];
+        for (final row in rows) {
+          // Проверяем обязательные ссылки: если родителя нет в копии,
+          // строку пропускаем, чтобы не получить «пустую» запись в UI.
+          final deps = kTableDependencies[table];
+          if (deps != null) {
+            bool skip = false;
+            for (final dep in deps) {
+              final column = dep[0];
+              final parentTable = dep[1];
+              final id = parentId(row, column);
+              if (id != null && !parentExists(parentTable, id)) {
+                skip = true;
+                break;
+              }
+            }
+            if (skip) continue;
+          }
+          batch.insert(table, row, conflictAlgorithm: ConflictAlgorithm.replace);
+        }
       }
       await batch.commit(noResult: true);
     });
@@ -2706,7 +2590,7 @@ class MastersStore extends ChangeNotifier {
       throw const FormatException('Это не копия Masters.');
     }
     final version = data['version'];
-    if (version is! int || version > 8) {
+    if (version is! int || version > 9) {
       throw const FormatException('Неподдерживаемая версия копии.');
     }
     final result = await _appDatabase.mergeSnapshot(
@@ -3604,6 +3488,7 @@ class MastersStore extends ChangeNotifier {
       await _purchaseRepo.saveLine(line);
     }
     _purchases = [purchase, ..._purchases];
+    _purchaseLines = [...purchaseLines, ..._purchaseLines];
 
     if (accountId != null && paidCents > 0) {
       await addTransaction(

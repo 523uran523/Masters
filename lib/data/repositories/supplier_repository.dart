@@ -46,6 +46,12 @@ class PurchaseRepository {
     return rows.map(PurchaseLine.fromMap).toList();
   }
 
+  /// Все строки закупок: нужны для бэкапа и восстановления.
+  Future<List<PurchaseLine>> getAllLines() async {
+    final rows = await _db.query('purchase_lines', orderBy: 'purchase_id ASC');
+    return rows.map(PurchaseLine.fromMap).toList();
+  }
+
   Future<void> save(Purchase purchase) async {
     await _db.insert('purchases', purchase.toMap(), conflictAlgorithm: ConflictAlgorithm.replace);
   }

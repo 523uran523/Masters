@@ -1006,8 +1006,16 @@ class AppDatabase {
     return 0;
   }
 
+  /// Каноническая форма строки для сравнения при merge.
+  ///
+  /// Служебные колонки синхронизации не входят в сравнение: `updated_at`
+  /// уже проверен выше по времени, `deleted_at` и `device_id` — локальные
+  /// атрибуты, которые не делают данные «другими». Без этого локальная
+  /// строка с `deleted_at: NULL` ложно конфликтовала бы со строкой из
+  /// бэкапа, где этой колонки нет.
   String _canonicalRow(Map<String, Object?> row) {
-    final keys = row.keys.toList()..sort();
+    const skip = {'updated_at', 'deleted_at', 'device_id'};
+    final keys = row.keys.where((k) => !skip.contains(k)).toList()..sort();
     final copy = <String, Object?>{};
     for (final key in keys) {
       copy[key] = row[key]?.toString();
@@ -1168,6 +1176,12 @@ class AppDatabase {
     );
     return rows.map((row) => row['name'] as String).toSet();
   }
+
+  /// Имена таблиц, которые фактически есть в текущей базе.
+  ///
+  /// Store использует это при restore: реестр описывает и будущие таблицы,
+  /// поэтому delete/insert ведём только по существующим.
+  Future<Set<String>> existingTables() => _existingTables(database);
 
   /// Audit-триггеры для всех таблиц реестра.
   ///
