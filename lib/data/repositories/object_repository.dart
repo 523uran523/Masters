@@ -22,9 +22,20 @@ class ObjectRepository {
     return WorkObject.fromMap(rows.first);
   }
 
+  /// UPDATE вместо INSERT OR REPLACE: REPLACE при включённых foreign keys
+  /// делает DELETE+INSERT, и каскады по объекту теряли связанные записи при
+  /// редактировании.
   Future<void> save(WorkObject obj) async {
-    await _db.insert('objects', obj.toMap(),
-        conflictAlgorithm: ConflictAlgorithm.replace);
+    final updated = await _db.update(
+      'objects',
+      obj.toMap(),
+      where: 'id = ?',
+      whereArgs: [obj.id],
+    );
+    if (updated == 0) {
+      await _db.insert('objects', obj.toMap(),
+          conflictAlgorithm: ConflictAlgorithm.replace);
+    }
   }
 
   Future<void> delete(String id) async {

@@ -16,9 +16,20 @@ class ClientRepository {
     return Client.fromMap(rows.first);
   }
 
+  /// UPDATE вместо INSERT OR REPLACE: при включённых foreign keys REPLACE
+  /// делает DELETE+INSERT, и `ON DELETE CASCADE` у jobs/objects/obligations
+  /// удалял всё состояние клиента при каждом его редактировании.
   Future<void> save(Client client) async {
-    await _db.insert('clients', client.toMap(),
-        conflictAlgorithm: ConflictAlgorithm.replace);
+    final updated = await _db.update(
+      'clients',
+      client.toMap(),
+      where: 'id = ?',
+      whereArgs: [client.id],
+    );
+    if (updated == 0) {
+      await _db.insert('clients', client.toMap(),
+          conflictAlgorithm: ConflictAlgorithm.replace);
+    }
   }
 
   Future<void> delete(String id) async {

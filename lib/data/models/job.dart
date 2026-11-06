@@ -175,7 +175,9 @@ class Job {
     'archived': archived ? 1 : 0,
     'pinned': pinned ? 1 : 0,
     'assignee_id': assigneeId,
-    'tags': tags,
+    // Колонка tags — NOT NULL DEFAULT '': UPDATE с NULL уронит ограничение,
+    // поэтому пустые теги всегда пишутся пустой строкой.
+    'tags': tags ?? '',
     'created_at': createdAt.millisecondsSinceEpoch,
     'updated_at': updatedAt.millisecondsSinceEpoch,
   };

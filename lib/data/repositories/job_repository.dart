@@ -62,12 +62,25 @@ class JobRepository {
     return Job.fromMap(rows.first);
   }
 
+  /// UPSERT без REPLACE для существующих строк: при включённых foreign keys
+  /// `INSERT OR REPLACE` фактически делает DELETE, и FK `ON DELETE SET NULL`/
+  /// `CASCADE` в obligations, client_reminders и др. срывали job_id/удаляли
+  /// строки при каждом редактировании заказа. Для новой строки оставляем
+  /// replace: он подставляет DEFAULT вместо NULL в NOT NULL-колонках (tags).
   Future<void> save(Job job) async {
-    await _db.insert(
+    final updated = await _db.update(
       'jobs',
       job.toMap(),
-      conflictAlgorithm: ConflictAlgorithm.replace,
+      where: 'id = ?',
+      whereArgs: [job.id],
     );
+    if (updated == 0) {
+      await _db.insert(
+        'jobs',
+        job.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace,
+      );
+    }
   }
 
   Future<void> delete(String id) async {
