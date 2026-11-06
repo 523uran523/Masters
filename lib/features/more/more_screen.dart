@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../../app/theme/app_theme.dart';
 import '../../app/ui.dart';
 import '../../core/utils/app_utils.dart';
+import '../../features/catalog/catalog_screen.dart';
 import '../../features/employees/employees_screen.dart';
 import '../../features/settings/settings_screen.dart';
 import '../../features/stats/stats_screen.dart';
@@ -58,6 +59,19 @@ class MoreScreen extends StatelessWidget {
                 ),
               ),
             ],
+            const SizedBox(height: 16),
+            SectionLabel('Каталог'),
+            AppCard(
+              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+              child: ListRow(
+                dense: true,
+                icon: CupertinoIcons.cube_box,
+                title: 'Каталог и услуги',
+                subtitle: 'цены, себестоимость и маржа позиций',
+                showChevron: true,
+                onTap: () => _open(context, const CatalogScreen()),
+              ),
+            ),
             const SizedBox(height: 16),
             SectionLabel('Приложение'),
             AppCard(

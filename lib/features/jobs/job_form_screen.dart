@@ -3,8 +3,11 @@ import 'package:provider/provider.dart';
 
 import '../../app/theme/app_theme.dart';
 import '../../app/ui.dart';
+import '../../core/units.dart';
 import '../../core/utils/app_utils.dart';
 import '../../data/models/job.dart';
+import '../catalog/catalog_screen.dart';
+import 'job_form_widgets.dart';
 import 'cost_calculator_screen.dart';
 import '../../state/masters_store.dart';
 import '../../state/settings_controller.dart';
@@ -16,10 +19,14 @@ class JobFormScreen extends StatefulWidget {
     this.jobId,
     this.initialClientId,
     this.initialObjectId,
+    this.itemId,
   });
   final String? jobId;
   final String? initialClientId;
   final String? initialObjectId;
+
+  /// Позиция каталога, с которой начинают заказ (из экрана «Каталог»).
+  final String? itemId;
 
   @override
   State<JobFormScreen> createState() => _JobFormScreenState();
@@ -39,6 +46,11 @@ class _JobFormScreenState extends State<JobFormScreen> {
   JobPriority _priority = JobPriority.medium;
   DateTime? _dueDate;
   bool _saving = false;
+  bool _seededItem = false;
+
+  /// Строки и параметры, добавленные до появления заказа в базе.
+  final List<JobLineDraft> _pendingLines = [];
+  final List<JobAttrDraft> _pendingAttrs = [];
 
   bool get _isEdit => widget.jobId != null;
 
@@ -54,6 +66,30 @@ class _JobFormScreenState extends State<JobFormScreen> {
   void _loadJob() {
     final store = context.read<MastersStore>();
     if (!_isEdit) {
+      if (!_seededItem && widget.itemId != null) {
+        _seededItem = true;
+        final matches = store.inventoryItems.where(
+          (i) => i.id == widget.itemId,
+        );
+        if (matches.isNotEmpty) {
+          final item = matches.first;
+          _seededItem = true;
+          _pendingLines.add(
+            JobLineDraft(
+              itemId: item.id,
+              name: item.name,
+              qty: 1,
+              unit: item.unit,
+              priceCents: item.sellPriceCents,
+              costAtOrderCents: item.kind == 'service' ? 0 : item.costCents,
+              kind: item.kind == 'service' ? 'work' : 'good',
+            ),
+          );
+          if (_titleController.text.isEmpty) {
+            _titleController.text = item.name;
+          }
+        }
+      }
       if (_clientId == null &&
           widget.initialClientId != null &&
           store.clientById(widget.initialClientId!) != null) {
@@ -386,13 +422,223 @@ class _JobFormScreenState extends State<JobFormScreen> {
     );
   }
 
+  // Строки заказа: в режиме правки пишутся в базу сразу, в новом заказе
+  // копятся в _pendingLines и применяются после createJob.
+
+  List<JobLineView> _lineViews(MastersStore store) {
+    if (!_isEdit) {
+      return List<JobLineView>.unmodifiable(_pendingLines);
+    }
+    return [
+      for (final line in store.jobLines(widget.jobId!))
+        JobLineView(
+          name: line.name,
+          qty: line.quantity,
+          unit: line.unit,
+          priceCents: line.priceCents,
+          costAtOrderCents: line.costAtOrderCents,
+          discountCents: line.discountCents,
+          kind: line.kind,
+          itemId: line.itemId,
+        ),
+    ];
+  }
+
+  /// Итог заказа: цена и себестоимость по строкам либо вручную, если строк нет.
+  ({int priceCents, int costCents, bool fromLines}) _totals(MastersStore store) {
+    final lines = _lineViews(store);
+    if (lines.isEmpty) {
+      return (
+        priceCents: _parseCents(_priceController.text),
+        costCents: _parseCents(_costController.text),
+        fromLines: false,
+      );
+    }
+    var price = 0;
+    var cost = 0;
+    for (final line in lines) {
+      price += line.totalCents - line.discountCents;
+      cost += line.costTotalCents;
+    }
+    return (priceCents: price, costCents: cost, fromLines: true);
+  }
+
+  Future<void> _addFromCatalog() async {
+    final store = context.read<MastersStore>();
+    final picked = await showCatalogPicker(context);
+    if (picked == null || !mounted) return;
+    final item = picked.item;
+    final qty = picked.quantity;
+    final view = JobLineView(
+      name: item.name,
+      qty: qty,
+      unit: item.unit,
+      priceCents: item.sellPriceCents,
+      costAtOrderCents: item.kind == 'service' ? 0 : item.costCents,
+      kind: item.kind == 'service' ? 'work' : 'good',
+      itemId: item.id,
+    );
+    if (_isEdit) {
+      await store.createJobLine(
+        widget.jobId!,
+        itemId: item.id,
+        kind: view.kind,
+        name: view.name,
+        qty: qty,
+        unit: item.unit,
+        priceCents: item.sellPriceCents,
+        costAtOrderCents: view.costAtOrderCents,
+      );
+      await store.recalcJobTotals(widget.jobId!);
+    } else {
+      _pendingLines.add(JobLineDraft.fromView(view));
+      setState(() {});
+    }
+  }
+
+  Future<void> _addFreeLine() async {
+    final view = await showCupertinoModalPopup<JobLineView>(
+      context: context,
+      builder: (_) => const JobLineEditorSheet(),
+    );
+    if (view == null || !mounted) return;
+    final store = context.read<MastersStore>();
+    if (_isEdit) {
+      await store.createJobLine(
+        widget.jobId!,
+        kind: view.kind,
+        name: view.name,
+        qty: view.qty,
+        unit: view.unit,
+        priceCents: view.priceCents,
+        costAtOrderCents: view.costAtOrderCents,
+        discountCents: view.discountCents,
+      );
+      await store.recalcJobTotals(widget.jobId!);
+    } else {
+      _pendingLines.add(JobLineDraft.fromView(view));
+      setState(() {});
+    }
+  }
+
+  Future<void> _editLine(int index) async {
+    final store = context.read<MastersStore>();
+    final current = _lineViews(store)[index];
+    final edited = await showCupertinoModalPopup<JobLineView>(
+      context: context,
+      builder: (_) => JobLineEditorSheet(initial: current),
+    );
+    if (edited == null || !mounted) return;
+    if (_isEdit) {
+      final lines = store.jobLines(widget.jobId!);
+      await store.updateJobLine(
+        lines[index].id,
+        qty: edited.qty,
+        priceCents: edited.priceCents,
+        costAtOrderCents: edited.costAtOrderCents,
+        discountCents: edited.discountCents,
+        name: edited.name,
+        unit: edited.unit,
+      );
+      await store.recalcJobTotals(widget.jobId!);
+    } else {
+      _pendingLines[index] = JobLineDraft.fromView(edited);
+      setState(() {});
+    }
+  }
+
+  Future<void> _deleteLine(int index) async {
+    final confirmed = await showAppConfirm(
+      context,
+      title: 'Удалить строку?',
+      message: 'Строка уйдёт из заказа, её сумма вычтется из итога.',
+      confirmLabel: 'Удалить',
+      destructive: true,
+    );
+    if (!confirmed || !mounted) return;
+    final store = context.read<MastersStore>();
+    if (_isEdit) {
+      final lines = store.jobLines(widget.jobId!);
+      await store.deleteMaterial(lines[index].id);
+      await store.recalcJobTotals(widget.jobId!);
+    } else {
+      setState(() => _pendingLines.removeAt(index));
+    }
+  }
+
+  Future<void> _addAttribute() async {
+    final store = context.read<MastersStore>();
+    final draft = await showCupertinoModalPopup<JobAttrDraft>(
+      context: context,
+      builder: (_) => JobAttrSheet(hints: _attributeHints(store)),
+    );
+    if (draft == null || !mounted) return;
+    if (_isEdit) {
+      await store.setAttribute(
+        entityType: 'job',
+        entityId: widget.jobId!,
+        key: draft.key,
+        valueText: draft.value,
+      );
+    } else {
+      setState(() => _pendingAttrs.add(draft));
+    }
+  }
+
+  /// Подсказки параметров: какие ключи уже заводили для выбранных позиций.
+  List<String> _attributeHints(MastersStore store) {
+    final hints = <String>{};
+    for (final itemId in _lineViews(store).map((l) => l.itemId)) {
+      if (itemId == null) continue;
+      for (final attribute in store.attributesOf('item', itemId)) {
+        hints.add(attribute.key);
+      }
+    }
+    for (final attribute in _pendingAttrs) {
+      hints.add(attribute.key);
+    }
+    return hints.toList();
+  }
+
+  Future<void> _applyPending(MastersStore store, String jobId) async {
+    for (final line in _pendingLines) {
+      await store.createJobLine(
+        jobId,
+        itemId: line.itemId,
+        kind: line.kind,
+        name: line.name,
+        qty: line.qty,
+        unit: line.unit,
+        priceCents: line.priceCents,
+        costAtOrderCents: line.costAtOrderCents,
+        discountCents: line.discountCents,
+      );
+    }
+    for (final attribute in _pendingAttrs) {
+      await store.setAttribute(
+        entityType: 'job',
+        entityId: jobId,
+        key: attribute.key,
+        valueText: attribute.value,
+      );
+    }
+    if (_pendingLines.isNotEmpty) await store.recalcJobTotals(jobId);
+  }
+
   Future<void> _save() async {
+    final store = context.read<MastersStore>();
+    // Название первой строки каталога достаточно: мастер выбрал позицию, а
+    // пересказывать её руками — лишний экран с ошибкой.
     final title = _titleController.text.trim();
-    if (title.isEmpty) {
+    final fallbackTitle = _lineViews(store).isEmpty
+        ? ''
+        : _lineViews(store).first.name;
+    final effectiveTitle = title.isEmpty ? fallbackTitle : title;
+    if (effectiveTitle.isEmpty) {
       await showAppAlert(
         context,
         title: 'Название',
-        message: 'Введите название заказа.',
+        message: 'Введите название заказа или добавьте строку из каталога.',
       );
       return;
     }
@@ -406,19 +652,25 @@ class _JobFormScreenState extends State<JobFormScreen> {
     }
     setState(() => _saving = true);
     try {
-      final store = context.read<MastersStore>();
+      final totals = _totals(store);
+      final manual = totals.fromLines
+          ? null
+          : (
+              priceCents: _parseCents(_priceController.text),
+              costCents: _parseCents(_costController.text),
+            );
       if (_isEdit) {
         final job = store.jobById(widget.jobId!)!;
         await store.updateJob(
           job.copyWith(
-            title: title,
+            title: effectiveTitle,
             clientId: _clientId!,
             objectId: _objectId,
             assigneeId: _assigneeId,
             status: _status,
             priority: _priority,
-            priceCents: _parseCents(_priceController.text),
-            costCents: _parseCents(_costController.text),
+            priceCents: manual?.priceCents,
+            costCents: manual?.costCents,
             dueDate: _dueDate,
             note: _noteController.text.trim().isEmpty
                 ? null
@@ -428,16 +680,17 @@ class _JobFormScreenState extends State<JobFormScreen> {
                 : _tagsController.text.trim(),
           ),
         );
+        await store.recalcJobTotals(widget.jobId!);
       } else {
-        await store.createJob(
+        final job = await store.createJob(
           clientId: _clientId!,
           objectId: _objectId,
           assigneeId: _assigneeId,
-          title: title,
+          title: effectiveTitle,
           status: _status,
           priority: _priority,
-          priceCents: _parseCents(_priceController.text),
-          costCents: _parseCents(_costController.text),
+          priceCents: manual?.priceCents ?? 0,
+          costCents: manual?.costCents ?? 0,
           dueDate: _dueDate,
           note: _noteController.text.trim().isEmpty
               ? null
@@ -446,6 +699,7 @@ class _JobFormScreenState extends State<JobFormScreen> {
               ? null
               : _tagsController.text.trim(),
         );
+        await _applyPending(store, job.id);
       }
       if (mounted) Navigator.of(context).pop();
     } finally {
@@ -474,7 +728,7 @@ class _JobFormScreenState extends State<JobFormScreen> {
         child: ListView(
           padding: const EdgeInsets.fromLTRB(16, 12, 16, 72),
           children: [
-            SectionLabel('Основное'),
+            SectionLabel('Что делаем'),
             AppCard(
               child: Column(
                 children: [
@@ -547,6 +801,142 @@ class _JobFormScreenState extends State<JobFormScreen> {
                 ],
               ),
             ),
+            const SizedBox(height: 10),
+            AppCard(
+              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+              child: Column(
+                children: [
+                  for (final entry in _lineViews(store).asMap().entries) ...[
+                    if (entry.key > 0) const Hairline(indent: 12),
+                    ListRow(
+                      dense: true,
+                      title: entry.value.name,
+                      subtitle:
+                          '${formatQty(entry.value.qty)} ${entry.value.unit}'
+                          ' × ${money(entry.value.priceCents)}'
+                          ' · себест. ${money(entry.value.costTotalCents)}',
+                      icon: entry.value.kind == 'work'
+                          ? CupertinoIcons.wrench
+                          : CupertinoIcons.cube_box,
+                      onTap: () => _editLine(entry.key),
+                      trailing: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            money(entry.value.netCents),
+                            style: const TextStyle(
+                              fontWeight: FontWeight.w600,
+                              fontSize: 13.5,
+                            ),
+                          ),
+                          CupertinoButton(
+                            padding: const EdgeInsets.only(left: 6),
+                            minimumSize: const Size(24, 24),
+                            onPressed: () => _deleteLine(entry.key),
+                            child: Icon(
+                              CupertinoIcons.xmark,
+                              size: 14,
+                              color: colors.tertiaryLabel,
+                              semanticLabel: 'Удалить строку',
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                  if (_lineViews(store).isEmpty)
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(12, 8, 12, 6),
+                      child: Text(
+                        'Пусто. Добавьте позицию из каталога — цена и себестоимость подставятся сами.',
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: colors.secondaryLabel,
+                        ),
+                      ),
+                    ),
+                  const SizedBox(height: 8),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(8, 0, 8, 4),
+                    child: Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        ChipButton(
+                          label: '+ Из каталога',
+                          icon: CupertinoIcons.cube_box,
+                          onPressed: _addFromCatalog,
+                        ),
+                        ChipButton(
+                          label: '+ Свободная строка',
+                          icon: CupertinoIcons.plus,
+                          color: colors.purple,
+                          onPressed: _addFreeLine,
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+            SectionLabel('Параметры'),
+            AppCard(
+              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
+              child: Column(
+                children: [
+                  if (_isEdit)
+                    for (final attribute
+                        in store.attributesOf('job', widget.jobId!))
+                      ListRow(
+                        dense: true,
+                        icon: CupertinoIcons.tag,
+                        title: attribute.key,
+                        subtitle: attribute.valueText ??
+                            attribute.valueNum?.toString(),
+                        trailing: CupertinoButton(
+                          padding: EdgeInsets.zero,
+                          onPressed: () => store.deleteAttribute(attribute.id),
+                          child: Icon(
+                            CupertinoIcons.xmark,
+                            size: 14,
+                            color: colors.tertiaryLabel,
+                            semanticLabel: 'Удалить',
+                          ),
+                        ),
+                      )
+                  else
+                    for (final attribute in _pendingAttrs)
+                      ListRow(
+                        dense: true,
+                        icon: CupertinoIcons.tag,
+                        title: attribute.key,
+                        subtitle: attribute.value,
+                        trailing: CupertinoButton(
+                          padding: EdgeInsets.zero,
+                          onPressed: () => setState(
+                            () => _pendingAttrs.remove(attribute),
+                          ),
+                          child: Icon(
+                            CupertinoIcons.xmark,
+                            size: 14,
+                            color: colors.tertiaryLabel,
+                            semanticLabel: 'Удалить',
+                          ),
+                        ),
+                      ),
+                  const SizedBox(height: 6),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(8, 0, 8, 0),
+                    child: ChipButton(
+                      label: '+ Параметр',
+                      icon: CupertinoIcons.plus,
+                      onPressed: _addAttribute,
+                    ),
+                  ),
+                ],
+              ),
+            ),
             const SizedBox(height: 16),
             SectionLabel('Приоритет'),
             AppCard(
@@ -557,66 +947,13 @@ class _JobFormScreenState extends State<JobFormScreen> {
               ),
             ),
             const SizedBox(height: 16),
-            SectionLabel('Суммы'),
-            AppCard(
-              child: Row(
-                children: [
-                  Expanded(
-                    child: CupertinoTextField(
-                      controller: _priceController,
-                      placeholder: 'Цена',
-                      style: TextStyle(color: colors.label),
-                      keyboardType: const TextInputType.numberWithOptions(
-                        decimal: true,
-                      ),
-                      prefix: Padding(
-                        padding: const EdgeInsets.only(left: 6),
-                        child: Text(
-                          '+',
-                          style: TextStyle(
-                            color: colors.green,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                      ),
-                      suffix: Padding(
-                        padding: const EdgeInsets.only(right: 6),
-                        child: Text(
-                          '${moneySymbol}',
-                          style: TextStyle(color: colors.secondaryLabel),
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: CupertinoTextField(
-                      controller: _costController,
-                      placeholder: 'Расход',
-                      style: TextStyle(color: colors.label),
-                      keyboardType: const TextInputType.numberWithOptions(
-                        decimal: true,
-                      ),
-                      prefix: Padding(
-                        padding: const EdgeInsets.only(left: 6),
-                        child: Text(
-                          '-',
-                          style: TextStyle(
-                            color: colors.red,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                      ),
-                      suffix: Padding(
-                        padding: const EdgeInsets.only(right: 6),
-                        child: Text(
-                          '${moneySymbol}',
-                          style: TextStyle(color: colors.secondaryLabel),
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
+            SectionLabel('Итог'),
+            JobTotalsCard(
+              totals: _totals(store),
+              manual: JobManualSumsRow(
+                priceController: _priceController,
+                costController: _costController,
+                onChanged: () => setState(() {}),
               ),
             ),
             if (settings.calculatorEnabled) ...[
@@ -736,4 +1073,30 @@ class _JobFormScreenState extends State<JobFormScreen> {
       ),
     );
   }
+}
+
+/// Строка будущего заказа: тот же набор полей, что и у `JobLineView`, но она
+/// живёт в памяти формы, пока заказ не создан.
+class JobLineDraft extends JobLineView {
+  const JobLineDraft({
+    required super.name,
+    required super.qty,
+    required super.unit,
+    required super.priceCents,
+    required super.costAtOrderCents,
+    super.discountCents,
+    super.kind,
+    super.itemId,
+  });
+
+  factory JobLineDraft.fromView(JobLineView view) => JobLineDraft(
+    name: view.name,
+    qty: view.qty,
+    unit: view.unit,
+    priceCents: view.priceCents,
+    costAtOrderCents: view.costAtOrderCents,
+    discountCents: view.discountCents,
+    kind: view.kind,
+    itemId: view.itemId,
+  );
 }

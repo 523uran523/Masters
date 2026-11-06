@@ -648,6 +648,57 @@ class _CostCalculatorScreenState extends State<CostCalculatorScreen> {
     }
   }
 
+  /// Переносит расчёт в заказ одной строкой и списывает помеченные материалы.
+  ///
+  /// Строка — услуга: посчитанная цена и себестоимость фиксируются снимком,
+  /// чтобы последующая правка себестоимости на складе не переписала заказ.
+  Future<void> _addToJob() async {
+    final jobId = widget.jobId;
+    if (jobId == null) return;
+    final totals = _totals;
+    final store = context.read<MastersStore>();
+    setState(() => _busy = true);
+    try {
+      await store.createJobLine(
+        jobId,
+        kind: 'work',
+        name: _resources.isEmpty
+            ? 'Расчёт по калькулятору'
+            : (_resources.first.nameController.text.trim().isEmpty
+                  ? 'Расчёт по калькулятору'
+                  : _resources.first.nameController.text.trim()),
+        qty: 1,
+        unit: 'услуга',
+        priceCents: totals.priceCents,
+        costAtOrderCents: totals.costCents,
+      );
+      await store.recalcJobTotals(jobId);
+      for (final line in _resources.where((r) => r.writeOff)) {
+        final item = _lineItem(store, line);
+        if (item == null) continue;
+        final qty = line.qtyInStockUnit(item);
+        if (qty == null || qty <= 0) continue;
+        await store.adjustStock(
+          itemId: item.id,
+          delta: -qty,
+          type: 'writeoff',
+          reason: 'order',
+          refType: 'job',
+          refId: jobId,
+          note: 'Материалы заказа (калькулятор)',
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+    if (!mounted) return;
+    await showAppAlert(
+      context,
+      title: 'Добавлено в заказ',
+      message: 'Строка на ${money(totals.priceCents)} появилась в заказе.',
+    );
+  }
+
   Future<void> _apply() async {
     final totals = _totals;
     final store = context.read<MastersStore>();
@@ -848,6 +899,14 @@ class _CostCalculatorScreenState extends State<CostCalculatorScreen> {
                   ),
                 ),
                 const SizedBox(height: 16),
+                if (widget.jobId != null) ...[
+                  SecondaryButton(
+                    label: 'Добавить в заказ строкой',
+                    icon: CupertinoIcons.plus_circle,
+                    onPressed: _busy ? null : _addToJob,
+                  ),
+                  const SizedBox(height: 10),
+                ],
                 Text(
                   _isStockMode
                       ? 'Сохранение запишет себестоимость и цену в позицию склада.'

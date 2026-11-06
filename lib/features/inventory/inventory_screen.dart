@@ -10,6 +10,7 @@ import '../../data/models/inventory_composition.dart';
 import '../../data/models/inventory_item.dart';
 import '../../data/models/supplier.dart';
 import '../../state/masters_store.dart';
+import '../catalog/catalog_screen.dart';
 import '../jobs/cost_calculator_screen.dart';
 import 'inventory_composition_screen.dart';
 import '../../core/money_format.dart';
@@ -864,6 +865,17 @@ class _InventoryScreenState extends State<InventoryScreen> {
             OverflowMenuButton(
               title: 'Склад',
               actions: [
+                CupertinoActionSheetAction(
+                  onPressed: () {
+                    Navigator.of(context).pop();
+                    Navigator.of(context).push(
+                      CupertinoPageRoute(
+                        builder: (_) => const CatalogScreen(),
+                      ),
+                    );
+                  },
+                  child: const Text('Каталог и услуги'),
+                ),
                 CupertinoActionSheetAction(
                   onPressed: _recordPurchase,
                   child: const Text('Записать закупку'),

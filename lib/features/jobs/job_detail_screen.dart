@@ -13,11 +13,14 @@ import 'package:open_filex/open_filex.dart';
 
 import '../../core/deep_link_service.dart';
 import '../../core/utils/app_utils.dart';
+import '../../core/units.dart';
 import '../../data/models/job.dart';
 import '../../data/models/job_attachment.dart';
 import 'job_constants.dart';
 import 'job_form_screen.dart';
+import 'job_form_widgets.dart';
 import 'cost_calculator_screen.dart';
+import '../catalog/catalog_screen.dart';
 import '../../state/masters_store.dart';
 import '../../state/settings_controller.dart';
 import '../../core/money_format.dart';
@@ -163,25 +166,6 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
     final title = await _promptText('Новый этап', 'Например: Замер');
     if (title == null || title.trim().isEmpty) return;
     await store.addStage(widget.jobId, title.trim());
-  }
-
-  Future<void> _addMaterial(MastersStore store) async {
-    final name = await _promptText('Материал', 'Например: Кабель 3x2.5');
-    if (name == null || name.trim().isEmpty) return;
-    final qtyStr = await _promptText('Количество', '1');
-    final qty = double.tryParse((qtyStr ?? '1').replaceAll(',', '.')) ?? 1;
-    final unit = await _promptText('Единица', 'м') ?? 'шт';
-    final priceStr = await _promptText('Цена за единицу (${moneySymbol})', '0');
-    final priceCents =
-        ((double.tryParse((priceStr ?? '0').replaceAll(',', '.')) ?? 0) * 100)
-            .round();
-    await store.addMaterial(
-      jobId: widget.jobId,
-      name: name.trim(),
-      quantity: qty <= 0 ? 1 : qty,
-      unit: unit.trim().isEmpty ? 'шт' : unit.trim(),
-      priceCents: priceCents,
-    );
   }
 
   Future<void> _acceptPayment(MastersStore store, Job job) async {
@@ -551,12 +535,15 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
     final client = store.clientById(job.clientId);
     final obj = store.objectById(job.objectId);
     final stages = store.stagesForJob(job.id);
-    final materials = store.materialsForJob(job.id);
+    final lines = store.jobLines(job.id);
     final sessions = store.sessionsForJob(job.id);
     final todaySeconds = store.workSecondsForJobToday(job.id);
     final totalMin = store.totalMinutesForJob(job.id);
     final materialTotal = store.totalMaterialCents(job.id);
     final totalCost = job.costCents + materialTotal;
+    final totalNet = lines.fold(0, (s, l) => s + l.totalCents - l.discountCents);
+    final totalMargin = lines.fold(0, (s, l) => s + l.marginCents);
+    final linesTotalCost = lines.fold(0, (s, l) => s + l.costTotalCents);
 
     return CupertinoPageScaffold(
       navigationBar: CupertinoNavigationBar(
@@ -693,22 +680,30 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
               child: Column(
                 children: [
                   _KV('Цена', '${money(job.priceCents)}'),
-                  _KV(
-                    'Расход (введённый)',
-                    '${money(job.costCents)}',
-                  ),
-                  _KV(
-                    'Материалы',
-                    '${money(materialTotal)}',
-                  ),
-                  _KV(
-                    'Итого расход',
-                    '${money(totalCost)}',
-                  ),
-                  _KV(
-                    'Маржа',
-                    '${money((job.priceCents - totalCost))}',
-                  ),
+                  if (lines.isEmpty) ...[
+                    _KV(
+                      'Расход (введённый)',
+                      '${money(job.costCents)}',
+                    ),
+                    _KV(
+                      'Материалы',
+                      '${money(materialTotal)}',
+                    ),
+                    _KV(
+                      'Итого расход',
+                      '${money(totalCost)}',
+                    ),
+                    _KV(
+                      'Маржа',
+                      '${money(job.priceCents - totalCost)}',
+                    ),
+                  ] else ...[
+                    _KV('Себестоимость', '${money(linesTotalCost)}'),
+                    _KV(
+                      'Маржа',
+                      '${money(job.priceCents - linesTotalCost)}',
+                    ),
+                  ],
                   _KV('Время', formatMinutes(totalMin)),
                   if (job.dueDate != null)
                     _KV('Срок', formatFullDate(job.dueDate!)),
@@ -803,38 +798,43 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
               ),
             ),
             const SizedBox(height: 16),
-            SectionLabel('Материалы (${materials.length})'),
+            SectionLabel('Работы и товары (${lines.length})'),
             AppCard(
               child: Column(
                 children: [
-                  ...materials.map(
-                    (m) => Padding(
+                  ...lines.map(
+                    (line) => Padding(
                       padding: const EdgeInsets.symmetric(vertical: 4),
                       child: Row(
                         children: [
                           Expanded(
                             child: Text(
-                              m.name,
+                              line.name,
                               style: const TextStyle(
                                 fontWeight: FontWeight.w500,
                               ),
                             ),
                           ),
-                          Text(
-                            '${m.quantity.toStringAsFixed(m.quantity % 1 == 0 ? 0 : 2)} ${m.unit} × ${(m.priceCents / 100).toStringAsFixed(0)}',
-                            style: TextStyle(
-                              color: colors.secondaryLabel,
-                              fontSize: 12,
+                          Expanded(
+                            child: Text(
+                              '${formatQty(line.quantity)} ${line.unit} × ${money(line.priceCents)}',
+                              style: TextStyle(
+                                color: colors.secondaryLabel,
+                                fontSize: 12,
+                              ),
                             ),
                           ),
-                          const SizedBox(width: 8),
+                          const SizedBox(width: 6),
                           Text(
-                            '${money(m.totalCents)}',
-                            style: const TextStyle(fontWeight: FontWeight.w600),
+                            '${money(line.totalCents - line.discountCents)}',
+                            style: const TextStyle(
+                              fontWeight: FontWeight.w600,
+                              fontSize: 13.5,
+                            ),
                           ),
                           CupertinoButton(
                             padding: EdgeInsets.zero,
-                            onPressed: () => store.deleteMaterial(m.id),
+                            onPressed: () => store.deleteMaterial(line.id),
                             child: Icon(
                               CupertinoIcons.xmark,
                               size: 14,
@@ -846,14 +846,161 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
                       ),
                     ),
                   ),
+                  if (lines.isEmpty)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 8),
+                      child: Text(
+                        'Пусто. Добавьте позицию из каталога — цена и себестоимость подставятся сами.',
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: colors.secondaryLabel,
+                        ),
+                      ),
+                    ),
+                  const SizedBox(height: 8),
+                  if (lines.isNotEmpty) ...[
+                    const Hairline(),
+                    const SizedBox(height: 4),
+                    KeyValueRow(
+                      'Итого',
+                      money(lines.fold(0, (s, l) => s + l.totalCents - l.discountCents)),
+                      dense: true,
+                    ),
+                    KeyValueRow(
+                      'Себестоимость',
+                      money(lines.fold(0, (s, l) => s + l.costTotalCents)),
+                      dense: true,
+                    ),
+                    KeyValueRow(
+                      'Маржа',
+                      '${money(totalMargin)}${totalNet > 0 ? ' (${(totalMargin / totalNet * 100).round()}%)' : ''}',
+                      valueColor: totalMargin > 0 ? colors.green : colors.orange,
+                      emphasis: true,
+                      dense: true,
+                    ),
+                  ],
+                  const SizedBox(height: 8),
                   SecondaryButton(
-                    label: 'Добавить материал',
+                    label: 'Добавить из каталога',
+                    icon: CupertinoIcons.cube_box,
+                    dense: true,
+                    onPressed: () async {
+                      final picked = await showCatalogPicker(context);
+                      if (picked == null || !mounted) return;
+                      final item = picked.item;
+                      await store.createJobLine(
+                        widget.jobId,
+                        itemId: item.id,
+                        kind: item.kind == 'service' ? 'work' : 'good',
+                        name: item.name,
+                        qty: picked.quantity,
+                        unit: item.unit,
+                        priceCents: item.sellPriceCents,
+                        costAtOrderCents:
+                            item.kind == 'service' ? 0 : item.costCents,
+                      );
+                      await store.recalcJobTotals(widget.jobId);
+                    },
+                  ),
+                  const SizedBox(height: 4),
+                  SecondaryButton(
+                    label: 'Свободная строка',
                     icon: CupertinoIcons.plus,
-                    onPressed: () => _addMaterial(store),
+                    dense: true,
+                    onPressed: () async {
+                      final view = await showCupertinoModalPopup<JobLineView>(
+                        context: context,
+                        builder: (_) => const JobLineEditorSheet(),
+                      );
+                      if (view == null || !mounted) return;
+                      await store.createJobLine(
+                        widget.jobId,
+                        kind: view.kind,
+                        name: view.name,
+                        qty: view.qty,
+                        unit: view.unit,
+                        priceCents: view.priceCents,
+                        costAtOrderCents: view.costAtOrderCents,
+                        discountCents: view.discountCents,
+                      );
+                      await store.recalcJobTotals(widget.jobId);
+                    },
                   ),
                 ],
               ),
             ),
+            if (lines.isNotEmpty && lines.any((l) => l.itemId != null)) ...[
+              const SizedBox(height: 16),
+              SectionLabel('Состав по каталогу'),
+              AppCard(
+                child: Column(
+                  children: [
+                    for (final line in lines.where((l) => l.itemId != null)) ...[
+                      if (line.itemId != null) ...[
+                        Text(
+                          '— ${line.name}',
+                          style: TextStyle(
+                            fontSize: 12.5,
+                            fontWeight: FontWeight.w500,
+                            color: colors.secondaryLabel,
+                          ),
+                        ),
+                        for (final part in store.itemComposition(line.itemId!))
+                          if (!part.isLabor && part.componentId != null)
+                            KeyValueRow(
+                              part.note == null
+                                  ? part.componentId!
+                                  : part.note!,
+                              '${formatQty(line.quantity * part.qty)} ${store.inventoryItems.where((i) => i.id == part.componentId).firstOrNull?.unit ?? ''}',
+                              dense: true,
+                            ),
+                      ],
+                    ],
+                    const SizedBox(height: 8),
+                    SecondaryButton(
+                      label: 'Списать со склада',
+                      icon: CupertinoIcons.cube_box,
+                      dense: true,
+                      onPressed: () async {
+                        final confirmed = await showAppConfirm(
+                          context,
+                          title: 'Списать со склада',
+                          message:
+                              'Списать материалы заказа по составу каталога? '
+                              'Остатки уменьшатся на требуемое количество.',
+                          confirmLabel: 'Списать',
+                          destructive: true,
+                        );
+                        if (!confirmed || !mounted) return;
+                        try {
+                          final written =
+                              await store.writeOffJobMaterials(
+                            widget.jobId,
+                            lineIds: lines.map((l) => l.id).toList(),
+                          );
+                          if (!mounted) return;
+                          await showAppAlert(
+                            context,
+                            title: 'Списано',
+                            message:
+                                'Записей движения: $written. Обновите склад.',
+                          );
+                        } catch (_) {
+                          if (mounted) {
+                            await showAppAlert(
+                              context,
+                              title: 'Ошибка списания',
+                              message:
+                                  'Не удалось обновить остаток. Проверьте журнал.',
+                            );
+                          }
+                        }
+                      },
+                    ),
+                  ],
+                ),
+              ),
+            ],
             const SizedBox(height: 16),
             SectionLabel('Учёт времени'),
             AppCard(

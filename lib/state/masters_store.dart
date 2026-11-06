@@ -18,6 +18,7 @@ import '../data/models/client.dart';
 import '../data/models/employee.dart';
 import '../data/models/time_entry.dart';
 import '../data/models/client_reminder.dart';
+import '../data/models/entity_attribute.dart';
 import '../data/models/unified_event.dart';
 import '../data/models/inventory_composition.dart';
 import '../data/models/inventory_item.dart';
@@ -29,6 +30,7 @@ import '../data/models/job_items.dart';
 import '../data/models/money_transaction.dart';
 import '../data/models/recurring_payment.dart';
 import '../data/repositories/recurring_payment_repository.dart';
+import '../data/repositories/entity_attribute_repository.dart';
 import '../data/models/work_object.dart';
 import '../data/repositories/account_repository.dart';
 import '../data/repositories/appointment_repository.dart';
@@ -116,6 +118,7 @@ class MastersStore extends ChangeNotifier {
     _bookingResourceRepo = BookingResourceRepository(_appDatabase.database);
     _recurringRepo = RecurringPaymentRepository(_appDatabase.database);
     _payrollRepo = PayrollPeriodRepository(_appDatabase.database);
+    _attributeRepo = EntityAttributeRepository(_appDatabase.database);
   }
 
   final AppDatabase _appDatabase;
@@ -143,12 +146,14 @@ class MastersStore extends ChangeNotifier {
   late final PurchaseRepository _purchaseRepo;
   late final RecurringPaymentRepository _recurringRepo;
   late final PayrollPeriodRepository _payrollRepo;
+  late final EntityAttributeRepository _attributeRepo;
 
   List<Client> _clients = [];
   List<WorkObject> _objects = [];
   List<Job> _jobs = [];
   List<JobStage> _stages = [];
   List<MaterialItem> _materials = [];
+  List<EntityAttribute> _attributes = [];
   List<WorkSession> _sessions = [];
   List<Account> _accounts = [];
   List<MoneyTransaction> _moneyTransactions = [];
@@ -534,6 +539,7 @@ class MastersStore extends ChangeNotifier {
       _employeeRepo.getAll(),
       _timeEntryRepo.getAll(),
       _paymentRepo.getAll(),
+      _attributeRepo.getAll(),
     ]);
     _moneyTransactions = rest[0] as List<MoneyTransaction>;
     _shifts = rest[1] as List<CashShift>;
@@ -562,6 +568,7 @@ class MastersStore extends ChangeNotifier {
     }
     _timeEntries = rest[10] as List<TimeEntry>;
     _employeePayments = rest[11] as List<EmployeePayment>;
+    _attributes = rest[12] as List<EntityAttribute>;
     _purchaseLines = await _purchaseRepo.getAllLines();
     _compositionLines = await _compositionRepo.getAll();
 
@@ -1088,6 +1095,249 @@ class MastersStore extends ChangeNotifier {
     );
   }
 
+  /// Строки заказа: работы и товары.
+  ///
+  /// Отдельный геттер нужен, чтобы экраны не смешивали «материалы» со
+  /// старым смыслом (расходники) и строки заказа из каталога.
+  List<MaterialItem> jobLines(String jobId) =>
+      _materials.where((m) => m.jobId == jobId).toList();
+
+  /// Создаёт или обновляет строку заказа.
+  ///
+  /// [costAtOrderCents] по умолчанию берётся у позиции каталога: снимок
+  /// себестоимости должен фиксироваться в момент оформления, иначе маржа
+  /// изменится после правки цены товара.
+  Future<MaterialItem> createJobLine(
+    String jobId, {
+    String? itemId,
+    String kind = 'work',
+    String? name,
+    double qty = 1,
+    String unit = 'шт',
+    int priceCents = 0,
+    int? costAtOrderCents,
+    int discountCents = 0,
+  }) async {
+    InventoryItem? catalogItem;
+    if (itemId != null) {
+      for (final candidate in _inventoryItems) {
+        if (candidate.id == itemId) {
+          catalogItem = candidate;
+          break;
+        }
+      }
+    }
+    return addMaterial(
+      jobId: jobId,
+      name: name ?? catalogItem?.name ?? 'Строка',
+      quantity: qty,
+      unit: unit == 'шт' && catalogItem != null ? catalogItem.unit : unit,
+      priceCents: priceCents == 0 && catalogItem != null
+          ? catalogItem.sellPriceCents
+          : priceCents,
+      itemId: itemId,
+      kind: kind,
+      costAtOrderCents:
+          costAtOrderCents ??
+          (catalogItem == null
+              ? 0
+              : (catalogItem.kind == 'service' ? 0 : catalogItem.costCents)),
+      discountCents: discountCents,
+    );
+  }
+
+  /// Обновляет строку заказа и пересчитывает итоги заказа.
+  Future<void> updateJobLine(
+    String lineId, {
+    double? qty,
+    int? priceCents,
+    int? costAtOrderCents,
+    int? discountCents,
+    String? name,
+    String? unit,
+  }) async {
+    MaterialItem? current;
+    for (final m in _materials) {
+      if (m.id == lineId) {
+        current = m;
+        break;
+      }
+    }
+    if (current == null) return;
+    // copyWith отличает «не передано» от значения, поэтому null не пропускаем.
+    final updated = current.copyWith(
+      quantity: qty ?? current.quantity,
+      priceCents: priceCents ?? current.priceCents,
+      costAtOrderCents: costAtOrderCents ?? current.costAtOrderCents,
+      discountCents: discountCents ?? current.discountCents,
+      name: name ?? current.name,
+      unit: unit ?? current.unit,
+    );
+    await _materialRepo.save(updated);
+    _materials = [
+      for (final m in _materials) if (m.id == lineId) updated else m,
+    ];
+    _intCache.remove('cost:${updated.jobId}');
+    notifyListeners();
+  }
+
+  /// Строка из каталога с подстановкой цены, единицы и себестоимости.
+  Future<MaterialItem> addLineFromCatalog(
+    String jobId,
+    String itemId, {
+    double qty = 1,
+  }) => addCatalogLine(jobId: jobId, itemId: itemId, quantity: qty);
+
+  /// Пересчитывает цену и себестоимость заказа по строкам.
+  ///
+  /// Ручное значение `cost_cents` остаётся только у заказов без строк:
+  /// иначе правка цены каталога задним числом меняла бы маржу закрытых
+  /// заказов, а ручной ввод спорил бы со снимками в строках.
+  Future<void> recalcJobTotals(String jobId) async {
+    final lines = jobLines(jobId);
+    if (lines.isEmpty) return;
+    var price = 0;
+    var cost = 0;
+    for (final line in lines) {
+      price += line.totalCents - line.discountCents;
+      cost += line.costTotalCents;
+    }
+    final idx = _jobs.indexWhere((j) => j.id == jobId);
+    if (idx == -1) return;
+    final job = _jobs[idx];
+    if (job.priceCents == price && job.costCents == cost) return;
+    final updated = job.copyWith(priceCents: price, costCents: cost);
+    await _jobRepo.save(updated);
+    _jobs[idx] = updated;
+    _intCache
+      ..remove('cost:$jobId')
+      ..remove('paid:$jobId');
+    notifyListeners();
+  }
+
+  // Атрибуты сущностей (entity_attributes): параметры изделия, свойства клиента.
+
+  /// Помечает позицию каталога «популярной» — фильтр на экране каталога.
+  ///
+  /// Отдельного столбца в `inventory_items` под это нет (миграции Э0 уже
+  /// закрыты), а заводить boolean-колонку ради одного фильтра дороже, чем
+  /// пара ключ/значение в `entity_attributes`.
+  Future<void> setItemPopular(String itemId, bool popular) => setAttribute(
+    entityType: 'item',
+    entityId: itemId,
+    key: 'popular',
+    valueText: popular ? '1' : null,
+  );
+
+  bool isItemPopular(String itemId) =>
+      attributeValue('item', itemId, 'popular') != null;
+
+  /// Списание материалов заказа со склада по составу его каталожных строк.
+  ///
+  /// [lineIds] — какие строки списать (пустой список = ничего). Расход
+  /// считается как `кол-во строки × кол-во компонента состава`; строки без
+  /// `item_id` и компоненты ручного труда пропускаются. Ссылка движения —
+  /// на заказ, чтобы история склада показывала, ради чего ушло.
+  Future<int> writeOffJobMaterials(
+    String jobId, {
+    required List<String> lineIds,
+  }) async {
+    if (lineIds.isEmpty) return 0;
+    final selected = lineIds.toSet();
+    var written = 0;
+    for (final line in jobLines(jobId)) {
+      if (!selected.contains(line.id)) continue;
+      final itemId = line.itemId;
+      if (itemId == null) continue;
+      for (final part in itemComposition(itemId)) {
+        if (part.isLabor) continue;
+        final componentId = part.componentId;
+        if (componentId == null) continue;
+        final qty = (line.quantity * part.qty).roundToDouble();
+        if (qty <= 0) continue;
+        await adjustStock(
+          itemId: componentId,
+          delta: -qty,
+          type: 'writeoff',
+          reason: 'order',
+          refType: 'job',
+          refId: jobId,
+          note: 'Состав: ${line.name}',
+        );
+        written++;
+      }
+    }
+    return written;
+  }
+
+  /// Атрибуты сущности в порядке отображения.
+  List<EntityAttribute> attributesOf(String entityType, String entityId) =>
+      _attributes
+          .where((a) => a.entityType == entityType && a.entityId == entityId)
+          .toList()
+        ..sort((a, b) => a.sortOrder.compareTo(b.sortOrder));
+
+  /// Значение одного атрибута или `null`.
+  String? attributeValue(String entityType, String entityId, String key) {
+    for (final a in _attributes) {
+      if (a.entityType == entityType &&
+          a.entityId == entityId &&
+          a.key == key) {
+        return a.valueText ?? a.valueNum?.toString();
+      }
+    }
+    return null;
+  }
+
+  /// Создаёт или обновляет атрибут по ключу.
+  Future<void> setAttribute({
+    required String entityType,
+    required String entityId,
+    required String key,
+    String? valueText,
+    double? valueNum,
+    double sortOrder = 0,
+  }) async {
+    final trimmedKey = key.trim();
+    if (trimmedKey.isEmpty) return;
+    EntityAttribute? existing;
+    for (final a in _attributes) {
+      if (a.entityType == entityType &&
+          a.entityId == entityId &&
+          a.key == trimmedKey) {
+        existing = a;
+        break;
+      }
+    }
+    final now = DateTime.now();
+    final attribute = EntityAttribute(
+      id: existing?.id ?? newId(),
+      entityType: entityType,
+      entityId: entityId,
+      key: trimmedKey,
+      valueText: valueText,
+      valueNum: valueNum,
+      sortOrder: sortOrder,
+      createdAt: existing?.createdAt ?? now,
+      updatedAt: now,
+    );
+    await _attributeRepo.save(attribute);
+    _attributes = [
+      for (final a in _attributes)
+        if (a.id == attribute.id) attribute else a,
+    ];
+    if (!_attributes.any((a) => a.id == attribute.id)) {
+      _attributes = [..._attributes, attribute];
+    }
+    notifyListeners();
+  }
+
+  Future<void> deleteAttribute(String id) async {
+    await _attributeRepo.delete(id);
+    _attributes = _attributes.where((a) => a.id != id).toList();
+    notifyListeners();
+  }
+
   Future<void> deleteMaterial(String id) async {
     String? jobId;
     for (final m in _materials) {
@@ -1584,6 +1834,24 @@ class MastersStore extends ChangeNotifier {
     }
     return total;
   });
+
+  /// Маржа заказа: Σ(цена − скидка − снимок себестоимости) по строкам.
+  ///
+  /// Считается по строкам, а не как `price_cents - cost_cents`: у заказа без
+  /// строк себестоимость введена вручную, и такая маржа была бы вымыслом.
+  int jobMarginCents(String jobId) {
+    final lines = jobLines(jobId);
+    if (lines.isEmpty) {
+      final job = _jobs.firstWhere((j) => j.id == jobId,
+          orElse: () => throw ArgumentError('Заказ $jobId не найден'));
+      return job.priceCents - job.costCents;
+    }
+    var margin = 0;
+    for (final line in lines) {
+      margin += line.marginCents;
+    }
+    return margin;
+  }
 
   int clientDebtCents(String clientId) =>
       _intCache.putIfAbsent('debt:$clientId', () {
