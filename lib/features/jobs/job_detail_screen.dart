@@ -169,7 +169,12 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
   }
 
   Future<void> _acceptPayment(MastersStore store, Job job) async {
-    final remaining = job.priceCents - store.paidForJob(job.id);
+    final obligation = store.openJobPaymentObligation(job.id);
+    // Сумма берётся из обязательства, когда оно есть: там уже учтены
+    // частичные оплаты, а долг считается по остатку обязательства.
+    final remaining = obligation != null
+        ? obligation.remainingCents
+        : job.priceCents - store.paidForJob(job.id);
     final amountStr = await _promptText(
       'Сумма оплаты',
       remaining > 0 ? (remaining / 100).toStringAsFixed(0) : '0',
@@ -191,16 +196,24 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
     final accountId = await _pickAccount(store);
     if (accountId == null) return;
     try {
-      await store.addTransaction(
-        accountId: accountId,
-        kind: 'payment',
-        direction: 'in',
-        amountCents: amount,
-        category: 'Оплата заказа',
-        note: job.title,
-        clientId: job.clientId,
-        jobId: job.id,
-      );
+      if (obligation != null) {
+        await store.payObligation(
+          obligation.id,
+          amountCents: amount,
+          accountId: accountId,
+        );
+      } else {
+        await store.addTransaction(
+          accountId: accountId,
+          kind: 'payment',
+          direction: 'in',
+          amountCents: amount,
+          category: 'Оплата заказа',
+          note: job.title,
+          clientId: job.clientId,
+          jobId: job.id,
+        );
+      }
     } catch (e) {
       if (mounted) {
         await showAppAlert(context, title: 'Ошибка', message: e.toString());
@@ -241,9 +254,12 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
   Future<void> _closeJob(MastersStore store, Job job) async {
     try {
       var current = store.jobById(job.id) ?? job;
-      final remaining = (current.priceCents - store.paidForJob(current.id)) < 0
-          ? 0
-          : current.priceCents - store.paidForJob(current.id);
+      final obligation = store.openJobPaymentObligation(current.id);
+      final remaining = obligation != null
+          ? obligation.remainingCents
+          : (current.priceCents - store.paidForJob(current.id)) < 0
+              ? 0
+              : current.priceCents - store.paidForJob(current.id);
 
       if (current.priceCents <= 0 || remaining <= 0) {
         if (current.status != JobStatus.done) {
@@ -305,16 +321,24 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
           return;
         }
         try {
-          await store.addTransaction(
-            accountId: accountId,
-            kind: 'payment',
-            direction: 'in',
-            amountCents: amount,
-            category: 'Оплата заказа',
-            note: current.title,
-            clientId: current.clientId,
-            jobId: current.id,
-          );
+          if (obligation != null) {
+            await store.payObligation(
+              obligation.id,
+              amountCents: amount,
+              accountId: accountId,
+            );
+          } else {
+            await store.addTransaction(
+              accountId: accountId,
+              kind: 'payment',
+              direction: 'in',
+              amountCents: amount,
+              category: 'Оплата заказа',
+              note: current.title,
+              clientId: current.clientId,
+              jobId: current.id,
+            );
+          }
         } catch (e) {
           if (mounted) {
             await showAppAlert(
@@ -1100,24 +1124,37 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
             const SizedBox(height: 16),
             if (store.paidForJob(job.id) > 0 || job.priceCents > 0) ...[
               SectionLabel('Оплата'),
-              AppCard(
-                child: Column(
-                  children: [
-                    _KV(
-                      'Оплачено',
-                      '${money(store.paidForJob(job.id))}',
+              Builder(
+                builder: (context) {
+                  final obligation = store.openJobPaymentObligation(job.id);
+                  final remaining = obligation != null
+                      ? obligation.remainingCents
+                      : (job.priceCents - store.paidForJob(job.id)).clamp(
+                          0,
+                          1 << 40,
+                        );
+                  return AppCard(
+                    child: Column(
+                      children: [
+                        _KV(
+                          'Оплачено',
+                          '${money(store.paidForJob(job.id))}',
+                        ),
+                        _KV('Остаток', '${money(remaining)}'),
+                        if (obligation != null)
+                          _KV(
+                            'Срок оплаты',
+                            formatFullDate(obligation.dueAt),
+                          ),
+                        SecondaryButton(
+                          label: 'Принять оплату',
+                          icon: CupertinoIcons.money_dollar,
+                          onPressed: () => _acceptPayment(store, job),
+                        ),
+                      ],
                     ),
-                    _KV(
-                      'Остаток',
-                      '${money((job.priceCents - store.paidForJob(job.id)))}',
-                    ),
-                    SecondaryButton(
-                      label: 'Принять оплату',
-                      icon: CupertinoIcons.money_dollar,
-                      onPressed: () => _acceptPayment(store, job),
-                    ),
-                  ],
-                ),
+                  );
+                },
               ),
               const SizedBox(height: 16),
             ],

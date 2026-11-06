@@ -13,6 +13,7 @@ import '../../core/utils/app_utils.dart';
 import '../employees/employees_screen.dart';
 import '../stats/stats_screen.dart';
 import '../../data/models/money_transaction.dart';
+import '../../data/models/obligation.dart';
 import '../../data/models/recurring_payment.dart';
 import '../../state/masters_store.dart';
 import '../../state/settings_controller.dart';
@@ -34,7 +35,7 @@ class _MoneyScreenState extends State<MoneyScreen> {
   DateTime? _dateFrom;
   DateTime? _dateTo;
   String _recurringStatusFilter = 'all';
-  int _selectedTab = 0; // 0: Операции, 1: Счета, 2: Категории
+  int _selectedTab = 0; // 0: Операции, 1: Счета, 2: Категории, 3: План
   bool _taxRadarExpanded = false;
 
   String _money(int cents) => money(cents);
@@ -1356,6 +1357,7 @@ class _MoneyScreenState extends State<MoneyScreen> {
                       0: Text('Операции'),
                       1: Text('Счета'),
                       2: Text('Категории'),
+                      3: Text('План'),
                     },
                     groupValue: _selectedTab,
                     onValueChanged: (v) => setState(() => _selectedTab = v),
@@ -1683,6 +1685,11 @@ class _MoneyScreenState extends State<MoneyScreen> {
                         if (_selectedTab == 2) ...[
                           SectionLabel('Категории'),
                           _buildCategoriesSection(store),
+                          const SizedBox(height: 16),
+                        ],
+                        if (_selectedTab == 3) ...[
+                          SectionLabel('План'),
+                          _buildPlanSection(store),
                           const SizedBox(height: 16),
                         ],
                         // Вкладка "Операции" - продолжаем с платежей
@@ -2505,6 +2512,545 @@ class _MoneyScreenState extends State<MoneyScreen> {
       ],
     );
   }
+
+  String _counterpartyName(MastersStore store, Obligation o) {
+    if (o.counterpartyType == 'client') {
+      return store.clientById(o.counterpartyId ?? '')?.name ?? 'Клиент';
+    }
+    if (o.counterpartyType == 'supplier') {
+      for (final s in store.suppliers) {
+        if (s.id == o.counterpartyId) return s.name;
+      }
+      return 'Поставщик';
+    }
+    return o.kindLabel;
+  }
+
+  Future<void> _payObligationFlow(Obligation o) async {
+    final store = context.read<MastersStore>();
+    if (store.accounts.every((a) => a.archived)) {
+      if (!mounted) return;
+      await showAppAlert(
+        context,
+        title: 'Нет счёта',
+        message: 'Сначала создайте счёт в разделе «Счета»',
+      );
+      return;
+    }
+    final amountStr = await _prompt(
+      'Оплата · ${_money(o.remainingCents)}',
+      (o.remainingCents / 100).toStringAsFixed(0),
+    );
+    if (amountStr == null) return;
+    final amount =
+        ((double.tryParse(amountStr.replaceAll(',', '.')) ?? 0) * 100).round();
+    if (amount <= 0) return;
+    final accountId = await _pickAccount();
+    if (accountId == null || !mounted) return;
+    try {
+      await store.payObligation(
+        o.id,
+        amountCents: amount,
+        accountId: accountId,
+      );
+    } catch (e) {
+      if (mounted) {
+        await showAppAlert(context, title: 'Ошибка', message: e.toString());
+      }
+    }
+  }
+
+  Future<void> _addPayableSheet() async {
+    final store = context.read<MastersStore>();
+    final titleController = TextEditingController();
+    final amountController = TextEditingController();
+    var kind = 'other';
+    var dueAt = DateTime.now().add(const Duration(days: 7));
+    await showCupertinoModalPopup<void>(
+      context: context,
+      builder: (sheetContext) => StatefulBuilder(
+        builder: (builderContext, setModalState) => Container(
+          height: MediaQuery.of(context).size.height * 0.72,
+          color: context.colors.card,
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+          child: SafeArea(
+            top: false,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                const Text(
+                  'Кому я должен',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+                ),
+                const SizedBox(height: 12),
+                CupertinoTextField(
+                  controller: titleController,
+                  placeholder: 'Название (аренда, налог, поставщик…)',
+                  decoration: BoxDecoration(
+                    color: const Color(0x00FFFFFF),
+                    border: Border.all(color: context.colors.separator),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+                const SizedBox(height: 10),
+                CupertinoTextField(
+                  controller: amountController,
+                  placeholder: 'Сумма 0.00',
+                  keyboardType: const TextInputType.numberWithOptions(
+                    decimal: true,
+                  ),
+                  decoration: BoxDecoration(
+                    color: const Color(0x00FFFFFF),
+                    border: Border.all(color: context.colors.separator),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+                const SizedBox(height: 10),
+                KeyValueRow(
+                  'Категория',
+                  Obligation(
+                    id: '',
+                    direction: 'payable',
+                    kind: kind,
+                    title: '',
+                    amountCents: 0,
+                    dueAt: dueAt,
+                    createdAt: dueAt,
+                    updatedAt: dueAt,
+                  ).kindLabel,
+                  onTap: () async {
+                    final v = await showCupertinoModalPopup<String>(
+                      context: builderContext,
+                      builder: (ctx) => CupertinoActionSheet(
+                        title: const Text('Категория'),
+                        actions: [
+                          for (final k in const [
+                            'supplier_bill',
+                            'tax',
+                            'salary',
+                            'rent',
+                            'loan',
+                            'other',
+                          ])
+                            CupertinoActionSheetAction(
+                              onPressed: () => Navigator.of(ctx).pop(k),
+                              child: Text(
+                                Obligation(
+                                  id: '',
+                                  direction: 'payable',
+                                  kind: k,
+                                  title: '',
+                                  amountCents: 0,
+                                  dueAt: dueAt,
+                                  createdAt: dueAt,
+                                  updatedAt: dueAt,
+                                ).kindLabel,
+                              ),
+                            ),
+                        ],
+                        cancelButton: CupertinoActionSheetAction(
+                          onPressed: () => Navigator.of(ctx).pop(),
+                          child: const Text('Отмена'),
+                        ),
+                      ),
+                    );
+                    if (v != null) setModalState(() => kind = v);
+                  },
+                ),
+                KeyValueRow(
+                  'Срок',
+                  DateFormat('d MMM yyyy', 'ru').format(dueAt),
+                  onTap: () async {
+                    DateTime selected = dueAt;
+                    await showCupertinoModalPopup<void>(
+                      context: builderContext,
+                      builder: (pickerContext) => Container(
+                        height: 300,
+                        color: context.colors.card,
+                        child: Column(
+                          children: [
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                CupertinoButton(
+                                  child: const Text('Отмена'),
+                                  onPressed: () =>
+                                      Navigator.of(pickerContext).pop(),
+                                ),
+                                CupertinoButton(
+                                  child: const Text('Готово'),
+                                  onPressed: () {
+                                    Navigator.of(pickerContext).pop();
+                                    setModalState(
+                                      () => dueAt = DateTime(
+                                        selected.year,
+                                        selected.month,
+                                        selected.day,
+                                      ),
+                                    );
+                                  },
+                                ),
+                              ],
+                            ),
+                            Expanded(
+                              child: CupertinoDatePicker(
+                                mode: CupertinoDatePickerMode.date,
+                                initialDateTime: selected,
+                                onDateTimeChanged: (dt) => selected = dt,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  },
+                ),
+                const SizedBox(height: 16),
+                SecondaryButton(
+                  label: 'Добавить',
+                  icon: CupertinoIcons.plus,
+                  onPressed: () async {
+                    final title = titleController.text.trim();
+                    final amount =
+                        ((double.tryParse(
+                                      amountController.text.trim().replaceAll(
+                                        ',',
+                                        '.',
+                                      ),
+                                    ) ??
+                                    0) *
+                                100)
+                            .round();
+                    if (title.isEmpty || amount <= 0) return;
+                    await store.createPayable(
+                      kind: kind,
+                      title: title,
+                      amountCents: amount,
+                      dueAt: dueAt,
+                    );
+                    if (sheetContext.mounted) {
+                      Navigator.of(sheetContext).pop();
+                    }
+                  },
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _obligationRow(MastersStore store, Obligation o, AppColors colors) {
+    final income = o.isIncome;
+    final tint = income ? colors.green : colors.red;
+    final overdue = o.isOverdue;
+    final paidPart = o.paidCents > 0;
+    return ListRow(
+      title: o.title,
+      subtitle:
+          '${_counterpartyName(store, o)} · ${o.kindLabel} · '
+          '${DateFormat('d MMM', 'ru').format(o.dueAt)}'
+          '${paidPart ? ' · внесено ${_money(o.paidCents)}' : ''}',
+      titleColor: overdue ? colors.red : null,
+      dense: true,
+      trailing: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            _money(o.remainingCents),
+            style: TextStyle(
+              fontSize: 13.5,
+              fontWeight: FontWeight.w600,
+              color: tint,
+              fontFeatures: const [FontFeature.tabularFigures()],
+            ),
+          ),
+          const SizedBox(width: 4),
+          OverflowMenuButton(
+            size: 18,
+            title: o.title,
+            actions: [
+              CupertinoActionSheetAction(
+                onPressed: () => _payObligationFlow(o),
+                child: Text(income ? 'Принять оплату' : 'Заплатить'),
+              ),
+              if (income && o.jobId != null)
+                CupertinoActionSheetAction(
+                  onPressed: () async {
+                    await store.createPaymentReminder(obligationId: o.id);
+                    if (!mounted) return;
+                    await showAppAlert(
+                      context,
+                      title: 'Напоминание создано',
+                      message: 'За 2 дня до срока.',
+                    );
+                  },
+                  child: const Text('Напомнить клиенту'),
+                ),
+              CupertinoActionSheetAction(
+                isDestructiveAction: true,
+                onPressed: () => store.cancelObligation(o.id),
+                child: const Text('Отменить обязательство'),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPlanSection(MastersStore store) {
+    final colors = context.colors;
+    final receivables = store.receivables()
+      ..sort((a, b) => a.dueAt.compareTo(b.dueAt));
+    final payables = store.payables()
+      ..sort((a, b) => a.dueAt.compareTo(b.dueAt));
+    final totalIn = receivables.fold<int>(0, (s, o) => s + o.remainingCents);
+    final totalOut = payables.fold<int>(0, (s, o) => s + o.remainingCents);
+    final plan = store.cashPlan();
+    final balance = store.totalBalanceCents();
+    final endBalance = plan.isEmpty ? balance : plan.last.balanceEnd;
+    CashPlanDay? firstGap;
+    for (final d in plan) {
+      if (d.isGap) {
+        firstGap = d;
+        break;
+      }
+    }
+    final eventDays = plan
+        .where((d) => d.incoming > 0 || d.outgoing > 0)
+        .toList();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        AppCard(
+          padding: const EdgeInsets.fromLTRB(14, 10, 14, 12),
+          child: Column(
+            children: [
+              KeyValueRow('Сейчас на счетах', _money(balance), emphasis: true),
+              KeyValueRow(
+                'Ожидается (дебиторка)',
+                '+${_money(totalIn)}',
+                valueColor: colors.green,
+              ),
+              KeyValueRow(
+                'К оплате (кредиторка)',
+                '−${_money(totalOut)}',
+                valueColor: colors.red,
+              ),
+              KeyValueRow(
+                'Прогноз на 6 недель',
+                _money(endBalance),
+                emphasis: true,
+                valueColor: endBalance < 0 ? colors.red : null,
+              ),
+              if (firstGap != null)
+                Padding(
+                  padding: const EdgeInsets.only(top: 6),
+                  child: Row(
+                    children: [
+                      Icon(
+                        CupertinoIcons.exclamationmark_triangle_fill,
+                        size: 14,
+                        color: colors.red,
+                      ),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: Text(
+                          'Разрыв ${_money(firstGap.balanceEnd)} '
+                          '${DateFormat('d MMM', 'ru').format(firstGap.date)}',
+                          style: TextStyle(
+                            fontSize: 12.5,
+                            fontWeight: FontWeight.w600,
+                            color: colors.red,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+            ],
+          ),
+        ),
+        if (eventDays.isNotEmpty) ...[
+          const SizedBox(height: 10),
+          SizedBox(
+            height: 104,
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.symmetric(horizontal: 2),
+              itemCount: eventDays.length,
+              separatorBuilder: (_, _) => const SizedBox(width: 6),
+              itemBuilder: (_, i) {
+                final d = eventDays[i];
+                final dayColors = [
+                  'Пн',
+                  'Вт',
+                  'Ср',
+                  'Чт',
+                  'Пт',
+                  'Сб',
+                  'Вс',
+                ][d.date.weekday - 1];
+                return AppCard(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 8,
+                  ),
+                  color: d.isGap
+                      ? colors.tint(colors.red, 0.10)
+                      : null,
+                  child: SizedBox(
+                    width: 84,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          '${dayColors}, ${DateFormat('d MMM', 'ru').format(d.date)}',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: 10.5,
+                            fontWeight: FontWeight.w600,
+                            color: colors.secondaryLabel,
+                          ),
+                        ),
+                        Text(
+                          d.incoming > 0 ? '+${_money(d.incoming)}' : '—',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: 11.5,
+                            fontWeight: FontWeight.w600,
+                            color: colors.green,
+                            fontFeatures: const [FontFeature.tabularFigures()],
+                          ),
+                        ),
+                        Text(
+                          d.outgoing > 0 ? '−${_money(d.outgoing)}' : '—',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: 11.5,
+                            fontWeight: FontWeight.w600,
+                            color: colors.red,
+                            fontFeatures: const [FontFeature.tabularFigures()],
+                          ),
+                        ),
+                        Text(
+                          _money(d.balanceEnd),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: 12.5,
+                            fontWeight: FontWeight.w700,
+                            color: d.isGap ? colors.red : colors.label,
+                            fontFeatures: const [FontFeature.tabularFigures()],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+        ],
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            Expanded(
+              child: SectionLabel(
+                'Должны мне · ${receivables.length}',
+                padding: EdgeInsets.zero,
+              ),
+            ),
+            Text(
+              _money(totalIn),
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w700,
+                color: colors.green,
+                fontFeatures: const [FontFeature.tabularFigures()],
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 6),
+        if (receivables.isEmpty)
+          AppCard(
+            padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+            child: Text(
+              'Дебиторки нет — все заказы оплачены.',
+              style: TextStyle(fontSize: 13, color: colors.secondaryLabel),
+            ),
+          )
+        else
+          AppCard(
+            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+            child: Column(
+              children: [
+                for (var i = 0; i < receivables.length; i++) ...[
+                  if (i > 0) const Hairline(indent: 12),
+                  _obligationRow(store, receivables[i], colors),
+                ],
+              ],
+            ),
+          ),
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            Expanded(
+              child: SectionLabel(
+                'Я должен · ${payables.length}',
+                padding: EdgeInsets.zero,
+              ),
+            ),
+            Text(
+              _money(totalOut),
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w700,
+                color: colors.red,
+                fontFeatures: const [FontFeature.tabularFigures()],
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 6),
+        if (payables.isEmpty)
+          AppCard(
+            padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+            child: Text(
+              'Кредиторки нет — расходных обязательств нет.',
+              style: TextStyle(fontSize: 13, color: colors.secondaryLabel),
+            ),
+          )
+        else
+          AppCard(
+            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+            child: Column(
+              children: [
+                for (var i = 0; i < payables.length; i++) ...[
+                  if (i > 0) const Hairline(indent: 12),
+                  _obligationRow(store, payables[i], colors),
+                ],
+              ],
+            ),
+          ),
+        const SizedBox(height: 10),
+        ChipButton(
+          label: 'Добавить расходное обязательство',
+          icon: CupertinoIcons.plus,
+          color: colors.red,
+          onPressed: _addPayableSheet,
+        ),
+      ],
+    );
+  }
 }
 
 class _KV extends StatelessWidget {
@@ -2524,3 +3070,4 @@ class _KV extends StatelessWidget {
     );
   }
 }
+

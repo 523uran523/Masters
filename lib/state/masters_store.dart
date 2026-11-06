@@ -6,6 +6,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:flutter/foundation.dart';
 
 import '../core/backup_service.dart';
+import '../core/money_format.dart';
 import '../core/reminder_service.dart';
 import '../core/utils/app_utils.dart';
 import '../data/schema_tables.dart';
@@ -31,6 +32,8 @@ import '../data/models/money_transaction.dart';
 import '../data/models/recurring_payment.dart';
 import '../data/repositories/recurring_payment_repository.dart';
 import '../data/repositories/entity_attribute_repository.dart';
+import '../data/models/obligation.dart';
+import '../data/repositories/obligation_repository.dart';
 import '../data/models/work_object.dart';
 import '../data/repositories/account_repository.dart';
 import '../data/repositories/appointment_repository.dart';
@@ -94,6 +97,33 @@ class ClosedPeriod {
   bool contains(DateTime date) => !date.isBefore(start) && !date.isAfter(end);
 }
 
+/// Один день платёжного календаря (`store.cashPlan`).
+class CashPlanDay {
+  const CashPlanDay({
+    required this.date,
+    required this.balanceStart,
+    required this.incoming,
+    required this.outgoing,
+    required this.balanceEnd,
+  });
+
+  final DateTime date;
+  final int balanceStart;
+
+  /// Ожидаемые поступления: дебиторка со сроком в этот день + регулярные
+  /// платежи «в ноль» и выше.
+  final int incoming;
+
+  /// Ожидаемые платежи: кредиторка + регулярные расходы.
+  final int outgoing;
+  final int balanceEnd;
+
+  int get net => incoming - outgoing;
+
+  /// Баланс уходит в минус — денег не хватает.
+  bool get isGap => balanceEnd < 0;
+}
+
 class MastersStore extends ChangeNotifier {
   MastersStore(this._appDatabase, this.settings) {
     _clientRepo = ClientRepository(_appDatabase.database);
@@ -119,6 +149,7 @@ class MastersStore extends ChangeNotifier {
     _recurringRepo = RecurringPaymentRepository(_appDatabase.database);
     _payrollRepo = PayrollPeriodRepository(_appDatabase.database);
     _attributeRepo = EntityAttributeRepository(_appDatabase.database);
+    _obligationRepo = ObligationRepository(_appDatabase.database);
   }
 
   final AppDatabase _appDatabase;
@@ -147,6 +178,7 @@ class MastersStore extends ChangeNotifier {
   late final RecurringPaymentRepository _recurringRepo;
   late final PayrollPeriodRepository _payrollRepo;
   late final EntityAttributeRepository _attributeRepo;
+  late final ObligationRepository _obligationRepo;
 
   List<Client> _clients = [];
   List<WorkObject> _objects = [];
@@ -170,6 +202,7 @@ class MastersStore extends ChangeNotifier {
   List<Supplier> _suppliers = [];
   List<Purchase> _purchases = [];
   List<PurchaseLine> _purchaseLines = [];
+  List<Obligation> _obligations = [];
   bool _loaded = false;
 
   // Cache invalidation is centralized: notifyListeners() bumps state and
@@ -580,6 +613,7 @@ class MastersStore extends ChangeNotifier {
       await _scheduleRecurringReminder();
     } catch (_) {}
     _payrollPeriods = await _payrollRepo.getAll();
+    _obligations = await _obligationRepo.getAll();
     await _reconcileEmployeePayments();
 
     if (_bookingResources.isEmpty) {
@@ -913,6 +947,7 @@ class MastersStore extends ChangeNotifier {
     await _jobRepo.save(job);
     _jobs = [job, ..._jobs];
     notifyListeners();
+    await syncJobObligations(job.id);
     return job;
   }
 
@@ -927,6 +962,7 @@ class MastersStore extends ChangeNotifier {
       _jobs[index] = updated;
     }
     notifyListeners();
+    await syncJobObligations(updated.id);
   }
 
   Future<void> setJobStatus(String jobId, JobStatus status) async {
@@ -960,6 +996,8 @@ class MastersStore extends ChangeNotifier {
 
   Future<void> deleteJob(String id) async {
     await _jobRepo.delete(id);
+    await _obligationRepo.deleteForJob(id);
+    _obligations = _obligations.where((o) => o.jobId != id).toList();
     _jobs = _jobs.where((j) => j.id != id).toList();
     _stages = _stages.where((s) => s.jobId != id).toList();
     _materials = _materials.where((m) => m.jobId != id).toList();
@@ -1572,6 +1610,7 @@ class MastersStore extends ChangeNotifier {
     String? shiftId,
     String? relatedTransactionId,
     String? reversesId,
+    String? obligationId,
     String? receiptPath,
   }) async {
     if (amountCents <= 0) throw ArgumentError('Сумма должна быть больше 0.');
@@ -1589,6 +1628,7 @@ class MastersStore extends ChangeNotifier {
       shiftId: shiftId ?? openShift()?.id,
       relatedTransactionId: relatedTransactionId,
       reversesId: reversesId,
+      obligationId: obligationId,
       receiptPath: receiptPath?.trim().isEmpty == true
           ? null
           : receiptPath?.trim(),
@@ -1596,6 +1636,17 @@ class MastersStore extends ChangeNotifier {
     );
     await _moneyTxRepo.save(tx);
     _moneyTransactions = [tx, ..._moneyTransactions];
+    // Прямая оплата/возврат заказа в обход payObligation (kind=payment из
+    // старых экранов, возвраты операций) двигает прогресс обязательства,
+    // иначе долг клиента разойдётся с фактическими поступлениями.
+    if (obligationId == null &&
+        jobId != null &&
+        (kind == 'payment' || kind == 'sale')) {
+      await _applyJobPaymentToObligation(
+        jobId,
+        direction == 'in' ? amountCents : -amountCents,
+      );
+    }
     try {
       await _appDatabase.audit(
         action: 'money.transaction.add',
@@ -1606,6 +1657,38 @@ class MastersStore extends ChangeNotifier {
     } catch (_) {}
     notifyListeners();
     return tx;
+  }
+
+  Future<void> _applyJobPaymentToObligation(
+    String jobId,
+    int deltaCents,
+  ) async {
+    Obligation? target;
+    for (final o in _obligations) {
+      if (o.jobId == jobId &&
+          o.direction == 'receivable' &&
+          o.kind == 'client_payment' &&
+          o.status != 'cancelled') {
+        target = o;
+        break;
+      }
+    }
+    if (target == null) return;
+    final paid = (target.paidCents + deltaCents).clamp(0, target.amountCents);
+    if (paid == target.paidCents) return;
+    final status = paid >= target.amountCents
+        ? 'paid'
+        : paid > 0
+            ? 'partial'
+            : 'planned';
+    final updated = target.copyWith(
+      paidCents: paid,
+      status: status,
+      updatedAt: DateTime.now(),
+    );
+    await _obligationRepo.save(updated);
+    final idx = _obligations.indexWhere((o) => o.id == target!.id);
+    if (idx != -1) _obligations[idx] = updated;
   }
 
   Future<void> revertTransaction(String txId) async {
@@ -1853,8 +1936,345 @@ class MastersStore extends ChangeNotifier {
     return margin;
   }
 
+  // ────────────────────────────────────────────────────────── Obligations
+  // ──────────────────────────────────────────────────────────
+
+  /// Синхронизирует обязательства заказа: Σ obligations(job) = priceCents.
+  ///
+  /// Если у заказа есть строки, сумма = Σ(totalCents). Если строк нет —
+  /// `jobs.price_cents`. Создает одно обязательство `client_payment`.
+  /// Если уже есть активные обязательства — не трогает.
+  Future<void> syncJobObligations(String jobId) async {
+    ensurePeriodOpen();
+    final job = _jobs.firstWhere((j) => j.id == jobId,
+        orElse: () => throw ArgumentError('Job $jobId not found'));
+    final lines = jobLines(jobId);
+    final totalCents = lines.isEmpty ? job.priceCents
+        : lines.fold(0, (s, l) => s + l.totalCents);
+
+    final existing = await _obligationRepo.forJob(jobId);
+    final active = existing.where((o) => !o.isClosed).toList();
+    if (active.isNotEmpty) {
+      // Цена правится до первой оплаты: одно неоплаченное обязательство
+      // подтягивается к новой сумме, частичные оплаты не трогаем.
+      final untouched = active
+          .where((o) => o.paidCents == 0 && o.kind == 'client_payment')
+          .toList();
+      if (active.length == 1 && untouched.length == 1) {
+        final o = untouched.single;
+        if (totalCents > 0 && o.amountCents != totalCents) {
+          final updated = o.copyWith(
+            amountCents: totalCents,
+            dueAt: job.dueDate ?? o.dueAt,
+            updatedAt: DateTime.now(),
+          );
+          await _obligationRepo.save(updated);
+          final idx = _obligations.indexWhere((x) => x.id == o.id);
+          if (idx != -1) {
+            _obligations[idx] = updated;
+            notifyListeners();
+          }
+        }
+      }
+      return;
+    }
+
+    if (totalCents <= 0) return;
+
+    // Уже внесённые оплаты (kind=payment из старых версий) переносятся в
+    // обязательство, иначе долг клиента вдруг вырос бы до полной цены.
+    final paidBefore = paidForJob(jobId).clamp(0, totalCents);
+    if (paidBefore >= totalCents) return; // заказ уже полностью оплачен
+
+    final now = DateTime.now();
+    final obl = Obligation(
+      id: newId(),
+      direction: 'receivable',
+      kind: 'client_payment',
+      counterpartyType: 'client',
+      counterpartyId: job.clientId,
+      jobId: jobId,
+      title: 'Оплата заказа: ${job.title}',
+      amountCents: totalCents,
+      paidCents: paidBefore,
+      dueAt: job.dueDate ?? now,
+      status: paidBefore > 0 ? 'partial' : 'planned',
+      createdAt: now,
+      updatedAt: now,
+    );
+    await _obligationRepo.save(obl);
+    _obligations = [obl, ..._obligations];
+    notifyListeners();
+  }
+
+  /// Оплачивает обязательство частично или полностью.
+  ///
+  /// Создаёт `money_transactions` (`kind=sale`, direction='in') и
+  /// обновляет `paid_cents` + `status` обязательства.
+  Future<Obligation> payObligation(
+    String obligationId, {
+    required int amountCents,
+    String? accountId,
+  }) async {
+    ensurePeriodOpen();
+    if (amountCents <= 0) throw ArgumentError('Сумма должна быть > 0');
+
+    final idx = _obligations.indexWhere((o) => o.id == obligationId);
+    if (idx == -1) throw ArgumentError('Obligation $obligationId not found');
+    final existing = _obligations[idx];
+    if (existing.isClosed) throw ArgumentError('Obligation is already closed');
+
+    final applied = amountCents > existing.remainingCents
+        ? existing.remainingCents
+        : amountCents;
+    final paidTotal = existing.paidCents + applied;
+    final updated = existing.copyWith(
+      paidCents: paidTotal,
+      status: paidTotal >= existing.amountCents ? 'paid' : 'partial',
+      updatedAt: DateTime.now(),
+    );
+
+    await _obligationRepo.save(updated);
+    _obligations[idx] = updated;
+
+    final acc =
+        accountId ?? _accounts.firstWhere((a) => !a.archived).id;
+    await addTransaction(
+      accountId: acc,
+      kind: existing.direction == 'receivable' ? 'sale' : 'expense',
+      direction: existing.direction == 'receivable' ? 'in' : 'out',
+      amountCents: applied,
+      note: existing.title,
+      clientId: existing.counterpartyType == 'client'
+          ? existing.counterpartyId
+          : null,
+      jobId: existing.jobId,
+      obligationId: obligationId,
+    );
+
+    notifyListeners();
+    return updated;
+  }
+
+  /// Создает платёжное обязательство (кредиторка).
+  Future<Obligation> createPayable({
+    required String kind,
+    required String title,
+    required int amountCents,
+    required DateTime dueAt,
+    String? counterpartyType,
+    String? counterpartyId,
+    String? accountId,
+    String? note,
+  }) async {
+    ensurePeriodOpen();
+    if (amountCents <= 0) throw ArgumentError('Сумма должна быть > 0');
+
+    final now = DateTime.now();
+    final obl = Obligation(
+      id: newId(),
+      direction: 'payable',
+      kind: kind,
+      counterpartyType: counterpartyType,
+      counterpartyId: counterpartyId,
+      title: title,
+      amountCents: amountCents,
+      paidCents: 0,
+      dueAt: dueAt,
+      status: 'planned',
+      accountId: accountId,
+      note: note,
+      createdAt: now,
+      updatedAt: now,
+    );
+    await _obligationRepo.save(obl);
+    _obligations = [obl, ..._obligations];
+    notifyListeners();
+    return obl;
+  }
+
+  /// Активные обязательства к получению (дебиторка).
+  List<Obligation> receivables() =>
+      _obligations.where((o) => o.direction == 'receivable' && !o.isClosed)
+          .toList();
+
+  /// Активные обязательства к оплате (кредиторка).
+  List<Obligation> payables() =>
+      _obligations.where((o) => o.direction == 'payable' && !o.isClosed)
+          .toList();
+
+  /// Сумма дебиторки по заказу.
+  int receivableForJob(String jobId) {
+    return _obligations
+        .where((o) => o.jobId == jobId && o.direction == 'receivable' && !o.isClosed)
+        .fold(0, (s, o) => s + o.remainingCents);
+  }
+
+  /// Обязательства заказа (все, включая закрытые).
+  List<Obligation> obligationsForJob(String jobId) =>
+      _obligations.where((o) => o.jobId == jobId).toList();
+
+  /// Активное обязательство оплаты заказа, если оно есть.
+  Obligation? openJobPaymentObligation(String jobId) {
+    for (final o in _obligations) {
+      if (o.jobId == jobId &&
+          o.direction == 'receivable' &&
+          o.kind == 'client_payment' &&
+          !o.isClosed) {
+        return o;
+      }
+    }
+    return null;
+  }
+
+  /// Сумма кредиторки по поставщику.
+  int payableForSupplier(String supplierId) {
+    return _obligations
+        .where((o) => o.counterpartyId == supplierId &&
+            o.counterpartyType == 'supplier' && !o.isClosed)
+        .fold(0, (s, o) => s + o.remainingCents);
+  }
+
+  /// Платёжный календарь на N недель вперёд.
+  ///
+  /// Возвращает список дней: остаток на начало, поступления, платежи,
+  /// остаток на конец, флаг разрыва.
+  ///
+  /// Старт — фактический баланс счетов; обязательства и регулярные платежи
+  /// добавляются по дням их срока. Просроченные обязательства попадают в
+  /// первый день: они «должны были случиться» уже сегодня.
+  List<CashPlanDay> cashPlan({int weeks = 6}) {
+    final now = DateTime.now();
+    final first = DateTime(now.year, now.month, now.day);
+    final days = weeks * 7;
+
+    // Σ ожидаемых сумм по дням: 0 — сегодня (включая просрочку), 1..days-1.
+    final incoming = List<int>.filled(days, 0);
+    final outgoing = List<int>.filled(days, 0);
+    int slotFor(DateTime dueAt) {
+      final d = DateTime(dueAt.year, dueAt.month, dueAt.day);
+      final idx = d.difference(first).inDays;
+      if (idx < 0) return 0; // просрочено — считаем сегодняшним днём
+      return idx < days ? idx : -1; // за горизонтом — не учитываем
+    }
+
+    for (final obl in receivables()) {
+      final idx = slotFor(obl.dueAt);
+      if (idx != -1) incoming[idx] += obl.remainingCents;
+    }
+    for (final obl in payables()) {
+      final idx = slotFor(obl.dueAt);
+      if (idx != -1) outgoing[idx] += obl.remainingCents;
+    }
+
+    for (final payment in _recurringPayments.where((p) => p.active)) {
+      final step = payment.intervalDays < 1 ? 1 : payment.intervalDays;
+      var cursor = payment.nextDueAt;
+      // Сдвигаем курсор к горизонту, а не перебираем все прошлые даты.
+      if (cursor.isBefore(first)) {
+        final missed = first.difference(cursor).inDays ~/ step;
+        cursor = cursor.add(Duration(days: missed * step));
+      }
+      while (!cursor.isAfter(first.add(Duration(days: days - 1)))) {
+        final idx = slotFor(cursor);
+        if (idx != -1) {
+          if (payment.direction == 'in') {
+            incoming[idx] += payment.amountCents;
+          } else {
+            outgoing[idx] += payment.amountCents;
+          }
+        }
+        final next = cursor.add(Duration(days: step));
+        if (next.isAtSameMomentAs(cursor)) break;
+        cursor = next;
+      }
+    }
+
+    final result = <CashPlanDay>[];
+    var cursor = totalBalanceCents();
+    for (var i = 0; i < days; i++) {
+      final start = cursor;
+      cursor += incoming[i] - outgoing[i];
+      result.add(
+        CashPlanDay(
+          date: first.add(Duration(days: i)),
+          balanceStart: start,
+          incoming: incoming[i],
+          outgoing: outgoing[i],
+          balanceEnd: cursor,
+        ),
+      );
+    }
+    return result;
+  }
+
+  /// Создаёт напоминание об оплате обязательства за N дней до срока.
+  Future<ClientReminder> createPaymentReminder({
+    required String obligationId,
+    int daysBefore = 2,
+  }) async {
+    final obl = _obligations.firstWhere(
+      (o) => o.id == obligationId,
+      orElse: () => throw ArgumentError('Obligation $obligationId not found'),
+    );
+    if (obl.isClosed) throw ArgumentError('Obligation is already closed');
+
+    final reminderDue = obl.dueAt.subtract(Duration(days: daysBefore));
+    return createReminder(
+      clientId: obl.counterpartyId ?? '',
+      jobId: obl.jobId,
+      type: 'payment_due',
+      title: 'Оплата заказа: ${obl.title}',
+      body: 'Сумма: ${money(obl.remainingCents)} · Срок: ${formatFullDate(obl.dueAt)}',
+      dueAt: reminderDue,
+    );
+  }
+
+  // ──────────────────────────────────────────────────────────
+
+  /// Все обязательства (включая закрытые).
+  List<Obligation> get obligations => List.unmodifiable(_obligations);
+
+  /// Обязательство по ID.
+  Obligation? obligationById(String id) {
+    for (final o in _obligations) {
+      if (o.id == id) return o;
+    }
+    return null;
+  }
+
+  /// Отменяет обязательство.
+  Future<void> cancelObligation(String id) async {
+    ensurePeriodOpen();
+    final idx = _obligations.indexWhere((o) => o.id == id);
+    if (idx == -1) return;
+    final existing = _obligations[idx];
+    if (existing.isClosed) return;
+    final updated = existing.copyWith(status: 'cancelled', updatedAt: DateTime.now());
+    await _obligationRepo.save(updated);
+    _obligations[idx] = updated;
+    notifyListeners();
+  }
+
+  /// Удаляет обязательство (перманентно).
+  Future<void> deleteObligation(String id) async {
+    ensurePeriodOpen();
+    await _obligationRepo.delete(id);
+    _obligations = _obligations.where((o) => o.id != id).toList();
+    notifyListeners();
+  }
+
   int clientDebtCents(String clientId) =>
       _intCache.putIfAbsent('debt:$clientId', () {
+        final obligations = _obligations.where((o) =>
+            o.direction == 'receivable' &&
+            o.counterpartyType == 'client' &&
+            o.counterpartyId == clientId &&
+            !o.isClosed);
+        if (obligations.isNotEmpty) {
+          return obligations.fold(0, (s, o) => s + o.remainingCents);
+        }
+        // Fallback для заказов без obligations: Σ(price) − Σ(paid txns)
         final price = _jobs
             .where((j) => j.clientId == clientId && !j.archived)
             .fold(0, (s, j) => s + j.priceCents);

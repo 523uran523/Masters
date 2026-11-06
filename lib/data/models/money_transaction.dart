@@ -14,6 +14,7 @@ class MoneyTransaction {
     this.shiftId,
     this.relatedTransactionId,
     this.reversesId,
+    this.obligationId,
     required this.createdAt,
     this.voided = false,
     this.receiptPath,
@@ -31,6 +32,12 @@ class MoneyTransaction {
   final String? shiftId;
   final String? relatedTransactionId;
   final String? reversesId; // id исходной операции, если это операция-возврат
+
+  /// Погашаемое обязательство (`obligations.id`).
+  ///
+  /// Через него платёж попадает в `paid_cents` обязательства, и долг
+  /// считается по остатку обязательств, а не сводкой по документам.
+  final String? obligationId;
   final DateTime createdAt;
   final bool voided;
   final String? receiptPath;
@@ -50,6 +57,7 @@ class MoneyTransaction {
     'shift_id': shiftId,
     'related_transaction_id': relatedTransactionId,
     'reverses_id': reversesId,
+    'obligation_id': obligationId,
     'created_at': createdAt.millisecondsSinceEpoch,
     'voided': voided ? 1 : 0,
     'receipt_path': receiptPath,
@@ -68,10 +76,36 @@ class MoneyTransaction {
     shiftId: m['shift_id'] as String?,
     relatedTransactionId: m['related_transaction_id'] as String?,
     reversesId: m['reverses_id'] as String?,
+    obligationId: m['obligation_id'] as String?,
     createdAt: DateTime.fromMillisecondsSinceEpoch(
       m['created_at'] as int? ?? 0,
     ),
     voided: (m['voided'] as int? ?? 0) == 1,
     receiptPath: m['receipt_path'] as String?,
   );
+
+  MoneyTransaction copyWith({
+    Object? obligationId = _unset,
+  }) {
+    return MoneyTransaction(
+      id: id,
+      accountId: accountId,
+      kind: kind,
+      direction: direction,
+      amountCents: amountCents,
+      category: category,
+      note: note,
+      clientId: clientId,
+      jobId: jobId,
+      shiftId: shiftId,
+      relatedTransactionId: relatedTransactionId,
+      reversesId: reversesId,
+      obligationId: obligationId == _unset ? this.obligationId : obligationId as String?,
+      createdAt: createdAt,
+      voided: voided,
+      receiptPath: receiptPath,
+    );
+  }
+
+  static const Object _unset = Object();
 }
