@@ -18,6 +18,7 @@ class MoneyTransaction {
     required this.createdAt,
     this.voided = false,
     this.receiptPath,
+    this.paymentMethod,
   });
 
   final String id;
@@ -42,6 +43,11 @@ class MoneyTransaction {
   final bool voided;
   final String? receiptPath;
 
+  /// Способ оплаты: `cash` / `kaspi` / `card` / `transfer` / `other`.
+  ///
+  /// Пусто — не указан (старые записи и переводы между своими счетами).
+  final String? paymentMethod;
+
   int get signedAmount => direction == 'in' ? amountCents : -amountCents;
 
   Map<String, Object?> toMap() => {
@@ -61,6 +67,7 @@ class MoneyTransaction {
     'created_at': createdAt.millisecondsSinceEpoch,
     'voided': voided ? 1 : 0,
     'receipt_path': receiptPath,
+    'payment_method': paymentMethod,
   };
 
   factory MoneyTransaction.fromMap(Map<String, Object?> m) => MoneyTransaction(
@@ -82,10 +89,12 @@ class MoneyTransaction {
     ),
     voided: (m['voided'] as int? ?? 0) == 1,
     receiptPath: m['receipt_path'] as String?,
+    paymentMethod: m['payment_method'] as String?,
   );
 
   MoneyTransaction copyWith({
     Object? obligationId = _unset,
+    Object? paymentMethod = _unset,
   }) {
     return MoneyTransaction(
       id: id,
@@ -101,6 +110,9 @@ class MoneyTransaction {
       relatedTransactionId: relatedTransactionId,
       reversesId: reversesId,
       obligationId: obligationId == _unset ? this.obligationId : obligationId as String?,
+      paymentMethod: paymentMethod == _unset
+          ? this.paymentMethod
+          : paymentMethod as String?,
       createdAt: createdAt,
       voided: voided,
       receiptPath: receiptPath,

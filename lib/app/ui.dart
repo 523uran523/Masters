@@ -861,3 +861,71 @@ Future<bool> showAppConfirm(
 
   return result ?? false;
 }
+
+/// Способы оплаты для выбора в интерфейсе (§1.4).
+const Map<String, String> kPaymentMethods = {
+  'cash': 'Наличные',
+  'kaspi': 'Kaspi',
+  'card': 'Карта',
+  'transfer': 'Перевод',
+};
+
+/// Показывает модалку выбора способа оплаты.
+/// Возвращает выбранный ключ или `null` (пропуск).
+Future<String?> showPaymentMethodPicker(BuildContext context) {
+  final colors = context.colors;
+  return showCupertinoModalPopup<String?>(
+    context: context,
+    builder: (sheetContext) => StatefulBuilder(
+      builder: (builderContext, setModalState) {
+        return Container(
+          height: 200,
+          color: builderContext.colors.card,
+          child: Column(
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  CupertinoButton(
+                    child: const Text('Отмена'),
+                    onPressed: () => Navigator.of(sheetContext).pop(),
+                  ),
+                  Text(
+                    'Способ оплаты',
+                    style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
+                      color: builderContext.colors.label,
+                    ),
+                  ),
+                  CupertinoButton(
+                    child: const Text('Пропустить'),
+                    onPressed: () => Navigator.of(sheetContext).pop(null),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      for (final entry in kPaymentMethods.entries)
+                        ChipButton(
+                          label: entry.value,
+                          onPressed: () =>
+                              Navigator.of(sheetContext).pop(entry.key),
+                        ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    ),
+  );
+}

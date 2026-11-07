@@ -1,6 +1,7 @@
 // ignore_for_file: prefer_const_constructors
-// Миграция v21 -> v22 «фундамент»: аддитивные колонки, новые таблицы,
-// разовый бэкфилл обязательств и себестоимости движений склада.
+// Миграция v21 -> v23 «фундамент»: аддитивные колонки, новые таблицы,
+// разовый бэкфилл обязательств и себестоимости движений склада,
+// хотфикс-колонки payment_method/legacy_paid, seed attribute_types.
 //
 // Фикстура v21.db генерируется `migration_fixture_test.dart`.
 
@@ -101,6 +102,35 @@ void main() {
       'job_id': 'j1',
       'created_at': now,
     });
+    // legacy-платёж: клиент c2 оплатил заказ j3 полностью без job_id.
+    // Бэкап должен создать клиента, заказ и общий платёж (job_id=NULL).
+    await db.insert('clients', {
+      'id': 'c2',
+      'name': 'Клиент с legacy',
+      'phone': '',
+      'created_at': now,
+      'updated_at': now,
+    });
+    await db.insert('jobs', {
+      'id': 'j3',
+      'client_id': 'c2',
+      'title': 'Капкейки',
+      'status': 'new',
+      'price_cents': 50000,
+      'cost_cents': 10000,
+      'created_at': now,
+      'updated_at': now,
+    });
+    await db.insert('money_transactions', {
+      'id': 't3',
+      'account_id': 'a1',
+      'kind': 'sale',
+      'direction': 'in',
+      'amount_cents': 50000,
+      'client_id': 'c2',
+      'job_id': null,
+      'created_at': now,
+    });
     // Закупка 500 ₽, оплачено 200 ₽ → кредиторка 300 ₽.
     await db.insert('purchases', {
       'id': 'p1',
@@ -139,20 +169,20 @@ void main() {
     return path;
   }
 
-  test('v21 -> v22: колонки, таблицы, индексы и бэкфилл', () async {
+  test('v21 -> v23: колонки, таблицы, индексы, бэкфилл, хотфиксы', () async {
     final path = await prepareV21WithData();
 
     final db = await openDatabase(
       path,
-      version: 22,
+      version: 23,
       onConfigure: (d) => d.execute('PRAGMA foreign_keys = ON'),
       onUpgrade: (d, from, to) => AppDatabase.upgradeSchema(d, from, to),
     );
     try {
       expect(
         (await db.rawQuery('PRAGMA user_version')).first.values.first,
-        22,
-        reason: 'user_version должен стать 22',
+        23,
+        reason: 'user_version должен стать 23',
       );
 
       Future<Set<String>> columns(String table) async =>
@@ -174,6 +204,11 @@ void main() {
         expect(stockCols.contains(column), isTrue, reason: 'stock_movements.$column');
       }
       expect((await columns('money_transactions')).contains('obligation_id'), isTrue);
+      // Хотфикс v23: payment_method
+      expect((await columns('money_transactions')).contains('payment_method'), isTrue, reason: 'money_transactions.payment_method');
+      expect((await columns('obligations')).contains('payment_method'), isTrue, reason: 'obligations.payment_method');
+      // legacy_paid
+      expect((await columns('jobs')).contains('legacy_paid'), isTrue, reason: 'jobs.legacy_paid');
       expect((await columns('inventory_items')).contains('warranty_days'), isTrue);
       expect((await columns('job_stages')).contains('lead_hours'), isTrue);
       expect((await columns('jobs')).contains('delivered_at'), isTrue);
@@ -181,7 +216,7 @@ void main() {
       final tables = (await db.rawQuery(
         "SELECT name FROM sqlite_master WHERE type='table'",
       )).map((r) => r['name'] as String).toSet();
-      for (final table in ['obligations', 'client_credits', 'entity_attributes']) {
+      for (final table in ['obligations', 'client_credits', 'entity_attributes', 'attribute_types']) {
         expect(tables.contains(table), isTrue, reason: 'нет таблицы $table');
       }
       final indexes = (await db.rawQuery(
@@ -212,6 +247,26 @@ void main() {
       expect(jobObligation['status'], 'partial');
       expect(jobObligation['job_id'], 'j1');
       expect(jobObligation['counterparty_id'], 'c1');
+
+      // §1.2: заказ j3 оплачен общим платежом без job_id → долга нет,
+      // но заказ помечен legacy_paid, чтобы UI объяснял «почему долга нет».
+      expect(
+        obligations.where((r) => r['job_id'] == 'j3'),
+        isEmpty,
+        reason: 'legacy-оплата не должна порождать ложную дебиторку',
+      );
+      final legacyJob = (await db.query(
+        'jobs',
+        where: 'id = ?',
+        whereArgs: ['j3'],
+      )).single;
+      expect(legacyJob['legacy_paid'], 1);
+      final normalJob = (await db.query(
+        'jobs',
+        where: 'id = ?',
+        whereArgs: ['j1'],
+      )).single;
+      expect(normalJob['legacy_paid'], 0);
 
       final purchaseObligation = obligations.firstWhere(
         (r) => r['kind'] == 'supplier_bill',
@@ -246,17 +301,23 @@ void main() {
         (await db.rawQuery('PRAGMA integrity_check')).first.values.first,
         'ok',
       );
+
+      // Seed attribute_types: минимум 10 записей.
+      final attrTypes = await db.query('attribute_types');
+      expect(attrTypes.length, greaterThanOrEqualTo(10), reason: 'seed attribute_types');
+      final hasSize = attrTypes.any((r) => r['key'] == 'size');
+      expect(hasSize, isTrue, reason: 'seed содержит size');
     } finally {
       await db.close();
     }
   });
 
-  test('v22: триггеры новых таблиц из реестра и повторный бэкфилл', () async {
+  test('v23: триггеры новых таблиц из реестра, повторный бэкфилл, хотфиксы идемпотентны', () async {
     final path = await prepareV21WithData();
 
     final db = await openDatabase(
       path,
-      version: 22,
+      version: 23,
       onConfigure: (d) => d.execute('PRAGMA foreign_keys = ON'),
       onUpgrade: (d, from, to) => AppDatabase.upgradeSchema(d, from, to),
     );
@@ -280,10 +341,13 @@ void main() {
       }
 
       // Повторный прогон шага не должен дублировать обязательства.
-      final before = (await db.query('obligations')).length;
-      await AppDatabase.upgradeSchema(db, 21, 22);
-      final after = (await db.query('obligations')).length;
-      expect(after, before, reason: 'бэкфилл должен быть идемпотентным');
+      final beforeObl = (await db.query('obligations')).length;
+      final beforeAttr = (await db.query('attribute_types')).length;
+      await AppDatabase.upgradeSchema(db, 21, 23);
+      final afterObl = (await db.query('obligations')).length;
+      final afterAttr = (await db.query('attribute_types')).length;
+      expect(afterObl, beforeObl, reason: 'бэкфилл должен быть идемпотентным');
+      expect(afterAttr, beforeAttr, reason: 'seed attribute_types идемпотентен');
 
       // Новая таблица попадает в очередь синхронизации через триггер.
       final now = DateTime.now().millisecondsSinceEpoch;

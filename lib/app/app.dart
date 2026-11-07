@@ -10,6 +10,7 @@ import '../state/settings_controller.dart';
 import '../state/sync_service.dart';
 import 'root_shell.dart';
 import 'theme/app_theme.dart';
+import 'ui.dart';
 
 import '../core/app_biometric.dart';
 import '../core/yandex_backup_meta.dart';
@@ -22,12 +23,16 @@ class MastersApp extends StatefulWidget {
     required this.settings,
     required this.sync,
     this.navigatorKey,
+    this.migrationHalted = false,
   });
 
   final MastersStore store;
   final SettingsController settings;
   final SyncService sync;
   final GlobalKey<NavigatorState>? navigatorKey;
+
+  /// Если `true`, миграция до v23 упала — БД восстановлена из бэкапа.
+  final bool migrationHalted;
 
   @override
   State<MastersApp> createState() => _MastersAppState();
@@ -47,11 +52,27 @@ class _MastersAppState extends State<MastersApp> with WidgetsBindingObserver {
       _updateWidget();
       WidgetsBinding.instance.addPostFrameCallback(
         (_) => _ensureAppPinIfNeeded().then((_) async {
+          // §1.1: миграция не прошла — данные восстановлены из копии,
+          // говорим об этом до всего остального.
+          if (widget.migrationHalted) await _showMigrationHaltedAlert();
           await _tryAutoSync();
           await _tryServerSync();
         }),
       );
     });
+  }
+
+  Future<void> _showMigrationHaltedAlert() async {
+    final context = widget.navigatorKey?.currentState?.context;
+    if (!mounted || context == null) return;
+    await showAppAlert(
+      context,
+      title: 'Обновление не удалось',
+      message:
+          'Не удалось обновить базу данных. Данные восстановлены из '
+          'автоматической копии, версия приложения прежняя. '
+          'Резервная копия сохранена в настройках → «Резервные копии».',
+    );
   }
 
   Future<void> _ensureAppPinIfNeeded() async {

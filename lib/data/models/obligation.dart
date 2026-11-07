@@ -19,6 +19,7 @@ class Obligation {
     this.status = 'planned',
     this.accountId,
     this.note,
+    this.paymentMethod,
     required this.createdAt,
     required this.updatedAt,
     this.deletedAt,
@@ -51,6 +52,10 @@ class Obligation {
 
   final String? accountId;
   final String? note;
+
+  /// Способ оплаты: `cash` / `kaspi` / `card` / `transfer` / `other`.
+  final String? paymentMethod;
+
   final DateTime createdAt;
   final DateTime updatedAt;
   final DateTime? deletedAt;
@@ -101,6 +106,7 @@ class Obligation {
     Object? status = _unset,
     Object? accountId = _unset,
     Object? note = _unset,
+    Object? paymentMethod = _unset,
     Object? createdAt = _unset,
     Object? updatedAt = _unset,
     Object? deletedAt = _unset,
@@ -126,6 +132,9 @@ class Obligation {
       status: status == _unset ? this.status : status as String,
       accountId: accountId == _unset ? this.accountId : accountId as String?,
       note: note == _unset ? this.note : note as String?,
+      paymentMethod: paymentMethod == _unset
+          ? this.paymentMethod
+          : paymentMethod as String?,
       createdAt: createdAt == _unset ? this.createdAt : createdAt as DateTime,
       updatedAt: updatedAt == _unset ? this.updatedAt : updatedAt as DateTime,
       deletedAt: deletedAt == _unset ? this.deletedAt : deletedAt as DateTime?,
@@ -147,6 +156,7 @@ class Obligation {
     'status': status,
     'account_id': accountId,
     'note': note,
+    'payment_method': paymentMethod,
     'created_at': createdAt.millisecondsSinceEpoch,
     'updated_at': updatedAt.millisecondsSinceEpoch,
     'deleted_at': deletedAt?.millisecondsSinceEpoch,
@@ -169,6 +179,7 @@ class Obligation {
     status: m['status'] as String? ?? 'planned',
     accountId: m['account_id'] as String?,
     note: m['note'] as String?,
+    paymentMethod: m['payment_method'] as String?,
     createdAt: DateTime.fromMillisecondsSinceEpoch(
       (m['created_at'] as num?)?.toInt() ?? 0,
     ),

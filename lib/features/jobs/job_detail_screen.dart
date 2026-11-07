@@ -195,12 +195,15 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
     }
     final accountId = await _pickAccount(store);
     if (accountId == null) return;
+    final paymentMethod = await showPaymentMethodPicker(context);
+    if (!mounted) return;
     try {
       if (obligation != null) {
         await store.payObligation(
           obligation.id,
           amountCents: amount,
           accountId: accountId,
+          paymentMethod: paymentMethod,
         );
       } else {
         await store.addTransaction(
@@ -212,6 +215,7 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
           note: job.title,
           clientId: job.clientId,
           jobId: job.id,
+          paymentMethod: paymentMethod,
         );
       }
     } catch (e) {
@@ -320,12 +324,15 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
           );
           return;
         }
+        final paymentMethod = await showPaymentMethodPicker(context);
+        if (!mounted) return;
         try {
           if (obligation != null) {
             await store.payObligation(
               obligation.id,
               amountCents: amount,
               accountId: accountId,
+              paymentMethod: paymentMethod,
             );
           } else {
             await store.addTransaction(
@@ -337,6 +344,7 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
               note: current.title,
               clientId: current.clientId,
               jobId: current.id,
+              paymentMethod: paymentMethod,
             );
           }
         } catch (e) {

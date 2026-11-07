@@ -81,6 +81,7 @@ Future<void> main() async {
       settings: settings,
       sync: sync,
       navigatorKey: navigatorKey,
+      migrationHalted: database.migrationHalted,
     ),
   );
 }

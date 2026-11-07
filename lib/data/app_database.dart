@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:sqflite/sqflite.dart';
+import 'dart:io';
 
 import '../core/sync_client.dart' show SyncRow;
 import '../core/text_encoding.dart' show repairMojibake;
@@ -65,9 +66,30 @@ class SyncApplyResult {
 }
 
 class AppDatabase {
-  AppDatabase._(this.database);
+  AppDatabase._(this.database, {this.migrationHalted = false});
 
   final Database database;
+
+  /// Если `true`, миграция до v23 упала — БД восстановлена из бэкапа.
+  /// `main.dart` должен показать пользователю предложение восстановить копию.
+  final bool migrationHalted;
+
+  /// Тестовый хук: вызывается в начале миграции. Бросок имитирует падение
+  /// миграции и проверяет fallback-путь (§1.1).
+  static void Function(int oldVersion)? testHaltHook;
+
+  /// Тестовая переопределения директории бэкапов: `path_provider` недоступен
+  /// в unit-тестах, поэтому тест задаёт её явным путём.
+  static String? backupsDirectoryOverride;
+
+  static Future<String?> _backupsRoot() async {
+    if (backupsDirectoryOverride != null) return backupsDirectoryOverride;
+    try {
+      return (await getApplicationSupportDirectory()).path;
+    } catch (_) {
+      return null;
+    }
+  }
 
   static Future<AppDatabase> open({String? path}) async {
     final String resolved;
@@ -81,17 +103,163 @@ class AppDatabase {
       resolved = p.join(directory.path, 'masters.db');
     }
 
-    final database = await openDatabase(
-      resolved,
-      version: 22,
-      onConfigure: (db) async {
-        if (!kIsWeb) await db.execute('PRAGMA foreign_keys = ON');
-      },
-      onCreate: _createSchema,
-      onUpgrade: _upgradeSchema,
-    );
+    // Флаг ставится из onUpgrade: бэкап нужен только при переходе через v22.
+    var needsBackup = false;
 
-    return AppDatabase._(database);
+    try {
+      final database = await openDatabase(
+        resolved,
+        version: 23,
+        onConfigure: (db) async {
+          if (!kIsWeb) await db.execute('PRAGMA foreign_keys = ON');
+          // §1.1: узнаём версию ДО транзакции апгрейда. onConfigure —
+          // единственная точка, где база уже открыта, но схема ещё не
+          // тронута, поэтому копия файла будет цельной.
+          if (kIsWeb) return;
+          final version =
+              (await db.rawQuery('PRAGMA user_version')).first.values.first
+                  as int?;
+          needsBackup = version != null && version > 0 && version < 22;
+          if (!needsBackup) return;
+          // WAL пишется отдельно от основного файла: без чекпойнта копия
+          // файла потеряла бы последние транзакции.
+          await db.execute('PRAGMA wal_checkpoint(TRUNCATE)');
+        },
+        onCreate: _createSchema,
+        onUpgrade: (db, oldVersion, newVersion) async {
+          if (needsBackup) await _writePreV22Backup(resolved);
+          testHaltHook?.call(oldVersion);
+          await _upgradeSchema(db, oldVersion, newVersion);
+        },
+      );
+      // Миграция прошла успешно — помечаем копию и чистим старые (§1.1).
+      if (needsBackup && !kIsWeb) {
+        await _markBackupMigrated();
+        await _pruneOldBackups();
+      }
+      return AppDatabase._(database);
+    } catch (e) {
+      // Миграция упала: sqflite уже откатил транзакцию и закрыл базу,
+      // поэтому `user_version` и данные остались прежними.
+      // Копия — вторая страховка на случай, если откат не помог.
+      if (!kIsWeb) {
+        final restored = await _restoreFromPreV22Backup(resolved);
+        if (restored != null) {
+          return AppDatabase._(restored, migrationHalted: true);
+        }
+      }
+      rethrow;
+    }
+  }
+
+  /// Кладёт копию файла БД в `backups/pre_v22_<timestamp>.db` (§1.1).
+  ///
+  /// Ошибка копирования не должна срывать апгрейд: штатный откат sqflite
+  /// всё равно защищает данные, копия — только дополнительная страховка.
+  static Future<void> _writePreV22Backup(String dbPath) async {
+    try {
+      final root = await _backupsRoot();
+      if (root == null) return;
+      final backupsDir = Directory(p.join(root, 'backups'));
+      await backupsDir.create(recursive: true);
+      final stamp = DateTime.now().millisecondsSinceEpoch;
+      await File(dbPath).copy(p.join(backupsDir.path, 'pre_v22_$stamp.db'));
+    } catch (_) {
+      // См. docstring: копия не блокирует миграцию.
+    }
+  }
+
+  /// Восстанавливает базу из последней копии `pre_v22_*` (§1.1).
+  ///
+  /// Возвращает открытую базу прежней схемы либо `null`, если копий нет или
+  /// восстановление не удалось.
+  ///
+  /// База открывается **без** параметра `version`: sqflite при несовпадении
+  /// версии вызвал бы `PRAGMA user_version = N` и сам сбежал бы схему, а нам
+  /// нужна база ровно в том состоянии, в каком её застал сбой.
+  static Future<Database?> _restoreFromPreV22Backup(String dbPath) async {
+    try {
+      final root = await _backupsRoot();
+      if (root == null) return null;
+      final backupsDir = Directory(p.join(root, 'backups'));
+      if (!await backupsDir.exists()) return null;
+
+      final copies = backupsDir
+          .listSync()
+          .whereType<File>()
+          .where((f) => p.basename(f.path).startsWith('pre_v22_'))
+          .toList()
+        ..sort((a, b) => b.path.compareTo(a.path));
+      if (copies.isEmpty) return null;
+
+      // Черновой журнал пережитого сбоя перечитывается поверх восстановленного
+      // файла и может вернуть частичные изменения неудачной миграции.
+      for (final suffix in ['-wal', '-shm']) {
+        final journal = File('$dbPath$suffix');
+        if (await journal.exists()) await journal.delete();
+      }
+
+      await copies.first.copy(dbPath);
+      return await openDatabase(
+        dbPath,
+        onConfigure: (db) async {
+          if (!kIsWeb) await db.execute('PRAGMA foreign_keys = ON');
+        },
+      );
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Помечает свежую копию как «миграция прошла» (§1.1).
+  static Future<void> _markBackupMigrated() async {
+    try {
+      final root = await _backupsRoot();
+      if (root == null) return;
+      final backupsDir = Directory(p.join(root, 'backups'));
+      if (!await backupsDir.exists()) return;
+      final fresh = backupsDir
+          .listSync()
+          .whereType<File>()
+          .where(
+            (f) =>
+                p.basename(f.path).startsWith('pre_v22_') &&
+                !p.basename(f.path).contains('.migrated.'),
+          )
+          .toList()
+        ..sort((a, b) => b.path.compareTo(a.path));
+      if (fresh.isEmpty) return;
+      final name = p.basename(fresh.first.path);
+      final marked = name.replaceAll('.db', '.migrated.db');
+      await fresh.first.rename(p.join(backupsDir.path, marked));
+    } catch (_) {
+      // Пометка — косметика, её потеря не опасна.
+    }
+  }
+
+  /// Удаляет помеченные копии старше 7 дней (§1.1).
+  static Future<void> _pruneOldBackups() async {
+    try {
+      final root = await _backupsRoot();
+      if (root == null) return;
+      final backupsDir = Directory(p.join(root, 'backups'));
+      if (!await backupsDir.exists()) return;
+      final cutoff =
+          DateTime.now().subtract(const Duration(days: 7)).millisecondsSinceEpoch;
+      for (final file in backupsDir.listSync().whereType<File>()) {
+        final name = p.basename(file.path);
+        if (!name.startsWith('pre_v22_') || !name.contains('.migrated.')) {
+          continue;
+        }
+        final stamp = int.tryParse(
+          name.substring('pre_v22_'.length).split('.').first,
+        );
+        if (stamp == null || stamp > cutoff) continue;
+        await file.delete();
+      }
+    } catch (_) {
+      // Чистка не должна влиять на открытие базы.
+    }
   }
 
   /// Public wrapper for creating base schema (v1). Used by tests and migrations.
@@ -221,6 +389,8 @@ class AppDatabase {
     await _createAttachmentSchema(db);
     await _ensureFoundationColumns(db);
     await _createFoundationSchema(db);
+    await _ensureHotfixColumns(db);
+    await _seedAttributeTypes(db);
     await _createAuditTriggers(db);
     await _createSyncSchema(db);
   }
@@ -256,6 +426,10 @@ class AppDatabase {
     await add('stock_movements', 'unit_cost_cents', 'INTEGER NOT NULL DEFAULT 0');
     // Оплата обязательства — единая точка обновления paid_cents/status.
     await add('money_transactions', 'obligation_id', 'TEXT');
+    // Флаг «заказ закрыт оплатой из истории без привязки к job_id» (§1.2).
+    // Колонку добавляем именно здесь, а не в хотфиксе: бэкфилл v22 пишет в
+    // неё, и на чистой миграции 21→23 флаг должен проставляться за один проход.
+    await add('jobs', 'legacy_paid', 'INTEGER NOT NULL DEFAULT 0');
     // Задел на Э5/Э6: гарантия и плановая длительность операции.
     await add('inventory_items', 'warranty_days', 'INTEGER NOT NULL DEFAULT 0');
     await add('job_stages', 'lead_hours', 'REAL');
@@ -357,6 +531,18 @@ class AppDatabase {
       'CREATE INDEX IF NOT EXISTS idx_attr_entity '
       'ON entity_attributes(entity_type, entity_id)',
     );
+
+    // Справочник типов параметров: text / number / date.
+    // Определяет формат ввода в UI и валидацию значений (§1.3).
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS attribute_types (
+        key TEXT PRIMARY KEY,
+        value_type TEXT NOT NULL DEFAULT 'text',
+        entity_type TEXT NOT NULL,                -- item / job / client / *
+        label TEXT NOT NULL DEFAULT '',
+        created_at INTEGER NOT NULL
+      )
+    ''');
   }
 
   static Future<void> _createAuditLogSchema(Database db) async {
@@ -997,6 +1183,62 @@ class AppDatabase {
         );
       }
     }
+    if (oldVersion < 23 && newVersion >= 23) {
+      // v23 хотфикс: payment_method, legacy_paid, seed attribute_types.
+      // Эти колонки и таблицы были добавлены в 0.4.0+22, но для устройств,
+      // уже обновившихся до v22, нужно добавить их здесь.
+      await _ensureHotfixColumns(db);
+      await _seedAttributeTypes(db);
+    }
+  }
+
+  /// Хотфикс-колонки v23: способ оплаты и флаг legacy-оплаты заказа.
+  ///
+  /// Вызывается и из новой установки (`_createSchema`), и из миграции v23,
+  /// поэтому набор колонок не расходится между чистой базой и обновлённой.
+  /// Идемпотентно: `ALTER ... ADD COLUMN` в `try/catch` — повторный проход
+  /// не мешает. Таблица `obligations` к моменту вызова уже создана.
+  static Future<void> _ensureHotfixColumns(Database db) async {
+    Future<void> add(String table, String column, String definition) async {
+      try {
+        await db.execute('ALTER TABLE $table ADD COLUMN $column $definition');
+      } catch (_) {
+        // Колонка уже есть (повторный проход) или таблицы нет.
+      }
+    }
+
+    await add('money_transactions', 'payment_method', 'TEXT');
+    await add('obligations', 'payment_method', 'TEXT');
+    await add('jobs', 'legacy_paid', 'INTEGER NOT NULL DEFAULT 0');
+  }
+
+  /// Seed справочника типов атрибутов (§1.3).
+  ///
+  /// `INSERT OR IGNORE` по первичному ключу `key` — повторный проход не
+  /// дублирует и не затирает правки пользователя. Типы покрывают частые
+  /// параметры кондитерки: размер, вес, цвет, начинка, дата, количество.
+  static Future<void> _seedAttributeTypes(Database db) async {
+    const types = <List<String>>[
+      <String>['size', 'text', 'Размер'],
+      <String>['weight', 'number', 'Вес'],
+      <String>['color', 'text', 'Цвет'],
+      <String>['flavor', 'text', 'Начинка'],
+      <String>['quantity', 'number', 'Количество'],
+      <String>['due_date', 'date', 'Дата'],
+      <String>['tier_count', 'number', 'Этажей'],
+      <String>['diameter', 'number', 'Диаметр, см'],
+      <String>['serving', 'number', 'Порций'],
+      <String>['category', 'text', 'Категория'],
+    ];
+    final now = DateTime.now().millisecondsSinceEpoch;
+    for (final t in types) {
+      await db.rawInsert(
+        'INSERT OR IGNORE INTO attribute_types '
+        '(key, value_type, entity_type, label, created_at) '
+        'VALUES (?, ?, ?, ?, ?)',
+        [t[0], t[1], '*', t[2], now],
+      );
+    }
   }
 
   /// Сколько строк обрабатывает один пакет бэкфилла v22.
@@ -1081,18 +1323,42 @@ class AppDatabase {
   }
 
   /// Заказы с недоплатой → `obligations(receivable, client_payment)`.
+  ///
+  /// Шлюз §1.2: если клиент платил общими суммами без `job_id` (legacy),
+  /// эти деньги нужно учесть, иначе миграция породит фиктивную дебиторку по
+  /// уже оплаченным заказам.
+  ///
+  /// Пул legacy-платежей считается по клиенту и распределяется по его заказам
+  /// FIFO: один и тот же рубль не может закрыть два заказа. Пул грузится
+  /// одним запросом до цикла батчей — иначе клиент, чьи заказы попали в
+  /// разные батчи, «получил бы» свою оплату дважды.
+  ///
+  /// Заказ, закрытый такой оплатой целиком, получает `legacy_paid = 1` и
+  /// обязательства не создаёт: провести платёж по нему задним числом уже
+  /// нельзя, а флаг объясняет интерфейс «почему долга нет».
   static Future<void> _backfillJobObligations(Database db) async {
     final columns = await _tableColumns(db, 'jobs');
     if (columns.isEmpty) return;
     final voidedFilter = await _hasColumn(db, 'money_transactions', 'voided')
-        ? 'AND t.voided = 0'
+        ? 'AND voided = 0'
         : '';
     final alive = columns.contains('deleted_at')
         ? 'AND j.deleted_at IS NULL'
         : '';
-    final dueAt = columns.contains('due_date')
-        ? 'COALESCE(j.due_date, j.created_at)'
-        : 'j.created_at';
+
+    // Пул поступлений без привязки к заказу, сгруппированный по клиенту.
+    final legacyPool = <String, int>{};
+    final poolRows = await db.rawQuery('''
+      SELECT client_id, SUM(amount_cents) AS total
+      FROM money_transactions
+      WHERE direction = 'in' AND job_id IS NULL AND client_id IS NOT NULL
+        $voidedFilter
+      GROUP BY client_id
+    ''');
+    for (final row in poolRows) {
+      legacyPool[row['client_id'] as String] =
+          (row['total'] as num?)?.toInt() ?? 0;
+    }
 
     var lastId = '';
     var batch = 0;
@@ -1102,7 +1368,7 @@ class AppDatabase {
                j.client_id AS client_id,
                j.title AS title,
                j.price_cents AS price_cents,
-               $dueAt AS due_at,
+               COALESCE(j.due_date, j.created_at) AS due_at,
                j.created_at AS created_at,
                COALESCE((
                  SELECT SUM(t.amount_cents) FROM money_transactions t
@@ -1120,7 +1386,31 @@ class AppDatabase {
         lastId = row['id'] as String;
         final price = (row['price_cents'] as num?)?.toInt() ?? 0;
         final paid = (row['paid_cents'] as num?)?.toInt() ?? 0;
-        if (price <= 0 || paid >= price) continue;
+        final clientId = row['client_id'] as String;
+
+        // Из пула берём ровно столько, сколько не доплачено по заказу.
+        final uncovered = price - paid;
+        final available = legacyPool[clientId] ?? 0;
+        final legacyForJob = uncovered > 0 && available > 0
+            ? (available < uncovered ? available : uncovered)
+            : 0;
+        if (legacyForJob > 0) {
+          legacyPool[clientId] = available - legacyForJob;
+        }
+        final totalPaid = paid + legacyForJob;
+
+        if (price <= 0 || totalPaid >= price) {
+          // Заказ закрыт общими поступлениями: долгов нет, но и платежа
+          // по заказу нет — отмечаем источник, чтобы UI не рисовал «оплату».
+          if (price > 0 && legacyForJob > 0) {
+            await db.execute(
+              'UPDATE jobs SET legacy_paid = 1 WHERE id = ?',
+              [lastId],
+            );
+          }
+          continue;
+        }
+
         final created = (row['created_at'] as num?)?.toInt() ??
             DateTime.now().millisecondsSinceEpoch;
         final due = (row['due_at'] as num?)?.toInt() ?? created;
@@ -1130,12 +1420,12 @@ class AppDatabase {
           direction: 'receivable',
           kind: 'client_payment',
           counterpartyType: 'client',
-          counterpartyId: row['client_id'] as String?,
+          counterpartyId: clientId,
           title: (row['title'] as String?)?.trim().isNotEmpty == true
               ? row['title'] as String
               : 'Оплата заказа',
           amountCents: price,
-          paidCents: paid,
+          paidCents: totalPaid,
           dueAt: due,
           createdAt: created,
           jobId: lastId,

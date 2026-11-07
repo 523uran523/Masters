@@ -521,14 +521,28 @@ class _CatalogItemSheetState extends State<_CatalogItemSheet> {
     final key = _keyController.text.trim();
     if (key.isEmpty) return;
     final value = _valueController.text.trim();
-    final numeric = double.tryParse(value.replaceAll(',', '.'));
-    await context.read<MastersStore>().setAttribute(
-      entityType: 'item',
-      entityId: widget.item?.id ?? '',
-      key: key,
-      valueText: numeric == null ? value : null,
-      valueNum: numeric,
-    );
+    final store = context.read<MastersStore>();
+    try {
+      await store.setAttributeValue(
+        entityType: 'item',
+        entityId: widget.item?.id ?? '',
+        key: key,
+        raw: value,
+      );
+    } on FormatException catch (e) {
+      if (!mounted) return;
+      CupertinoAlertDialog(
+        title: Text('Ошибка'),
+        content: Text(e.message),
+        actions: [
+          CupertinoDialogAction(
+            isDefaultAction: true,
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('OK'),
+          ),
+        ],
+      );
+    }
     if (!mounted) return;
     _keyController.clear();
     _valueController.clear();

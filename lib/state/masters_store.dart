@@ -19,6 +19,7 @@ import '../data/models/client.dart';
 import '../data/models/employee.dart';
 import '../data/models/time_entry.dart';
 import '../data/models/client_reminder.dart';
+import '../data/models/attribute_type.dart';
 import '../data/models/entity_attribute.dart';
 import '../data/models/unified_event.dart';
 import '../data/models/inventory_composition.dart';
@@ -31,6 +32,7 @@ import '../data/models/job_items.dart';
 import '../data/models/money_transaction.dart';
 import '../data/models/recurring_payment.dart';
 import '../data/repositories/recurring_payment_repository.dart';
+import '../data/repositories/attribute_type_repository.dart';
 import '../data/repositories/entity_attribute_repository.dart';
 import '../data/models/obligation.dart';
 import '../data/repositories/obligation_repository.dart';
@@ -149,6 +151,7 @@ class MastersStore extends ChangeNotifier {
     _recurringRepo = RecurringPaymentRepository(_appDatabase.database);
     _payrollRepo = PayrollPeriodRepository(_appDatabase.database);
     _attributeRepo = EntityAttributeRepository(_appDatabase.database);
+    _attributeTypeRepo = AttributeTypeRepository(_appDatabase.database);
     _obligationRepo = ObligationRepository(_appDatabase.database);
   }
 
@@ -178,6 +181,7 @@ class MastersStore extends ChangeNotifier {
   late final RecurringPaymentRepository _recurringRepo;
   late final PayrollPeriodRepository _payrollRepo;
   late final EntityAttributeRepository _attributeRepo;
+  late final AttributeTypeRepository _attributeTypeRepo;
   late final ObligationRepository _obligationRepo;
 
   List<Client> _clients = [];
@@ -186,6 +190,7 @@ class MastersStore extends ChangeNotifier {
   List<JobStage> _stages = [];
   List<MaterialItem> _materials = [];
   List<EntityAttribute> _attributes = [];
+  List<AttributeType> _attributeTypes = [];
   List<WorkSession> _sessions = [];
   List<Account> _accounts = [];
   List<MoneyTransaction> _moneyTransactions = [];
@@ -602,6 +607,7 @@ class MastersStore extends ChangeNotifier {
     _timeEntries = rest[10] as List<TimeEntry>;
     _employeePayments = rest[11] as List<EmployeePayment>;
     _attributes = rest[12] as List<EntityAttribute>;
+    _attributeTypes = await _attributeTypeRepo.getAll();
     _purchaseLines = await _purchaseRepo.getAllLines();
     _compositionLines = await _compositionRepo.getAll();
 
@@ -1376,6 +1382,66 @@ class MastersStore extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Типы параметров, доступные для сущности: её собственные и общие (`*`).
+  List<AttributeType> attributeTypesOf(String entityType) =>
+      _attributeTypes
+          .where((t) => t.entityType == entityType || t.isUniversal)
+          .toList()
+        ..sort((a, b) => a.key.compareTo(b.key));
+
+  /// Тип параметра по ключу или `null`, если ключ пользовательский.
+  AttributeType? attributeType(String entityType, String key) {
+    for (final t in _attributeTypes) {
+      if (t.key == key && (t.entityType == entityType || t.isUniversal)) {
+        return t;
+      }
+    }
+    return null;
+  }
+
+  /// Записывает значение параметра, сверив его с типом из справочника (§1.3).
+  ///
+  /// Это точка входа для интерфейса: строка из поля ввода проходит через
+  /// [AttributeType.parse] и в базу попадает уже в нужной колонке — число в
+  /// `value_num`, остальное в `value_text`. Без типа ключа значение пишется
+  /// как текст, иначе старые пользовательские параметры перестали бы
+  /// сохраняться. Бросает [FormatException], если значение не соответствует
+  /// типу, — интерфейс показывает подсказку вместо молчаливой порчи данных.
+  Future<void> setAttributeValue({
+    required String entityType,
+    required String entityId,
+    required String key,
+    required String raw,
+    double sortOrder = 0,
+  }) async {
+    final type = attributeType(entityType, key.trim());
+    if (type == null) {
+      await setAttribute(
+        entityType: entityType,
+        entityId: entityId,
+        key: key,
+        valueText: AttributeType.isBlank(raw) ? null : raw.trim(),
+        sortOrder: sortOrder,
+      );
+      return;
+    }
+    final parsed = type.parse(raw);
+    if (parsed == null) {
+      throw FormatException(
+        'Значение «${raw.trim()}» не подходит для параметра '
+        '«${type.label}» (ожидается ${type.formatHint.toLowerCase()})',
+      );
+    }
+    await setAttribute(
+      entityType: entityType,
+      entityId: entityId,
+      key: key,
+      valueText: parsed.text,
+      valueNum: parsed.num,
+      sortOrder: sortOrder,
+    );
+  }
+
   Future<void> deleteMaterial(String id) async {
     String? jobId;
     for (final m in _materials) {
@@ -1612,6 +1678,7 @@ class MastersStore extends ChangeNotifier {
     String? reversesId,
     String? obligationId,
     String? receiptPath,
+    String? paymentMethod,
   }) async {
     if (amountCents <= 0) throw ArgumentError('Сумма должна быть больше 0.');
     ensurePeriodOpen();
@@ -1629,6 +1696,9 @@ class MastersStore extends ChangeNotifier {
       relatedTransactionId: relatedTransactionId,
       reversesId: reversesId,
       obligationId: obligationId,
+      paymentMethod: paymentMethod?.trim().isEmpty == true
+          ? null
+          : paymentMethod?.trim(),
       receiptPath: receiptPath?.trim().isEmpty == true
           ? null
           : receiptPath?.trim(),
@@ -2015,6 +2085,7 @@ class MastersStore extends ChangeNotifier {
     String obligationId, {
     required int amountCents,
     String? accountId,
+    String? paymentMethod,
   }) async {
     ensurePeriodOpen();
     if (amountCents <= 0) throw ArgumentError('Сумма должна быть > 0');
@@ -2031,6 +2102,7 @@ class MastersStore extends ChangeNotifier {
     final updated = existing.copyWith(
       paidCents: paidTotal,
       status: paidTotal >= existing.amountCents ? 'paid' : 'partial',
+      paymentMethod: paymentMethod ?? existing.paymentMethod,
       updatedAt: DateTime.now(),
     );
 
@@ -2050,6 +2122,7 @@ class MastersStore extends ChangeNotifier {
           : null,
       jobId: existing.jobId,
       obligationId: obligationId,
+      paymentMethod: paymentMethod ?? existing.paymentMethod,
     );
 
     notifyListeners();

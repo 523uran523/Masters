@@ -70,6 +70,7 @@ const List<String> kSyncedTables = <String>[
 /// входят в копию.
 const List<String> kBackupApplyOrder = <String>[
   ...kSyncedTables,
+  'attribute_types',
   'work_sessions',
   'recipe_lines',
 ];
@@ -108,6 +109,7 @@ const List<BackupTable> kBackupTables = <BackupTable>[
   BackupTable('obligations', 'obligations'),
   BackupTable('client_credits', 'client_credits'),
   BackupTable('entity_attributes', 'entity_attributes'),
+  BackupTable('attribute_types', 'attribute_types'),
 ];
 
 /// Таблицы, для которых генерируются audit-триггеры.

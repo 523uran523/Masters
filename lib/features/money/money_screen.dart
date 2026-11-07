@@ -1049,6 +1049,11 @@ class _MoneyScreenState extends State<MoneyScreen> {
                     '${current.direction == 'in' ? '+' : '-'}${_money(current.amountCents)}',
                   ),
                   _KV('Тип', current.kind),
+                  if (current.paymentMethod != null && current.paymentMethod!.isNotEmpty)
+                    _KV(
+                      'Оплата',
+                      kPaymentMethods[current.paymentMethod!] ?? current.paymentMethod!,
+                    ),
                   _KV(
                     'Дата',
                     DateFormat(
@@ -2547,11 +2552,15 @@ class _MoneyScreenState extends State<MoneyScreen> {
     if (amount <= 0) return;
     final accountId = await _pickAccount();
     if (accountId == null || !mounted) return;
+    final selectedMethod = await showPaymentMethodPicker(context);
+    if (!mounted) return;
+
     try {
       await store.payObligation(
         o.id,
         amountCents: amount,
         accountId: accountId,
+        paymentMethod: selectedMethod,
       );
     } catch (e) {
       if (mounted) {

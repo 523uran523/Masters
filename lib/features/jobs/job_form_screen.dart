@@ -574,12 +574,31 @@ class _JobFormScreenState extends State<JobFormScreen> {
     );
     if (draft == null || !mounted) return;
     if (_isEdit) {
-      await store.setAttribute(
-        entityType: 'job',
-        entityId: widget.jobId!,
-        key: draft.key,
-        valueText: draft.value,
-      );
+      try {
+        await store.setAttributeValue(
+          entityType: 'job',
+          entityId: widget.jobId!,
+          key: draft.key,
+          raw: draft.value ?? '',
+        );
+      } on FormatException catch (e) {
+        if (!mounted) return;
+        await showCupertinoDialog(
+          context: context,
+          builder: (_) => CupertinoAlertDialog(
+            title: const Text('Ошибка'),
+            content: Text(e.message),
+            actions: [
+              CupertinoDialogAction(
+                isDefaultAction: true,
+                onPressed: () => Navigator.of(context).pop(),
+                child: const Text('OK'),
+              ),
+            ],
+          ),
+        );
+        return;
+      }
     } else {
       setState(() => _pendingAttrs.add(draft));
     }
