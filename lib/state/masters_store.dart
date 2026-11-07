@@ -1257,6 +1257,9 @@ class MastersStore extends ChangeNotifier {
       ..remove('cost:$jobId')
       ..remove('paid:$jobId');
     notifyListeners();
+    // Итог заказа изменился — обязательство должно следовать за суммой,
+    // иначе «Принять оплату» в заказе предложит устаревший остаток.
+    await syncJobObligations(jobId);
   }
 
   // Атрибуты сущностей (entity_attributes): параметры изделия, свойства клиента.
