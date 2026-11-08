@@ -12,6 +12,7 @@ import '../../core/document_service.dart';
 import 'package:open_filex/open_filex.dart';
 
 import '../../core/deep_link_service.dart';
+import '../../core/reminder_text.dart';
 import '../../core/utils/app_utils.dart';
 import '../../core/units.dart';
 import '../../data/models/job.dart';
@@ -222,6 +223,37 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
       if (mounted) {
         await showAppAlert(context, title: 'Ошибка', message: e.toString());
       }
+    }
+  }
+
+  /// Готовит текст о доплате и отдаёт его системному share (§Э2.1).
+  Future<void> _remindPayment(
+    String clientName,
+    Job job,
+    int remainingCents,
+    DateTime dueAt,
+  ) async {
+    final result = await shareReminderText(
+      paymentReminderText(
+        clientName: clientName,
+        jobTitle: job.title,
+        remainingCents: remainingCents,
+        dueAt: dueAt,
+      ),
+    );
+    if (!mounted) return;
+    if (result == ReminderShareResult.copied) {
+      await showAppAlert(
+        context,
+        title: 'Текст скопирован',
+        message: 'Откройте WhatsApp/Telegram и вставьте.',
+      );
+    } else if (result == ReminderShareResult.failed) {
+      await showAppAlert(
+        context,
+        title: 'Не удалось',
+        message: 'Попробуйте ещё раз.',
+      );
     }
   }
 
@@ -1226,6 +1258,27 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
                           icon: CupertinoIcons.money_dollar,
                           onPressed: () => _acceptPayment(store, job),
                         ),
+                        // «Напомнить» (§Э2.1): тот же share sheet, что и в
+                        // долгах — мастер отправляет текст в мессенджер сам.
+                        if (remaining > 0) ...[
+                          const SizedBox(height: 6),
+                          Align(
+                            alignment: Alignment.centerLeft,
+                            child: ChipButton(
+                              label: 'Напомнить',
+                              icon: CupertinoIcons.paperplane,
+                              onPressed: () => _remindPayment(
+                                client?.name ?? 'Клиент',
+                                job,
+                                remaining,
+                                obligation?.dueAt ??
+                                    job.dueDate ??
+                                    DateTime.now()
+                                        .add(const Duration(days: 7)),
+                              ),
+                            ),
+                          ),
+                        ],
                       ],
                     ),
                   );

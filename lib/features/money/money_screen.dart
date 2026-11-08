@@ -10,6 +10,7 @@ import '../../app/theme/app_theme.dart';
 import '../../app/tax_radar_bar.dart';
 import '../../app/ui.dart';
 import '../../core/utils/app_utils.dart';
+import '../../core/reminder_text.dart';
 import '../employees/employees_screen.dart';
 import '../stats/stats_screen.dart';
 import '../../data/models/money_transaction.dart';
@@ -2787,13 +2788,33 @@ class _MoneyScreenState extends State<MoneyScreen> {
               if (income && o.jobId != null)
                 CupertinoActionSheetAction(
                   onPressed: () async {
-                    await store.createPaymentReminder(obligationId: o.id);
-                    if (!mounted) return;
-                    await showAppAlert(
-                      context,
-                      title: 'Напоминание создано',
-                      message: 'За 2 дня до срока.',
+                    final client = store.clientById(o.counterpartyId ?? '');
+                    final job = o.jobId == null ? null : store.jobById(o.jobId!);
+                    final paymentMethod = o.paymentMethod;
+                    final result = await shareReminderText(
+                      paymentReminderText(
+                        clientName: client?.name ?? 'Клиент',
+                        jobTitle: job?.title ?? o.title,
+                        remainingCents: o.remainingCents,
+                        dueAt: o.dueAt,
+                        paymentMethod: paymentMethod,
+                        paymentMethodLabels: kPaymentMethods,
+                      ),
                     );
+                    if (!mounted) return;
+                    if (result == ReminderShareResult.shared) {
+                      await showAppAlert(
+                        context,
+                        title: 'Отправлено',
+                        message: 'Спасибо, напоминание отправлено.',
+                      );
+                    } else if (result == ReminderShareResult.copied) {
+                      await showAppAlert(
+                        context,
+                        title: 'Текст скопирован',
+                        message: 'Откройте WhatsApp/Telegram и вставьте.',
+                      );
+                    }
                   },
                   child: const Text('Напомнить клиенту'),
                 ),
@@ -2809,6 +2830,137 @@ class _MoneyScreenState extends State<MoneyScreen> {
     );
   }
 
+  /// Детали кассового плана (§Э2.3): свёрнутый «Прогноз» разворачивается
+  /// модалкой, чтобы на вкладке «План» не висела простыня цифр, когда
+  /// разрыва нет и смотреть не на что.
+  Future<void> _showCashPlanDetails(
+    List<CashPlanDay> plan,
+    int totalIn,
+    int totalOut,
+  ) async {
+    final colors = context.colors;
+    final balance = context.read<MastersStore>().totalBalanceCents();
+    final eventDays =
+        plan.where((d) => d.incoming > 0 || d.outgoing > 0).toList();
+
+    await showCupertinoModalPopup<void>(
+      context: context,
+      builder: (sheetContext) => Container(
+        height: 420,
+        color: colors.card,
+        child: Column(
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                CupertinoButton(
+                  child: const Text('Закрыть'),
+                  onPressed: () => Navigator.of(sheetContext).pop(),
+                ),
+                const Text(
+                  'Кассовый план',
+                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+                ),
+                const SizedBox(width: 64),
+              ],
+            ),
+            Expanded(
+              child: ListView(
+                padding: const EdgeInsets.fromLTRB(16, 4, 16, 20),
+                children: [
+                  KeyValueRow('Сейчас на счетах', _money(balance), emphasis: true),
+                  KeyValueRow(
+                    'Ожидается (дебиторка)',
+                    '+${_money(totalIn)}',
+                    valueColor: colors.green,
+                  ),
+                  KeyValueRow(
+                    'К оплате (кредиторка)',
+                    '−${_money(totalOut)}',
+                    valueColor: colors.red,
+                  ),
+                  if (plan.isNotEmpty)
+                    KeyValueRow(
+                      'Прогноз на 6 недель',
+                      _money(plan.last.balanceEnd),
+                      emphasis: true,
+                      valueColor:
+                          plan.last.balanceEnd < 0 ? colors.red : null,
+                    ),
+                  if (eventDays.isNotEmpty) ...[
+                    const SizedBox(height: 12),
+                    SectionLabel('Дни с движениями'),
+                    for (final d in eventDays)
+                      Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 3),
+                        child: Row(
+                          children: [
+                            SizedBox(
+                              width: 74,
+                              child: Text(
+                                DateFormat('d MMM', 'ru').format(d.date),
+                                style: TextStyle(
+                                  fontSize: 12.5,
+                                  color: colors.secondaryLabel,
+                                ),
+                              ),
+                            ),
+                            Expanded(
+                              child: Text(
+                                d.incoming > 0 ? '+${_money(d.incoming)}' : '',
+                                textAlign: TextAlign.end,
+                                style: TextStyle(
+                                  fontSize: 12.5,
+                                  color: colors.green,
+                                  fontFeatures: const [
+                                    FontFeature.tabularFigures(),
+                                  ],
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                d.outgoing > 0 ? '−${_money(d.outgoing)}' : '',
+                                textAlign: TextAlign.end,
+                                style: TextStyle(
+                                  fontSize: 12.5,
+                                  color: colors.red,
+                                  fontFeatures: const [
+                                    FontFeature.tabularFigures(),
+                                  ],
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            SizedBox(
+                              width: 92,
+                              child: Text(
+                                _money(d.balanceEnd),
+                                textAlign: TextAlign.end,
+                                style: TextStyle(
+                                  fontSize: 12.5,
+                                  fontWeight: FontWeight.w700,
+                                  color: d.isGap ? colors.red : colors.label,
+                                  fontFeatures: const [
+                                    FontFeature.tabularFigures(),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                  ],
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildPlanSection(MastersStore store) {
     final colors = context.colors;
     final receivables = store.receivables()
@@ -2818,8 +2970,6 @@ class _MoneyScreenState extends State<MoneyScreen> {
     final totalIn = receivables.fold<int>(0, (s, o) => s + o.remainingCents);
     final totalOut = payables.fold<int>(0, (s, o) => s + o.remainingCents);
     final plan = store.cashPlan();
-    final balance = store.totalBalanceCents();
-    final endBalance = plan.isEmpty ? balance : plan.last.balanceEnd;
     CashPlanDay? firstGap;
     for (final d in plan) {
       if (d.isGap) {
@@ -2827,147 +2977,49 @@ class _MoneyScreenState extends State<MoneyScreen> {
         break;
       }
     }
-    final eventDays = plan
-        .where((d) => d.incoming > 0 || d.outgoing > 0)
-        .toList();
+
+    // Компактный «Прогноз» (§Э2.3): разрыв — пилюля с датой, иначе одна
+    // строка про запас. Остаток, дебиторка и разбивка по дням уходят в
+    // модалку: без разрыва вкладка «План» не должна занимать экран.
+    final weeks = (plan.length / 7).floor();
+    final summary = firstGap != null
+        ? 'разрыв ${DateFormat('d MMM', 'ru').format(firstGap.date)}'
+        : plan.isEmpty
+            ? 'Прогноз пуст'
+            : 'Запас $weeks ${pluralRu(weeks, ['неделя', 'недели', 'недель'])}';
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         AppCard(
           padding: const EdgeInsets.fromLTRB(14, 10, 14, 12),
-          child: Column(
+          child: Row(
             children: [
-              KeyValueRow('Сейчас на счетах', _money(balance), emphasis: true),
-              KeyValueRow(
-                'Ожидается (дебиторка)',
-                '+${_money(totalIn)}',
-                valueColor: colors.green,
-              ),
-              KeyValueRow(
-                'К оплате (кредиторка)',
-                '−${_money(totalOut)}',
-                valueColor: colors.red,
-              ),
-              KeyValueRow(
-                'Прогноз на 6 недель',
-                _money(endBalance),
-                emphasis: true,
-                valueColor: endBalance < 0 ? colors.red : null,
-              ),
-              if (firstGap != null)
-                Padding(
-                  padding: const EdgeInsets.only(top: 6),
-                  child: Row(
-                    children: [
-                      Icon(
-                        CupertinoIcons.exclamationmark_triangle_fill,
-                        size: 14,
-                        color: colors.red,
-                      ),
-                      const SizedBox(width: 6),
-                      Expanded(
-                        child: Text(
-                          'Разрыв ${_money(firstGap.balanceEnd)} '
-                          '${DateFormat('d MMM', 'ru').format(firstGap.date)}',
-                          style: TextStyle(
-                            fontSize: 12.5,
-                            fontWeight: FontWeight.w600,
-                            color: colors.red,
-                          ),
+              Expanded(
+                child: firstGap != null
+                    ? Pill(
+                        summary,
+                        color: colors.orange,
+                        icon: CupertinoIcons.exclamationmark_triangle_fill,
+                      )
+                    : Text(
+                        summary,
+                        style: TextStyle(
+                          fontSize: 13.5,
+                          fontWeight: FontWeight.w600,
+                          color: colors.secondaryLabel,
                         ),
                       ),
-                    ],
-                  ),
-                ),
+              ),
+              ChipButton(
+                label: 'Детали',
+                icon: CupertinoIcons.list_bullet,
+                color: firstGap != null ? colors.orange : colors.accent,
+                onPressed: () => _showCashPlanDetails(plan, totalIn, totalOut),
+              ),
             ],
           ),
         ),
-        if (eventDays.isNotEmpty) ...[
-          const SizedBox(height: 10),
-          SizedBox(
-            height: 104,
-            child: ListView.separated(
-              scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.symmetric(horizontal: 2),
-              itemCount: eventDays.length,
-              separatorBuilder: (_, _) => const SizedBox(width: 6),
-              itemBuilder: (_, i) {
-                final d = eventDays[i];
-                final dayColors = [
-                  'Пн',
-                  'Вт',
-                  'Ср',
-                  'Чт',
-                  'Пт',
-                  'Сб',
-                  'Вс',
-                ][d.date.weekday - 1];
-                return AppCard(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 10,
-                    vertical: 8,
-                  ),
-                  color: d.isGap
-                      ? colors.tint(colors.red, 0.10)
-                      : null,
-                  child: SizedBox(
-                    width: 84,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(
-                          '${dayColors}, ${DateFormat('d MMM', 'ru').format(d.date)}',
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            fontSize: 10.5,
-                            fontWeight: FontWeight.w600,
-                            color: colors.secondaryLabel,
-                          ),
-                        ),
-                        Text(
-                          d.incoming > 0 ? '+${_money(d.incoming)}' : '—',
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            fontSize: 11.5,
-                            fontWeight: FontWeight.w600,
-                            color: colors.green,
-                            fontFeatures: const [FontFeature.tabularFigures()],
-                          ),
-                        ),
-                        Text(
-                          d.outgoing > 0 ? '−${_money(d.outgoing)}' : '—',
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            fontSize: 11.5,
-                            fontWeight: FontWeight.w600,
-                            color: colors.red,
-                            fontFeatures: const [FontFeature.tabularFigures()],
-                          ),
-                        ),
-                        Text(
-                          _money(d.balanceEnd),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            fontSize: 12.5,
-                            fontWeight: FontWeight.w700,
-                            color: d.isGap ? colors.red : colors.label,
-                            fontFeatures: const [FontFeature.tabularFigures()],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                );
-              },
-            ),
-          ),
-        ],
         const SizedBox(height: 12),
         Row(
           children: [
