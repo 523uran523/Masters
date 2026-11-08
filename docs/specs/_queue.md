@@ -29,7 +29,8 @@
 | release-031720 | docs/specs/2026-11-05-release-031720.md | senior | **опубликовано** (45924e2; 0.3.17+20, code 20, SHA b02b988d…; зеркало `192.168.1.112:8080/master-updates/masters/`) |
 | release-031821 | docs/specs/2026-11-05-release-031821.md | senior | **опубликовано на основном сервере; зеркало не обновлено** (af3a2a0; 0.3.18+21, code 21, SHA 7fce579c…; зеркало `192.168.1.112:8080` недоступен, телефон вне Wi-Fi) |
 | release-04022 | docs/specs/2026-11-07-release-04022.md | senior | **опубликовано на основном сервере; зеркало не обновлено** (daf0b84; 0.4.0+22, code 22, SHA 6b8b134a…; зеркало `192.168.1.112:8080` не проверено — недоступно) |
-| release-04023 | docs/specs/2026-11-07-release-04023.md | senior | **готов к публикации** (hotfix: автобэкап, legacy-платежи, attribute_types, payment_method; 0.4.0+23, code 23) |
+| release-04023 | docs/specs/2026-11-07-release-04023.md | senior | **готов к публикации/опубликован** (hotfix: автобэкап, legacy-платежи, attribute_types, payment_method; 0.4.0+23, code 23) |
+| release-04124 | docs/specs/2026-11-08-release-04124.md | senior | **готов к публикации** (Э1: быстрый заказ шит, дубликат заказа, низкая маржа; 0.4.1+24, code 24) |
 
 ## План 0.4.x: универсальный учёт (общее ТЗ — `docs/confectionery-use-cases-analysis.md`)
 

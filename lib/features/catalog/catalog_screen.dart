@@ -19,15 +19,23 @@ import '../jobs/job_form_screen.dart';
 /// намеренно: позиция, из которой делают заказ, и позиция, которая списывается
 /// со склада, должны быть одним и тем же объектом.
 class CatalogScreen extends StatefulWidget {
-  const CatalogScreen({super.key});
+  const CatalogScreen({super.key, this.initialQuery});
+
+  /// Строка поиска при открытии.
+  ///
+  /// Нужна, чтобы сигнал низкой маржи в заказе открывал именно ту позицию,
+  /// по которой пересматривают цену, а не весь список.
+  final String? initialQuery;
 
   @override
   State<CatalogScreen> createState() => _CatalogScreenState();
 }
 
 class _CatalogScreenState extends State<CatalogScreen> {
-  final _searchController = TextEditingController();
-  String _query = '';
+  late final TextEditingController _searchController =
+      TextEditingController(text: widget.initialQuery ?? '');
+  String get _query => _searchController.text;
+  set _query(String value) => _searchController.text = value;
   String _filter = 'all';
 
   @override

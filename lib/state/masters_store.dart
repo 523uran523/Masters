@@ -1031,6 +1031,51 @@ class MastersStore extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Дублирует заказ: новый заказ с теми же строками, пустыми датами,
+  /// статус nuevo, тот же клиент. Строки копируются с текущими
+  /// `price_cents` и `cost_at_order_cents` (снимок на момент дублирования).
+  Future<Job> duplicateJob(String sourceJobId) async {
+    ensurePeriodOpen();
+    final source = _jobs.firstWhere(
+      (j) => j.id == sourceJobId,
+      orElse: () => throw ArgumentError('Заказ $sourceJobId не найден'),
+    );
+    final lines = jobLines(sourceJobId);
+
+    // Создаём новый заказ без строк
+    final newJob = await createJob(
+      clientId: source.clientId,
+      title: '${source.title} (копия)',
+      status: JobStatus.nuevo,
+      priority: source.priority,
+      priceCents: 0,
+      costCents: 0,
+      dueDate: null,
+      note: source.note,
+      assigneeId: source.assigneeId,
+      tags: source.tags,
+    );
+
+    // Копируем строки с текущими снимками цен
+    for (final line in lines) {
+      await addMaterial(
+        jobId: newJob.id,
+        name: line.name,
+        quantity: line.quantity,
+        unit: line.unit,
+        priceCents: line.priceCents,
+        itemId: line.itemId,
+        kind: line.kind,
+        costAtOrderCents: line.costAtOrderCents,
+        discountCents: line.discountCents,
+      );
+    }
+
+    // Пересчитываем итог (синхронизирует обязательства)
+    await recalcJobTotals(newJob.id);
+    return newJob;
+  }
+
   List<Job> jobsByStatus(JobStatus status) =>
       _jobs.where((j) => !j.archived && j.status == status).toList();
 
@@ -2008,6 +2053,51 @@ class MastersStore extends ChangeNotifier {
     }
     return margin;
   }
+
+  /// Порог низкой маржи (§Э1.3): 10% от цены заказа.
+  static const double kLowMarginRatio = 0.10;
+
+  /// Доля маржи в цене заказа (`null`, если считать нечего).
+  ///
+  /// Отрицательная маржа — тоже низкая: `0` означает «работаем в ноль», и
+  /// это ровно тот случай, который мастер обязан заметить до отдачи заказа.
+  double? jobMarginRatio(String jobId) {
+    final job = jobById(jobId);
+    if (job == null) return null;
+    var price = job.priceCents;
+    if (price <= 0) return null;
+    if (jobLines(jobId).isNotEmpty) {
+      var net = 0;
+      for (final line in jobLines(jobId)) {
+        net += line.totalCents - line.discountCents;
+      }
+      price = net;
+      if (price <= 0) return null;
+    }
+    return jobMarginCents(jobId) / price;
+  }
+
+  /// Низкая маржа заказа — сигнал для «Сегодня» и карточки заказа (§Э1.3).
+  ///
+  /// Порог срабатывает только на непустом заказе: заказ без строк и цены не
+  /// «убыточный», а незаполненный, и пилить его предупреждением нельзя.
+  bool isLowMarginJob(String jobId) {
+    final ratio = jobMarginRatio(jobId);
+    return ratio != null && ratio < kLowMarginRatio;
+  }
+
+  /// Низкомаржинальные заказы, требующие пересмотра цен.
+  ///
+  /// Только `done`: раньше сигнал молча висел бы на заказе, который ещё в
+  /// работе и цены в котором правятся штатно.
+  List<Job> lowMarginDoneJobs() => _jobs
+      .where(
+        (j) =>
+            !j.archived &&
+            (j.status == JobStatus.done || j.status == JobStatus.closed) &&
+            isLowMarginJob(j.id),
+      )
+      .toList();
 
   // ────────────────────────────────────────────────────────── Obligations
   // ──────────────────────────────────────────────────────────

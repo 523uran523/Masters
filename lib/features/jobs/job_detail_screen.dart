@@ -583,6 +583,36 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
         trailing: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
+            // Дублировать заказ (§Э1.2)
+            CupertinoButton(
+              padding: EdgeInsets.zero,
+              onPressed: () async {
+                final store = context.read<MastersStore>();
+                final job = store.jobById(widget.jobId);
+                if (job == null) return;
+                try {
+                  await store.duplicateJob(job.id);
+                  if (mounted) {
+                    showAppAlert(context,
+                        title: 'Заказ скопирован',
+                        message:
+                            'Создан новый заказ с теми же строками и ценами.');
+                  }
+                } catch (_) {
+                  if (mounted) {
+                    showAppAlert(context,
+                        title: 'Ошибка',
+                        message: 'Не удалось дублировать заказ');
+                  }
+                }
+              },
+              child: const Icon(
+                CupertinoIcons.doc_on_doc,
+                size: 20,
+                semanticLabel: 'Дублировать заказ',
+              ),
+            ),
+            // Закрепить
             CupertinoButton(
               padding: EdgeInsets.zero,
               onPressed: () async {
@@ -597,6 +627,7 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
                 semanticLabel: job.pinned ? 'Открепить' : 'Закрепить',
               ),
             ),
+            // Редактировать
             CupertinoButton(
               padding: EdgeInsets.zero,
               onPressed: () => Navigator.of(context).push(
@@ -911,6 +942,42 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
                       dense: true,
                     ),
                   ],
+                  // Pill низкой маржи (§Э1.3)
+                  if (store.isLowMarginJob(widget.jobId) && lines.isNotEmpty) ...[
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        Pill(
+                          'Низкая маржа',
+                          color: colors.orange,
+                          icon: CupertinoIcons.exclamationmark_triangle,
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: ChipButton(
+                            label: 'Пересмотреть цены',
+                            icon: CupertinoIcons.chart_bar,
+                            color: colors.orange,
+                            onPressed: () async {
+                              // Собираем названия позиций для фильтра каталога
+                              final names = lines
+                                  .map((l) => l.name)
+                                  .toSet()
+                                  .join(' ');
+                              Navigator.of(context).push(
+                                CupertinoPageRoute(
+                                  builder: (_) => CatalogScreen(
+                                    initialQuery: names,
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                  const SizedBox(height: 8),
                   const SizedBox(height: 8),
                   SecondaryButton(
                     label: 'Добавить из каталога',

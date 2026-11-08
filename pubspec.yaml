@@ -1,7 +1,7 @@
 name: masters
 description: "Masters — локальный трекер для мастера/бригады."
 publish_to: 'none'
-version: 0.4.0+23
+version: 0.4.1+24
 
 environment:
   sdk: ^3.13.5

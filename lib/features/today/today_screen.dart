@@ -9,6 +9,7 @@ import '../../app/tax_radar_bar.dart';
 import '../../app/ui.dart';
 import '../../core/deep_link_service.dart';
 import '../../core/utils/app_utils.dart';
+import '../../data/models/client.dart';
 import '../../data/models/client_reminder.dart';
 import '../../data/models/inventory_item.dart';
 import '../../data/models/job.dart';
@@ -16,7 +17,6 @@ import '../../data/models/recurring_payment.dart';
 import '../../state/masters_store.dart';
 import '../../state/settings_controller.dart';
 import '../jobs/job_detail_screen.dart';
-import '../jobs/job_form_screen.dart';
 import '../stats/stats_screen.dart';
 import '../../core/money_format.dart';
 
@@ -227,18 +227,17 @@ class _TodayScreenState extends State<TodayScreen> {
     );
   }
 
+  /// «+ Заказ» на «Сегодня»: шит быстрого заказа (§Э1.1).
+  ///
+  /// Пустая база клиентов больше не блокирует создание — шит умеет завести
+  /// клиента по имени, иначе путь «встретил клиента → записал заказ»
+  /// разваливался ровно на первом клиенте.
   Future<void> _quickAdd() async {
     final store = context.read<MastersStore>();
-    if (store.clients.isEmpty) {
-      showAppAlert(
-        context,
-        title: 'Нет клиентов',
-        message: 'Сначала создайте клиента на вкладке «Клиенты».',
-      );
-      return;
-    }
-    Navigator.of(context)
-        .push(CupertinoPageRoute(builder: (_) => const JobFormScreen()));
+    await showCupertinoModalPopup<void>(
+      context: context,
+      builder: (_) => _QuickOrderSheet(clients: store.clients),
+    );
   }
 
   Widget _reminderCard(
@@ -451,12 +450,27 @@ class _TodayScreenState extends State<TodayScreen> {
       if (totalMin > 0) formatMinutes(totalMin),
     ].join(' • ');
 
+    // Pill низкой маржи (§Э1.3): показываем прямо в списке, чтобы мастер
+    // заметил сигнал до перехода в карточку заказа.
+    final lowMargin = store.isLowMarginJob(job.id);
+    final trailing = lowMargin
+        ? Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Pill('низкая маржа', color: colors.orange,
+                  icon: CupertinoIcons.exclamationmark_triangle),
+              const SizedBox(width: 6),
+              Pill(job.status.label, color: colors.accent),
+            ],
+          )
+        : Pill(job.status.label, color: colors.accent);
+
     return ListRow(
       title: job.title,
       subtitle: subtitle,
       dense: true,
       showChevron: true,
-      trailing: Pill(job.status.label, color: colors.accent),
+      trailing: trailing,
       onTap: () => Navigator.of(context).push(
         CupertinoPageRoute(builder: (_) => JobDetailScreen(jobId: job.id)),
       ),
@@ -1053,5 +1067,251 @@ String _reminderMessage(ClientReminder reminder, String clientName, Job? job) {
       return 'Здравствуйте, $clientName. Напоминаю о сервисном обслуживании по работе "$label".';
     default:
       return 'Здравствуйте, $clientName. Напоминаю: $subject.';
+  }
+}
+
+/// Шит быстрого заказа (§Э1.1): клиент + название + одна строка.
+///
+/// Не отдельный экран, а модалка поверх «Сегодня»: заказ рождается с одной
+/// строкой, остальное мастер добирает в карточке.
+class _QuickOrderSheet extends StatefulWidget {
+  const _QuickOrderSheet({required this.clients});
+
+  final List<Client> clients;
+
+  @override
+  State<_QuickOrderSheet> createState() => _QuickOrderSheetState();
+}
+
+class _QuickOrderSheetState extends State<_QuickOrderSheet> {
+  final _titleCtrl = TextEditingController();
+  final _newClientCtrl = TextEditingController();
+  final _lineNameCtrl = TextEditingController();
+  final _priceCtrl = TextEditingController();
+
+  /// Выбранный существующий клиент; `null` — создаём нового.
+  String? _clientId;
+  int _priceCents = 0;
+  bool _saving = false;
+
+  bool get _creatingClient => _newClientCtrl.text.trim().isNotEmpty;
+
+  bool get _canSave =>
+      !_saving &&
+      _titleCtrl.text.trim().isNotEmpty &&
+      (_creatingClient || _clientId != null);
+
+  @override
+  void initState() {
+    super.initState();
+    _clientId = widget.clients.isEmpty ? null : widget.clients.first.id;
+  }
+
+  @override
+  void dispose() {
+    _titleCtrl.dispose();
+    _newClientCtrl.dispose();
+    _lineNameCtrl.dispose();
+    _priceCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _save() async {
+    if (!_canSave) return;
+    setState(() => _saving = true);
+    final store = context.read<MastersStore>();
+    try {
+      final title = _titleCtrl.text.trim();
+      final clientId = _creatingClient
+          ? (await store.createClient(name: _newClientCtrl.text)).id
+          : _clientId!;
+      final job = await store.createJob(clientId: clientId, title: title);
+
+      // Строка опциональна: без цены заказ остаётся пустой заготовкой.
+      final lineName = _lineNameCtrl.text.trim().isEmpty
+          ? title
+          : _lineNameCtrl.text.trim();
+      if (_priceCents > 0) {
+        await store.addMaterial(
+          jobId: job.id,
+          name: lineName,
+          quantity: 1,
+          priceCents: _priceCents,
+          kind: 'work',
+        );
+        await store.recalcJobTotals(job.id);
+      }
+
+      if (!mounted) return;
+      // Закрываем шит и сразу открываем карточку: там добавляются строки,
+      // срок и детали, которые в быстрый заказ сознательно не брали.
+      Navigator.of(context).pop();
+      Navigator.of(context).push(
+        CupertinoPageRoute(builder: (_) => JobDetailScreen(jobId: job.id)),
+      );
+    } catch (error) {
+      if (mounted) {
+        setState(() => _saving = false);
+        showAppAlert(
+          context,
+          title: 'Не получилось',
+          message: 'Проверьте заполненные поля и попробуйте ещё раз.',
+        );
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.colors;
+    final keyboard = MediaQuery.viewInsetsOf(context).bottom;
+
+    return Padding(
+      padding: EdgeInsets.only(bottom: keyboard),
+      child: Container(
+        color: colors.card,
+        child: SafeArea(
+          top: false,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    CupertinoButton(
+                      padding: EdgeInsets.zero,
+                      onPressed: _saving
+                          ? null
+                          : () => Navigator.of(context).pop(),
+                      child: const Text('Отмена'),
+                    ),
+                    Text(
+                      'Быстрый заказ',
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                        color: colors.label,
+                      ),
+                    ),
+                    CupertinoButton(
+                      padding: EdgeInsets.zero,
+                      onPressed: _canSave ? _save : null,
+                      child: Text(
+                        'Создать',
+                        style: TextStyle(
+                          fontWeight: FontWeight.w600,
+                          color: _canSave ? colors.accent : colors.tertiaryLabel,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 4),
+              SectionLabel('Клиент'),
+              if (widget.clients.isNotEmpty)
+                SizedBox(
+                  height: 40,
+                  child: ListView.separated(
+                    scrollDirection: Axis.horizontal,
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    itemCount: widget.clients.length,
+                    separatorBuilder: (_, _) => const SizedBox(width: 6),
+                    itemBuilder: (_, i) {
+                      final client = widget.clients[i];
+                      // Новое имя отменяет выбор: иначе непонятно, к какому
+                      // клиенту уйдёт заказ.
+                      final selected =
+                          !_creatingClient && client.id == _clientId;
+                      return CupertinoButton(
+                        padding: EdgeInsets.zero,
+                        onPressed: _saving
+                            ? null
+                            : () {
+                                _newClientCtrl.clear();
+                                setState(() => _clientId = client.id);
+                              },
+                        child: ChipButton(
+                          label: client.name.trim().isEmpty
+                              ? 'Без имени'
+                              : client.name.trim(),
+                          color: selected ? colors.accent : colors.secondaryLabel,
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+                child: CupertinoTextField(
+                  controller: _newClientCtrl,
+                  placeholder: widget.clients.isEmpty
+                      ? 'Имя нового клиента'
+                      : '…или новый клиент по имени',
+                  textCapitalization: TextCapitalization.words,
+                  enabled: !_saving,
+                  style: TextStyle(color: colors.label),
+                  onChanged: (_) => setState(() {}),
+                ),
+              ),
+              SectionLabel('Заказ'),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 0),
+                child: CupertinoTextField(
+                  controller: _titleCtrl,
+                  placeholder: 'Что делаем',
+                  autofocus: true,
+                  textCapitalization: TextCapitalization.sentences,
+                  enabled: !_saving,
+                  style: TextStyle(color: colors.label),
+                  onChanged: (_) => setState(() {}),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: CupertinoTextField(
+                        controller: _lineNameCtrl,
+                        placeholder: 'Позиция (по названию заказа)',
+                        textCapitalization: TextCapitalization.sentences,
+                        enabled: !_saving,
+                        style: TextStyle(color: colors.label),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    SizedBox(
+                      width: 130,
+                      child: CupertinoTextField(
+                        controller: _priceCtrl,
+                        placeholder: 'Цена, ${moneySymbol}',
+                        keyboardType: const TextInputType.numberWithOptions(
+                          decimal: true,
+                        ),
+                        enabled: !_saving,
+                        style: TextStyle(color: colors.label),
+                        onChanged: (value) =>
+                            setState(() => _priceCents = currentMoneyFormat.parse(value) ?? 0),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 10, 16, 14),
+                child: PrimaryButton(
+                  label: _saving ? 'Создаю…' : 'Создать заказ',
+                  icon: CupertinoIcons.plus,
+                  onPressed: _canSave ? _save : null,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 }
