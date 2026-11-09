@@ -124,6 +124,7 @@ class SettingsController extends ChangeNotifier {
   static const _cashShiftEnabledKey = 'cash_shift_enabled';
   static const _kanbanColumnsKey = 'kanban_columns';
   static const _teamEnabledKey = 'team_enabled';
+  static const _leadsEnabledKey = 'module_leads';
   static const _calculatorEnabledKey = 'calculator_enabled';
   static const _workModeKey = 'work_mode';
   static const _updateMirrorEnabledKey = 'update_mirror_enabled';
@@ -445,6 +446,16 @@ class SettingsController extends ChangeNotifier {
 
   Future<void> setCalculatorEnabled(bool value) async {
     await _prefs.setBool(_calculatorEnabledKey, value);
+    notifyListeners();
+  }
+
+  /// Модуль «Заявки» (Э3): экран и воронка продаж. По умолчанию выключен,
+  /// чтобы не множировать интерфейс у мастеров, которые ведут только заказы
+  /// (§5.4: `module_leads`). Данные при этом не удаляются — флаг прячет UI.
+  bool get leadsEnabled => _prefs.getBool(_leadsEnabledKey) ?? false;
+
+  Future<void> setLeadsEnabled(bool value) async {
+    await _prefs.setBool(_leadsEnabledKey, value);
     notifyListeners();
   }
 

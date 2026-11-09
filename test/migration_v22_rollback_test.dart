@@ -104,7 +104,7 @@ void main() {
         .toList();
   }
 
-  test('v21 -> v23: перед миграцией создаётся копия и помечается мигрированной',
+  test('v21 -> v24: перед миграцией создаётся копия и помечается мигрированной',
       () async {
     final path = await prepareV21WithData();
 
@@ -113,7 +113,7 @@ void main() {
       expect(app.migrationHalted, isFalse);
       expect(
         (await app.database.rawQuery('PRAGMA user_version')).first.values.first,
-        23,
+        24,
       );
     } finally {
       await app.database.close();
@@ -128,7 +128,7 @@ void main() {
     );
   });
 
-  test('база v23 открывается без создания копии', () async {
+  test('база v24 открывается без создания копии', () async {
     final path = await prepareV21WithData();
 
     final first = await AppDatabase.open(path: path);
@@ -139,7 +139,7 @@ void main() {
       expect(second.migrationHalted, isFalse);
       expect(
         (await second.database.rawQuery('PRAGMA user_version')).first.values.first,
-        23,
+        24,
       );
     } finally {
       await second.database.close();
@@ -201,7 +201,7 @@ void main() {
     );
   });
 
-  test('после успешного повторного запуска миграция доходит до v23', () async {
+  test('после успешного повторного запуска миграция доходит до v24', () async {
     final path = await prepareV21WithData();
 
     AppDatabase.testHaltHook = (_) => throw StateError('падение 1');
@@ -216,7 +216,7 @@ void main() {
       expect(fixed.migrationHalted, isFalse);
       expect(
         (await fixed.database.rawQuery('PRAGMA user_version')).first.values.first,
-        23,
+        24,
       );
       final jobs = await fixed.database.query('jobs');
       expect(jobs, hasLength(1), reason: 'данные пережили падение и миграцию');

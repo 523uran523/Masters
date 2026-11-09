@@ -17,11 +17,13 @@ import '../../core/utils/app_utils.dart';
 import '../../core/units.dart';
 import '../../data/models/job.dart';
 import '../../data/models/job_attachment.dart';
+import '../../data/models/quote.dart';
 import 'job_constants.dart';
 import 'job_form_screen.dart';
 import 'job_form_widgets.dart';
 import 'cost_calculator_screen.dart';
 import '../catalog/catalog_screen.dart';
+import '../leads/quotes_screen.dart';
 import '../../state/masters_store.dart';
 import '../../state/settings_controller.dart';
 import '../../core/money_format.dart';
@@ -58,6 +60,39 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
   void dispose() {
     _timer?.cancel();
     super.dispose();
+  }
+
+  /// История КП заказа (§12.4): если снимков ещё нет, первый создаётся из
+  /// текущих строк — дальнейшие правки заказа его не меняют.
+  Future<void> _openQuote(MastersStore store, Job job) async {
+    final navigator = Navigator.of(context);
+    final existing = store.quotesForJob(job.id);
+    Quote target;
+    if (existing.isEmpty) {
+      target = await store.saveQuoteSnapshot(job.id);
+    } else {
+      target = existing.first;
+    }
+    final latest = store.quoteById(target.id) ?? target;
+    navigator.push(
+      CupertinoPageRoute(builder: (_) => QuotesScreen(jobId: job.id)),
+    );
+    // Единственный снимок показываем сразу: мастер ждёт документ, а не список
+    // из одной строки.
+    if (existing.isEmpty && latest.pdfPath == null && mounted) {
+      await _saveQuotePdf(latest);
+    }
+  }
+
+  Future<void> _saveQuotePdf(Quote quote) async {
+    final bytes = await DocumentService.buildQuotePdf(quote);
+    if (!mounted) return;
+    final name =
+        '${quote.number}-rev${quote.revision}-${quote.createdAt.millisecondsSinceEpoch}.pdf';
+    final path = await DocumentService.savePdfPath(bytes, name);
+    if (path != null) {
+      await context.read<MastersStore>().setQuotePdfPath(quote.id, path);
+    }
   }
 
   Future<void> _createDocument(MastersStore store, Job job) async {
@@ -1361,6 +1396,12 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
                     label: 'Создать документ (PDF)',
                     icon: CupertinoIcons.doc_text,
                     onPressed: () => _createDocument(store, job),
+                  ),
+                  Hairline(indent: 0),
+                  SecondaryButton(
+                    label: 'КП',
+                    icon: CupertinoIcons.doc_on_clipboard,
+                    onPressed: () => _openQuote(store, job),
                   ),
                   Hairline(indent: 0),
                   SecondaryButton(

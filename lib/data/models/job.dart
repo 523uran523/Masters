@@ -86,6 +86,7 @@ class Job {
     this.pinned = false,
     this.assigneeId,
     this.tags,
+    this.leadId,
     required this.createdAt,
     required this.updatedAt,
   });
@@ -106,6 +107,10 @@ class Job {
   final bool pinned;
   final String? assigneeId;
   final String? tags;
+
+  /// Заявка, из которой вырос заказ (Э3). Нужна, чтобы в карточке заказа
+  /// видеть источник обращения и не считать конверсию вручную.
+  final String? leadId;
   final DateTime createdAt;
   final DateTime updatedAt;
 
@@ -130,6 +135,7 @@ class Job {
     Object? pinned = _unset,
     Object? assigneeId = _unset,
     Object? tags = _unset,
+    Object? leadId = _unset,
     Object? createdAt = _unset,
     Object? updatedAt = _unset,
   }) {
@@ -154,6 +160,7 @@ class Job {
           ? this.assigneeId
           : assigneeId as String?,
       tags: tags == _unset ? this.tags : tags as String?,
+      leadId: leadId == _unset ? this.leadId : leadId as String?,
       createdAt: createdAt == _unset ? this.createdAt : createdAt as DateTime,
       updatedAt: updatedAt == _unset ? this.updatedAt : updatedAt as DateTime,
     );
@@ -178,6 +185,7 @@ class Job {
     // Колонка tags — NOT NULL DEFAULT '': UPDATE с NULL уронит ограничение,
     // поэтому пустые теги всегда пишутся пустой строкой.
     'tags': tags ?? '',
+    'lead_id': leadId,
     'created_at': createdAt.millisecondsSinceEpoch,
     'updated_at': updatedAt.millisecondsSinceEpoch,
   };
@@ -207,6 +215,7 @@ class Job {
         ((m['pinned'] is num) && (m['pinned'] as num) != 0),
     assigneeId: m['assignee_id'] as String?,
     tags: m['tags'] as String?,
+    leadId: m['lead_id'] as String?,
     createdAt: DateTime.fromMillisecondsSinceEpoch(
       m['created_at'] as int? ?? 0,
     ),

@@ -1,5 +1,5 @@
 // ignore_for_file: prefer_const_constructors
-// Миграция v21 -> v23 «фундамент»: аддитивные колонки, новые таблицы,
+// Миграция v21 -> v24 «фундамент»: аддитивные колонки, новые таблицы,
 // разовый бэкфилл обязательств и себестоимости движений склада,
 // хотфикс-колонки payment_method/legacy_paid, seed attribute_types.
 //
@@ -169,20 +169,20 @@ void main() {
     return path;
   }
 
-  test('v21 -> v23: колонки, таблицы, индексы, бэкфилл, хотфиксы', () async {
+  test('v21 -> v24: колонки, таблицы, индексы, бэкфилл, хотфиксы', () async {
     final path = await prepareV21WithData();
 
     final db = await openDatabase(
       path,
-      version: 23,
+      version: 24,
       onConfigure: (d) => d.execute('PRAGMA foreign_keys = ON'),
       onUpgrade: (d, from, to) => AppDatabase.upgradeSchema(d, from, to),
     );
     try {
       expect(
         (await db.rawQuery('PRAGMA user_version')).first.values.first,
-        23,
-        reason: 'user_version должен стать 23',
+        24,
+        reason: 'user_version должен стать 24',
       );
 
       Future<Set<String>> columns(String table) async =>
@@ -317,7 +317,7 @@ void main() {
 
     final db = await openDatabase(
       path,
-      version: 23,
+      version: 24,
       onConfigure: (d) => d.execute('PRAGMA foreign_keys = ON'),
       onUpgrade: (d, from, to) => AppDatabase.upgradeSchema(d, from, to),
     );

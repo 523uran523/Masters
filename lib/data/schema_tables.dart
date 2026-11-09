@@ -43,6 +43,8 @@ const List<String> kSyncedTables = <String>[
   'booking_resources',
   'inventory_items',
   'objects',
+  // v24: заявка — родитель заказа (`jobs.lead_id`), поэтому раньше `jobs`.
+  'leads',
   'jobs',
   'job_stages',
   'materials',
@@ -63,6 +65,9 @@ const List<String> kSyncedTables = <String>[
   'obligations',
   'client_credits',
   'entity_attributes',
+  // v24: `leads` стоит выше (перед `jobs`), здесь только снимки КП — они
+  // ссылаются и на заказ, и на заявку.
+  'quotes',
 ];
 
 /// Порядок восстановления из резервной копии: тот же, что порядок обмена
@@ -89,6 +94,8 @@ const List<BackupTable> kBackupTables = <BackupTable>[
   BackupTable('inventory_compositions', 'inventory_compositions'),
   BackupTable('recipe_lines', 'recipe_lines'),
   BackupTable('objects', 'objects'),
+  // v24: заявка — родитель заказа (`jobs.lead_id`), поэтому вставляется раньше.
+  BackupTable('leads', 'leads'),
   BackupTable('jobs', 'jobs'),
   BackupTable('stages', 'job_stages'),
   BackupTable('materials', 'materials'),
@@ -110,6 +117,8 @@ const List<BackupTable> kBackupTables = <BackupTable>[
   BackupTable('client_credits', 'client_credits'),
   BackupTable('entity_attributes', 'entity_attributes'),
   BackupTable('attribute_types', 'attribute_types'),
+  // v24: `quotes` ссылается на `jobs` и `leads`, оба выше — вставляются последними.
+  BackupTable('quotes', 'quotes'),
 ];
 
 /// Таблицы, для которых генерируются audit-триггеры.
@@ -146,6 +155,9 @@ const List<String> kAuditedTables = <String>[
   'obligations',
   'client_credits',
   'entity_attributes',
+  // v24
+  'leads',
+  'quotes',
 ];
 
 /// Таблицы, которые нужно пересоздавать при обновлении схемы добавлением
@@ -210,6 +222,8 @@ const Map<String, List<String>> kMojibakeScanColumns = <String, List<String>>{
   'cash_shifts': <String>['note'],
   'money_transactions': <String>['category', 'note'],
   'job_attachments': <String>['file_name'],
+  // v24
+  'leads': <String>['name', 'request', 'note'],
 };
 
 /// Обязательные ссылки: таблица → (колонка, родительская таблица).
@@ -224,6 +238,14 @@ const Map<String, List<List<String>>> kTableDependencies =
   ],
   'jobs': <List<String>>[
     <String>['client_id', 'clients'],
+  ],
+  // v24: заявка может быть привязана к клиенту; снимок КП — к заказу/заявке.
+  'leads': <List<String>>[
+    <String>['client_id', 'clients'],
+  ],
+  'quotes': <List<String>>[
+    <String>['job_id', 'jobs'],
+    <String>['lead_id', 'leads'],
   ],
   'job_stages': <List<String>>[
     <String>['job_id', 'jobs'],

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:sqflite/sqflite.dart';
@@ -36,6 +37,10 @@ import '../data/repositories/attribute_type_repository.dart';
 import '../data/repositories/entity_attribute_repository.dart';
 import '../data/models/obligation.dart';
 import '../data/repositories/obligation_repository.dart';
+import '../data/models/lead.dart';
+import '../data/repositories/lead_repository.dart';
+import '../data/models/quote.dart';
+import '../data/repositories/quote_repository.dart';
 import '../data/models/work_object.dart';
 import '../data/repositories/account_repository.dart';
 import '../data/repositories/appointment_repository.dart';
@@ -153,6 +158,8 @@ class MastersStore extends ChangeNotifier {
     _attributeRepo = EntityAttributeRepository(_appDatabase.database);
     _attributeTypeRepo = AttributeTypeRepository(_appDatabase.database);
     _obligationRepo = ObligationRepository(_appDatabase.database);
+    _leadRepo = LeadRepository(_appDatabase.database);
+    _quoteRepo = QuoteRepository(_appDatabase.database);
   }
 
   final AppDatabase _appDatabase;
@@ -183,6 +190,8 @@ class MastersStore extends ChangeNotifier {
   late final EntityAttributeRepository _attributeRepo;
   late final AttributeTypeRepository _attributeTypeRepo;
   late final ObligationRepository _obligationRepo;
+  late final LeadRepository _leadRepo;
+  late final QuoteRepository _quoteRepo;
 
   List<Client> _clients = [];
   List<WorkObject> _objects = [];
@@ -208,6 +217,8 @@ class MastersStore extends ChangeNotifier {
   List<Purchase> _purchases = [];
   List<PurchaseLine> _purchaseLines = [];
   List<Obligation> _obligations = [];
+  List<Lead> _leads = [];
+  List<Quote> _quotes = [];
   bool _loaded = false;
 
   // Cache invalidation is centralized: notifyListeners() bumps state and
@@ -620,6 +631,8 @@ class MastersStore extends ChangeNotifier {
     } catch (_) {}
     _payrollPeriods = await _payrollRepo.getAll();
     _obligations = await _obligationRepo.getAll();
+    _leads = await _leadRepo.getAll();
+    _quotes = await _quoteRepo.getAll();
     await _reconcileEmployeePayments();
 
     if (_bookingResources.isEmpty) {
@@ -932,6 +945,7 @@ class MastersStore extends ChangeNotifier {
     String? note,
     String? assigneeId,
     String? tags,
+    String? leadId,
   }) async {
     final now = DateTime.now();
     final job = Job(
@@ -940,6 +954,7 @@ class MastersStore extends ChangeNotifier {
       objectId: objectId,
       assigneeId: assigneeId,
       tags: tags?.trim().isEmpty == true ? null : tags?.trim(),
+      leadId: leadId,
       title: title.trim(),
       status: status,
       priority: priority,
@@ -4594,11 +4609,331 @@ class MastersStore extends ChangeNotifier {
     notifyListeners();
   }
 
+  // ────────────────────────────────────────────────────────── Заявки и КП (Э3)
+
+  /// Все заявки (включая отказ и конвертированные).
+  List<Lead> get leads => List.unmodifiable(_leads);
+
+  Lead? leadById(String id) {
+    for (final l in _leads) {
+      if (l.id == id) return l;
+    }
+    return null;
+  }
+
+  List<Lead> leadsByStatus(String status) =>
+      _leads.where((l) => l.status == status).toList();
+
+  /// «Зависшие»: активные с наступившим следующим шагом, самые просроченные
+  /// сверху (§Э3.1). Без запланированного шага заявка сюда не попадает.
+  List<Lead> staleLeads({DateTime? now}) {
+    final moment = now ?? DateTime.now();
+    return _leads.where((l) => l.isStaleAt(moment)).toList()
+      ..sort((a, b) => a.nextStepAt!.compareTo(b.nextStepAt!));
+  }
+
+  int get staleLeadsCount => staleLeads().length;
+
+  Future<Lead> createLead({
+    required String name,
+    String phone = '',
+    String? clientId,
+    String source = 'other',
+    String? request,
+    int budgetCents = 0,
+    DateTime? nextStepAt,
+    String? note,
+  }) async {
+    final now = DateTime.now();
+    final trimmed = name.trim();
+    final lead = Lead(
+      id: newId(),
+      // Имя обязательно по схеме; если мастер заполнил только телефон,
+      // заявка всё равно заводится и зовётся по номеру.
+      name: trimmed.isEmpty ? phone.trim() : trimmed,
+      phone: phone.trim(),
+      clientId: clientId,
+      source: source,
+      request: _nullIfBlank(request),
+      budgetCents: budgetCents,
+      nextStepAt: nextStepAt,
+      note: _nullIfBlank(note),
+      createdAt: now,
+      updatedAt: now,
+    );
+    await _leadRepo.save(lead);
+    _leads = [lead, ..._leads];
+    notifyListeners();
+    return lead;
+  }
+
+  Future<void> updateLead(Lead lead) async {
+    final updated = lead.copyWith(updatedAt: DateTime.now());
+    await _leadRepo.save(updated);
+    final index = _leads.indexWhere((l) => l.id == updated.id);
+    if (index == -1) {
+      _leads = [updated, ..._leads];
+    } else {
+      _leads[index] = updated;
+    }
+    notifyListeners();
+  }
+
+  /// Отказ по заявке: статус + причина, чтобы воронка показывала причины,
+  /// а список — не мозолил глаза.
+  Future<void> closeLead(String leadId, {required String reason}) async {
+    final lead = leadById(leadId);
+    if (lead == null || !lead.isActive) return;
+    await updateLead(
+      lead.copyWith(status: 'refused', closeReason: _nullIfBlank(reason)),
+    );
+  }
+
+  /// Конверсия заявки в заказ (DoD §5.4): переносит клиента, сумму и срок.
+  ///
+  /// Если заявка не была связана с клиентом, заводим нового — иначе мастеру
+  /// пришлось бы сначала идти в «Клиентов» и терять смысл одного действия.
+  Future<Job> convertLeadToJob(
+    String leadId, {
+    required String title,
+    int priceCents = 0,
+    DateTime? dueAt,
+  }) async {
+    final lead =
+        leadById(leadId) ??
+        (throw ArgumentError('Заявка $leadId не найдена'));
+    var clientId = lead.clientId;
+    if (clientId == null || clientById(clientId) == null) {
+      final client = await createClient(name: lead.name, phone: lead.phone);
+      clientId = client.id;
+    }
+    final job = await createJob(
+      clientId: clientId,
+      title: title.trim().isEmpty ? (lead.request ?? lead.name) : title,
+      priceCents: priceCents > 0 ? priceCents : lead.budgetCents,
+      dueDate: dueAt,
+      note: lead.request,
+      leadId: lead.id,
+    );
+    await updateLead(
+      lead.copyWith(
+        status: 'converted',
+        clientId: clientId,
+        convertedJobId: job.id,
+      ),
+    );
+    return job;
+  }
+
+  /// Воронка: сколько заявок на каждом этапе и по каким источникам (§5.9).
+  ({
+    int total,
+    int active,
+    int stale,
+    int converted,
+    int refused,
+    Map<String, int> bySource,
+  })
+  leadsFunnel() {
+    final moment = DateTime.now();
+    final bySource = <String, int>{};
+    var stale = 0;
+    for (final l in _leads) {
+      bySource[l.source] = (bySource[l.source] ?? 0) + 1;
+      if (l.isStaleAt(moment)) stale++;
+    }
+    int count(String status) => _leads.where((l) => l.status == status).length;
+    return (
+      total: _leads.length,
+      active: count('active'),
+      stale: stale,
+      converted: count('converted'),
+      refused: count('refused'),
+      bySource: bySource,
+    );
+  }
+
+  /// Доля конверсий, 0..1; пусто — 0, а не NaN.
+  double get leadsConversionRate {
+    final closed = _leads
+        .where((l) => l.status == 'converted' || l.status == 'refused')
+        .length;
+    if (closed == 0) return 0;
+    return _leads.where((l) => l.status == 'converted').length / closed;
+  }
+
+  Future<void> deleteLead(String leadId) async {
+    await _leadRepo.softDelete(leadId);
+    _leads = _leads.where((l) => l.id != leadId).toList();
+    notifyListeners();
+  }
+
+  // --- КП: снимки (§12.4) ---
+
+  List<Quote> get quotes => List.unmodifiable(_quotes);
+
+  /// История КП заказа: новые ревизии сверху.
+  List<Quote> quotesForJob(String jobId) =>
+      _quotes.where((q) => q.jobId == jobId).toList()
+        ..sort((a, b) => b.revision.compareTo(a.revision));
+
+  List<Quote> quotesForLead(String leadId) =>
+      _quotes.where((q) => q.leadId == leadId).toList()
+        ..sort((a, b) => b.revision.compareTo(a.revision));
+
+  Quote? quoteById(String id) {
+    for (final q in _quotes) {
+      if (q.id == id) return q;
+    }
+    return null;
+  }
+
+  /// Номер следующего КП: `КП-ГГГГ-NNN`, счётчик — по количеству снимков
+  /// в этом году. Ревизия считается отдельно внутри номера.
+  Future<({String number, int revision})> nextQuoteSlot({
+    String? reuseNumber,
+  }) async {
+    final year = DateTime.now().year;
+    if (reuseNumber != null) {
+      return (
+        number: reuseNumber,
+        revision: await _quoteRepo.maxRevision(reuseNumber) + 1,
+      );
+    }
+    final serial =
+        _quotes
+            .where(
+              (q) => q.createdAt.year == year && q.number.startsWith('КП-$year'),
+            )
+            .map((q) => q.number)
+            .toSet()
+            .length +
+        1;
+    return (
+      number: 'КП-$year-${serial.toString().padLeft(3, '0')}',
+      revision: 1,
+    );
+  }
+
+  /// Создаёт снимок КП по заказу: строки и итог фиксируются, дальнейшая
+  /// правка заказа на этот PDF не влияет (§12.4).
+  Future<Quote> saveQuoteSnapshot(
+    String jobId, {
+    String? leadId,
+    String? reuseNumber,
+    int validDays = 14,
+  }) async {
+    final job =
+        jobById(jobId) ?? (throw ArgumentError('Заказ $jobId не найден'));
+    final slot = await nextQuoteSlot(reuseNumber: reuseNumber);
+    final lines = jobLines(jobId);
+    final client = clientById(job.clientId);
+    final now = DateTime.now();
+    final totalCents = lines.isNotEmpty
+        ? lines.fold<int>(0, (sum, l) => sum + l.totalCents)
+        : job.priceCents;
+    final snapshot = jsonEncode({
+      'number': slot.number,
+      'revision': slot.revision,
+      'createdAt': now.millisecondsSinceEpoch,
+      'clientName': client?.name ?? '',
+      'clientPhone': client?.phone ?? '',
+      'jobTitle': job.title,
+      'validUntil': now.add(Duration(days: validDays)).millisecondsSinceEpoch,
+      'totalCents': totalCents,
+      'lines': [
+        for (final l in lines)
+          {
+            'name': l.name,
+            'quantity': l.quantity,
+            'unit': l.unit,
+            'priceCents': l.priceCents,
+            'totalCents': l.totalCents,
+          },
+      ],
+    });
+    final quote = Quote(
+      id: newId(),
+      jobId: jobId,
+      leadId: leadId ?? job.leadId,
+      number: slot.number,
+      revision: slot.revision,
+      totalCents: totalCents,
+      snapshotJson: snapshot,
+      validUntil: now.add(Duration(days: validDays)),
+      createdAt: now,
+      updatedAt: now,
+    );
+    await _quoteRepo.save(quote);
+    _quotes = [quote, ..._quotes];
+    notifyListeners();
+    return quote;
+  }
+
+  /// Путь к сохранённому PDF (UI складывает файл сам, store помнит, где он).
+  Future<void> setQuotePdfPath(String quoteId, String path) async {
+    final quote = quoteById(quoteId);
+    if (quote == null) return;
+    final updated = quote.copyWith(
+      pdfPath: path,
+      updatedAt: DateTime.now(),
+    );
+    await _quoteRepo.save(updated);
+    final index = _quotes.indexWhere((q) => q.id == quoteId);
+    if (index != -1) _quotes[index] = updated;
+    notifyListeners();
+  }
+
+  Future<void> markQuoteSent(String quoteId) async {
+    final quote = quoteById(quoteId);
+    if (quote == null) return;
+    final now = DateTime.now();
+    final updated = quote.copyWith(
+      sentAt: now,
+      status: 'sent',
+      updatedAt: now,
+    );
+    await _quoteRepo.save(updated);
+    final index = _quotes.indexWhere((q) => q.id == quoteId);
+    if (index != -1) _quotes[index] = updated;
+    notifyListeners();
+  }
+
+  Future<void> setQuoteStatus(String quoteId, String status) async {
+    final quote = quoteById(quoteId);
+    if (quote == null) return;
+    final updated = quote.copyWith(
+      status: status,
+      updatedAt: DateTime.now(),
+    );
+    await _quoteRepo.save(updated);
+    final index = _quotes.indexWhere((q) => q.id == quoteId);
+    if (index != -1) _quotes[index] = updated;
+    notifyListeners();
+  }
+
+  /// Удаляет КП (soft-delete: снимок — доказательство согласованной цены,
+  /// поэтому строка остаётся в базе и может быть восстановлена копией).
+  Future<void> deleteQuote(String quoteId) async {
+    ensurePeriodOpen();
+    await _quoteRepo.softDelete(quoteId);
+    _quotes = _quotes.where((q) => q.id != quoteId).toList();
+    notifyListeners();
+  }
+
+  static String? _nullIfBlank(String? value) {
+    final trimmed = value?.trim();
+    return (trimmed == null || trimmed.isEmpty) ? null : trimmed;
+  }
+
   Future<void> clearAll() async {
     try {
       await _appDatabase.audit(action: 'data.clearAll');
     } catch (_) {}
     await _appDatabase.database.transaction((txn) async {
+      // v24: `quotes` ссылается на заказы и заявки, `jobs` — на заявки,
+      // поэтому снимки КП и заказы уходят раньше заявок.
+      await txn.delete('quotes');
       await txn.delete('appointments');
       await txn.delete('booking_resources');
       await txn.delete('client_reminders');
@@ -4615,6 +4950,7 @@ class MastersStore extends ChangeNotifier {
       await txn.delete('job_stages');
       await txn.delete('jobs');
       await txn.delete('objects');
+      await txn.delete('leads');
       await txn.delete('clients');
     });
     await load();

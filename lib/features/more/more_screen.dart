@@ -6,6 +6,7 @@ import '../../app/ui.dart';
 import '../../core/utils/app_utils.dart';
 import '../../features/catalog/catalog_screen.dart';
 import '../../features/employees/employees_screen.dart';
+import '../../features/leads/leads_screen.dart';
 import '../../features/settings/settings_screen.dart';
 import '../../features/stats/stats_screen.dart';
 import '../../state/masters_store.dart';
@@ -40,6 +41,27 @@ class MoreScreen extends StatelessWidget {
                 onTap: () => _open(context, const StatsScreen()),
               ),
             ),
+            if (settings.leadsEnabled) ...[
+              const SizedBox(height: 16),
+              SectionLabel('Заявки'),
+              AppCard(
+                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                child: ListRow(
+                  dense: true,
+                  icon: CupertinoIcons.tray,
+                  title: 'Заявки и КП',
+                  subtitle: 'обращения, следующий шаг и коммерческие предложения',
+                  trailing: store.staleLeadsCount > 0
+                      ? Pill(
+                          '${store.staleLeadsCount} зависли',
+                          color: colors.orange,
+                        )
+                      : null,
+                  showChevron: true,
+                  onTap: () => _open(context, const LeadsScreen()),
+                ),
+              ),
+            ],
             if (settings.teamEnabled) ...[
               const SizedBox(height: 16),
               SectionLabel('Сотрудники'),

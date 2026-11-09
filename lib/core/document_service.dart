@@ -1,5 +1,6 @@
-import 'dart:typed_data';
+import 'dart:convert';
 
+import 'package:flutter/foundation.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:intl/intl.dart';
 import 'package:pdf/pdf.dart';
@@ -7,6 +8,7 @@ import 'package:pdf/widgets.dart' as pw;
 
 import 'utils/app_utils.dart';
 import '../data/models/job.dart';
+import '../data/models/quote.dart';
 import '../state/masters_store.dart';
 import '../core/money_format.dart';
 
@@ -408,13 +410,132 @@ class DocumentService {
     return pdf.save();
   }
 
+  /// КП из снимка (§12.4). Рендерится только из `snapshotJson`, поэтому
+  /// повторная генерация того же снимка отдаёт тот же документ, даже если
+  /// заказ уже отредактирован.
+  static Future<Uint8List> buildQuotePdf(Quote quote) async {
+    final decoded = jsonDecode(quote.snapshotJson);
+    final map = decoded is Map ? decoded.cast<String, Object?>() : <String, Object?>{};
+    final lines = quote.lines;
+    final created = DateTime.fromMillisecondsSinceEpoch(
+      (map['createdAt'] as num?)?.toInt() ?? quote.createdAt.millisecondsSinceEpoch,
+    );
+    final validUntil = map['validUntil'] == null
+        ? quote.validUntil
+        : DateTime.fromMillisecondsSinceEpoch((map['validUntil'] as num).toInt());
+
+    final pdf = pw.Document();
+    pdf.addPage(
+      pw.Page(
+        pageFormat: PdfPageFormat.a4,
+        build: (context) {
+          return pw.Column(
+            crossAxisAlignment: pw.CrossAxisAlignment.start,
+            children: [
+              pw.Text(
+                'Коммерческое предложение',
+                style: pw.TextStyle(fontSize: 22, fontWeight: pw.FontWeight.bold),
+              ),
+              pw.SizedBox(height: 6),
+              pw.Text(
+                '№ ${quote.number} · ред. ${quote.revision} от '
+                '${DateFormat('dd.MM.yyyy', 'ru').format(created)}',
+                style: const pw.TextStyle(fontSize: 11),
+              ),
+              pw.SizedBox(height: 12),
+              if ((map['clientName'] as String?)?.isNotEmpty ?? false)
+                pw.Text(
+                  'Клиент: ${map['clientName']}',
+                  style: const pw.TextStyle(fontSize: 12),
+                ),
+              if ((map['clientPhone'] as String?)?.isNotEmpty ?? false)
+                pw.Text(
+                  'Телефон: ${map['clientPhone']}',
+                  style: const pw.TextStyle(fontSize: 12),
+                ),
+              if ((map['jobTitle'] as String?)?.isNotEmpty ?? false) ...[
+                pw.SizedBox(height: 10),
+                pw.Text(
+                  '${map['jobTitle']}',
+                  style: pw.TextStyle(fontSize: 13, fontWeight: pw.FontWeight.bold),
+                ),
+              ],
+              pw.SizedBox(height: 12),
+              if (lines.isNotEmpty)
+                pw.TableHelper.fromTextArray(
+                  headers: const ['Наименование', 'Кол-во', 'Ед.', 'Цена', 'Сумма'],
+                  data: [
+                    for (final l in lines)
+                      [
+                        (l['name'] ?? '').toString(),
+                        ((l['quantity'] as num?) ?? 1).toStringAsFixed(
+                          ((l['quantity'] as num?) ?? 1) % 1 == 0 ? 0 : 2,
+                        ),
+                        (l['unit'] ?? 'шт').toString(),
+                        money(((l['priceCents'] as num?) ?? 0).toInt()),
+                        money(((l['totalCents'] as num?) ?? 0).toInt()),
+                      ],
+                  ],
+                  cellStyle: const pw.TextStyle(fontSize: 10),
+                  headerStyle: pw.TextStyle(
+                    fontSize: 10,
+                    fontWeight: pw.FontWeight.bold,
+                  ),
+                ),
+              pw.SizedBox(height: 14),
+              pw.Row(
+                children: [
+                  pw.Expanded(
+                    child: pw.Text(
+                      'Итого',
+                      style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
+                    ),
+                  ),
+                  pw.Text(
+                    money(quote.totalCents),
+                    style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
+                  ),
+                ],
+              ),
+              if (validUntil != null) ...[
+                pw.SizedBox(height: 6),
+                pw.Text(
+                  'Предложение действительно до '
+                  '${DateFormat('dd.MM.yyyy', 'ru').format(validUntil)}',
+                  style: const pw.TextStyle(fontSize: 11),
+                ),
+              ],
+              pw.SizedBox(height: 18),
+              pw.Text(
+                'Спасибо за обращение!',
+                style: const pw.TextStyle(fontSize: 11),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+    return pdf.save();
+  }
+
   static Future<bool> savePdf(Uint8List bytes, String suggestedName) async {
+    return await savePdfPath(bytes, suggestedName) != null;
+  }
+
+  /// Тот же диалог сохранения, но возвращает выбранный путь (или `null`,
+  /// если пользователь отменил). Нужен КП: путь кладётся на снимок, чтобы
+  /// потом открыть ровно тот файл, что отдавали клиенту.
+  static Future<String?> savePdfPath(
+    Uint8List bytes,
+    String suggestedName,
+  ) async {
     final uri = await FilePicker.saveFile(
       fileName: suggestedName,
       bytes: bytes,
       mimeType: 'application/pdf',
       dialogTitle: 'Сохранить документ',
     );
-    return uri != null;
+    if (uri == null || kIsWeb) return null;
+    return uri.toFilePath();
   }
 }

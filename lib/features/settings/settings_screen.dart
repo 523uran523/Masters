@@ -179,6 +179,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ),
               const Hairline(),
               _SwitchRow(
+                title: 'Заявки и КП',
+                value: settings.leadsEnabled,
+                onChanged: settings.setLeadsEnabled,
+              ),
+              const Hairline(),
+              _SwitchRow(
                 title: 'Теги в заказах',
                 value: settings.jobTagsEnabled,
                 onChanged: settings.setJobTagsEnabled,

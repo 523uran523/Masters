@@ -109,7 +109,7 @@ class AppDatabase {
     try {
       final database = await openDatabase(
         resolved,
-        version: 23,
+        version: 24,
         onConfigure: (db) async {
           if (!kIsWeb) await db.execute('PRAGMA foreign_keys = ON');
           // §1.1: узнаём версию ДО транзакции апгрейда. onConfigure —
@@ -391,6 +391,10 @@ class AppDatabase {
     await _createFoundationSchema(db);
     await _ensureHotfixColumns(db);
     await _seedAttributeTypes(db);
+    // Порядок важен: `jobs.lead_id` ссылается на `leads`, поэтому таблица
+    // заявок создаётся раньше колонки.
+    await _createLeadsSchema(db);
+    await _ensureLeadsColumns(db);
     await _createAuditTriggers(db);
     await _createSyncSchema(db);
   }
@@ -1190,6 +1194,25 @@ class AppDatabase {
       await _ensureHotfixColumns(db);
       await _seedAttributeTypes(db);
     }
+    if (oldVersion < 24 && newVersion >= 24) {
+      // v24 «заявки» (Э3): таблицы leads/quotes и jobs.lead_id. Только
+      // аддитивные шаги — существующие строки не меняются, бэкфилл не нужен.
+      await _createLeadsSchema(db);
+      await _ensureLeadsColumns(db);
+      // Триггеры пересоздаются по актуальному реестру: новые таблицы должны
+      // попасть и в audit_log, и в sync_outbox.
+      await _createAuditTriggers(db);
+      await _createSyncTriggers(db);
+      final violations = await db.rawQuery('PRAGMA foreign_key_check');
+      if (violations.isNotEmpty) {
+        final sample = violations.first;
+        throw StateError(
+          'v24: foreign_key_check нашёл нарушения '
+          '(${sample['table']}.rowid=${sample['rowid']} -> '
+          '${sample['parent']}). Миграция отменена, восстановите копию.',
+        );
+      }
+    }
   }
 
   /// Хотфикс-колонки v23: способ оплаты и флаг legacy-оплаты заказа.
@@ -1239,6 +1262,95 @@ class AppDatabase {
         [t[0], t[1], '*', t[2], now],
       );
     }
+  }
+
+  /// Колонки v24 «заявок» (Э3): ссылка заказа на заявку, из которой он вырос.
+  ///
+  /// Как и другие аддитивные шаги, идемпотентна и вызывается и из `onCreate`,
+  /// и из миграции 23→24, чтобы чистая установка не отличалась от обновлённой.
+  static Future<void> _ensureLeadsColumns(Database db) async {
+    try {
+      await db.execute(
+        'ALTER TABLE jobs ADD COLUMN lead_id TEXT REFERENCES leads(id) ON DELETE SET NULL',
+      );
+    } catch (_) {
+      // Колонка уже есть (повторный проход).
+    }
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_jobs_lead ON jobs(lead_id)',
+    );
+  }
+
+  /// Новые таблицы v24: заявки (`leads`) и снимки КП (`quotes`).
+  ///
+  /// `quotes` — это реализация §12.4: КП хранится неизменяемым снимком
+  /// (`snapshot_json` + `pdf_path`) с номером и ревизией, а не как «живой»
+  /// документ. Правка КП создаёт новую ревизию, старая остаётся доступной,
+  /// поэтому клиент всегда видит ровно то, что согласовывал.
+  static Future<void> _createLeadsSchema(Database db) async {
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS leads (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        phone TEXT NOT NULL DEFAULT '',
+        client_id TEXT REFERENCES clients(id) ON DELETE SET NULL,
+        source TEXT NOT NULL DEFAULT 'other',   -- whatsapp / avito / site / referral / other
+        request TEXT,
+        budget_cents INTEGER NOT NULL DEFAULT 0,
+        status TEXT NOT NULL DEFAULT 'active',  -- active / refused / converted
+        next_step_at INTEGER,
+        close_reason TEXT,
+        converted_job_id TEXT REFERENCES jobs(id) ON DELETE SET NULL,
+        note TEXT,
+        created_at INTEGER NOT NULL,
+        updated_at INTEGER NOT NULL,
+        deleted_at INTEGER,
+        device_id TEXT
+      )
+    ''');
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_leads_status '
+      'ON leads(status) WHERE deleted_at IS NULL',
+    );
+    // «Зависшие» — активные с наступившим next_step_at: индекс ровно под
+    // этот запрос, он отрабатывает на каждом открытии экрана «Заявки».
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_leads_next_step '
+      'ON leads(next_step_at) '
+      'WHERE deleted_at IS NULL AND status = \'active\'',
+    );
+
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS quotes (
+        id TEXT PRIMARY KEY,
+        job_id TEXT REFERENCES jobs(id) ON DELETE CASCADE,
+        lead_id TEXT REFERENCES leads(id) ON DELETE SET NULL,
+        number TEXT NOT NULL,
+        revision INTEGER NOT NULL DEFAULT 1,
+        total_cents INTEGER NOT NULL DEFAULT 0,
+        snapshot_json TEXT NOT NULL,
+        pdf_path TEXT,
+        valid_until INTEGER,
+        sent_at INTEGER,
+        status TEXT NOT NULL DEFAULT 'draft',   -- draft / sent / accepted / rejected
+        created_at INTEGER NOT NULL,
+        updated_at INTEGER NOT NULL,
+        deleted_at INTEGER,
+        device_id TEXT
+      )
+    ''');
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_quotes_job ON quotes(job_id)',
+    );
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_quotes_lead ON quotes(lead_id)',
+    );
+    // Номер КП уникален в пределах ревизии: дубль номера — это спор с
+    // клиентом, поэтому уникальность держит база, а не только код.
+    await db.execute(
+      'CREATE UNIQUE INDEX IF NOT EXISTS idx_quotes_number '
+      'ON quotes(number, revision) WHERE deleted_at IS NULL',
+    );
   }
 
   /// Сколько строк обрабатывает один пакет бэкфилла v22.
