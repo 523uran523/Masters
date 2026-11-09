@@ -7,6 +7,7 @@ import 'dart:io';
 import '../core/sync_client.dart' show SyncRow;
 import '../core/text_encoding.dart' show repairMojibake;
 import '../core/utils/app_utils.dart';
+import 'models/credit_change.dart';
 import 'schema_tables.dart';
 
 import 'dart:convert';
@@ -1806,6 +1807,22 @@ class AppDatabase {
       orderBy: 'at DESC, id DESC',
       limit: limit < 1 ? 1 : limit,
     );
+  }
+
+  /// История изменений клиентских кредитов (§5.5) — все записи разом.
+  ///
+  /// Списание намеренно не создаёт второй `money_transactions`: денег второй
+  /// раз не приходило (§12.1). Единственный след операции — аудит, поэтому он
+  /// читается целиком: по нему считается и Δ обязательства за период, и
+  /// история в карточке кредита.
+  Future<List<CreditChange>> creditChanges({int limit = 2000}) async {
+    final rows = await database.query(
+      'audit_log',
+      where: "entity = 'client_credit' AND action LIKE 'credit.%'",
+      orderBy: 'at DESC, id DESC',
+      limit: limit < 1 ? 1 : limit,
+    );
+    return rows.map(CreditChange.fromRow).toList();
   }
 
   Future<void> audit({

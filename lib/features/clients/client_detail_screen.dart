@@ -13,6 +13,7 @@ import '../../data/models/client.dart';
 import '../../data/models/client_reminder.dart';
 import '../../data/models/job.dart';
 import '../../state/masters_store.dart';
+import 'client_credits.dart';
 import '../jobs/job_detail_screen.dart';
 import '../jobs/job_form_screen.dart';
 import '../../core/money_format.dart';
@@ -203,6 +204,7 @@ class ClientDetailScreen extends StatelessWidget {
                 ),
               ],
             ),
+            ClientMoneySection(clientId: clientId),
             if (reminders.isNotEmpty) ...[
               const SizedBox(height: 18),
               Row(

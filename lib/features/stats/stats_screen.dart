@@ -178,12 +178,10 @@ class _StatsScreenState extends State<StatsScreen> {
     final tx = store.moneyTransactions.where(inRange).toList();
     final txPrev = store.moneyTransactions.where(inPrev).toList();
 
-    final revenue = tx
-        .where((t) => t.direction == 'in')
-        .fold(0, (s, t) => s + t.amountCents);
-    final revenuePrev = txPrev
-        .where((t) => t.direction == 'in')
-        .fold(0, (s, t) => s + t.amountCents);
+    // §12.1: выручка — одна формула в сторе (Σ поступлений − Δ обязательств),
+    // иначе депозит заедет в P&L дважды: как приход и как отработанная услуга.
+    final revenue = store.recognizedRevenueCents(start, now);
+    final revenuePrev = store.recognizedRevenueCents(prevStart, start);
     final expense = tx
         .where((t) => t.direction == 'out')
         .fold(0, (s, t) => s + t.amountCents);

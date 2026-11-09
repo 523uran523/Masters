@@ -23,6 +23,7 @@ import 'job_form_screen.dart';
 import 'job_form_widgets.dart';
 import 'cost_calculator_screen.dart';
 import '../catalog/catalog_screen.dart';
+import '../clients/client_credits.dart';
 import '../leads/quotes_screen.dart';
 import '../../state/masters_store.dart';
 import '../../state/settings_controller.dart';
@@ -322,11 +323,61 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
     }
   }
 
+  /// Оплата заказа клиентскими деньгами (§5.5): список активных кредитов,
+  /// затем штатный шит списания, который гасит обязательство заказа.
+  /// Возвращает true, если что-то списали.
+  Future<bool> _payFromCredit(
+    MastersStore store,
+    Job job,
+    int remaining,
+  ) async {
+    if (!context.read<SettingsController>().creditsEnabled) return false;
+    final credits = store
+        .clientCredits(job.clientId)
+        .where((c) => c.isActive && c.remainingCents > 0)
+        .toList();
+    if (credits.isEmpty || !mounted) return false;
+
+    final chosenId = await showCupertinoModalPopup<String>(
+      context: context,
+      builder: (ctx) => CupertinoActionSheet(
+        title: const Text('Взять из денег клиента'),
+        message: Text('Остаток к оплате: ${money(remaining)}'),
+        actions: [
+          for (final c in credits)
+            CupertinoActionSheetAction(
+              onPressed: () => Navigator.of(ctx).pop(c.id),
+              child: Text(
+                '${c.title.isEmpty ? c.kindLabel : c.title} · '
+                '${money(c.remainingCents)}',
+              ),
+            ),
+        ],
+        cancelButton: CupertinoActionSheetAction(
+          onPressed: () => Navigator.of(ctx).pop(),
+          child: const Text('Отмена'),
+        ),
+      ),
+    );
+    if (chosenId == null) return false;
+    final before = store.clientCreditById(chosenId);
+    if (before == null || !mounted) return false;
+
+    await showUseCreditSheet(
+      context,
+      before,
+      jobId: job.id,
+      maxCents: remaining,
+    );
+    final after = store.clientCreditById(chosenId);
+    return after != null && after.remainingCents < before.remainingCents;
+  }
+
   Future<void> _closeJob(MastersStore store, Job job) async {
     try {
       var current = store.jobById(job.id) ?? job;
-      final obligation = store.openJobPaymentObligation(current.id);
-      final remaining = obligation != null
+      var obligation = store.openJobPaymentObligation(current.id);
+      var remaining = obligation != null
           ? obligation.remainingCents
           : (current.priceCents - store.paidForJob(current.id)) < 0
               ? 0
@@ -341,6 +392,27 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
         }
         await store.setJobStatus(current.id, JobStatus.closed);
         return;
+      }
+
+      // §5.5: у клиента есть активные деньги — предлагаем списать их раньше,
+      // чем просить живую оплату.
+      final credited = await _payFromCredit(store, current, remaining);
+      if (credited && mounted) {
+        current = store.jobById(current.id) ?? current;
+        final left = (store.openJobPaymentObligation(current.id)
+                ?.remainingCents ??
+            current.priceCents - store.paidForJob(current.id))
+            .clamp(0, 1 << 40);
+        if (left <= 0) {
+          if (current.status != JobStatus.done) {
+            await store.setJobStatus(current.id, JobStatus.done);
+            current = store.jobById(current.id) ?? current;
+          }
+          await store.setJobStatus(current.id, JobStatus.closed);
+          return;
+        }
+        remaining = left;
+        obligation = store.openJobPaymentObligation(current.id);
       }
 
       final choice = await showCupertinoDialog<String?>(

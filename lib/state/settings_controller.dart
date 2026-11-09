@@ -125,6 +125,7 @@ class SettingsController extends ChangeNotifier {
   static const _kanbanColumnsKey = 'kanban_columns';
   static const _teamEnabledKey = 'team_enabled';
   static const _leadsEnabledKey = 'module_leads';
+  static const _creditsEnabledKey = 'module_credits';
   static const _calculatorEnabledKey = 'calculator_enabled';
   static const _workModeKey = 'work_mode';
   static const _updateMirrorEnabledKey = 'update_mirror_enabled';
@@ -456,6 +457,16 @@ class SettingsController extends ChangeNotifier {
 
   Future<void> setLeadsEnabled(bool value) async {
     await _prefs.setBool(_leadsEnabledKey, value);
+    notifyListeners();
+  }
+
+  /// Модуль «Депозиты и сертификаты» (Э4): деньги клиента на балансе и
+  /// отложенная выручка (§5.5: `module_credits`). Как и заявки, по умолчанию
+  /// выключен — мастер сам решает, нужны ли ему предоплаты.
+  bool get creditsEnabled => _prefs.getBool(_creditsEnabledKey) ?? false;
+
+  Future<void> setCreditsEnabled(bool value) async {
+    await _prefs.setBool(_creditsEnabledKey, value);
     notifyListeners();
   }
 

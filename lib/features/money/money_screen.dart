@@ -12,6 +12,7 @@ import '../../app/ui.dart';
 import '../../core/utils/app_utils.dart';
 import '../../core/reminder_text.dart';
 import '../employees/employees_screen.dart';
+import '../clients/client_credits.dart';
 import '../stats/stats_screen.dart';
 import '../../data/models/money_transaction.dart';
 import '../../data/models/obligation.dart';
@@ -1901,6 +1902,41 @@ class _MoneyScreenState extends State<MoneyScreen> {
                                   ),
                                 ),
                           const SizedBox(height: 8),
+                          if (settings.creditsEnabled &&
+                              store.clientCreditTotalCents > 0) ...[
+                            AppCard(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 4,
+                                vertical: 2,
+                              ),
+                              child: ListRow(
+                                dense: true,
+                                icon: CupertinoIcons.creditcard,
+                                iconColor: colors.orange,
+                                title: 'Обязательства перед клиентами',
+                                subtitle:
+                                    'получено и ещё не отработано · '
+                                    '${countLabel(store.credits.where((c) => c.deletedAt == null && c.isActive).length, ['кредит', 'кредита', 'кредитов'])}',
+                                trailing: Text(
+                                  _money(store.clientCreditTotalCents),
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.w600,
+                                    fontFeatures: [
+                                      FontFeature.tabularFigures(),
+                                    ],
+                                  ),
+                                ),
+                                showChevron: true,
+                                onTap: () => Navigator.of(context).push(
+                                  CupertinoPageRoute(
+                                    builder: (_) =>
+                                        const ClientCreditsScreen(),
+                                  ),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 16),
+                          ],
                           Row(
                             children: [
                               Expanded(

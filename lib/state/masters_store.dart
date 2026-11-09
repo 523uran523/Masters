@@ -41,6 +41,9 @@ import '../data/models/lead.dart';
 import '../data/repositories/lead_repository.dart';
 import '../data/models/quote.dart';
 import '../data/repositories/quote_repository.dart';
+import '../data/models/client_credit.dart';
+import '../data/repositories/client_credit_repository.dart';
+import '../data/models/credit_change.dart';
 import '../data/models/work_object.dart';
 import '../data/repositories/account_repository.dart';
 import '../data/repositories/appointment_repository.dart';
@@ -160,6 +163,7 @@ class MastersStore extends ChangeNotifier {
     _obligationRepo = ObligationRepository(_appDatabase.database);
     _leadRepo = LeadRepository(_appDatabase.database);
     _quoteRepo = QuoteRepository(_appDatabase.database);
+    _creditRepo = ClientCreditRepository(_appDatabase.database);
   }
 
   final AppDatabase _appDatabase;
@@ -192,6 +196,7 @@ class MastersStore extends ChangeNotifier {
   late final ObligationRepository _obligationRepo;
   late final LeadRepository _leadRepo;
   late final QuoteRepository _quoteRepo;
+  late final ClientCreditRepository _creditRepo;
 
   List<Client> _clients = [];
   List<WorkObject> _objects = [];
@@ -219,6 +224,11 @@ class MastersStore extends ChangeNotifier {
   List<Obligation> _obligations = [];
   List<Lead> _leads = [];
   List<Quote> _quotes = [];
+  List<ClientCredit> _credits = [];
+
+  /// Движения кредитов из `audit_log` (§12.1): списаний в `money_transactions`
+  /// намеренно нет, поэтому история живёт только здесь.
+  List<CreditChange> _creditChanges = [];
   bool _loaded = false;
 
   // Cache invalidation is centralized: notifyListeners() bumps state and
@@ -633,7 +643,14 @@ class MastersStore extends ChangeNotifier {
     _obligations = await _obligationRepo.getAll();
     _leads = await _leadRepo.getAll();
     _quotes = await _quoteRepo.getAll();
+    _credits = await _creditRepo.getAll();
+    _creditChanges = await _appDatabase.creditChanges();
+    // Просрочка меняет статус, но не трогает баланс (§12.1): обязательство
+    // снимается только решением владельца — возврат или признание выручкой.
+    await expireCredits();
     await _reconcileEmployeePayments();
+    // §12.1: срок истёк — статус меняется при открытии, деньги остаются на балансе.
+    await expireCredits();
 
     if (_bookingResources.isEmpty) {
       final r = BookingResource(
@@ -4926,6 +4943,368 @@ class MastersStore extends ChangeNotifier {
     return (trimmed == null || trimmed.isEmpty) ? null : trimmed;
   }
 
+  // --- Клиентские кредиты (депозиты, абонементы, сертификаты) (§5.5, Э4) ---
+
+  List<ClientCredit> get credits => List.unmodifiable(_credits);
+
+  List<ClientCredit> clientCredits(String clientId) =>
+      _credits.where((c) => c.clientId == clientId && c.deletedAt == null).toList()
+        ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+
+  ClientCredit? clientCreditById(String id) =>
+      _credits.where((c) => c.id == id && c.deletedAt == null).cast<ClientCredit?>().firstOrNull;
+
+  /// История движений по кредитам из `audit_log` (§12.1: списания живут только здесь).
+  List<CreditChange> get creditChanges => List.unmodifiable(_creditChanges);
+
+  /// Движения конкретного кредита, от новых к старым.
+  List<CreditChange> creditHistory(String creditId) =>
+      _creditChanges.where((c) => c.entityId == creditId).toList();
+
+  /// Активные обязательства перед клиентами: ещё не отработанные деньги (§12.1).
+  int get clientCreditTotalCents => _credits
+      .where((c) => c.deletedAt == null && c.isActive)
+      .fold(0, (sum, c) => sum + c.remainingCents);
+
+  Future<void> deleteClientCredit(String creditId) async {
+    ensurePeriodOpen();
+    await _creditRepo.softDelete(creditId);
+    _credits = _credits.where((c) => c.id != creditId).toList();
+    try {
+      await _appDatabase.audit(
+        action: 'credit.delete',
+        entity: 'client_credit',
+        entityId: creditId,
+      );
+    } catch (_) {}
+    notifyListeners();
+  }
+
+  /// Топ позиционных имён клиента по частоте (§6.8): считает заказы, в которых
+  /// позиция встречалась, а не строки — повтор в одном заказе не накручивает рейтинг.
+  List<String> favoritePositions(String clientId, {int limit = 3}) {
+    final clientJobIds = _jobs
+        .where((j) => j.clientId == clientId && !j.archived)
+        .map((j) => j.id)
+        .toSet();
+    if (clientJobIds.isEmpty) return const [];
+    final catalogNames = {
+      for (final item in _inventoryItems) item.id: item.name,
+    };
+    final jobsByPosition = <String, Set<String>>{};
+    for (final line in _materials) {
+      if (!clientJobIds.contains(line.jobId)) continue;
+      final name = line.itemId == null
+          ? line.name.trim()
+          : (catalogNames[line.itemId] ?? line.name).trim();
+      if (name.isEmpty) continue;
+      (jobsByPosition[name] ??= <String>{}).add(line.jobId);
+    }
+    final ranked = jobsByPosition.entries.toList()
+      ..sort((a, b) {
+        final byJobs = b.value.length.compareTo(a.value.length);
+        return byJobs != 0 ? byJobs : a.key.compareTo(b.key);
+      });
+    return ranked.take(limit).map((e) => e.key).toList();
+  }
+
+  /// Выручка, признанная списаниями кредитов за период `[from, to)`.
+  int clientCreditRevenueCents(DateTime from, DateTime to) {
+    final fromMs = from.millisecondsSinceEpoch;
+    final toMs = to.millisecondsSinceEpoch;
+    return _creditChanges
+        .where(
+          (c) => c.action == 'credit.use' && c.at >= fromMs && c.at < toMs,
+        )
+        .fold(0, (sum, c) => sum + c.amountCents.abs());
+  }
+
+  /// Прирост обязательств перед клиентами за период `[from, to)`: Δ Σ `remaining_cents`.
+  ///
+  /// Возвраты (`credit.refund`) не входят: они уже учтены оттоком в
+  /// `money_transactions`, иначе деньги вычлись бы дважды.
+  int deferredDeltaCents(DateTime from, DateTime to) {
+    final fromMs = from.millisecondsSinceEpoch;
+    final toMs = to.millisecondsSinceEpoch;
+    return _creditChanges
+        .where(
+          (c) =>
+              c.action != 'credit.refund' &&
+              c.at >= fromMs &&
+              c.at < toMs,
+        )
+        .fold(0, (sum, c) => sum + c.deltaCents);
+  }
+
+  /// Признанная выручка за период `[from, to)` (§12.1): Σ поступлений − Δ Σ
+  /// `remaining_cents`. Граница «до» исключается, чтобы соседние периоды не
+  /// считали одну операцию дважды.
+  int recognizedRevenueCents(DateTime from, DateTime to) {
+    final inflow = _moneyTransactions
+        .where(
+          (t) =>
+              !t.voided &&
+              t.direction == 'in' &&
+              !t.createdAt.isBefore(from) &&
+              t.createdAt.isBefore(to),
+        )
+        .fold(0, (sum, t) => sum + t.amountCents);
+    return inflow - deferredDeltaCents(from, to);
+  }
+
+  /// Счёт для клиентских денег: первый неархивированный, иначе любой, иначе null.
+  Account? get _creditAccount {
+    if (_accounts.isEmpty) return null;
+    return _accounts.where((a) => !a.archived).cast<Account?>().firstOrNull ?? _accounts.first;
+  }
+
+  Future<ClientCredit> createClientCredit({
+    required String clientId,
+    required String kind,
+    required String title,
+    required int amountCents,
+    int? unitsTotal,
+    DateTime? expiresAt,
+    String? note,
+  }) async {
+    ensurePeriodOpen();
+    final credit = ClientCredit(
+      id: newId(),
+      clientId: clientId,
+      kind: kind,
+      title: title.trim(),
+      amountCents: amountCents,
+      remainingCents: amountCents,
+      unitsTotal: unitsTotal,
+      unitsLeft: unitsTotal,
+      expiresAt: expiresAt,
+      status: 'active',
+      note: _nullIfBlank(note),
+      createdAt: DateTime.now(),
+      updatedAt: DateTime.now(),
+    );
+    await _creditRepo.save(credit);
+    _credits = [credit, ..._credits];
+
+    // Деньги пришли (ДДС растёт).
+    final account = _creditAccount;
+    if (account != null) {
+      final tx = MoneyTransaction(
+        id: newId(),
+        accountId: account.id,
+        kind: 'income',
+        direction: 'in',
+        amountCents: amountCents,
+        category: switch (kind) { 'pass' => 'Абонемент', 'certificate' => 'Сертификат', _ => 'Депозит' },
+        clientId: clientId,
+        note: _nullIfBlank(note),
+        createdAt: DateTime.now(),
+      );
+      await _moneyTxRepo.save(tx);
+      _moneyTransactions = [tx, ..._moneyTransactions];
+    }
+
+    // Аудит — единственный источник списаний (§12.1).
+    final change = CreditChange(
+      action: 'credit.create',
+      entityId: credit.id,
+      before: null,
+      after: credit.toMap(),
+      at: DateTime.now().millisecondsSinceEpoch,
+    );
+    _creditChanges = [change, ..._creditChanges];
+    try {
+      await _appDatabase.audit(
+        action: 'credit.create',
+        entity: 'client_credit',
+        entityId: credit.id,
+        after: credit.toMap(),
+      );
+    } catch (_) {}
+
+    notifyListeners();
+    return credit;
+  }
+
+  /// Списывает средства кредита (оплата заказа / записи).
+  ///
+  /// НЕ создаёт `money_transactions`: денег второй раз не приходило (§12.1).
+  /// Единственный след — запись в `audit_log`. Возвращает фактически списанную
+  /// сумму: 0, если кредита нет, он истёк или остаток пуст.
+  Future<int> useClientCredit({
+    required String creditId,
+    required int amountCents,
+    String? jobId,
+    int? units,
+    String? note,
+  }) async {
+    ensurePeriodOpen();
+    final credit = clientCreditById(creditId);
+    if (credit == null || !credit.isActive) return 0;
+    final used = amountCents.clamp(0, credit.remainingCents);
+    if (used <= 0) return 0;
+
+    final remaining = credit.remainingCents - used;
+    final updated = credit.copyWith(
+      remainingCents: remaining,
+      unitsLeft: credit.unitsLeft == null
+          ? null
+          : (credit.unitsLeft! - (units ?? 1)).clamp(0, credit.unitsLeft!),
+      status: remaining == 0 ? 'used' : credit.status,
+      updatedAt: DateTime.now(),
+    );
+    await _creditRepo.save(updated);
+    final idx = _credits.indexWhere((c) => c.id == creditId);
+    if (idx != -1) {
+      _credits[idx] = updated;
+    } else {
+      _credits = [updated, ..._credits];
+    }
+    _creditChanges = [
+      CreditChange(
+        action: 'credit.use',
+        entityId: creditId,
+        before: credit.toMap(),
+        after: updated.toMap(),
+        at: DateTime.now().millisecondsSinceEpoch,
+      ),
+      ..._creditChanges,
+    ];
+
+    // Списанный кредит — это оплата заказа: гасим обязательство перед клиентом,
+    // иначе «оплачено» и «долг» расходятся (§5.5).
+    if (jobId != null) {
+      await _applyJobPaymentToObligation(jobId, used);
+    }
+
+    try {
+      await _appDatabase.audit(
+        action: 'credit.use',
+        entity: 'client_credit',
+        entityId: creditId,
+        before: credit.toMap(),
+        after: updated.toMap(),
+      );
+    } catch (_) {}
+
+    notifyListeners();
+    return used;
+  }
+
+  /// Возврат денег клиенту (например, остаток депозита).
+  ///
+  /// Создаёт `money_transactions` (`kind='refund'`, `direction='out'`).
+  /// Одновременно уменьшает `remaining_cents`.
+  Future<void> refundClientCredit({
+    required String creditId,
+    required int amountCents,
+    String? note,
+  }) async {
+    ensurePeriodOpen();
+    final credit = clientCreditById(creditId);
+    if (credit == null) return;
+    final refund = amountCents.clamp(0, credit.remainingCents);
+    if (refund <= 0) return;
+
+    final remaining = credit.remainingCents - refund;
+    final updated = credit.copyWith(
+      remainingCents: remaining,
+      status: remaining == 0 ? 'refunded' : credit.status,
+      updatedAt: DateTime.now(),
+    );
+    await _creditRepo.save(updated);
+    final idx = _credits.indexWhere((c) => c.id == creditId);
+    if (idx != -1) {
+      _credits[idx] = updated;
+    } else {
+      _credits = [updated, ..._credits];
+    }
+
+    // Денег стало меньше на руках — это реальный отток, поэтому транзакция есть.
+    final account = _creditAccount;
+    if (account != null) {
+      final tx = MoneyTransaction(
+        id: newId(),
+        accountId: account.id,
+        kind: 'refund',
+        direction: 'out',
+        amountCents: refund,
+        category: 'Возврат',
+        clientId: credit.clientId,
+        note: _nullIfBlank(note) ?? credit.title,
+        createdAt: DateTime.now(),
+      );
+      await _moneyTxRepo.save(tx);
+      _moneyTransactions = [tx, ..._moneyTransactions];
+    }
+
+    _creditChanges = [
+      CreditChange(
+        action: 'credit.refund',
+        entityId: creditId,
+        before: credit.toMap(),
+        after: updated.toMap(),
+        at: DateTime.now().millisecondsSinceEpoch,
+      ),
+      ..._creditChanges,
+    ];
+
+    try {
+      await _appDatabase.audit(
+        action: 'credit.refund',
+        entity: 'client_credit',
+        entityId: creditId,
+        before: credit.toMap(),
+        after: updated.toMap(),
+      );
+    } catch (_) {}
+
+    notifyListeners();
+  }
+
+  /// Отмечает истёкшие кредиты (§12.1).
+  ///
+  /// Деньги остаются на балансе: срок — это списание обязательства, а не отток.
+  Future<int> expireCredits() async {
+    final now = DateTime.now();
+    var expired = 0;
+    for (final credit in _credits.where((c) => c.deletedAt == null && c.isExpiredAt(now)).toList()) {
+      final updated = credit.copyWith(
+        status: 'expired',
+        updatedAt: now,
+      );
+      await _creditRepo.save(updated);
+      final idx = _credits.indexWhere((c) => c.id == credit.id);
+      if (idx != -1) {
+        _credits[idx] = updated;
+      } else {
+        _credits = [updated, ..._credits];
+      }
+      _creditChanges = [
+        CreditChange(
+          action: 'credit.expire',
+          entityId: credit.id,
+          before: credit.toMap(),
+          after: updated.toMap(),
+          at: now.millisecondsSinceEpoch,
+        ),
+        ..._creditChanges,
+      ];
+      expired++;
+      try {
+        await _appDatabase.audit(
+          action: 'credit.expire',
+          entity: 'client_credit',
+          entityId: credit.id,
+          before: credit.toMap(),
+          after: updated.toMap(),
+        );
+      } catch (_) {}
+    }
+    if (expired > 0) notifyListeners();
+    return expired;
+  }
+
   Future<void> clearAll() async {
     try {
       await _appDatabase.audit(action: 'data.clearAll');
@@ -4951,6 +5330,7 @@ class MastersStore extends ChangeNotifier {
       await txn.delete('jobs');
       await txn.delete('objects');
       await txn.delete('leads');
+      await txn.delete('client_credits');
       await txn.delete('clients');
     });
     await load();
