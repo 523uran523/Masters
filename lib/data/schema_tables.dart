@@ -54,7 +54,14 @@ const List<String> kSyncedTables = <String>[
   'money_transactions',
   'purchases',
   'purchase_lines',
+  // v25 «точки» (Э5): справочник локаций — родитель остатков, партий и
+  // перемещений, поэтому стоит до зависимых таблиц.
+  'locations',
   'stock_movements',
+  'stock_levels',
+  'stock_batches',
+  'transfers',
+  'transfer_lines',
   'inventory_compositions',
   'time_entries',
   'employee_payments',
@@ -106,7 +113,13 @@ const List<BackupTable> kBackupTables = <BackupTable>[
   BackupTable('money_transactions', 'money_transactions'),
   BackupTable('purchases', 'purchases'),
   BackupTable('purchase_lines', 'purchase_lines'),
+  // v25 «точки» (Э5).
+  BackupTable('locations', 'locations'),
   BackupTable('stock_movements', 'stock_movements'),
+  BackupTable('stock_levels', 'stock_levels'),
+  BackupTable('stock_batches', 'stock_batches'),
+  BackupTable('transfers', 'transfers'),
+  BackupTable('transfer_lines', 'transfer_lines'),
   BackupTable('time_entries', 'time_entries'),
   BackupTable('employee_payments', 'employee_payments'),
   BackupTable('recurring_payments', 'recurring_payments'),
@@ -158,6 +171,13 @@ const List<String> kAuditedTables = <String>[
   // v24
   'leads',
   'quotes',
+  // v25: перемещения и партии — часть товарного учёта, их правки видны в
+  // журнале наравне с `stock_movements`.
+  'locations',
+  'stock_levels',
+  'stock_batches',
+  'transfers',
+  'transfer_lines',
 ];
 
 /// Таблицы, которые нужно пересоздавать при обновлении схемы добавлением
@@ -224,6 +244,8 @@ const Map<String, List<String>> kMojibakeScanColumns = <String, List<String>>{
   'job_attachments': <String>['file_name'],
   // v24
   'leads': <String>['name', 'request', 'note'],
+  // v25
+  'locations': <String>['name', 'description'],
 };
 
 /// Обязательные ссылки: таблица → (колонка, родительская таблица).
@@ -264,5 +286,24 @@ const Map<String, List<List<String>>> kTableDependencies =
   ],
   'recipe_lines': <List<String>>[
     <String>['product_item_id', 'inventory_items'],
+  ],
+  // v25 «точки» (Э5): остатки и партии привязаны к позиции и локации, строки
+  // перемещения — к перемещению. Ссылочная колонка обязана существовать в
+  // копии, иначе строка-сирота покажет «пустую» локацию в интерфейсе.
+  'stock_levels': <List<String>>[
+    <String>['item_id', 'inventory_items'],
+    <String>['location_id', 'locations'],
+  ],
+  'stock_batches': <List<String>>[
+    <String>['item_id', 'inventory_items'],
+    <String>['location_id', 'locations'],
+  ],
+  'transfers': <List<String>>[
+    <String>['from_location_id', 'locations'],
+    <String>['to_location_id', 'locations'],
+  ],
+  'transfer_lines': <List<String>>[
+    <String>['transfer_id', 'transfers'],
+    <String>['item_id', 'inventory_items'],
   ],
 };

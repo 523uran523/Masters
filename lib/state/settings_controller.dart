@@ -126,6 +126,7 @@ class SettingsController extends ChangeNotifier {
   static const _teamEnabledKey = 'team_enabled';
   static const _leadsEnabledKey = 'module_leads';
   static const _creditsEnabledKey = 'module_credits';
+  static const _locationsEnabledKey = 'module_locations';
   static const _calculatorEnabledKey = 'calculator_enabled';
   static const _workModeKey = 'work_mode';
   static const _updateMirrorEnabledKey = 'update_mirror_enabled';
@@ -467,6 +468,18 @@ class SettingsController extends ChangeNotifier {
 
   Future<void> setCreditsEnabled(bool value) async {
     await _prefs.setBool(_creditsEnabledKey, value);
+    notifyListeners();
+  }
+
+  /// Модуль «Несколько точек» (Э5): локации, партии со сроками, приёмка и
+  /// план производства (§5.6: `module_locations`). По умолчанию выключен: у
+  /// соло-мастера один склад, а обязательные локации добавили бы лишний шаг
+  /// в каждое списание (§12.2). Таблицы при этом создаются миграцией v25
+  /// всегда — включение флага не требует миграции и не может упасть.
+  bool get locationsEnabled => _prefs.getBool(_locationsEnabledKey) ?? false;
+
+  Future<void> setLocationsEnabled(bool value) async {
+    await _prefs.setBool(_locationsEnabledKey, value);
     notifyListeners();
   }
 

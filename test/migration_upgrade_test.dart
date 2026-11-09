@@ -16,7 +16,7 @@ void main() {
     databaseFactory = databaseFactoryFfi;
   });
 
-  group('Migration upgrade regression v1..v24', () {
+  group('Migration upgrade regression v1..v25', () {
     late String fixturesDir;
     late Directory tempDir;
 
@@ -32,7 +32,7 @@ void main() {
     });
 
     for (int v = 1; v <= 19; v++) {
-      test('upgrades v$v fixture to v24', () async {
+      test('upgrades v$v fixture to v25', () async {
         final fixturePath = p.join(fixturesDir, 'v$v.db');
         final fixtureFile = File(fixturePath);
         expect(
@@ -50,7 +50,7 @@ void main() {
         try {
           db = await openDatabase(
             tempPath,
-            version: 24,
+            version: 25,
             onConfigure: (database) async {
               await database.execute('PRAGMA foreign_keys = ON');
             },
@@ -61,8 +61,8 @@ void main() {
 
           expect(
             (await db.rawQuery('PRAGMA user_version')).first.values.first,
-            24,
-            reason: 'v$v -> v24: user_version should be 24',
+            25,
+            reason: 'v$v -> v25: user_version should be 25',
           );
 
           final tables = (await db.rawQuery(
@@ -81,7 +81,7 @@ void main() {
             expect(
               tables.contains(table),
               isTrue,
-              reason: 'v$v -> v24: missing $table',
+              reason: 'v$v -> v25: missing $table',
             );
           }
 
@@ -91,17 +91,17 @@ void main() {
           expect(
             jobCols.contains('pinned'),
             isTrue,
-            reason: 'v$v -> v24: missing jobs.pinned',
+            reason: 'v$v -> v25: missing jobs.pinned',
           );
           expect(
             jobCols.contains('calculator_state'),
             isTrue,
-            reason: 'v$v -> v24: missing jobs.calculator_state',
+            reason: 'v$v -> v25: missing jobs.calculator_state',
           );
           expect(
             jobCols.contains('legacy_paid'),
             isTrue,
-            reason: 'v$v -> v24: missing jobs.legacy_paid',
+            reason: 'v$v -> v25: missing jobs.legacy_paid',
           );
 
           final txCols = (await db.rawQuery(
@@ -110,17 +110,17 @@ void main() {
           expect(
             txCols.contains('reverses_id'),
             isTrue,
-            reason: 'v$v -> v24: missing money_transactions.reverses_id',
+            reason: 'v$v -> v25: missing money_transactions.reverses_id',
           );
           expect(
             txCols.contains('payment_method'),
             isTrue,
-            reason: 'v$v -> v24: missing money_transactions.payment_method',
+            reason: 'v$v -> v25: missing money_transactions.payment_method',
           );
           expect(
             txCols.contains('obligation_id'),
             isTrue,
-            reason: 'v$v -> v24: missing money_transactions.obligation_id',
+            reason: 'v$v -> v25: missing money_transactions.obligation_id',
           );
 
           final obligCols = (await db.rawQuery(
@@ -129,24 +129,82 @@ void main() {
           expect(
             obligCols.contains('payment_method'),
             isTrue,
-            reason: 'v$v -> v24: missing obligations.payment_method',
+            reason: 'v$v -> v25: missing obligations.payment_method',
           );
 
           expect(
             tables.contains('sync_outbox'),
             isTrue,
-            reason: 'v$v -> v24: missing sync_outbox',
+            reason: 'v$v -> v25: missing sync_outbox',
           );
+
+          // Э5 (v25): склад по точкам должен появиться при апгрейде с любой
+          // версии, иначе включённый флаг «Несколько точек» упрётся в
+          // no such table у пользователя, который не пересоздавал БД.
+          for (final table in [
+            'locations',
+            'stock_levels',
+            'stock_batches',
+            'transfers',
+            'transfer_lines',
+          ]) {
+            expect(
+              tables.contains(table),
+              isTrue,
+              reason: 'v$v -> v25: missing $table',
+            );
+          }
+          final purchaseCols = (await db.rawQuery(
+            'PRAGMA table_info(purchases)',
+          )).map((r) => r['name'] as String).toSet();
+          expect(
+            purchaseCols.contains('received_at'),
+            isTrue,
+            reason: 'v$v -> v25: missing purchases.received_at',
+          );
+          final purchaseLineCols = (await db.rawQuery(
+            'PRAGMA table_info(purchase_lines)',
+          )).map((r) => r['name'] as String).toSet();
+          expect(
+            purchaseLineCols.contains('received_qty'),
+            isTrue,
+            reason: 'v$v -> v25: missing purchase_lines.received_qty',
+          );
+
+          // Пункт 6 чек-листа §9.1: каждая новая таблица реестра обязана попасть
+          // в sync_outbox и audit_log, иначе точка у пользователя перестанет
+          // синхронизироваться молча.
           final triggers = (await db.rawQuery(
             "SELECT name FROM sqlite_master WHERE type='trigger'",
           )).map((r) => r['name'] as String).toSet();
+          for (final table in [
+            'locations',
+            'stock_levels',
+            'stock_batches',
+            'transfers',
+            'transfer_lines',
+          ]) {
+            for (final op in ['insert', 'update', 'delete']) {
+              expect(
+                triggers.contains('sync_out_${table}_$op'),
+                isTrue,
+                reason: 'v$v -> v25: missing sync_out_${table}_$op',
+              );
+              expect(
+                triggers.contains('audit_${table}_$op'),
+                isTrue,
+                reason: 'v$v -> v25: missing audit_${table}_$op',
+              );
+            }
+          }
+
           for (final table in ['clients', 'jobs', 'money_transactions', 'obligations']) {
             for (final op in ['insert', 'update', 'delete']) {
               final name = 'sync_out_${table}_$op';
               expect(
                 triggers.contains(name),
                 isTrue,
-                reason: 'v$v -> v24: missing $name',
+                reason: 'v$v -> v25: missing $name',
               );
             }
           }
@@ -157,12 +215,12 @@ void main() {
           expect(
             indexes.contains('idx_appts_start'),
             isTrue,
-            reason: 'v$v -> v24: missing idx_appts_start',
+            reason: 'v$v -> v25: missing idx_appts_start',
           );
           expect(
             indexes.contains('idx_jobs_due'),
             isTrue,
-            reason: 'v$v -> v24: missing idx_jobs_due',
+            reason: 'v$v -> v25: missing idx_jobs_due',
           );
 
           final integrity = (await db.rawQuery('PRAGMA integrity_check'))
@@ -173,14 +231,14 @@ void main() {
           expect(
             integrity.toLowerCase(),
             'ok',
-            reason: 'v$v -> v24: integrity_check failed',
+            reason: 'v$v -> v25: integrity_check failed',
           );
 
           final fkViolations = await db.rawQuery('PRAGMA foreign_key_check');
           expect(
             fkViolations,
             isEmpty,
-            reason: 'v$v -> v24: foreign_key_check has violations',
+            reason: 'v$v -> v25: foreign_key_check has violations',
           );
         } finally {
           try {

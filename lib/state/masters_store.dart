@@ -28,6 +28,10 @@ import '../data/models/inventory_item.dart';
 import '../data/models/job_attachment.dart';
 import '../data/models/supplier.dart';
 import '../data/models/stock_movement.dart';
+import '../data/models/stock_location.dart';
+import '../data/models/stock_batch.dart';
+import '../data/models/stock_transfer.dart';
+import '../data/models/production_need.dart';
 import '../data/models/job.dart';
 import '../data/models/job_items.dart';
 import '../data/models/money_transaction.dart';
@@ -57,6 +61,9 @@ import '../data/repositories/inventory_composition_repository.dart';
 import '../data/repositories/inventory_item_repository.dart';
 import '../data/repositories/job_repository.dart';
 import '../data/repositories/stock_movement_repository.dart';
+import '../data/repositories/stock_location_repository.dart';
+import '../data/repositories/stock_batch_repository.dart';
+import '../data/repositories/stock_transfer_repository.dart';
 import '../data/repositories/money_transaction_repository.dart';
 import '../data/repositories/material_repository.dart';
 import '../data/repositories/object_repository.dart';
@@ -164,6 +171,9 @@ class MastersStore extends ChangeNotifier {
     _leadRepo = LeadRepository(_appDatabase.database);
     _quoteRepo = QuoteRepository(_appDatabase.database);
     _creditRepo = ClientCreditRepository(_appDatabase.database);
+    _locationRepo = StockLocationRepository(_appDatabase.database);
+    _batchRepo = StockBatchRepository(_appDatabase.database);
+    _transferRepo = StockTransferRepository(_appDatabase.database);
   }
 
   final AppDatabase _appDatabase;
@@ -197,6 +207,9 @@ class MastersStore extends ChangeNotifier {
   late final LeadRepository _leadRepo;
   late final QuoteRepository _quoteRepo;
   late final ClientCreditRepository _creditRepo;
+  late final StockLocationRepository _locationRepo;
+  late final StockBatchRepository _batchRepo;
+  late final StockTransferRepository _transferRepo;
 
   List<Client> _clients = [];
   List<WorkObject> _objects = [];
@@ -225,6 +238,15 @@ class MastersStore extends ChangeNotifier {
   List<Lead> _leads = [];
   List<Quote> _quotes = [];
   List<ClientCredit> _credits = [];
+
+  /// Склад по точкам (Э5): локации, материализованные остатки, партии и
+  /// перемещения. Таблицы существуют всегда (§12.2), списки пусты, пока
+  /// `module_locations` не включён и бэкфилл не создал «Основной склад».
+  List<StockLocation> _locations = [];
+  List<StockLevel> _stockLevels = [];
+  List<StockBatch> _batches = [];
+  List<StockTransfer> _transfers = [];
+  List<StockTransferLine> _transferLines = [];
 
   /// Движения кредитов из `audit_log` (§12.1): списаний в `money_transactions`
   /// намеренно нет, поэтому история живёт только здесь.
@@ -527,6 +549,22 @@ class MastersStore extends ChangeNotifier {
     return _employeePaymentsView!;
   }
 
+  /// Локации (§5.6, Э5).
+  List<StockLocation> get locations => List.unmodifiable(_locations);
+
+  /// Материализованные остатки позиций на локациях.
+  List<StockLevel> get stockLevels => List.unmodifiable(_stockLevels);
+
+  /// Партии со сроками годности.
+  List<StockBatch> get batches => List.unmodifiable(_batches);
+
+  /// Перемещения между локациями.
+  List<StockTransfer> get transfers => List.unmodifiable(_transfers);
+
+  /// Закупки: экрану приёмки (§5.6) нужен весь список, а не только строки
+  /// одного поставщика — «непринятые» ищутся по всем поставщикам сразу.
+  List<Purchase> get purchases => List.unmodifiable(_purchases);
+
   Client? clientById(String id) {
     for (final c in _clients) {
       if (c.id == id) return c;
@@ -645,9 +683,19 @@ class MastersStore extends ChangeNotifier {
     _quotes = await _quoteRepo.getAll();
     _credits = await _creditRepo.getAll();
     _creditChanges = await _appDatabase.creditChanges();
-    // Просрочка меняет статус, но не трогает баланс (§12.1): обязательство
-    // снимается только решением владельца — возврат или признание выручкой.
-    await expireCredits();
+
+    // ── Склад по точкам (Э5) ──────────────────────────────────────────
+    _locations = await _locationRepo.getAll();
+    _stockLevels = await _locationRepo.getAllLevels();
+    _batches = await _batchRepo.getAll();
+    _transfers = await _transferRepo.getAll();
+    _transferLines = <StockTransferLine>[];
+    for (final t in _transfers) {
+      final lines = await _transferRepo.linesForTransfer(t.id);
+      _transferLines = [..._transferLines, ...lines];
+    }
+
+    // ── Просрочка ─────────────────────────────────────────────────────
     await _reconcileEmployeePayments();
     // §12.1: срок истёк — статус меняется при открытии, деньги остаются на балансе.
     await expireCredits();
@@ -2636,6 +2684,12 @@ class MastersStore extends ChangeNotifier {
   ///
   /// [delta] положительна для прихода, отрицательна для расхода.
   /// [type] — `in` / `out` / `writeoff` / `adjust`.
+  ///
+  /// Под включённым `module_locations` (Э5) здесь же ведутся партии и
+  /// остатки по точкам: приход заводит партию, расход списывает их в FEFO,
+  /// после чего уровень позиции на локации пересчитывается от суммы партий.
+  /// Пока флаг выключен, ни одна из новых таблиц не трогается — склад
+  /// остаётся ровно таким, каким был до Э5 (§12.2).
   Future<void> adjustStock({
     required String itemId,
     required double delta,
@@ -2647,6 +2701,8 @@ class MastersStore extends ChangeNotifier {
     String? locationId,
     int? unitCostCents,
     int? costCentsAfter,
+    DateTime? expiresAt,
+    String? purchaseId,
   }) async {
     if (delta == 0) return;
     final idx = _inventoryItems.indexWhere((i) => i.id == itemId);
@@ -2661,7 +2717,8 @@ class MastersStore extends ChangeNotifier {
             stockQty: item.stockQty + delta,
             costCents: costCentsAfter,
             updatedAt: now,
-          );    await _inventoryRepo.save(updated);
+          );
+    await _inventoryRepo.save(updated);
     _inventoryItems[idx] = updated;
 
     final movement = StockMovement(
@@ -2679,11 +2736,931 @@ class MastersStore extends ChangeNotifier {
     );
     await _stockMovementRepo.save(movement);
     _stockMovements = [movement, ..._stockMovements];
+
+    if (settings.locationsEnabled) {
+      final locId = locationId ?? await _defaultLocationId();
+      if (locId != null) {
+        final cost = unitCostCents ?? item.costCents;
+        if (delta > 0) {
+          await _receiveBatch(
+            itemId: itemId,
+            locationId: locId,
+            qty: delta,
+            unitCostCents: cost,
+            expiresAt: expiresAt,
+            purchaseId: purchaseId,
+            at: now,
+          );
+        } else {
+          await _consumeBatches(
+            itemId: itemId,
+            locationId: locId,
+            qty: -delta,
+            at: now,
+          );
+        }
+        await _reconcileLevel(itemId, locId, at: now);
+      }
+    }
+
     notifyListeners();
   }
 
   List<StockMovement> movementsForItem(String itemId) =>
       stockMovementsByItem(itemId);
+
+  // ── Склад по точкам (Э5, §5.6) ────────────────────────────────────────
+
+  /// Идемпотентный бэкфилл при первом включении `module_locations` (§12.2).
+  ///
+  /// Создаёт «Основной склад» и переносит на него текущие остатки: по каждой
+  /// позиции с `stock_qty != 0` заводится бессрочная партия, уровни
+  /// пересчитываются от партий. Повторный проход ничего не дублирует, поэтому
+  /// вызов безопасен и из включения флага, и из `load()`.
+  Future<StockLocation?> ensureDefaultLocation() async {
+    final existing = await _locationRepo.defaultLocation();
+    if (existing != null) {
+      _locations = await _locationRepo.getAll();
+      return existing;
+    }
+
+    final now = DateTime.now();
+    final main = StockLocation(
+      id: newId(),
+      name: 'Основной склад',
+      kind: 'warehouse',
+      isDefault: true,
+      createdAt: now,
+      updatedAt: now,
+    );
+    await _locationRepo.save(main);
+
+    // До Э5 остаток жил одним числом в `inventory_items.stock_qty`. Без
+    // переноса в партию инвариант «остаток точки = Σ её партий» не выполнился
+    // бы ни для одной позиции, и FEFO не нашёл бы что списывать.
+    for (final item in _inventoryItems.where((i) => i.stockQty != 0)) {
+      await _batchRepo.save(
+        StockBatch(
+          id: newId(),
+          itemId: item.id,
+          locationId: main.id,
+          qty: item.stockQty,
+          unitCostCents: item.costCents,
+          note: 'Перенос остатка при включении точек',
+          createdAt: now,
+          updatedAt: now,
+        ),
+      );
+    }
+
+    _locations = await _locationRepo.getAll();
+    _batches = await _batchRepo.getAll();
+    await _rebuildLevels();
+    notifyListeners();
+    return main;
+  }
+
+  /// Включает или выключает блок «Несколько точек».
+  ///
+  /// При включении сразу делает бэкфилл §12.2, иначе первый же приход ушёл бы
+  /// в никуда. При выключении данные остаются в схеме (П8): флаг убирает
+  /// интерфейс, а не учёт.
+  Future<void> setLocationsEnabled(bool value) async {
+    await settings.setLocationsEnabled(value);
+    if (value) await ensureDefaultLocation();
+    notifyListeners();
+  }
+
+  bool get locationsEnabled => settings.locationsEnabled;
+
+  /// Id «Основного склада», создав его при необходимости.
+  ///
+  /// Нужен `adjustStock`: движение обязано попасть на какую-то точку, даже
+  /// если флаг включили, а бэкфилл ещё не отработал.
+  Future<String?> _defaultLocationId() async {
+    final existing = _locations
+        .where((l) => l.isDefault)
+        .cast<StockLocation?>()
+        .firstOrNull;
+    if (existing != null) return existing.id;
+    return (await ensureDefaultLocation())?.id;
+  }
+
+  StockLocation? locationById(String? id) {
+    if (id == null) return null;
+    for (final l in _locations) {
+      if (l.id == id) return l;
+    }
+    return null;
+  }
+
+  String locationName(String? id) =>
+      id == null ? 'Основной склад' : (locationById(id)?.name ?? '—');
+
+  /// Название позиции по id; `null` → `—` для удалённой из каталога строки.
+  String itemName(String? itemId) {
+    if (itemId == null) return '—';
+    for (final i in _inventoryItems) {
+      if (i.id == itemId) return i.name;
+    }
+    return '—';
+  }
+
+  Future<StockLocation> createLocation({
+    required String name,
+    String kind = 'warehouse',
+    String? note,
+  }) async {
+    ensurePeriodOpen();
+    final trimmed = name.trim();
+    if (trimmed.isEmpty) throw ArgumentError('Укажите название точки');
+    final now = DateTime.now();
+    final location = StockLocation(
+      id: newId(),
+      name: trimmed,
+      kind: kind,
+      note: note?.trim().isEmpty == true ? null : note?.trim(),
+      createdAt: now,
+      updatedAt: now,
+    );
+    await _locationRepo.save(location);
+    _locations = await _locationRepo.getAll();
+    await auditAction(
+      action: 'location.create',
+      entity: 'location',
+      entityId: location.id,
+      after: location.toMap(),
+    );
+    notifyListeners();
+    return location;
+  }
+
+  Future<void> updateLocation(
+    String id, {
+    String? name,
+    String? kind,
+    String? note,
+  }) async {
+    ensurePeriodOpen();
+    final existing = locationById(id);
+    if (existing == null) return;
+    final before = existing.toMap();
+    final updated = existing.copyWith(
+      name: name?.trim().isEmpty == true ? null : name,
+      kind: kind,
+      note: note?.trim().isEmpty == true ? null : note,
+      updatedAt: DateTime.now(),
+    );
+    await _locationRepo.save(updated);
+    final idx = _locations.indexWhere((l) => l.id == id);
+    if (idx != -1) _locations[idx] = updated;
+    await auditAction(
+      action: 'location.update',
+      entity: 'location',
+      entityId: id,
+      before: before,
+      after: updated.toMap(),
+    );
+    notifyListeners();
+  }
+
+  /// Удаляет точку, только если на ней ничего не лежит.
+  ///
+  /// Остаток или партии означают, что удалять нечего некуда: вместо
+  /// «переноса в никуда» показываем причину владельцу.
+  Future<void> deleteLocation(String id) async {
+    ensurePeriodOpen();
+    final existing = locationById(id);
+    if (existing == null) return;
+    if (existing.isDefault) {
+      throw ArgumentError('Основной склад удалить нельзя');
+    }
+    final hasStock = _batches.any((b) => b.locationId == id && b.qty > 0);
+    if (hasStock) {
+      throw ArgumentError('На точке есть остатки — сначала вывезите их');
+    }
+    await _locationRepo.delete(id);
+    _locations = await _locationRepo.getAll();
+    _stockLevels = _stockLevels.where((l) => l.locationId != id).toList();
+    await auditAction(
+      action: 'location.delete',
+      entity: 'location',
+      entityId: id,
+      before: existing.toMap(),
+    );
+    notifyListeners();
+  }
+
+  /// Годные к списанию партии позиции, FEFO (ближайший срок — первым).
+  ///
+  /// Сортировка живит здесь, а не в вызывающем коде: иначе любой новый экран
+  /// мог бы незаметно списать «не то» партию.
+  Future<List<StockBatch>> stockBatches(
+    String itemId, {
+    String? locationId,
+  }) async {
+    final all = locationId == null
+        ? await _batchRepo.forItem(itemId)
+        : await _batchRepo.forItemAndLocation(itemId, locationId);
+    return all;
+  }
+
+  /// Остаток позиции на точке (из `stock_levels`).
+  double stockOnLocation(String itemId, String locationId) {
+    final level = _stockLevels
+        .where((l) => l.itemId == itemId && l.locationId == locationId)
+        .cast<StockLevel?>()
+        .firstOrNull;
+    return level?.qty ?? 0;
+  }
+
+  /// Порог минимума позиции на точке; если строки нет — общий `min_qty`.
+  ///
+  /// `min_qty = 0` в `stock_levels` означает «на точке порог не задавали», а
+  /// не «порог равен нулю»: иначе любой приход создал бы строку остатка с
+  /// нулём и заглушил общий минимум позиции.
+  double minQtyOnLocation(InventoryItem item, String locationId) {
+    final level = _stockLevels
+        .where((l) => l.itemId == item.id && l.locationId == locationId)
+        .cast<StockLevel?>()
+        .firstOrNull;
+    final perLocation = level?.minQty ?? 0;
+    return perLocation > 0 ? perLocation : item.minQty;
+  }
+
+  Future<void> setMinQtyOnLocation({
+    required String itemId,
+    required String locationId,
+    required double minQty,
+  }) async {
+    ensurePeriodOpen();
+    final now = DateTime.now();
+    final existing = _stockLevels
+        .where((l) => l.itemId == itemId && l.locationId == locationId)
+        .cast<StockLevel?>()
+        .firstOrNull;
+    if (existing == null) {
+      final level = StockLevel(
+        id: newId(),
+        itemId: itemId,
+        locationId: locationId,
+        qty: 0,
+        minQty: minQty,
+        createdAt: now,
+        updatedAt: now,
+      );
+      await _locationRepo.saveLevel(level);
+      _stockLevels = [..._stockLevels, level];
+    } else {
+      final updated = existing.copyWith(minQty: minQty, updatedAt: now);
+      await _locationRepo.saveLevel(updated);
+      final idx = _stockLevels.indexWhere((l) => l.id == existing.id);
+      if (idx != -1) _stockLevels[idx] = updated;
+    }
+    notifyListeners();
+  }
+
+  /// Позиции на точке ниже порога — сырьё для «Сегодня» (Э9) и списка точки.
+  List<({InventoryItem item, double qty, double minQty})> belowMinOnLocation(
+    String locationId,
+  ) {
+    final result =
+        <({InventoryItem item, double qty, double minQty})>[];
+    for (final item in _inventoryItems.where(
+      (i) => !i.archived && i.trackStock,
+    )) {
+      final qty = stockOnLocation(item.id, locationId);
+      final min = minQtyOnLocation(item, locationId);
+      if (min > 0 && qty < min) {
+        result.add((item: item, qty: qty, minQty: min));
+      }
+    }
+    return result;
+  }
+
+  /// Партии, истекающие в пределах [days], по всем точкам.
+  List<StockBatch> expiringBatches({int days = 3, DateTime? at}) {
+    final now = at ?? DateTime.now();
+    final list = _batches
+        .where((b) => b.qty > 0 && b.isExpiringSoonAt(now, days: days))
+        .toList();
+    return _sortedFefo(list);
+  }
+
+  /// Ближайший по сроку годный остаток позиции на всех точках.
+  StockBatch? nearestBatch(String itemId, {DateTime? at}) {
+    final now = at ?? DateTime.now();
+    final list = _batches
+        .where((b) => b.itemId == itemId && b.qty > 0 && !b.isExpiredAt(now))
+        .toList();
+    final sorted = _sortedFefo(list);
+    return sorted.isEmpty ? null : sorted.first;
+  }
+
+  /// Порядок FEFO: срок по возрастанию, партии без срока — в конец.
+  ///
+  /// SQLite сортирует `NULL` в `expires_at` первым при `ASC`, поэтому тот же
+  /// порядок задан и в репозитории `(expires_at IS NULL)`. Держать его в двух
+  /// местах нужно затем, чтобы списание из памяти и список из базы не
+  /// расходились: несъедобное не должно списываться раньше творога.
+  static List<StockBatch> _sortedFefo(List<StockBatch> source) {
+    final sorted = List<StockBatch>.from(source)
+      ..sort((a, b) {
+        final ea = a.expiresAt;
+        final eb = b.expiresAt;
+        if (ea == null && eb != null) return 1;
+        if (ea != null && eb == null) return -1;
+        if (ea != null && eb != null) {
+          final cmp = ea.compareTo(eb);
+          if (cmp != 0) return cmp;
+        }
+        return a.createdAt.compareTo(b.createdAt);
+      });
+    return sorted;
+  }
+
+  /// Приход партии.
+  ///
+  /// Совпадение срока и себестоимости объединяет строки: партия на каждую
+  /// пачку масла сделала бы список нечитаемым, а порядок FEFO от этого не
+  /// меняется — его задаёт срок.
+  Future<void> _receiveBatch({
+    required String itemId,
+    required String locationId,
+    required double qty,
+    required int unitCostCents,
+    required DateTime at,
+    DateTime? expiresAt,
+    String? purchaseId,
+  }) async {
+    if (qty <= 0) return;
+    final same = _batches
+        .where(
+          (b) =>
+              b.itemId == itemId &&
+              b.locationId == locationId &&
+              b.qty > 0 &&
+              b.unitCostCents == unitCostCents &&
+              b.expiresAt == expiresAt,
+        )
+        .cast<StockBatch?>()
+        .firstOrNull;
+    if (same != null) {
+      final updated = same.copyWith(qty: same.qty + qty, updatedAt: at);
+      await _batchRepo.save(updated);
+      final idx = _batches.indexWhere((b) => b.id == same.id);
+      if (idx != -1) _batches[idx] = updated;
+      return;
+    }
+    final batch = StockBatch(
+      id: newId(),
+      itemId: itemId,
+      locationId: locationId,
+      qty: qty,
+      expiresAt: expiresAt,
+      unitCostCents: unitCostCents,
+      purchaseId: purchaseId,
+      createdAt: at,
+      updatedAt: at,
+    );
+    await _batchRepo.save(batch);
+    _batches = [batch, ..._batches];
+  }
+
+  /// FEFO-списание: первым уходит то, у чего срок ближе.
+  ///
+  /// Движение склада пишет вызвавший `adjustStock`, здесь меняются только
+  /// партии — иначе на один расход пришлось бы два движения. Истёкшие партии
+  /// пропускаются: просрочку списывают отдельно (`writeOffStock` с
+  /// `reason: 'expiry'`), иначе порча незаметно вошла бы в себестоимость.
+  ///
+  /// Нехватка — не ошибка: списываем сколько есть и возвращаем факт. `stock_qty`
+  /// мог превысить сумму партий (правка остатка «на глаз»), а инвариант
+  /// «уровень = Σ партий» важнее точности расхода.
+  Future<double> _consumeBatches({
+    required String itemId,
+    required String locationId,
+    required double qty,
+    required DateTime at,
+  }) async {
+    if (qty <= 0) return 0;
+    final queue = _sortedFefo(
+      _batches
+          .where(
+            (b) =>
+                b.itemId == itemId &&
+                b.locationId == locationId &&
+                b.qty > 0 &&
+                !b.isExpiredAt(at),
+          )
+          .toList(),
+    );
+    double remaining = qty;
+    for (final batch in queue) {
+      if (remaining <= _qtyEps) break;
+      final take = batch.qty <= remaining ? batch.qty : remaining;
+      remaining -= take;
+      final left = batch.qty - take;
+      if (left <= _qtyEps) {
+        await _batchRepo.softDelete(batch.id);
+        _batches = _batches.where((b) => b.id != batch.id).toList();
+      } else {
+        final updated = batch.copyWith(qty: left, updatedAt: at);
+        await _batchRepo.save(updated);
+        final idx = _batches.indexWhere((b) => b.id == batch.id);
+        if (idx != -1) _batches[idx] = updated;
+      }
+    }
+    return qty - remaining;
+  }
+
+  /// Средняя себестоимость FEFO-выборки: сколько стоит списать [qty] с точки.
+  ///
+  /// Нужна перемещению, чтобы партия на новой точке унаследовала реальную
+  /// стоимость, а не текущую среднюю по позиции.
+  int _fefoCostCents({
+    required String itemId,
+    required String locationId,
+    required double qty,
+    required DateTime at,
+  }) {
+    final queue = _sortedFefo(
+      _batches
+          .where(
+            (b) =>
+                b.itemId == itemId &&
+                b.locationId == locationId &&
+                b.qty > 0 &&
+                !b.isExpiredAt(at),
+          )
+          .toList(),
+    );
+    double remaining = qty;
+    double cost = 0;
+    double taken = 0;
+    for (final batch in queue) {
+      if (remaining <= _qtyEps) break;
+      final take = batch.qty <= remaining ? batch.qty : remaining;
+      remaining -= take;
+      cost += take * batch.unitCostCents;
+      taken += take;
+    }
+    if (taken <= _qtyEps) return 0;
+    return (cost / taken).round();
+  }
+
+  /// Пересчёт строки остатка по сумме партий.
+  ///
+  /// `min_qty` не трогается: порог задаёт человек, а не расчёт.
+  Future<void> _reconcileLevel(
+    String itemId,
+    String locationId, {
+    required DateTime at,
+  }) async {
+    final total = _batches
+        .where(
+          (b) =>
+              b.itemId == itemId && b.locationId == locationId && b.qty > 0,
+        )
+        .fold<double>(0, (sum, b) => sum + b.qty);
+    final existing = _stockLevels
+        .where((l) => l.itemId == itemId && l.locationId == locationId)
+        .cast<StockLevel?>()
+        .firstOrNull;
+    if (existing == null) {
+      // Пустую позицию не заводим: строка остатка нужна либо с количеством,
+      // либо с заданным порогом.
+      if (total <= _qtyEps) return;
+      final level = StockLevel(
+        id: newId(),
+        itemId: itemId,
+        locationId: locationId,
+        qty: total,
+        createdAt: at,
+        updatedAt: at,
+      );
+      await _locationRepo.saveLevel(level);
+      _stockLevels = [..._stockLevels, level];
+      return;
+    }
+    if ((existing.qty - total).abs() <= _qtyEps) return;
+    final updated = existing.copyWith(qty: total, updatedAt: at);
+    await _locationRepo.saveLevel(updated);
+    final idx = _stockLevels.indexWhere((l) => l.id == existing.id);
+    if (idx != -1) _stockLevels[idx] = updated;
+  }
+
+  /// Полная пересборка уровней из партий.
+  ///
+  /// Используется бэкфиллом: уровни — производная, их дешевле пересчитать
+  /// целиком, чем выводить частными случаями.
+  Future<void> _rebuildLevels() async {
+    final now = DateTime.now();
+    final byPair = <String, double>{};
+    for (final b in _batches.where((b) => b.qty > 0)) {
+      final key = '${b.itemId}\u0000${b.locationId}';
+      byPair[key] = (byPair[key] ?? 0) + b.qty;
+    }
+    final rebuilt = <StockLevel>[];
+    for (final entry in byPair.entries) {
+      final parts = entry.key.split('\u0000');
+      final itemId = parts[0];
+      final locationId = parts[1];
+      final previous = _stockLevels
+          .where((l) => l.itemId == itemId && l.locationId == locationId)
+          .cast<StockLevel?>()
+          .firstOrNull;
+      final level = StockLevel(
+        id: previous?.id ?? newId(),
+        itemId: itemId,
+        locationId: locationId,
+        qty: entry.value,
+        minQty: previous?.minQty ??
+            _inventoryItems
+                .firstWhere(
+                  (i) => i.id == itemId,
+                  orElse: () => _emptyItem(itemId),
+                )
+                .minQty,
+        createdAt: previous?.createdAt ?? now,
+        updatedAt: now,
+      );
+      await _locationRepo.saveLevel(level);
+      rebuilt.add(level);
+    }
+    // Остатков «из воздуха» не оставляем: строка без партий — ошибка учёта.
+    for (final level in _stockLevels) {
+      final key = '${level.itemId}\u0000${level.locationId}';
+      if (byPair.containsKey(key)) continue;
+      if (level.qty <= _qtyEps) continue;
+      await _locationRepo.saveLevel(
+        level.copyWith(qty: 0, updatedAt: now),
+      );
+      rebuilt.add(level.copyWith(qty: 0, updatedAt: now));
+    }
+    _stockLevels = rebuilt;
+  }
+
+  InventoryItem _emptyItem(String id) => InventoryItem(
+    id: id,
+    name: '—',
+    createdAt: DateTime.fromMillisecondsSinceEpoch(0),
+    updatedAt: DateTime.fromMillisecondsSinceEpoch(0),
+  );
+
+  /// Допуск сравнения количеств: `qty` — `REAL`, точное равенство на нём
+  /// держать нельзя (0.1 + 0.2 != 0.3).
+  static const double _qtyEps = 0.0001;
+
+  // ── Перемещения между точками ─────────────────────────────────────────
+
+  /// Создаёт перемещение и сразу проводит его по остаткам.
+  ///
+  /// «План без движения» (§6.9) здесь не задерживается: перемещение — это
+  /// перекладывание ящика, а не намерение на неделю. Статус `completed`
+  /// ставится сразу, `planned` остаётся для документов, которые ещё могут
+  /// отменить.
+  Future<StockTransfer> createStockTransfer({
+    required String fromLocationId,
+    required String toLocationId,
+    required List<Map<String, Object?>> lines,
+    String? note,
+  }) async {
+    ensurePeriodOpen();
+    if (fromLocationId == toLocationId) {
+      throw ArgumentError('Точка отправления и получения совпадают');
+    }
+    final valid = <StockTransferLine>[];
+    for (final line in lines) {
+      final itemId = line['itemId'] as String? ?? '';
+      final qty = (line['qty'] as num?)?.toDouble() ?? 0;
+      if (itemId.isEmpty || qty <= 0) continue;
+      valid.add(
+        StockTransferLine(
+          id: newId(),
+          transferId: '',
+          itemId: itemId,
+          qty: qty,
+          createdAt: DateTime.now(),
+          updatedAt: DateTime.now(),
+        ),
+      );
+    }
+    if (valid.isEmpty) throw ArgumentError('Добавьте хотя бы одну позицию');
+
+    final now = DateTime.now();
+    final transfer = StockTransfer(
+      id: newId(),
+      fromLocationId: fromLocationId,
+      toLocationId: toLocationId,
+      status: 'planned',
+      note: note?.trim().isEmpty == true ? null : note?.trim(),
+      createdAt: now,
+      updatedAt: now,
+    );
+    await _transferRepo.save(transfer);
+    final withTransfer = valid
+        .map((l) => l.copyWith(transferId: transfer.id))
+        .toList();
+    await _transferRepo.saveLines(withTransfer);
+    _transfers = [transfer, ..._transfers];
+    _transferLines = [..._transferLines, ...withTransfer];
+
+    // Себестоимость берём до списания: после неё партии источника уже другие.
+    for (final line in withTransfer) {
+      final cost = _fefoCostCents(
+        itemId: line.itemId,
+        locationId: fromLocationId,
+        qty: line.qty,
+        at: now,
+      );
+      await adjustStock(
+        itemId: line.itemId,
+        delta: -line.qty,
+        type: 'out',
+        note: 'Перемещение → ${locationName(toLocationId)}',
+        refType: 'transfer',
+        refId: transfer.id,
+        locationId: fromLocationId,
+        unitCostCents: cost,
+      );
+      await adjustStock(
+        itemId: line.itemId,
+        delta: line.qty,
+        type: 'in',
+        note: 'Перемещение ← ${locationName(fromLocationId)}',
+        refType: 'transfer',
+        refId: transfer.id,
+        locationId: toLocationId,
+        unitCostCents: cost,
+      );
+    }
+
+    final done = transfer.copyWith(status: 'completed', updatedAt: DateTime.now());
+    await _transferRepo.save(done);
+    final idx = _transfers.indexWhere((t) => t.id == transfer.id);
+    if (idx != -1) _transfers[idx] = done;
+    await auditAction(
+      action: 'transfer.complete',
+      entity: 'transfer',
+      entityId: transfer.id,
+      after: done.toMap(),
+    );
+    notifyListeners();
+    return done;
+  }
+
+  List<StockTransferLine> transferLines(String transferId) =>
+      _transferLines.where((l) => l.transferId == transferId).toList();
+
+  // ── Приёмка закупки ───────────────────────────────────────────────────
+
+  /// Принятые количества по строкам закупки (`itemId` → `receivedQty`).
+  Map<String, double> receivedForPurchase(String purchaseId) {
+    final result = <String, double>{};
+    for (final line in linesForPurchase(purchaseId)) {
+      final got = line.receivedQty;
+      if (got != null) result[line.itemId] = got;
+    }
+    return result;
+  }
+
+  /// Приёмка с расхождениями (§5.6).
+  ///
+  /// [received] — сколько приняли по каждой позиции. Приход заводится партией
+  /// со сроком (если его указали в [expiry]) и себестоимостью закупки, а долг
+  /// поставщику уменьшается на недопоставку: `totalCents` пересчитывается по
+  /// фактическому количеству, и `supplierDebtCents` сразу показывает новый долг.
+  ///
+  /// Повторная приёмка добавляет только разницу с уже принятым, поэтому
+  /// «дослали остаток на следующий день» не удваивает склад.
+  Future<void> receivePurchase({
+    required String purchaseId,
+    required Map<String, double> received,
+    Map<String, DateTime> expiry = const {},
+    String? locationId,
+    String? note,
+  }) async {
+    ensurePeriodOpen();
+    final purchase = await _purchaseRepo.byId(purchaseId);
+    if (purchase == null) throw ArgumentError('Закупка не найдена');
+    final lines = linesForPurchase(purchaseId);
+    if (lines.isEmpty) throw ArgumentError('В закупке нет строк');
+
+    final locId = locationId ?? await _defaultLocationId();
+    final before = purchase.toMap();
+    final now = DateTime.now();
+
+    for (final line in lines) {
+      final got = received[line.itemId];
+      if (got == null) continue;
+      if (got < 0) throw ArgumentError('Принятое количество не может быть меньше нуля');
+      final already = line.receivedQty ?? 0;
+      final delta = got - already;
+      if (delta.abs() <= _qtyEps) continue;
+      final updatedLine = line.copyWith(receivedQty: got);
+      await _purchaseRepo.saveLine(updatedLine);
+      final idx = _purchaseLines.indexWhere((l) => l.id == line.id);
+      if (idx != -1) {
+        _purchaseLines[idx] = updatedLine;
+      } else {
+        _purchaseLines = [..._purchaseLines, updatedLine];
+      }
+      if (delta <= 0 || locId == null) continue;
+      // Приход идёт через adjustStock: он заводит и движение, и партию, и
+      // уровень — иначе `stock_qty` и сумма партий разошлись бы сразу.
+      final trimmedNote = note?.trim();
+      await adjustStock(
+        itemId: line.itemId,
+        delta: delta,
+        type: 'in',
+        note: (trimmedNote == null || trimmedNote.isEmpty)
+            ? 'Приёмка закупки'
+            : trimmedNote,
+        refType: 'purchase',
+        refId: purchaseId,
+        locationId: locId,
+        unitCostCents: line.unitPriceCents,
+        expiresAt: expiry[line.itemId],
+        purchaseId: purchaseId,
+      );
+    }
+
+    // Долг поставщику = сколько фактически приняли. Непринятые строки
+    // считаются по заказанному: приёмка одной позиции не «прощает» остальные.
+    int total = 0;
+    for (final line in linesForPurchase(purchaseId)) {
+      final qty = line.receivedQty ?? line.qty;
+      total += (qty * line.unitPriceCents).round();
+    }
+    final updated = purchase.copyWith(
+      receivedAt: now,
+    ).copyTotal(total);
+    await _purchaseRepo.save(updated);
+    final pIdx = _purchases.indexWhere((p) => p.id == purchaseId);
+    if (pIdx != -1) {
+      _purchases[pIdx] = updated;
+    } else {
+      _purchases = [updated, ..._purchases];
+    }
+
+    await auditAction(
+      action: 'purchase.receive',
+      entity: 'purchase',
+      entityId: purchaseId,
+      before: before,
+      after: updated.toMap(),
+    );
+    notifyListeners();
+  }
+
+  // ── План производства ─────────────────────────────────────────────────
+
+  /// Потребность на день: Σ(BOM × план) − остаток, плюс всё, что ниже минимума.
+  ///
+  /// Считается по заказам с датой на [day] (плюс просроченные — их всё равно
+  /// надо отдавать) и раскрывается через состав каталога. Возвращает только то,
+  /// чего не хватает: «план на ноль» экрану не нужен.
+  Future<List<ProductionNeed>> productionPlan(DateTime day) async {
+    if (!settings.locationsEnabled) return const [];
+    final locId = await _defaultLocationId();
+    if (locId == null) return const [];
+
+    final dayStart = DateTime(day.year, day.month, day.day);
+    final dayEnd = dayStart.add(const Duration(days: 1));
+    final dueJobs = _jobs.where((j) {
+      if (j.archived) return false;
+      if (j.status == JobStatus.closed) return false;
+      final due = j.dueDate;
+      if (due == null) return false;
+      return due.isBefore(dayEnd);
+    }).toList();
+
+    final need = <String, double>{};
+    for (final job in dueJobs) {
+      for (final mat in _materials.where((m) => m.jobId == job.id)) {
+        final itemId = mat.itemId;
+        if (itemId == null || itemId.isEmpty) continue;
+        need[itemId] = (need[itemId] ?? 0) + mat.quantity;
+      }
+    }
+
+    // Раскрытие состава: готовая позиция требует сырья по своей рецептуре.
+    final expanded = <String, double>{};
+    for (final entry in need.entries) {
+      _expandComposition(entry.key, entry.value, expanded, 0);
+    }
+
+    final result = <ProductionNeed>[];
+    for (final entry in expanded.entries) {
+      final item = _inventoryItems
+          .where((i) => i.id == entry.key)
+          .cast<InventoryItem?>()
+          .firstOrNull;
+      if (item == null || item.archived) continue;
+      final inStock = stockOnLocation(item.id, locId);
+      final short = entry.value - inStock;
+      if (short <= _qtyEps) continue;
+      result.add(
+        ProductionNeed(
+          item: item,
+          planQty: entry.value,
+          inStock: inStock,
+          short: short,
+          reason: 'plan',
+        ),
+      );
+    }
+
+    // Всё, что ниже минимума, но не нужно сегодняшним заказам, — тоже план:
+    // иначе «муки почти нет» всплывёт только тогда, когда станет поздно.
+    final planned = result.map((r) => r.item.id).toSet();
+    for (final gap in belowMinOnLocation(locId)) {
+      if (planned.contains(gap.item.id)) continue;
+      result.add(
+        ProductionNeed(
+          item: gap.item,
+          planQty: gap.minQty,
+          inStock: gap.qty,
+          short: gap.minQty - gap.qty,
+          reason: 'min',
+        ),
+      );
+    }
+
+    result.sort((a, b) => b.short.compareTo(a.short));
+    return result;
+  }
+
+  /// Рекурсивно раскрывает состав позиции в [out], глубина ограничена:
+  /// циклы в рецептуре (мука ← полуфабрикат ← мука) иначе не закончатся.
+  void _expandComposition(
+    String itemId,
+    double qty,
+    Map<String, double> out,
+    int depth,
+  ) {
+    if (qty <= 0) return;
+    if (depth >= 3) {
+      out[itemId] = (out[itemId] ?? 0) + qty;
+      return;
+    }
+    final components = _compositionLines
+        .where((c) => c.itemId == itemId && !c.isLabor)
+        .where((c) => (c.componentId ?? '').isNotEmpty)
+        .toList();
+    if (components.isEmpty) {
+      out[itemId] = (out[itemId] ?? 0) + qty;
+      return;
+    }
+    for (final c in components) {
+      _expandComposition(c.componentId!, qty * c.qty, out, depth + 1);
+    }
+  }
+
+  /// Черновик закупки недостающего сырья (кнопка «Заказать недостающее»).
+  Future<Purchase?> createPurchaseFromPlan(
+    List<ProductionNeed> plan, {
+    String? supplierId,
+  }) async {
+    final lines = plan
+        .where((n) => n.short > 0)
+        .map(
+          (n) => <String, Object?>{
+            'itemId': n.item.id,
+            'qty': n.short,
+            'unitPriceCents': n.item.costCents,
+          },
+        )
+        .toList();
+    if (lines.isEmpty) return null;
+    return createPurchase(supplierId: supplierId, lines: lines);
+  }
+
+  /// Предупреждение о загрузке: суммарная длительность этапов заказов на
+  /// день больше [limitHours]. `lead_hours` для этого и добавлялся в v22.
+  ///
+  /// Этапы без заданной длительности считаются нулём: иначе владелец получал
+  /// ложную «перегрузку» только потому, что не заполнил справочник.
+  bool capacityWarning(DateTime day, {double limitHours = 8}) {
+    final dayEnd = DateTime(day.year, day.month, day.day).add(
+      const Duration(days: 1),
+    );
+    double hours = 0;
+    for (final job in _jobs) {
+      if (job.archived) continue;
+      if (job.status == JobStatus.closed) continue;
+      final due = job.dueDate;
+      if (due == null || !due.isBefore(dayEnd)) continue;
+      for (final stage in _stages.where(
+        (s) => s.jobId == job.id && !s.done,
+      )) {
+        hours += stage.leadHours ?? 0;
+      }
+    }
+    return hours > limitHours;
+  }
+
 
   // Calculator state persistence (per job, JSON blob in jobs.calculator_state).
   final Map<String, String> _calculatorState = <String, String>{};
@@ -4372,6 +5349,16 @@ class MastersStore extends ChangeNotifier {
 
   List<Supplier> get suppliers => List.unmodifiable(_suppliers);
 
+  Supplier? supplierById(String? id) {
+    if (id == null) return null;
+    for (final s in _suppliers) {
+      if (s.id == id) return s;
+    }
+    return null;
+  }
+
+  String supplierName(String? id) => supplierById(id)?.name ?? 'Поставщик';
+
   Future<Supplier> createSupplier({
     required String name,
     String phone = '',
@@ -4434,16 +5421,20 @@ class MastersStore extends ChangeNotifier {
         unitPriceCents: price,
       );
       purchaseLines.add(pl);
-      // add stock without changing item cost for existing prices
-      await adjustStock(
-        itemId: itemId,
-        delta: qty,
-        type: 'in',
-        note: note?.trim().isEmpty == true ? 'Закупка' : note?.trim(),
-        refType: 'purchase',
-        refId: purchaseId,
-        unitCostCents: price,
-      );
+      // Под `module_locations` склад не трогаем: приход рождает приёмка
+      // (§5.6), иначе недопоставка «пришла» бы на склад в полном объёме.
+      if (!settings.locationsEnabled) {
+        // add stock without changing item cost for existing prices
+        await adjustStock(
+          itemId: itemId,
+          delta: qty,
+          type: 'in',
+          note: note?.trim().isEmpty == true ? 'Закупка' : note?.trim(),
+          refType: 'purchase',
+          refId: purchaseId,
+          unitCostCents: price,
+        );
+      }
     }
 
     if (purchaseLines.isEmpty)

@@ -1,5 +1,6 @@
 import 'package:sqflite/sqflite.dart';
 import '../models/supplier.dart';
+import 'upsert.dart';
 
 class SupplierRepository {
   SupplierRepository(this._db);
@@ -17,7 +18,7 @@ class SupplierRepository {
   }
 
   Future<void> save(Supplier supplier) async {
-    await _db.insert('suppliers', supplier.toMap(), conflictAlgorithm: ConflictAlgorithm.replace);
+    await upsertRow(_db, 'suppliers', supplier.toMap());
   }
 
   Future<void> delete(String id) async {
@@ -53,11 +54,11 @@ class PurchaseRepository {
   }
 
   Future<void> save(Purchase purchase) async {
-    await _db.insert('purchases', purchase.toMap(), conflictAlgorithm: ConflictAlgorithm.replace);
+    await upsertRow(_db, 'purchases', purchase.toMap());
   }
 
   Future<void> saveLine(PurchaseLine line) async {
-    await _db.insert('purchase_lines', line.toMap(), conflictAlgorithm: ConflictAlgorithm.replace);
+    await upsertRow(_db, 'purchase_lines', line.toMap());
   }
 
   Future<void> delete(String id) async {

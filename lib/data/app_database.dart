@@ -110,7 +110,7 @@ class AppDatabase {
     try {
       final database = await openDatabase(
         resolved,
-        version: 24,
+        version: 25,
         onConfigure: (db) async {
           if (!kIsWeb) await db.execute('PRAGMA foreign_keys = ON');
           // §1.1: узнаём версию ДО транзакции апгрейда. onConfigure —
@@ -392,6 +392,11 @@ class AppDatabase {
     await _createFoundationSchema(db);
     await _ensureHotfixColumns(db);
     await _seedAttributeTypes(db);
+    // Порядок важен: колонки `location_id`/`received_at` ссылаются на таблицы
+    // локаций и партий, поэтому сначала создаются сами таблицы — так же, как в
+    // миграции 24→25.
+    await _createStockLocationsSchema(db);
+    await _ensurePurchaseReceiptColumns(db);
     // Порядок важен: `jobs.lead_id` ссылается на `leads`, поэтому таблица
     // заявок создаётся раньше колонки.
     await _createLeadsSchema(db);
@@ -399,6 +404,7 @@ class AppDatabase {
     await _createAuditTriggers(db);
     await _createSyncSchema(db);
   }
+
 
   /// Колонки v22 «фундамента» (Э0).
   ///
@@ -1214,6 +1220,24 @@ class AppDatabase {
         );
       }
     }
+    if (oldVersion < 25 && newVersion >= 25) {
+      // v25 «точки» (Э5): таблицы локаций/остатков/партий/перемещений,
+      // колонки приёмки в закупках. Пересоздаю триггеры — новые таблицы
+      // должны попасть в audit_log и sync_outbox.
+      await _createStockLocationsSchema(db);
+      await _ensurePurchaseReceiptColumns(db);
+      await _createAuditTriggers(db);
+      await _createSyncTriggers(db);
+      final violations = await db.rawQuery('PRAGMA foreign_key_check');
+      if (violations.isNotEmpty) {
+        final sample = violations.first;
+        throw StateError(
+          'v25: foreign_key_check нашёл нарушения '
+          '(${sample['table']}.rowid=${sample['rowid']} -> '
+          '${sample['parent']}). Миграция отменена, восстановите копию.',
+        );
+      }
+    }
   }
 
   /// Хотфикс-колонки v23: способ оплаты и флаг legacy-оплаты заказа.
@@ -1352,6 +1376,134 @@ class AppDatabase {
       'CREATE UNIQUE INDEX IF NOT EXISTS idx_quotes_number '
       'ON quotes(number, revision) WHERE deleted_at IS NULL',
     );
+  }
+
+  /// Новые таблицы v25 «точки» (Э5) и колонки приёмки (§5.6).
+  ///
+  /// Все пять таблиц объявляют sync-колонки (`updated_at`/`deleted_at`/
+  /// `device_id`) сразу: audit-триггеры пишут `NEW.device_id`, а генератор
+  /// триггеров `sync_outbox` заводится на любую таблицу из реестра, поэтому
+  /// таблица без `device_id` роняла бы первую же вставку.
+  ///
+  /// Таблицы создаются **независимо от флага** `module_locations` (§12.2):
+  /// при выключенном флаге они просто пустуют, а включение флага не требует
+  /// миграции и не может упасть.
+  static Future<void> _createStockLocationsSchema(Database db) async {
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS locations (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        kind TEXT NOT NULL DEFAULT 'warehouse',  -- warehouse / workshop / store
+        is_default INTEGER NOT NULL DEFAULT 0,   -- «Основной склад» бэкфилла
+        note TEXT,
+        created_at INTEGER NOT NULL,
+        updated_at INTEGER NOT NULL,
+        deleted_at INTEGER,
+        device_id TEXT
+      )
+    ''');
+
+    // Материализованный остаток позиции на точке. Держится равным сумме
+    // партий этой пары (позиция, локация), поэтому пересчёт — в store.
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS stock_levels (
+        id TEXT PRIMARY KEY,
+        item_id TEXT NOT NULL REFERENCES inventory_items(id) ON DELETE CASCADE,
+        location_id TEXT NOT NULL REFERENCES locations(id) ON DELETE CASCADE,
+        qty REAL NOT NULL DEFAULT 0,
+        min_qty REAL NOT NULL DEFAULT 0,
+        created_at INTEGER NOT NULL,
+        updated_at INTEGER NOT NULL,
+        deleted_at INTEGER,
+        device_id TEXT
+      )
+    ''');
+    // Одна строка на пару «позиция × локация»: без индекса дубль удвоил бы
+    // остаток, и `stock_levels` разошёлся бы с суммой партий.
+    await db.execute(
+      'CREATE UNIQUE INDEX IF NOT EXISTS idx_levels_item_loc '
+      'ON stock_levels(item_id, location_id) WHERE deleted_at IS NULL',
+    );
+
+    // Партия: срок годности + себестоимость приёмки. `purchase_id` без
+    // внешнего ключа — закупку удаляют, а себестоимость партии должна
+    // остаться.
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS stock_batches (
+        id TEXT PRIMARY KEY,
+        item_id TEXT NOT NULL REFERENCES inventory_items(id) ON DELETE CASCADE,
+        location_id TEXT NOT NULL REFERENCES locations(id) ON DELETE CASCADE,
+        qty REAL NOT NULL DEFAULT 0,
+        expires_at INTEGER,
+        unit_cost_cents INTEGER NOT NULL DEFAULT 0,
+        purchase_id TEXT,
+        note TEXT,
+        created_at INTEGER NOT NULL,
+        updated_at INTEGER NOT NULL,
+        deleted_at INTEGER,
+        device_id TEXT
+      )
+    ''');
+    // FEFO-списание ищет партии позиции на локации в сро́ке.
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_batches_fefo '
+      'ON stock_batches(item_id, location_id, expires_at) '
+      'WHERE deleted_at IS NULL',
+    );
+
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS transfers (
+        id TEXT PRIMARY KEY,
+        from_location_id TEXT NOT NULL REFERENCES locations(id) ON DELETE CASCADE,
+        to_location_id TEXT NOT NULL REFERENCES locations(id) ON DELETE CASCADE,
+        status TEXT NOT NULL DEFAULT 'planned',  -- planned / completed / cancelled
+        note TEXT,
+        created_at INTEGER NOT NULL,
+        updated_at INTEGER NOT NULL,
+        deleted_at INTEGER,
+        device_id TEXT
+      )
+    ''');
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_transfers_created '
+      'ON transfers(created_at)',
+    );
+
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS transfer_lines (
+        id TEXT PRIMARY KEY,
+        transfer_id TEXT NOT NULL REFERENCES transfers(id) ON DELETE CASCADE,
+        item_id TEXT NOT NULL REFERENCES inventory_items(id) ON DELETE CASCADE,
+        qty REAL NOT NULL,
+        note TEXT,
+        created_at INTEGER NOT NULL,
+        updated_at INTEGER NOT NULL,
+        deleted_at INTEGER,
+        device_id TEXT
+      )
+    ''');
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_transfer_lines_transfer '
+      'ON transfer_lines(transfer_id)',
+    );
+  }
+
+  /// Колонки v25 приёмки: закупка перестаёт быть одномоментной.
+  ///
+  /// `received_at` — когда товар реально приняли (по нему считается долг
+  /// поставщику на дату), `received_qty` — сколько приняли из заказанного.
+  /// Недопоставка оставляет `received_qty < qty`, и это видно в шите приёмки.
+  static Future<void> _ensurePurchaseReceiptColumns(Database db) async {
+    Future<void> add(String table, String column, String definition) async {
+      try {
+        await db.execute('ALTER TABLE $table ADD COLUMN $column $definition');
+      } catch (_) {
+        // Колонка уже есть (повторный проход) или таблицы нет.
+      }
+    }
+
+    await add('purchases', 'received_at', 'INTEGER');
+    await add('purchase_lines', 'received_qty', 'REAL');
   }
 
   /// Сколько строк обрабатывает один пакет бэкфилла v22.

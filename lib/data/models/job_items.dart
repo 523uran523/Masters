@@ -5,6 +5,7 @@ class JobStage {
     required this.title,
     this.done = false,
     this.sortOrder = 0,
+    this.leadHours,
   });
 
   final String id;
@@ -13,12 +14,16 @@ class JobStage {
   final bool done;
   final double sortOrder;
 
+  /// Плановая длительность этапа в часах (v22, для «Плана производства» §6.9).
+  final double? leadHours;
+
   JobStage copyWith({
     Object? id = _unset,
     Object? jobId = _unset,
     Object? title = _unset,
     Object? done = _unset,
     Object? sortOrder = _unset,
+    Object? leadHours = _unset,
   }) {
     return JobStage(
       id: id == _unset ? this.id : id as String,
@@ -26,6 +31,9 @@ class JobStage {
       title: title == _unset ? this.title : title as String,
       done: done == _unset ? this.done : done as bool,
       sortOrder: sortOrder == _unset ? this.sortOrder : sortOrder as double,
+      leadHours: leadHours == _unset
+          ? this.leadHours
+          : (leadHours as num?)?.toDouble(),
     );
   }
 
@@ -35,6 +43,7 @@ class JobStage {
     'title': title,
     'done': done ? 1 : 0,
     'sort_order': sortOrder,
+    'lead_hours': leadHours,
   };
 
   factory JobStage.fromMap(Map<String, Object?> m) => JobStage(
@@ -43,6 +52,7 @@ class JobStage {
     title: m['title'] as String,
     done: (m['done'] as int? ?? 0) == 1,
     sortOrder: (m['sort_order'] as num?)?.toDouble() ?? 0,
+    leadHours: (m['lead_hours'] as num?)?.toDouble(),
   );
 
   static const Object _unset = Object();

@@ -1,5 +1,6 @@
 import 'package:sqflite/sqflite.dart';
 import '../models/inventory_item.dart';
+import 'upsert.dart';
 
 class InventoryItemRepository {
   InventoryItemRepository(this._db);
@@ -19,7 +20,7 @@ class InventoryItemRepository {
   }
 
   Future<void> save(InventoryItem item) async {
-    await _db.insert('inventory_items', item.toMap(), conflictAlgorithm: ConflictAlgorithm.replace);
+    await upsertRow(_db, 'inventory_items', item.toMap());
   }
 
   Future<void> delete(String id) async {

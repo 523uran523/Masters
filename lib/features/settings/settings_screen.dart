@@ -119,6 +119,27 @@ class _SettingsScreenState extends State<SettingsScreen> {
     if (mounted) setState(() {});
   }
 
+  /// Включает или выключает учёт по точкам (§5.6, §12.2).
+  ///
+  /// Идёт через store, а не через `SettingsController` напрямую: при первом
+  /// включении тот заводит «Основной склад» и переносит на него текущие
+  /// остатки, и владельцу нужно это показать — иначе он решит, что склад
+  /// появился «из воздуха».
+  Future<void> _setLocations(bool value) async {
+    final store = context.read<MastersStore>();
+    await store.setLocationsEnabled(value);
+    if (!mounted) return;
+    if (value) {
+      await showAppAlert(
+        context,
+        title: 'Учёт по точкам',
+        message:
+            'Создан «Основной склад», текущие остатки перенесены на него. '
+            'Добавить точки и оформить перемещение можно на экране «Склад».',
+      );
+    }
+  }
+
   Future<void> _saveTerms() async {
     final settings = context.read<SettingsController>();
     await settings.setObjectTerm(_objectTermController.text.trim());
@@ -188,6 +209,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 title: 'Депозиты и сертификаты',
                 value: settings.creditsEnabled,
                 onChanged: settings.setCreditsEnabled,
+              ),
+              const Hairline(),
+              _SwitchRow(
+                title: 'Несколько точек',
+                value: settings.locationsEnabled,
+                onChanged: (value) => _setLocations(value),
               ),
               const Hairline(),
               _SwitchRow(

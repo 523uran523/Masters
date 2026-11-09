@@ -1,5 +1,6 @@
 import 'package:sqflite/sqflite.dart';
 import '../models/stock_movement.dart';
+import 'upsert.dart';
 
 class StockMovementRepository {
   StockMovementRepository(this._db);
@@ -19,6 +20,6 @@ class StockMovementRepository {
   }
 
   Future<void> save(StockMovement m) async {
-    await _db.insert('stock_movements', m.toMap(), conflictAlgorithm: ConflictAlgorithm.replace);
+    await upsertRow(_db, 'stock_movements', m.toMap());
   }
 }

@@ -13,6 +13,9 @@ import '../../state/masters_store.dart';
 import '../catalog/catalog_screen.dart';
 import '../jobs/cost_calculator_screen.dart';
 import 'inventory_composition_screen.dart';
+import 'locations_screen.dart';
+import 'purchase_receipt_screen.dart';
+import 'stock_transfer_screen.dart';
 import '../../core/money_format.dart';
 
 class InventoryScreen extends StatefulWidget {
@@ -551,6 +554,26 @@ class _InventoryScreenState extends State<InventoryScreen> {
     );
   }
 
+  void _openLocations() {
+    Navigator.of(context).push(
+      CupertinoPageRoute(builder: (_) => const LocationsScreen()),
+    );
+  }
+
+  void _openTransfer() {
+    Navigator.of(context).push(
+      CupertinoPageRoute(builder: (_) => const StockTransferScreen()),
+    );
+  }
+
+  void _openReceipt({String? purchaseId}) {
+    Navigator.of(context).push(
+      CupertinoPageRoute(
+        builder: (_) => PurchaseReceiptScreen(purchaseId: purchaseId),
+      ),
+    );
+  }
+
   String _money(int cents) => money(cents);
 
   Future<void> _delete(InventoryItem item) async {
@@ -865,6 +888,30 @@ class _InventoryScreenState extends State<InventoryScreen> {
             OverflowMenuButton(
               title: 'Склад',
               actions: [
+                if (store.locationsEnabled)
+                  CupertinoActionSheetAction(
+                    onPressed: () {
+                      Navigator.of(context).pop();
+                      _openLocations();
+                    },
+                    child: const Text('Точки и остатки'),
+                  ),
+                if (store.locationsEnabled)
+                  CupertinoActionSheetAction(
+                    onPressed: () {
+                      Navigator.of(context).pop();
+                      _openTransfer();
+                    },
+                    child: const Text('Перемещение между точками'),
+                  ),
+                if (store.locationsEnabled)
+                  CupertinoActionSheetAction(
+                    onPressed: () {
+                      Navigator.of(context).pop();
+                      _openReceipt();
+                    },
+                    child: const Text('Приёмка закупки'),
+                  ),
                 CupertinoActionSheetAction(
                   onPressed: () {
                     Navigator.of(context).pop();
@@ -909,6 +956,10 @@ class _InventoryScreenState extends State<InventoryScreen> {
               child: ListView(
                 padding: const EdgeInsets.fromLTRB(16, 12, 16, 72),
                 children: [
+                  if (store.locationsEnabled) ...[
+                    _locationsEntry(store, colors),
+                    const SizedBox(height: 16),
+                  ],
                   Row(
                     children: [
                       Expanded(
@@ -1178,6 +1229,62 @@ class _InventoryScreenState extends State<InventoryScreen> {
                 ],
               ),
             ),
+    );
+  }
+
+  /// Блок «Точки» под флагом `module_locations`: сводка по остаткам,
+  /// истекающим партиям и перемещениям одним входом, чтобы не раздувать
+  /// список склада.
+  Widget _locationsEntry(MastersStore store, AppColors colors) {
+    final expiring = store.expiringBatches();
+    return AppCard(
+      padding: const EdgeInsets.fromLTRB(14, 12, 10, 12),
+      onTap: _openLocations,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(CupertinoIcons.location_circle, size: 18, color: colors.accent),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'Точки · ${store.locations.length}',
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w600,
+                    fontSize: 15,
+                  ),
+                ),
+              ),
+              Icon(CupertinoIcons.chevron_right, size: 16, color: colors.tertiaryLabel),
+            ],
+          ),
+          if (expiring.isNotEmpty) ...[
+            const SizedBox(height: 6),
+            Text(
+              'Истекают или истекли партии: ${expiring.length}',
+              style: TextStyle(color: colors.orange, fontSize: 12.5),
+            ),
+          ],
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              ChipButton(
+                label: 'Перемещение',
+                icon: CupertinoIcons.arrow_left_right,
+                onPressed: _openTransfer,
+              ),
+              ChipButton(
+                label: 'Приёмка',
+                icon: CupertinoIcons.square_arrow_down,
+                onPressed: _openReceipt,
+              ),
+            ],
+          ),
+        ],
+      ),
     );
   }
 
