@@ -1258,6 +1258,20 @@ class AppDatabase {
     await add('money_transactions', 'payment_method', 'TEXT');
     await add('obligations', 'payment_method', 'TEXT');
     await add('jobs', 'legacy_paid', 'INTEGER NOT NULL DEFAULT 0');
+
+    // Таблица справочника attribute_types могла быть добавлена в прод после
+    // версии 22 — для существующих БД она отсутствовала. Создаём
+    // идемпотентно (`IF NOT EXISTS`) здесь, чтобы и чистая установка, и
+    // миграция v23 имели один порядок подготовки таблицы.
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS attribute_types (
+        key TEXT PRIMARY KEY,
+        value_type TEXT NOT NULL DEFAULT 'text',
+        entity_type TEXT NOT NULL,
+        label TEXT NOT NULL DEFAULT '',
+        created_at INTEGER NOT NULL
+      )
+    ''');
   }
 
   /// Seed справочника типов атрибутов (§1.3).
