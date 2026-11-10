@@ -1,0 +1,500 @@
+﻿11-10 11:27:53.842 I/artd    (10499): GetBestInfo: odex next to the dex file (/data/app/~~gXHBpcsZlLhQgBZct88cHw==/com.vk.vkvideo-rgwTPLw7TySSyQHuzXpbvw==/oat/arm64/base.odex) is kOatUpToDate with filter 'speed-profile' executable 'false'
+11-10 11:27:53.857 I/artd    (10499): GetBestInfo: odex next to the dex file (/product/operator/app/TranssionCalendar/oat/arm64/TranssionCalendar.odex) is kOatCannotOpen: In oat file '/product/operator/app/TranssionCalendar/oat/arm64/TranssionCalendar.odex': invalid oat header: Invalid oat version, expected 0x32373900, got 0x32353900.
+11-10 11:27:53.863 I/artd    (10499): GetBestInfo: vdex in dalvik-cache (/data/dalvik-cache/arm64/product@operator@app@TranssionCalendar@TranssionCalendar.apk@classes.vdex) is kOatUpToDate with filter 'verify' executable 'false'
+11-10 11:27:53.886 W/Finsky  (29835): [2] STU: Failed to get storage stats for package 'com.android.apex.cts.shim' (1601: Error getting stats: android.content.pm.PackageManager.NameNotFoundException)
+11-10 11:27:53.895 I/artd    (10499): GetBestInfo: odex next to the dex file (/data/app/~~ljDepuVpJTMYaKqUx_9tJw==/ru.nspk.mirpay-eV6ukkmipXYQWL_QksrEdg==/oat/arm64/base.odex) is kOatUpToDate with filter 'speed-profile' executable 'false'
+11-10 11:27:53.895 I/artd    (10499): GetBestInfo: odex next to the dex file (/data/app/~~ljDepuVpJTMYaKqUx_9tJw==/ru.nspk.mirpay-eV6ukkmipXYQWL_QksrEdg==/oat/arm64/base.odex) is kOatUpToDate with filter 'speed-profile' executable 'false'
+11-10 11:27:53.932 I/artd    (10499): GetBestInfo: odex next to the dex file (/data/app/~~fXqdRtMjk3ZPMqh20KNBxQ==/com.bitrix24.android-ggBA7K0rza-xM_XLVvi0Lw==/oat/arm64/base.odex) is kOatUpToDate with filter 'speed-profile' executable 'false'
+11-10 11:27:53.932 I/artd    (10499): GetBestInfo: odex next to the dex file (/data/app/~~fXqdRtMjk3ZPMqh20KNBxQ==/com.bitrix24.android-ggBA7K0rza-xM_XLVvi0Lw==/oat/arm64/base.odex) is kOatUpToDate with filter 'speed-profile' executable 'false'
+11-10 11:27:53.962 I/artd    (10499): GetBestInfo: odex next to the dex file (/data/app/~~lcoWBGnPWqveq7FcX2Xg8Q==/com.openai.chatgpt-S0WwMscsuvFvfmN4r0CZqg==/oat/arm64/base.odex) is kOatUpToDate with filter 'speed-profile' executable 'false'
+11-10 11:27:53.963 I/artd    (10499): GetBestInfo: odex next to the dex file (/data/app/~~lcoWBGnPWqveq7FcX2Xg8Q==/com.openai.chatgpt-S0WwMscsuvFvfmN4r0CZqg==/oat/arm64/base.odex) is kOatUpToDate with filter 'speed-profile' executable 'false'
+11-10 11:27:53.979 I/artd    (10499): GetBestInfo: odex in dalvik-cache (/data/dalvik-cache/arm64/data@app@~~dxkmyNWcH02ONkhfhndN6w==@com.playrix.township-H7xP_3ymNufkpwcx9S4QoA==@base.apk@classes.dex) is kOatUpToDate with filter 'speed-profile' executable 'false'
+11-10 11:27:53.979 I/artd    (10499): GetBestInfo: odex in dalvik-cache (/data/dalvik-cache/arm64/data@app@~~dxkmyNWcH02ONkhfhndN6w==@com.playrix.township-H7xP_3ymNufkpwcx9S4QoA==@base.apk@classes.dex) is kOatUpToDate with filter 'speed-profile' executable 'false'
+11-10 11:27:53.997 I/artd    (10499): GetBestInfo: odex in dalvik-cache (/data/dalvik-cache/arm64/data@app@~~dxkmyNWcH02ONkhfhndN6w==@com.playrix.township-H7xP_3ymNufkpwcx9S4QoA==@split_gpdeku.apk@classes.dex) is kOatUpToDate with filter 'speed-profile' executable 'false'
+11-10 11:27:53.997 I/artd    (10499): GetBestInfo: odex in dalvik-cache (/data/dalvik-cache/arm64/data@app@~~dxkmyNWcH02ONkhfhndN6w==@com.playrix.township-H7xP_3ymNufkpwcx9S4QoA==@split_gpdeku.apk@classes.dex) is kOatUpToDate with filter 'speed-profile' executable 'false'
+11-10 11:27:54.006 W/Finsky  (29835): [2] STU: Failed to get storage stats for package 'com.google.android.appsearch' (1601: Error getting stats: android.content.pm.PackageManager.NameNotFoundException)
+11-10 11:27:54.016 W/Finsky  (29835): [2] STU: Failed to get storage stats for package 'com.google.android.art' (1601: Error getting stats: android.content.pm.PackageManager.NameNotFoundException)
+11-10 11:27:54.024 I/artd    (10499): GetBestInfo: odex next to the dex file (/data/app/~~jJVLKStCHwq2aWgOUFyVZA==/com.google.android.marvin.talkback-us9kzOVssQSp8S6jBDQYpg==/oat/arm64/base.odex) is kOatUpToDate with filter 'speed-profile' executable 'false'
+11-10 11:27:54.024 I/artd    (10499): GetBestInfo: odex next to the dex file (/data/app/~~jJVLKStCHwq2aWgOUFyVZA==/com.google.android.marvin.talkback-us9kzOVssQSp8S6jBDQYpg==/oat/arm64/base.odex) is kOatUpToDate with filter 'speed-profile' executable 'false'
+11-10 11:27:54.044 I/artd    (10499): GetBestInfo: odex in dalvik-cache (/data/dalvik-cache/arm64/data@app@~~uEvc3AGCANrU0rWV5x5m1Q==@com.playrix.mysterymatters--rWJxCs9hBb3fMg5sZi69A==@base.apk@classes.dex) is kOatUpToDate with filter 'speed-profile' executable 'false'
+11-10 11:27:54.045 I/artd    (10499): GetBestInfo: odex in dalvik-cache (/data/dalvik-cache/arm64/data@app@~~uEvc3AGCANrU0rWV5x5m1Q==@com.playrix.mysterymatters--rWJxCs9hBb3fMg5sZi69A==@base.apk@classes.dex) is kOatUpToDate with filter 'speed-profile' executable 'false'
+11-10 11:27:54.060 I/artd    (10499): GetBestInfo: dm (/data/app/~~uEvc3AGCANrU0rWV5x5m1Q==/com.playrix.mysterymatters--rWJxCs9hBb3fMg5sZi69A==/split_gpdeku.dm) is kOatUpToDate with filter 'verify' executable 'false'
+11-10 11:27:54.094 I/artd    (10499): GetBestInfo: odex next to the dex file (/data/app/~~AkJ5Kl1RoeDx7pmacunxiA==/com.whatsapp-wLLr81lAwmkJeixFRYZPVQ==/oat/arm64/base.odex) is kOatUpToDate with filter 'speed-profile' executable 'false'
+11-10 11:27:54.095 I/artd    (10499): GetBestInfo: odex next to the dex file (/data/app/~~AkJ5Kl1RoeDx7pmacunxiA==/com.whatsapp-wLLr81lAwmkJeixFRYZPVQ==/oat/arm64/base.odex) is kOatUpToDate with filter 'speed-profile' executable 'false'
+11-10 11:27:54.111 I/artd    (10499): GetBestInfo: odex next to the dex file (/data/app/~~LPk6ZK1PuiqYJU2JLxTmvA==/ru.beru.android-4O-9u8HZmgIJPZUulaOTwg==/oat/arm64/base.odex) is kOatUpToDate with filter 'speed-profile' executable 'false'
+11-10 11:27:54.111 I/artd    (10499): GetBestInfo: odex next to the dex file (/data/app/~~LPk6ZK1PuiqYJU2JLxTmvA==/ru.beru.android-4O-9u8HZmgIJPZUulaOTwg==/oat/arm64/base.odex) is kOatUpToDate with filter 'speed-profile' executable 'false'
+11-10 11:27:54.143 I/artd    (10499): GetBestInfo: odex next to the dex file (/data/app/~~7PTAOQ2MMmizdrYlKLQniw==/ru.sberbankmobile-3A9ya3hNM3dfyv-L9FZRlQ==/oat/arm64/base.odex) is kOatUpToDate with filter 'speed-profile' executable 'false'
+11-10 11:27:54.144 I/artd    (10499): GetBestInfo: odex next to the dex file (/data/app/~~7PTAOQ2MMmizdrYlKLQniw==/ru.sberbankmobile-3A9ya3hNM3dfyv-L9FZRlQ==/oat/arm64/base.odex) is kOatUpToDate with filter 'speed-profile' executable 'false'
+11-10 11:27:54.161 I/artd    (10499): GetBestInfo: vdex next to the dex file (/data/app/~~aBIW-isoo9nSl5VwQB7QGQ==/app.tribes.tribes_app-f2_mJ4Jm5JHxftgyrWqh6Q==/oat/arm64/base.vdex) is kOatUpToDate with filter 'verify' executable 'false'
+11-10 11:27:54.180 I/artd    (10499): GetBestInfo: odex next to the dex file (/data/app/~~RpphA9qoyuGGLvyTozqVRg==/com.google.android.safetycore-V3U7xKe8WCx9MTehNFsgTQ==/oat/arm64/base.odex) is kOatUpToDate with filter 'speed-profile' executable 'false'
+11-10 11:27:54.181 I/artd    (10499): GetBestInfo: odex next to the dex file (/data/app/~~RpphA9qoyuGGLvyTozqVRg==/com.google.android.safetycore-V3U7xKe8WCx9MTehNFsgTQ==/oat/arm64/base.odex) is kOatUpToDate with filter 'speed-profile' executable 'false'
+11-10 11:27:54.186 W/Finsky  (29835): [2] STU: Failed to get storage stats for package 'com.transsion.mi.os.framework' (1601: Error getting stats: android.content.pm.PackageManager.NameNotFoundException)
+11-10 11:27:54.195 I/artd    (10499): GetBestInfo: odex next to the dex file (/product/operator/app/TranssionCalculator/oat/arm64/TranssionCalculator.odex) is kOatCannotOpen: In oat file '/product/operator/app/TranssionCalculator/oat/arm64/TranssionCalculator.odex': invalid oat header: Invalid oat version, expected 0x32373900, got 0x32353900.
+11-10 11:27:54.197 I/artd    (10499): GetBestInfo: vdex in dalvik-cache (/data/dalvik-cache/arm64/product@operator@app@TranssionCalculator@TranssionCalculator.apk@classes.vdex) is kOatUpToDate with filter 'verify' executable 'false'
+11-10 11:27:54.217 W/Finsky  (29835): [2] STU: Failed to get storage stats for package 'com.google.android.mediaprovider' (1601: Error getting stats: android.content.pm.PackageManager.NameNotFoundException)
+11-10 11:27:54.222 I/artd    (10499): GetBestInfo: odex next to the dex file (/data/app/~~IzvLoADYpT8ERiDfOdP4VA==/ru.superjob.client.android-y_7NYxofL6oR56BYq4XH7A==/oat/arm64/base.odex) is kOatUpToDate with filter 'speed-profile' executable 'false'
+11-10 11:27:54.222 I/artd    (10499): GetBestInfo: odex next to the dex file (/data/app/~~IzvLoADYpT8ERiDfOdP4VA==/ru.superjob.client.android-y_7NYxofL6oR56BYq4XH7A==/oat/arm64/base.odex) is kOatUpToDate with filter 'speed-profile' executable 'false'
+11-10 11:27:54.243 I/artd    (10499): GetBestInfo: odex next to the dex file (/data/app/~~uB9mnqZhr6S8oUMnmuc0CQ==/ru.profi.client-NClhHm6G-q26yTazNkHL3w==/oat/arm64/base.odex) is kOatUpToDate with filter 'speed-profile' executable 'false'
+11-10 11:27:54.243 I/artd    (10499): GetBestInfo: odex next to the dex file (/data/app/~~uB9mnqZhr6S8oUMnmuc0CQ==/ru.profi.client-NClhHm6G-q26yTazNkHL3w==/oat/arm64/base.odex) is kOatUpToDate with filter 'speed-profile' executable 'false'
+11-10 11:27:54.258 I/artd    (10499): GetBestInfo: odex next to the dex file (/data/app/~~EOeq4yFngDbdwlTuoR8IPw==/ru.yandex.taximeter-sCmjFcoBZE-JXLNEi5-szA==/oat/arm64/base.odex) is kOatUpToDate with filter 'speed-profile' executable 'false'
+11-10 11:27:54.258 I/artd    (10499): GetBestInfo: odex next to the dex file (/data/app/~~EOeq4yFngDbdwlTuoR8IPw==/ru.yandex.taximeter-sCmjFcoBZE-JXLNEi5-szA==/oat/arm64/base.odex) is kOatUpToDate with filter 'speed-profile' executable 'false'
+11-10 11:27:54.273 I/artd    (10499): GetBestInfo: dm (/data/app/~~-tppMuSB6gwYdlZwBYNWbA==/com.popularapp.periodcalendar-t-GwuYKZPJ9vakOCCCK7og==/base.dm) is kOatUpToDate with filter 'verify' executable 'false'
+11-10 11:27:54.296 I/artd    (10499): GetBestInfo: odex next to the dex file (/data/app/~~WBplkOPIduL2gtEJUUebQA==/bz.zaa.mibudsm8-Bc8BEfyS55OeB6VVVQkh4Q==/oat/arm64/base.odex) is kOatUpToDate with filter 'speed-profile' executable 'false'
+11-10 11:27:54.296 I/artd    (10499): GetBestInfo: odex next to the dex file (/data/app/~~WBplkOPIduL2gtEJUUebQA==/bz.zaa.mibudsm8-Bc8BEfyS55OeB6VVVQkh4Q==/oat/arm64/base.odex) is kOatUpToDate with filter 'speed-profile' executable 'false'
+11-10 11:27:54.316 I/artd    (10499): GetBestInfo: odex next to the dex file (/data/app/~~93At6a9C6zu37-ihBa30gQ==/com.meaxis.app-1_LxsVyzAhrOJLYtI6XTCg==/oat/arm64/base.odex) is kOatUpToDate with filter 'speed-profile' executable 'false'
+11-10 11:27:54.316 I/artd    (10499): GetBestInfo: odex next to the dex file (/data/app/~~93At6a9C6zu37-ihBa30gQ==/com.meaxis.app-1_LxsVyzAhrOJLYtI6XTCg==/oat/arm64/base.odex) is kOatUpToDate with filter 'speed-profile' executable 'false'
+11-10 11:27:54.331 I/artd    (10499): GetBestInfo: dm (/data/app/~~YiLExTbYJkBP2VX4hS0fPw==/com.rarlab.rar-no7t0665nMFNx0LTeFvzCg==/base.dm) is kOatUpToDate with filter 'verify' executable 'false'
+11-10 11:27:54.352 I/artd    (10499): GetBestInfo: odex next to the dex file (/data/app/~~MgjtU5XwY8Hr00wlM-Zocg==/com.alphainventor.filemanager-p77puv7MyHUrr5lE3fks9w==/oat/arm64/base.odex) is kOatUpToDate with filter 'speed-profile' executable 'false'
+11-10 11:27:54.352 I/artd    (10499): GetBestInfo: odex next to the dex file (/data/app/~~MgjtU5XwY8Hr00wlM-Zocg==/com.alphainventor.filemanager-p77puv7MyHUrr5lE3fks9w==/oat/arm64/base.odex) is kOatUpToDate with filter 'speed-profile' executable 'false'
+11-10 11:27:54.356 I/artd    (10499): GetBestInfo: vdex next to the dex file (/data/user/0/com.alphainventor.filemanager/app_pccache/5/CE6F273D78E52497128F4B1536E4041972E94FE8/oat/arm64/pcam.vdex) is kOatUpToDate with filter 'verify' executable 'false'
+11-10 11:27:54.359 I/artd    (10499): GetBestInfo: odex next to the dex file (/data/user/0/com.alphainventor.filemanager/app_pccache/5/7F4D878FDE1BC005BD654BCE73F77A6D6143E514/oat/arm64/pcam.odex) is kOatUpToDate with filter 'verify' executable 'false'
+11-10 11:27:54.359 I/artd    (10499): GetBestInfo: odex next to the dex file (/data/user/0/com.alphainventor.filemanager/app_pccache/5/7F4D878FDE1BC005BD654BCE73F77A6D6143E514/oat/arm64/pcam.odex) is kOatUpToDate with filter 'verify' executable 'false'
+11-10 11:27:54.367 W/Finsky  (29835): [2] STU: Failed to get storage stats for package 'com.android.virt' (1601: Error getting stats: android.content.pm.PackageManager.NameNotFoundException)
+11-10 11:27:54.368 W/Finsky  (29835): [2] STU: Failed to get storage stats for package 'com.android.btservices' (1601: Error getting stats: android.content.pm.PackageManager.NameNotFoundException)
+11-10 11:27:54.375 I/artd    (10499): GetBestInfo: vdex next to the dex file (/data/app/~~R474ssC7M4w2YKLax43GVg==/local.kzvk.android-wuFGtN7CDfRmYbj1gB019Q==/oat/arm64/base.vdex) is kOatUpToDate with filter 'verify' executable 'false'
+11-10 11:27:54.394 W/Finsky  (29835): [2] STU: Failed to get storage stats for package 'com.transsion.kolun' (1601: Error getting stats: android.content.pm.PackageManager.NameNotFoundException)
+11-10 11:27:54.395 W/Finsky  (29835): [2] STU: Failed to get storage stats for package 'com.google.android.resolv' (1601: Error getting stats: android.content.pm.PackageManager.NameNotFoundException)
+11-10 11:27:54.424 I/artd    (10499): GetBestInfo: odex next to the dex file (/data/app/~~BXo7AQ5fQSG_XkofBc6Evg==/ru.gosuslugi.auto-p22x2BYoJtR2rWdV140Ddw==/oat/arm64/base.odex) is kOatUpToDate with filter 'speed-profile' executable 'false'
+11-10 11:27:54.424 I/artd    (10499): GetBestInfo: odex next to the dex file (/data/app/~~BXo7AQ5fQSG_XkofBc6Evg==/ru.gosuslugi.auto-p22x2BYoJtR2rWdV140Ddw==/oat/arm64/base.odex) is kOatUpToDate with filter 'speed-profile' executable 'false'
+11-10 11:27:54.442 I/artd    (10499): GetBestInfo: dm (/data/app/~~a7cKhK3r0xBF0adzXw0AZw==/pdf.tap.scanner-6eo6VHtHkkQnZS8O1BtiQA==/base.dm) is kOatUpToDate with filter 'verify' executable 'false'
+11-10 11:27:54.487 W/Finsky  (29835): [2] STU: Failed to get storage stats for package 'com.google.android.configinfrastructure' (1601: Error getting stats: android.content.pm.PackageManager.NameNotFoundException)
+11-10 11:27:54.490 W/Finsky  (29835): [2] STU: Failed to get storage stats for package 'com.google.android.media' (1601: Error getting stats: android.content.pm.PackageManager.NameNotFoundException)
+11-10 11:27:54.524 I/artd    (10499): GetBestInfo: odex next to the dex file (/data/app/~~B0x8Do0JGhJMmuekmFuW8w==/com.google.android.apps.maps-WklgLLz0bZL6HIwp8UVCNg==/oat/arm64/base.odex) is kOatUpToDate with filter 'speed-profile' executable 'false'
+11-10 11:27:54.525 I/artd    (10499): GetBestInfo: odex next to the dex file (/data/app/~~B0x8Do0JGhJMmuekmFuW8w==/com.google.android.apps.maps-WklgLLz0bZL6HIwp8UVCNg==/oat/arm64/base.odex) is kOatUpToDate with filter 'speed-profile' executable 'false'
+11-10 11:27:54.551 I/artd    (10499): GetBestInfo: odex next to the dex file (/data/app/~~9kVGc9vFR_NapWw1O18Q1g==/com.playrix.homescapes-mjl2Cg-1P0Iz4NMDZ5nmgw==/oat/arm64/base.odex) is kOatUpToDate with filter 'speed-profile' executable 'false'
+11-10 11:27:54.551 I/artd    (10499): GetBestInfo: odex next to the dex file (/data/app/~~9kVGc9vFR_NapWw1O18Q1g==/com.playrix.homescapes-mjl2Cg-1P0Iz4NMDZ5nmgw==/oat/arm64/base.odex) is kOatUpToDate with filter 'speed-profile' executable 'false'
+11-10 11:27:54.567 I/artd    (10499): GetBestInfo: odex next to the dex file (/data/app/~~9kVGc9vFR_NapWw1O18Q1g==/com.playrix.homescapes-mjl2Cg-1P0Iz4NMDZ5nmgw==/oat/arm64/split_gpdeku.odex) is kOatUpToDate with filter 'speed-profile' executable 'false'
+11-10 11:27:54.567 I/artd    (10499): GetBestInfo: odex next to the dex file (/data/app/~~9kVGc9vFR_NapWw1O18Q1g==/com.playrix.homescapes-mjl2Cg-1P0Iz4NMDZ5nmgw==/oat/arm64/split_gpdeku.odex) is kOatUpToDate with filter 'speed-profile' executable 'false'
+11-10 11:27:54.611 I/artd    (10499): GetBestInfo: odex next to the dex file (/data/app/~~vfOcRN57-XNXLAVGX-4IzQ==/com.google.android.googlequicksearchbox-uWZUFMiv08t5_yWbP04eCQ==/oat/arm64/base.odex) is kOatUpToDate with filter 'speed-profile' executable 'false'
+11-10 11:27:54.611 I/artd    (10499): GetBestInfo: odex next to the dex file (/data/app/~~vfOcRN57-XNXLAVGX-4IzQ==/com.google.android.googlequicksearchbox-uWZUFMiv08t5_yWbP04eCQ==/oat/arm64/base.odex) is kOatUpToDate with filter 'speed-profile' executable 'false'
+11-10 11:27:54.635 I/artd    (10499): GetBestInfo: odex next to the dex file (/data/app/~~VzqzuNFc7_s6n29CEtkTwQ==/com.logistic.sdek-LkSe9pVHT527dg667_dRhg==/oat/arm64/base.odex) is kOatUpToDate with filter 'speed-profile' executable 'false'
+11-10 11:27:54.636 I/artd    (10499): GetBestInfo: odex next to the dex file (/data/app/~~VzqzuNFc7_s6n29CEtkTwQ==/com.logistic.sdek-LkSe9pVHT527dg667_dRhg==/oat/arm64/base.odex) is kOatUpToDate with filter 'speed-profile' executable 'false'
+11-10 11:27:54.661 I/artd    (10499): GetBestInfo: odex next to the dex file (/data/app/~~kMHLLBT-LhqE9a6Pax-KUQ==/com.yougile.mobile-6uznHEX9icdAYCncZaOe4w==/oat/arm64/base.odex) is kOatUpToDate with filter 'speed-profile' executable 'false'
+11-10 11:27:54.661 I/artd    (10499): GetBestInfo: odex next to the dex file (/data/app/~~kMHLLBT-LhqE9a6Pax-KUQ==/com.yougile.mobile-6uznHEX9icdAYCncZaOe4w==/oat/arm64/base.odex) is kOatUpToDate with filter 'speed-profile' executable 'false'
+11-10 11:27:54.670 W/Finsky  (29835): [2] STU: Failed to get storage stats for package 'com.android.vndk.v31' (1601: Error getting stats: android.content.pm.PackageManager.NameNotFoundException)
+11-10 11:27:54.673 W/Finsky  (29835): [2] STU: Failed to get storage stats for package 'com.android.vndk.v33' (1601: Error getting stats: android.content.pm.PackageManager.NameNotFoundException)
+11-10 11:27:54.675 W/Finsky  (29835): [2] STU: Failed to get storage stats for package 'com.android.vndk.v34' (1601: Error getting stats: android.content.pm.PackageManager.NameNotFoundException)
+11-10 11:27:54.701 I/artd    (10499): GetBestInfo: odex next to the dex file (/data/app/~~xioPQYfrJsnwwSTYEu2qvA==/com.google.android.documentsui-rFU2z-m8PTQu2s9rehfEIQ==/oat/arm64/base.odex) is kOatUpToDate with filter 'speed-profile' executable 'false'
+11-10 11:27:54.702 I/artd    (10499): GetBestInfo: odex next to the dex file (/data/app/~~xioPQYfrJsnwwSTYEu2qvA==/com.google.android.documentsui-rFU2z-m8PTQu2s9rehfEIQ==/oat/arm64/base.odex) is kOatUpToDate with filter 'speed-profile' executable 'false'
+11-10 11:27:54.730 I/artd    (10499): GetBestInfo: odex next to the dex file (/data/app/~~h42KQuouZQWf9Fw84xgG2A==/ru.vk.store-SfaDb_NoN3xJMzH2RaF-Qw==/oat/arm64/base.odex) is kOatUpToDate with filter 'speed-profile' executable 'false'
+11-10 11:27:54.731 I/artd    (10499): GetBestInfo: odex next to the dex file (/data/app/~~h42KQuouZQWf9Fw84xgG2A==/ru.vk.store-SfaDb_NoN3xJMzH2RaF-Qw==/oat/arm64/base.odex) is kOatUpToDate with filter 'speed-profile' executable 'false'
+11-10 11:27:54.778 I/artd    (10499): GetBestInfo: vdex next to the dex file (/data/app/~~pUJPb9egA02_uZ9zOPHQlw==/com.mojang.minecraftpe-utecGA52thCc71aTIbfkyg==/oat/arm/base.vdex) is kOatUpToDate with filter 'verify' executable 'false'
+11-10 11:27:54.849 I/artd    (10499): GetBestInfo: odex next to the dex file (/data/app/~~kK0uspM1sHcjISwEKEIXrA==/com.google.android.contactkeys-6vsT-plreh9iH7jN7o4hcw==/oat/arm64/base.odex) is kOatUpToDate with filter 'speed-profile' executable 'false'
+11-10 11:27:54.849 I/artd    (10499): GetBestInfo: odex next to the dex file (/data/app/~~kK0uspM1sHcjISwEKEIXrA==/com.google.android.contactkeys-6vsT-plreh9iH7jN7o4hcw==/oat/arm64/base.odex) is kOatUpToDate with filter 'speed-profile' executable 'false'
+11-10 11:27:54.866 I/artd    (10499): GetBestInfo: odex next to the dex file (/data/app/~~8PQz9KaQQFtLvoTUxNIhqA==/ru.oneme.app-Yw-em-BhExh-owRFwQ2UNg==/oat/arm64/base.odex) is kOatUpToDate with filter 'speed-profile' executable 'false'
+11-10 11:27:54.866 I/artd    (10499): GetBestInfo: odex next to the dex file (/data/app/~~8PQz9KaQQFtLvoTUxNIhqA==/ru.oneme.app-Yw-em-BhExh-owRFwQ2UNg==/oat/arm64/base.odex) is kOatUpToDate with filter 'speed-profile' executable 'false'
+11-10 11:27:54.911 I/artd    (10499): GetBestInfo: odex next to the dex file (/data/app/~~Qckb9EmNBRdE8__GVV_v4w==/com.microsoft.appmanager-WG3nX4NoZTnxQFv-kn_hJA==/oat/arm64/base.odex) is kOatUpToDate with filter 'speed-profile' executable 'false'
+11-10 11:27:54.911 I/artd    (10499): GetBestInfo: odex next to the dex file (/data/app/~~Qckb9EmNBRdE8__GVV_v4w==/com.microsoft.appmanager-WG3nX4NoZTnxQFv-kn_hJA==/oat/arm64/base.odex) is kOatUpToDate with filter 'speed-profile' executable 'false'
+11-10 11:27:54.921 W/Finsky  (29835): [2] STU: Failed to get storage stats for package 'com.google.android.sdkext' (1601: Error getting stats: android.content.pm.PackageManager.NameNotFoundException)
+11-10 11:27:54.927 I/artd    (10499): GetBestInfo: /data/app/~~AvL9BoL6A8sYoYK3c66vEA==/ru.tonado.textpad-4q1kEpvxTwXRQiBNRqhlUg==/base.apk has no usable artifacts
+11-10 11:27:54.949 I/artd    (10499): GetBestInfo: odex next to the dex file (/data/app/~~IDU6Q5byMlvH_nBEuCa8Ow==/top.rootu.lampa-XhQmBvJgiJk8bN0sY50UJg==/oat/arm64/base.odex) is kOatUpToDate with filter 'speed-profile' executable 'false'
+11-10 11:27:54.950 I/artd    (10499): GetBestInfo: odex next to the dex file (/data/app/~~IDU6Q5byMlvH_nBEuCa8Ow==/top.rootu.lampa-XhQmBvJgiJk8bN0sY50UJg==/oat/arm64/base.odex) is kOatUpToDate with filter 'speed-profile' executable 'false'
+11-10 11:27:54.960 W/Finsky  (29835): [2] STU: Failed to get storage stats for package 'com.transsion.thub.core' (1601: Error getting stats: android.content.pm.PackageManager.NameNotFoundException)
+11-10 11:27:55.080 I/artd    (10499): GetBestInfo: odex next to the dex file (/data/app/~~md7b-OFQWYaV9pYQZkDbvw==/com.instagram.android-57heF5MdC5KNwL2Wt1MjWQ==/oat/arm64/base.odex) is kOatUpToDate with filter 'speed-profile' executable 'false'
+11-10 11:27:55.081 I/artd    (10499): GetBestInfo: odex next to the dex file (/data/app/~~md7b-OFQWYaV9pYQZkDbvw==/com.instagram.android-57heF5MdC5KNwL2Wt1MjWQ==/oat/arm64/base.odex) is kOatUpToDate with filter 'speed-profile' executable 'false'
+11-10 11:27:55.098 W/Finsky  (29835): [2] STU: Failed to get storage stats for package 'com.google.android.adservices' (1601: Error getting stats: android.content.pm.PackageManager.NameNotFoundException)
+11-10 11:27:55.117 I/artd    (10499): GetBestInfo: odex next to the dex file (/data/app/~~RlCcNsMdVA8k4DAzmfpJWg==/com.transsion.phonemaster-iA1FB6K-3hD7tmqZfruKLg==/oat/arm64/base.odex) is kOatUpToDate with filter 'speed-profile' executable 'false'
+11-10 11:27:55.117 I/artd    (10499): GetBestInfo: odex next to the dex file (/data/app/~~RlCcNsMdVA8k4DAzmfpJWg==/com.transsion.phonemaster-iA1FB6K-3hD7tmqZfruKLg==/oat/arm64/base.odex) is kOatUpToDate with filter 'speed-profile' executable 'false'
+11-10 11:27:55.135 I/artd    (10499): GetBestInfo: odex next to the dex file (/data/app/~~rgxiazP7XupWGVCnEeNjqg==/com.readingapp.reading-rw6iAbkAOegV5eI6V_eK5Q==/oat/arm64/base.odex) is kOatUpToDate with filter 'speed-profile' executable 'false'
+11-10 11:27:55.135 I/artd    (10499): GetBestInfo: odex next to the dex file (/data/app/~~rgxiazP7XupWGVCnEeNjqg==/com.readingapp.reading-rw6iAbkAOegV5eI6V_eK5Q==/oat/arm64/base.odex) is kOatUpToDate with filter 'speed-profile' executable 'false'
+11-10 11:27:55.141 W/Finsky  (29835): [2] STU: Failed to get storage stats for package 'com.google.android.tethering' (1601: Error getting stats: android.content.pm.PackageManager.NameNotFoundException)
+11-10 11:27:55.167 I/artd    (10499): GetBestInfo: odex next to the dex file (/data/app/~~vbyQEGwSQbhjeGb2BNY3-g==/com.google.android.captiveportallogin-QkoCxkdQwJHO_qktgmZTeA==/oat/arm64/base.odex) is kOatUpToDate with filter 'speed-profile' executable 'false'
+11-10 11:27:55.168 I/artd    (10499): GetBestInfo: odex next to the dex file (/data/app/~~vbyQEGwSQbhjeGb2BNY3-g==/com.google.android.captiveportallogin-QkoCxkdQwJHO_qktgmZTeA==/oat/arm64/base.odex) is kOatUpToDate with filter 'speed-profile' executable 'false'
+11-10 11:27:55.209 I/artd    (10499): GetBestInfo: odex next to the dex file (/data/app/~~B00_jrS5mcjKItB7twSv8g==/com.android.chrome-VxBztbw_p9ZIqa57i5xHog==/oat/arm64/base.odex) is kOatUpToDate with filter 'speed-profile' executable 'false'
+11-10 11:27:55.210 I/artd    (10499): GetBestInfo: odex next to the dex file (/data/app/~~B00_jrS5mcjKItB7twSv8g==/com.android.chrome-VxBztbw_p9ZIqa57i5xHog==/oat/arm64/base.odex) is kOatUpToDate with filter 'speed-profile' executable 'false'
+11-10 11:27:55.217 I/artd    (10499): GetBestInfo: odex next to the dex file (/data/app/~~B00_jrS5mcjKItB7twSv8g==/com.android.chrome-VxBztbw_p9ZIqa57i5xHog==/oat/arm64/split_chrome.odex) is kOatUpToDate with filter 'speed-profile' executable 'false'
+11-10 11:27:55.218 I/artd    (10499): GetBestInfo: odex next to the dex file (/data/app/~~B00_jrS5mcjKItB7twSv8g==/com.android.chrome-VxBztbw_p9ZIqa57i5xHog==/oat/arm64/split_chrome.odex) is kOatUpToDate with filter 'speed-profile' executable 'false'
+11-10 11:27:55.225 I/artd    (10499): GetBestInfo: dm (/data/app/~~B00_jrS5mcjKItB7twSv8g==/com.android.chrome-VxBztbw_p9ZIqa57i5xHog==/split_dev_ui.dm) is kOatUpToDate with filter 'verify' executable 'false'
+11-10 11:27:55.233 I/artd    (10499): GetBestInfo: dm (/data/app/~~B00_jrS5mcjKItB7twSv8g==/com.android.chrome-VxBztbw_p9ZIqa57i5xHog==/split_on_demand.dm) is kOatUpToDate with filter 'verify' executable 'false'
+11-10 11:27:55.238 I/artd    (10499): GetBestInfo: dm (/data/app/~~B00_jrS5mcjKItB7twSv8g==/com.android.chrome-VxBztbw_p9ZIqa57i5xHog==/split_stack_unwinder.dm) is kOatUpToDate with filter 'verify' executable 'false'
+11-10 11:27:55.256 E/frs     ( 5119): Failed to open /sys/kernel/thermal/frs_nl_id: No such file or directory
+11-10 11:27:55.256 I/frs     ( 5119): read netlink id fail, reason:No such file or directory
+11-10 11:27:55.302 W/Finsky  (29835): [2] STU: Failed to get storage stats for package 'com.android.runtime' (1601: Error getting stats: android.content.pm.PackageManager.NameNotFoundException)
+11-10 11:27:55.402 I/artd    (10499): GetBestInfo: odex next to the dex file (/data/app/~~X_Vodwbx-C12EbIcAbYGkg==/com.avito.android-XM0_nhxDi-mAjNmAyip6Uw==/oat/arm64/base.odex) is kOatUpToDate with filter 'speed-profile' executable 'false'
+11-10 11:27:55.402 I/artd    (10499): GetBestInfo: odex next to the dex file (/data/app/~~X_Vodwbx-C12EbIcAbYGkg==/com.avito.android-XM0_nhxDi-mAjNmAyip6Uw==/oat/arm64/base.odex) is kOatUpToDate with filter 'speed-profile' executable 'false'
+11-10 11:27:55.441 I/artd    (10499): GetBestInfo: odex next to the dex file (/data/app/~~X3Fpl44OFn_TJaqe3imLLA==/com.mastersapp.masters-UpTvHvXRMdCKkXo9z829KA==/oat/arm64/base.odex) is kOatUpToDate with filter 'speed-profile' executable 'false'
+11-10 11:27:55.441 I/artd    (10499): GetBestInfo: odex next to the dex file (/data/app/~~X3Fpl44OFn_TJaqe3imLLA==/com.mastersapp.masters-UpTvHvXRMdCKkXo9z829KA==/oat/arm64/base.odex) is kOatUpToDate with filter 'speed-profile' executable 'false'
+11-10 11:27:55.454 W/Finsky  (29835): [2] STU: Failed to get storage stats for package 'com.google.android.cellbroadcast' (1601: Error getting stats: android.content.pm.PackageManager.NameNotFoundException)
+11-10 11:27:55.497 I/artd    (10499): GetBestInfo: odex next to the dex file (/data/app/~~OBXC02jIZcH4YZdn0phT6w==/ru.tinkoff.investing-ORO4wz6t4VnUttySF_cbtQ==/oat/arm64/base.odex) is kOatUpToDate with filter 'speed-profile' executable 'false'
+11-10 11:27:55.497 I/artd    (10499): GetBestInfo: odex next to the dex file (/data/app/~~OBXC02jIZcH4YZdn0phT6w==/ru.tinkoff.investing-ORO4wz6t4VnUttySF_cbtQ==/oat/arm64/base.odex) is kOatUpToDate with filter 'speed-profile' executable 'false'
+11-10 11:27:55.560 W/Finsky  (29835): [2] STU: Failed to get storage stats for package 'com.google.android.rkpd' (1601: Error getting stats: android.content.pm.PackageManager.NameNotFoundException)
+11-10 11:27:55.644 I/artd    (10499): GetBestInfo: odex next to the dex file (/data/app/~~a9Xxf6A2lIs8OnL5VELsKw==/cn.wps.moffice_eng-RhXZPXnwWEmx9J2Pt1gmqQ==/oat/arm64/base.odex) is kOatUpToDate with filter 'speed-profile' executable 'false'
+11-10 11:27:55.644 I/artd    (10499): GetBestInfo: odex next to the dex file (/data/app/~~a9Xxf6A2lIs8OnL5VELsKw==/cn.wps.moffice_eng-RhXZPXnwWEmx9J2Pt1gmqQ==/oat/arm64/base.odex) is kOatUpToDate with filter 'speed-profile' executable 'false'
+11-10 11:27:55.655 I/artd    (10499): GetBestInfo: odex next to the dex file (/data/user/0/cn.wps.moffice_eng/app_pccache/5/7F4D878FDE1BC005BD654BCE73F77A6D6143E514/oat/arm64/pcam.odex) is kOatUpToDate with filter 'verify' executable 'false'
+11-10 11:27:55.656 I/artd    (10499): GetBestInfo: odex next to the dex file (/data/user/0/cn.wps.moffice_eng/app_pccache/5/7F4D878FDE1BC005BD654BCE73F77A6D6143E514/oat/arm64/pcam.odex) is kOatUpToDate with filter 'verify' executable 'false'
+11-10 11:27:55.671 I/artd    (10499): GetBestInfo: vdex next to the dex file (/data/user/0/cn.wps.moffice_eng/app_pccache/5/CE6F273D78E52497128F4B1536E4041972E94FE8/oat/arm64/pcam.vdex) is kOatUpToDate with filter 'verify' executable 'false'
+11-10 11:27:55.776 I/artd    (10499): GetBestInfo: odex next to the dex file (/data/app/~~ALDZRKPP2-AY1RrF0cpoEg==/com.anakondaz.snapstack-pWRyImL8ChxGT_W8AJShpg==/oat/arm64/base.odex) is kOatUpToDate with filter 'verify' executable 'false'
+11-10 11:27:55.776 I/artd    (10499): GetBestInfo: odex next to the dex file (/data/app/~~ALDZRKPP2-AY1RrF0cpoEg==/com.anakondaz.snapstack-pWRyImL8ChxGT_W8AJShpg==/oat/arm64/base.odex) is kOatUpToDate with filter 'verify' executable 'false'
+11-10 11:27:55.824 I/artd    (10499): GetBestInfo: odex next to the dex file (/data/app/~~WsGCh9rCHovBiWNxAN7cBw==/com.google.android.apps.wellbeing-rHp0kfSOkAdvUwLUCqIO6g==/oat/arm64/base.odex) is kOatUpToDate with filter 'speed-profile' executable 'false'
+11-10 11:27:55.825 I/artd    (10499): GetBestInfo: odex next to the dex file (/data/app/~~WsGCh9rCHovBiWNxAN7cBw==/com.google.android.apps.wellbeing-rHp0kfSOkAdvUwLUCqIO6g==/oat/arm64/base.odex) is kOatUpToDate with filter 'speed-profile' executable 'false'
+11-10 11:27:55.870 I/artd    (10499): GetBestInfo: odex next to the dex file (/data/app/~~DV3tGXWeroQN_j3Q1S46Fg==/ru.yandex.translate-6GSr_HACZzU_pz_WHGyTGw==/oat/arm64/base.odex) is kOatUpToDate with filter 'speed-profile' executable 'false'
+11-10 11:27:55.870 I/artd    (10499): GetBestInfo: odex next to the dex file (/data/app/~~DV3tGXWeroQN_j3Q1S46Fg==/ru.yandex.translate-6GSr_HACZzU_pz_WHGyTGw==/oat/arm64/base.odex) is kOatUpToDate with filter 'speed-profile' executable 'false'
+11-10 11:27:55.910 I/artd    (10499): GetBestInfo: odex next to the dex file (/data/app/~~_h5ZrZ0GaWcCuxoLzrvwnw==/com.wildberries.ru-hi0P2fyeY3Pba7X_ug7zyA==/oat/arm64/base.odex) is kOatUpToDate with filter 'speed-profile' executable 'false'
+11-10 11:27:55.911 I/artd    (10499): GetBestInfo: odex next to the dex file (/data/app/~~_h5ZrZ0GaWcCuxoLzrvwnw==/com.wildberries.ru-hi0P2fyeY3Pba7X_ug7zyA==/oat/arm64/base.odex) is kOatUpToDate with filter 'speed-profile' executable 'false'
+11-10 11:27:55.928 I/artd    (10499): GetBestInfo: dm (/data/app/~~_h5ZrZ0GaWcCuxoLzrvwnw==/com.wildberries.ru-hi0P2fyeY3Pba7X_ug7zyA==/split_mlkitdynamic.dm) is kOatUpToDate with filter 'verify' executable 'false'
+11-10 11:27:55.938 I/artd    (10499): GetBestInfo: dm (/data/app/~~_h5ZrZ0GaWcCuxoLzrvwnw==/com.wildberries.ru-hi0P2fyeY3Pba7X_ug7zyA==/split_wbdocsparserdynamic.dm) is kOatUpToDate with filter 'verify' executable 'false'
+11-10 11:27:56.050 I/artd    (10499): GetBestInfo: odex next to the dex file (/data/app/~~QJz7jFOUDGo_C-g-n48_8A==/ru.rostel-3A25WM0mjF1G4LhmDV44rw==/oat/arm64/base.odex) is kOatUpToDate with filter 'speed-profile' executable 'false'
+11-10 11:27:56.051 I/artd    (10499): GetBestInfo: odex next to the dex file (/data/app/~~QJz7jFOUDGo_C-g-n48_8A==/ru.rostel-3A25WM0mjF1G4LhmDV44rw==/oat/arm64/base.odex) is kOatUpToDate with filter 'speed-profile' executable 'false'
+11-10 11:27:56.085 I/artd    (10499): GetBestInfo: odex next to the dex file (/data/app/~~UlpCG8PEK9wdPjIFw9_t8g==/com.zvooq.openplay-kS5QuRePpLnIWSrlIUED-A==/oat/arm64/base.odex) is kOatUpToDate with filter 'speed-profile' executable 'false'
+11-10 11:27:56.085 I/artd    (10499): GetBestInfo: odex next to the dex file (/data/app/~~UlpCG8PEK9wdPjIFw9_t8g==/com.zvooq.openplay-kS5QuRePpLnIWSrlIUED-A==/oat/arm64/base.odex) is kOatUpToDate with filter 'speed-profile' executable 'false'
+11-10 11:27:56.116 I/artd    (10499): GetBestInfo: odex next to the dex file (/data/app/~~hw4iD1Cn4d0uDDqqFCk8Zg==/com.google.android.apps.restore-g7rmW_8imACUN9DyRJXXDA==/oat/arm64/base.odex) is kOatUpToDate with filter 'speed-profile' executable 'false'
+11-10 11:27:56.116 I/artd    (10499): GetBestInfo: odex next to the dex file (/data/app/~~hw4iD1Cn4d0uDDqqFCk8Zg==/com.google.android.apps.restore-g7rmW_8imACUN9DyRJXXDA==/oat/arm64/base.odex) is kOatUpToDate with filter 'speed-profile' executable 'false'
+11-10 11:27:56.160 W/Finsky  (29835): [2] STU: Failed to get storage stats for package 'com.android.compos' (1601: Error getting stats: android.content.pm.PackageManager.NameNotFoundException)
+11-10 11:27:56.170 W/Finsky  (29835): [2] STU: Failed to get storage stats for package 'com.transsion.phone' (1601: Error getting stats: android.content.pm.PackageManager.NameNotFoundException)
+11-10 11:27:56.184 I/artd    (10499): GetBestInfo: dm (/data/app/~~UnpGHhQJGcPcxDoDqFGGcQ==/com.teboil.azs-K-NWHVsT4dYDyD108jM0xQ==/base.dm) is kOatCannotOpen: No primary.vdex file in DexMetadata archive. Not doing fast verification: Failed to find entry 'primary.vdex': Entry not found
+11-10 11:27:56.184 I/artd    (10499): GetBestInfo: /data/app/~~UnpGHhQJGcPcxDoDqFGGcQ==/com.teboil.azs-K-NWHVsT4dYDyD108jM0xQ==/base.apk has no usable artifacts
+11-10 11:27:56.190 W/Finsky  (29835): [2] STU: Failed to get storage stats for package 'com.google.android.tzdata6' (1601: Error getting stats: android.content.pm.PackageManager.NameNotFoundException)
+11-10 11:27:56.211 I/artd    (10499): GetBestInfo: odex next to the dex file (/data/app/~~HzKbcaOQ8x3fh-gWM1e7pA==/ru.yandex.music-hE9AbjfQBqh4A_d__bFq5w==/oat/arm64/base.odex) is kOatUpToDate with filter 'speed-profile' executable 'false'
+11-10 11:27:56.212 I/artd    (10499): GetBestInfo: odex next to the dex file (/data/app/~~HzKbcaOQ8x3fh-gWM1e7pA==/ru.yandex.music-hE9AbjfQBqh4A_d__bFq5w==/oat/arm64/base.odex) is kOatUpToDate with filter 'speed-profile' executable 'false'
+11-10 11:27:56.271 I/artd    (10499): GetBestInfo: odex next to the dex file (/data/app/~~2tmQO7aq2g-ueAIN4JqwFQ==/ru.serebryakovas.lukoilmobileapp-BtLDdwb94uak4FXrBe_-mA==/oat/arm64/base.odex) is kOatUpToDate with filter 'speed-profile' executable 'false'
+11-10 11:27:56.271 I/artd    (10499): GetBestInfo: odex next to the dex file (/data/app/~~2tmQO7aq2g-ueAIN4JqwFQ==/ru.serebryakovas.lukoilmobileapp-BtLDdwb94uak4FXrBe_-mA==/oat/arm64/base.odex) is kOatUpToDate with filter 'speed-profile' executable 'false'
+11-10 11:27:56.311 I/artd    (10499): GetBestInfo: vdex in dalvik-cache (/data/dalvik-cache/arm64/product@operator@app@TranssionTips@TranssionTips.apk@classes.vdex) is kOatUpToDate with filter 'verify' executable 'false'
+11-10 11:27:56.347 W/Finsky  (29835): [2] STU: Failed to get storage stats for package 'com.google.android.permission' (1601: Error getting stats: android.content.pm.PackageManager.NameNotFoundException)
+11-10 11:27:56.392 I/artd    (10499): GetBestInfo: odex next to the dex file (/data/app/~~0bXbvtLkTpT-mC2M1dioRQ==/ru.yandex.mail-kjp7mKpYYbsZMdicWsd4IQ==/oat/arm64/base.odex) is kOatUpToDate with filter 'speed-profile' executable 'false'
+11-10 11:27:56.392 I/artd    (10499): GetBestInfo: odex next to the dex file (/data/app/~~0bXbvtLkTpT-mC2M1dioRQ==/ru.yandex.mail-kjp7mKpYYbsZMdicWsd4IQ==/oat/arm64/base.odex) is kOatUpToDate with filter 'speed-profile' executable 'false'
+11-10 11:27:56.434 I/artd    (10499): GetBestInfo: odex next to the dex file (/data/app/~~70cSxlPhVhVomnR9BTUYaQ==/com.pinterest-d5s0t3ldMl0DbdW7x-GKRA==/oat/arm64/base.odex) is kOatUpToDate with filter 'speed-profile' executable 'false'
+11-10 11:27:56.434 I/artd    (10499): GetBestInfo: odex next to the dex file (/data/app/~~70cSxlPhVhVomnR9BTUYaQ==/com.pinterest-d5s0t3ldMl0DbdW7x-GKRA==/oat/arm64/base.odex) is kOatUpToDate with filter 'speed-profile' executable 'false'
+11-10 11:27:56.468 I/artd    (10499): GetBestInfo: odex next to the dex file (/data/app/~~NQm2ldby5jy8K008bv33CA==/com.playrix.gardenscapes-dfNLIYdX7v8UFRbE57Dyig==/oat/arm64/base.odex) is kOatUpToDate with filter 'speed-profile' executable 'false'
+11-10 11:27:56.468 I/artd    (10499): GetBestInfo: odex next to the dex file (/data/app/~~NQm2ldby5jy8K008bv33CA==/com.playrix.gardenscapes-dfNLIYdX7v8UFRbE57Dyig==/oat/arm64/base.odex) is kOatUpToDate with filter 'speed-profile' executable 'false'
+11-10 11:27:56.483 I/artd    (10499): GetBestInfo: odex next to the dex file (/data/app/~~NQm2ldby5jy8K008bv33CA==/com.playrix.gardenscapes-dfNLIYdX7v8UFRbE57Dyig==/oat/arm64/split_gpdeku.odex) is kOatUpToDate with filter 'speed-profile' executable 'false'
+11-10 11:27:56.483 I/artd    (10499): GetBestInfo: odex next to the dex file (/data/app/~~NQm2ldby5jy8K008bv33CA==/com.playrix.gardenscapes-dfNLIYdX7v8UFRbE57Dyig==/oat/arm64/split_gpdeku.odex) is kOatUpToDate with filter 'speed-profile' executable 'false'
+11-10 11:27:56.499 I/artd    (10499): GetBestInfo: dm (/data/app/~~3_coRlA6-3G1HHpowgCYeg==/ru.megamarket.marketplace-3ijzgAbvfteZnXfTEEBCDw==/base.dm) is kOatCannotOpen: No primary.vdex file in DexMetadata archive. Not doing fast verification: Failed to find entry 'primary.vdex': Entry not found
+11-10 11:27:56.499 I/artd    (10499): GetBestInfo: /data/app/~~3_coRlA6-3G1HHpowgCYeg==/ru.megamarket.marketplace-3ijzgAbvfteZnXfTEEBCDw==/base.apk has no usable artifacts
+11-10 11:27:56.559 I/artd    (10499): GetBestInfo: odex next to the dex file (/data/app/~~DBHTTV7qSezOygpquA3h8g==/ru.tatneft.gasstations-_CSjenJct8OFCtRulDjzcw==/oat/arm64/base.odex) is kOatUpToDate with filter 'speed-profile' executable 'false'
+11-10 11:27:56.560 I/artd    (10499): GetBestInfo: odex next to the dex file (/data/app/~~DBHTTV7qSezOygpquA3h8g==/ru.tatneft.gasstations-_CSjenJct8OFCtRulDjzcw==/oat/arm64/base.odex) is kOatUpToDate with filter 'speed-profile' executable 'false'
+11-10 11:27:56.628 I/artd    (10499): GetBestInfo: odex next to the dex file (/data/app/~~FKJWxedBDweZo1_BZPsSHw==/ru.sunlight.sunlight-saY6RjRt7l-XWYBVfwO67w==/oat/arm64/base.odex) is kOatUpToDate with filter 'speed-profile' executable 'false'
+11-10 11:27:56.629 I/artd    (10499): GetBestInfo: odex next to the dex file (/data/app/~~FKJWxedBDweZo1_BZPsSHw==/ru.sunlight.sunlight-saY6RjRt7l-XWYBVfwO67w==/oat/arm64/base.odex) is kOatUpToDate with filter 'speed-profile' executable 'false'
+11-10 11:27:56.689 I/artd    (10499): GetBestInfo: odex next to the dex file (/data/app/~~6TdxiGvVRKc8po5DRmomKg==/com.deepseek.chat--ojHPq4MpcFsHH1Q-VvzJA==/oat/arm64/base.odex) is kOatUpToDate with filter 'speed-profile' executable 'false'
+11-10 11:27:56.690 I/artd    (10499): GetBestInfo: odex next to the dex file (/data/app/~~6TdxiGvVRKc8po5DRmomKg==/com.deepseek.chat--ojHPq4MpcFsHH1Q-VvzJA==/oat/arm64/base.odex) is kOatUpToDate with filter 'speed-profile' executable 'false'
+11-10 11:27:56.721 I/artd    (10499): GetBestInfo: odex next to the dex file (/data/app/~~Y2wqZ0OAQy-PorQvgn1jcA==/jp.co.canon.bsd.ad.pixmaprint--q-9mbAJ77_8B3-wOBTMCg==/oat/arm64/base.odex) is kOatUpToDate with filter 'speed-profile' executable 'false'
+11-10 11:27:56.721 I/artd    (10499): GetBestInfo: odex next to the dex file (/data/app/~~Y2wqZ0OAQy-PorQvgn1jcA==/jp.co.canon.bsd.ad.pixmaprint--q-9mbAJ77_8B3-wOBTMCg==/oat/arm64/base.odex) is kOatUpToDate with filter 'speed-profile' executable 'false'
+11-10 11:27:56.798 I/artd    (10499): GetBestInfo: odex next to the dex file (/data/app/~~GrVezyze16Zy-a20niZwtQ==/ru.kinopoisk-rWEJHwP43BqV14wheMXzQA==/oat/arm64/base.odex) is kOatUpToDate with filter 'speed-profile' executable 'false'
+11-10 11:27:56.799 I/artd    (10499): GetBestInfo: odex next to the dex file (/data/app/~~GrVezyze16Zy-a20niZwtQ==/ru.kinopoisk-rWEJHwP43BqV14wheMXzQA==/oat/arm64/base.odex) is kOatUpToDate with filter 'speed-profile' executable 'false'
+11-10 11:27:56.821 W/Finsky  (29835): [2] STU: Failed to get storage stats for package 'com.google.android.wifi' (1601: Error getting stats: android.content.pm.PackageManager.NameNotFoundException)
+11-10 11:27:56.871 I/artd    (10499): GetBestInfo: odex next to the dex file (/data/app/~~N7mmok3VtR0GiPxijUmM9w==/ru.ostrovok.android-UvsTzB9cGr2elCvoVX7VVg==/oat/arm64/base.odex) is kOatUpToDate with filter 'speed-profile' executable 'false'
+11-10 11:27:56.871 I/artd    (10499): GetBestInfo: odex next to the dex file (/data/app/~~N7mmok3VtR0GiPxijUmM9w==/ru.ostrovok.android-UvsTzB9cGr2elCvoVX7VVg==/oat/arm64/base.odex) is kOatUpToDate with filter 'speed-profile' executable 'false'
+11-10 11:27:56.910 I/artd    (10499): GetBestInfo: odex in dalvik-cache (/data/dalvik-cache/arm64/data@app@~~nlSVJQ6w8RIhrStZavL-UA==@com.playrix.manormatters-_nAU20l0zZRXA3Sk5zHwuw==@base.apk@classes.dex) is kOatUpToDate with filter 'speed-profile' executable 'false'
+11-10 11:27:56.911 I/artd    (10499): GetBestInfo: odex in dalvik-cache (/data/dalvik-cache/arm64/data@app@~~nlSVJQ6w8RIhrStZavL-UA==@com.playrix.manormatters-_nAU20l0zZRXA3Sk5zHwuw==@base.apk@classes.dex) is kOatUpToDate with filter 'speed-profile' executable 'false'
+11-10 11:27:56.932 I/artd    (10499): GetBestInfo: dm (/data/app/~~nlSVJQ6w8RIhrStZavL-UA==/com.playrix.manormatters-_nAU20l0zZRXA3Sk5zHwuw==/split_gpdeku.dm) is kOatUpToDate with filter 'verify' executable 'false'
+11-10 11:27:56.939 W/MTK_FG_FUEL(10503): fd < 0, init first!
+11-10 11:27:56.939 W/MTK_FG_FUEL(10503): init failed, return!
+11-10 11:27:56.973 I/artd    (10499): GetBestInfo: odex next to the dex file (/data/app/~~HwRY-6VIYxDUWb0CyLq4PQ==/ru.burgerking-2iAIgoyTBWPlaWo9PQetbw==/oat/arm64/base.odex) is kOatUpToDate with filter 'speed-profile' executable 'false'
+11-10 11:27:56.973 I/artd    (10499): GetBestInfo: odex next to the dex file (/data/app/~~HwRY-6VIYxDUWb0CyLq4PQ==/ru.burgerking-2iAIgoyTBWPlaWo9PQetbw==/oat/arm64/base.odex) is kOatUpToDate with filter 'speed-profile' executable 'false'
+11-10 11:27:57.003 I/artd    (10499): GetBestInfo: odex next to the dex file (/data/app/~~a47Ny1VowFqxoCTdSWF9HA==/ru.vkusvill-d8Ve-eqv6_sXYqUOoN_Mjg==/oat/arm64/base.odex) is kOatUpToDate with filter 'speed-profile' executable 'false'
+11-10 11:27:57.004 I/artd    (10499): GetBestInfo: odex next to the dex file (/data/app/~~a47Ny1VowFqxoCTdSWF9HA==/ru.vkusvill-d8Ve-eqv6_sXYqUOoN_Mjg==/oat/arm64/base.odex) is kOatUpToDate with filter 'speed-profile' executable 'false'
+11-10 11:27:57.025 I/artd    (10499): GetBestInfo: odex next to the dex file (/data/app/~~cukapTJeQ2BAH4Os8qw1-A==/com.playrix.fishdom_solitaire.gplay-9HrQ0JOuIFBwVFaxooDWLw==/oat/arm64/base.odex) is kOatUpToDate with filter 'speed-profile' executable 'false'
+11-10 11:27:57.026 I/artd    (10499): GetBestInfo: odex next to the dex file (/data/app/~~cukapTJeQ2BAH4Os8qw1-A==/com.playrix.fishdom_solitaire.gplay-9HrQ0JOuIFBwVFaxooDWLw==/oat/arm64/base.odex) is kOatUpToDate with filter 'speed-profile' executable 'false'
+11-10 11:27:57.048 I/artd    (10499): GetBestInfo: odex next to the dex file (/data/app/~~5VyLA8l5XDVhGj8rAsYhnw==/com.gnivts.selfemployed-xtf_bzxGO6ZlKUSdBanMAQ==/oat/arm64/base.odex) is kOatUpToDate with filter 'speed-profile' executable 'false'
+11-10 11:27:57.049 I/artd    (10499): GetBestInfo: odex next to the dex file (/data/app/~~5VyLA8l5XDVhGj8rAsYhnw==/com.gnivts.selfemployed-xtf_bzxGO6ZlKUSdBanMAQ==/oat/arm64/base.odex) is kOatUpToDate with filter 'speed-profile' executable 'false'
+11-10 11:27:57.062 I/DataStorageManager( 5704): batchSaveRunnable  isBatchSaveRunning true
+11-10 11:27:57.062 I/DataStorageManager( 5704): postBatchSave skip and call next 10s
+11-10 11:27:57.534 I/artd    (10499): GetBestInfo: odex next to the dex file (/product/operator/app/TranssionTheme/oat/arm64/TranssionTheme.odex) is kOatCannotOpen: In oat file '/product/operator/app/TranssionTheme/oat/arm64/TranssionTheme.odex': invalid oat header: Invalid oat version, expected 0x32373900, got 0x32353900.
+11-10 11:27:57.544 I/artd    (10499): GetBestInfo: vdex next to the dex file (/product/operator/app/TranssionTheme/oat/arm64/TranssionTheme.vdex) is kOatUpToDate with filter 'verify' executable 'false'
+11-10 11:27:57.569 W/Finsky  (29835): [2] STU: Failed to get storage stats for package 'com.google.android.media.swcodec' (1601: Error getting stats: android.content.pm.PackageManager.NameNotFoundException)
+11-10 11:27:57.580 I/artd    (10499): GetBestInfo: dm (/data/app/~~Y4S6260WPab7Eg2N3othJw==/club.chizhik-yUUs3V1bbhcoZkWzUIVyUw==/base.dm) is kOatCannotOpen: No primary.vdex file in DexMetadata archive. Not doing fast verification: Failed to find entry 'primary.vdex': Entry not found
+11-10 11:27:57.580 I/artd    (10499): GetBestInfo: /data/app/~~Y4S6260WPab7Eg2N3othJw==/club.chizhik-yUUs3V1bbhcoZkWzUIVyUw==/base.apk has no usable artifacts
+11-10 11:27:57.615 I/artd    (10499): GetBestInfo: odex next to the dex file (/data/app/~~n4s_1u0j6Wr_rFmoOfHumA==/com.google.android.projection.gearhead-6tM0pR62lGM75WFwYfDFGw==/oat/arm64/base.odex) is kOatUpToDate with filter 'speed-profile' executable 'false'
+11-10 11:27:57.616 I/artd    (10499): GetBestInfo: odex next to the dex file (/data/app/~~n4s_1u0j6Wr_rFmoOfHumA==/com.google.android.projection.gearhead-6tM0pR62lGM75WFwYfDFGw==/oat/arm64/base.odex) is kOatUpToDate with filter 'speed-profile' executable 'false'
+11-10 11:27:57.620 I/artd    (10499): GetBestInfo: odex next to the dex file (/data/user/0/com.google.android.projection.gearhead/app_impl/oat/arm64/sdk_impl.odex) is kOatUpToDate with filter 'verify' executable 'false'
+11-10 11:27:57.620 I/artd    (10499): GetBestInfo: odex next to the dex file (/data/user/0/com.google.android.projection.gearhead/app_impl/oat/arm64/sdk_impl.odex) is kOatUpToDate with filter 'verify' executable 'false'
+11-10 11:27:57.644 W/Finsky  (29835): [2] STU: Failed to get storage stats for package 'com.android.profiling' (1601: Error getting stats: android.content.pm.PackageManager.NameNotFoundException)
+11-10 11:27:57.671 I/artd    (10499): GetBestInfo: odex next to the dex file (/data/app/~~FT-evCQpeRyvnv8MWWChgg==/com.gpn.azs-NPR2fwPzzqpo67tNKkbyXA==/oat/arm64/base.odex) is kOatUpToDate with filter 'speed-profile' executable 'false'
+11-10 11:27:57.672 I/artd    (10499): GetBestInfo: odex next to the dex file (/data/app/~~FT-evCQpeRyvnv8MWWChgg==/com.gpn.azs-NPR2fwPzzqpo67tNKkbyXA==/oat/arm64/base.odex) is kOatUpToDate with filter 'speed-profile' executable 'false'
+11-10 11:27:57.763 I/artd    (10499): GetBestInfo: odex next to the dex file (/data/app/~~d-v4ROkHXMiVGiU0hZcojg==/ru.yandex.taxi-kATTpyGLXFea5F2ac69VKA==/oat/arm64/base.odex) is kOatUpToDate with filter 'speed-profile' executable 'false'
+11-10 11:27:57.764 I/artd    (10499): GetBestInfo: odex next to the dex file (/data/app/~~d-v4ROkHXMiVGiU0hZcojg==/ru.yandex.taxi-kATTpyGLXFea5F2ac69VKA==/oat/arm64/base.odex) is kOatUpToDate with filter 'speed-profile' executable 'false'
+11-10 11:27:57.790 I/artd    (10499): GetBestInfo: odex next to the dex file (/data/app/~~FGq9IE1W23cDeCIud0Z17A==/ru.yandex.androidkeyboard-GgqjVtrMLWJqSDAX4ExCNQ==/oat/arm64/base.odex) is kOatUpToDate with filter 'speed-profile' executable 'false'
+11-10 11:27:57.790 I/artd    (10499): GetBestInfo: odex next to the dex file (/data/app/~~FGq9IE1W23cDeCIud0Z17A==/ru.yandex.androidkeyboard-GgqjVtrMLWJqSDAX4ExCNQ==/oat/arm64/base.odex) is kOatUpToDate with filter 'speed-profile' executable 'false'
+11-10 11:27:57.859 I/artd    (10499): GetBestInfo: vdex next to the dex file (/data/app/~~QZfS3pFU3VqZWBhCPrTfMQ==/org.shadowice.flocke.andotp-7mIwug3LimwSHaGFjB5pwQ==/oat/arm64/base.vdex) is kOatUpToDate with filter 'verify' executable 'false'
+11-10 11:27:57.899 I/artd    (10499): GetBestInfo: odex next to the dex file (/data/app/~~LLCSDRRe2SWXBYIspNcecA==/ru.bestprice.fixprice-BXqUAWmWXqduJAWmCdfDUw==/oat/arm64/base.odex) is kOatUpToDate with filter 'speed-profile' executable 'false'
+11-10 11:27:57.899 I/artd    (10499): GetBestInfo: odex next to the dex file (/data/app/~~LLCSDRRe2SWXBYIspNcecA==/ru.bestprice.fixprice-BXqUAWmWXqduJAWmCdfDUw==/oat/arm64/base.odex) is kOatUpToDate with filter 'speed-profile' executable 'false'
+11-10 11:27:57.925 I/artd    (10499): GetBestInfo: odex next to the dex file (/data/app/~~vFqLdISdGybiDRNX2gv8JA==/com.termux-HsJ8TlN89Np_3GJ4yhiV1g==/oat/arm64/base.odex) is kOatUpToDate with filter 'speed-profile' executable 'false'
+11-10 11:27:57.925 I/artd    (10499): GetBestInfo: odex next to the dex file (/data/app/~~vFqLdISdGybiDRNX2gv8JA==/com.termux-HsJ8TlN89Np_3GJ4yhiV1g==/oat/arm64/base.odex) is kOatUpToDate with filter 'speed-profile' executable 'false'
+11-10 11:27:57.962 I/artd    (10499): GetBestInfo: odex next to the dex file (/data/app/~~TyoKcqt0W_JTR5dctLIhhQ==/ru.sravni.android.bankproduct-Km8LjKv1YnLHLb-ua1uBkw==/oat/arm64/base.odex) is kOatUpToDate with filter 'speed-profile' executable 'false'
+11-10 11:27:57.962 I/artd    (10499): GetBestInfo: odex next to the dex file (/data/app/~~TyoKcqt0W_JTR5dctLIhhQ==/ru.sravni.android.bankproduct-Km8LjKv1YnLHLb-ua1uBkw==/oat/arm64/base.odex) is kOatUpToDate with filter 'speed-profile' executable 'false'
+11-10 11:27:57.995 I/artd    (10499): GetBestInfo: odex next to the dex file (/data/app/~~GQofidDRFEVAqna6scwoaw==/ru.alfabank.mobile.android-u6ehfbVopfml6nbkG-OjrA==/oat/arm64/base.odex) is kOatUpToDate with filter 'speed-profile' executable 'false'
+11-10 11:27:57.996 I/artd    (10499): GetBestInfo: odex next to the dex file (/data/app/~~GQofidDRFEVAqna6scwoaw==/ru.alfabank.mobile.android-u6ehfbVopfml6nbkG-OjrA==/oat/arm64/base.odex) is kOatUpToDate with filter 'speed-profile' executable 'false'
+11-10 11:27:58.016 W/Finsky  (29835): [2] STU: Failed to get storage stats for package 'com.google.android.adbd' (1601: Error getting stats: android.content.pm.PackageManager.NameNotFoundException)
+11-10 11:27:58.036 W/Finsky  (29835): [2] STU: Failed to get storage stats for package 'com.android.i18n' (1601: Error getting stats: android.content.pm.PackageManager.NameNotFoundException)
+11-10 11:27:58.043 W/Finsky  (29835): [2] STU: Failed to get storage stats for package 'com.google.android.conscrypt' (1601: Error getting stats: android.content.pm.PackageManager.NameNotFoundException)
+11-10 11:27:58.082 W/Finsky  (29835): [2] STU: Failed to get storage stats for package 'com.android.hardware.cas' (1601: Error getting stats: android.content.pm.PackageManager.NameNotFoundException)
+11-10 11:27:58.103 I/artd    (10499): GetBestInfo: odex next to the dex file (/data/app/~~CiwtGcYrDD-oT2yfWqMe3g==/ru.yandex.metro--z8zIqxFQBxtFroWClnIkQ==/oat/arm64/base.odex) is kOatUpToDate with filter 'speed-profile' executable 'false'
+11-10 11:27:58.104 I/artd    (10499): GetBestInfo: odex next to the dex file (/data/app/~~CiwtGcYrDD-oT2yfWqMe3g==/ru.yandex.metro--z8zIqxFQBxtFroWClnIkQ==/oat/arm64/base.odex) is kOatUpToDate with filter 'speed-profile' executable 'false'
+11-10 11:27:58.158 I/artd    (10499): GetBestInfo: odex next to the dex file (/data/app/~~_d0nw2F8jBJA9UhfAgmYwg==/ru.s7tl.app-YNxWlyY9sbBKPYgtpk1oZA==/oat/arm64/base.odex) is kOatUpToDate with filter 'speed-profile' executable 'false'
+11-10 11:27:58.159 I/artd    (10499): GetBestInfo: odex next to the dex file (/data/app/~~_d0nw2F8jBJA9UhfAgmYwg==/ru.s7tl.app-YNxWlyY9sbBKPYgtpk1oZA==/oat/arm64/base.odex) is kOatUpToDate with filter 'speed-profile' executable 'false'
+11-10 11:27:58.179 I/artd    (10499): GetBestInfo: odex next to the dex file (/data/app/~~kUf2x2x9hdlHq0FZ5ULiMw==/org.telegram.messenger-n3OC-byxsePY6ItOEIMNKg==/oat/arm64/base.odex) is kOatUpToDate with filter 'speed-profile' executable 'false'
+11-10 11:27:58.179 I/artd    (10499): GetBestInfo: odex next to the dex file (/data/app/~~kUf2x2x9hdlHq0FZ5ULiMw==/org.telegram.messenger-n3OC-byxsePY6ItOEIMNKg==/oat/arm64/base.odex) is kOatUpToDate with filter 'speed-profile' executable 'false'
+11-10 11:27:58.194 I/artd    (10499): GetBestInfo: odex next to the dex file (/data/app/~~SsZJ7rPIwHGyCY7pDHUy7w==/com.google.audio.hearing.visualization.accessibility.scribe-t4qnrU7TTBYJIOJCC0AQqQ==/oat/arm64/base.odex) is kOatUpToDate with filter 'speed-profile' executable 'false'
+11-10 11:27:58.194 I/artd    (10499): GetBestInfo: odex next to the dex file (/data/app/~~SsZJ7rPIwHGyCY7pDHUy7w==/com.google.audio.hearing.visualization.accessibility.scribe-t4qnrU7TTBYJIOJCC0AQqQ==/oat/arm64/base.odex) is kOatUpToDate with filter 'speed-profile' executable 'false'
+11-10 11:27:58.208 I/artd    (10499): GetBestInfo: odex next to the dex file (/data/app/~~mh-lF0ML_ZmRFldfVMXcrw==/ru.russianhighways.mobile-VP18ZiBXcx4dMOOenfH3zw==/oat/arm64/base.odex) is kOatUpToDate with filter 'verify' executable 'false'
+11-10 11:27:58.208 I/artd    (10499): GetBestInfo: odex next to the dex file (/data/app/~~mh-lF0ML_ZmRFldfVMXcrw==/ru.russianhighways.mobile-VP18ZiBXcx4dMOOenfH3zw==/oat/arm64/base.odex) is kOatUpToDate with filter 'verify' executable 'false'
+11-10 11:27:58.228 W/Finsky  (29835): [2] STU: Failed to get storage stats for package 'com.google.android.neuralnetworks' (1601: Error getting stats: android.content.pm.PackageManager.NameNotFoundException)
+11-10 11:27:58.238 I/artd    (10499): GetBestInfo: odex next to the dex file (/data/app/~~HnzzLaiBuc7-NXyIH9kwVQ==/ru.yota.android-AeFVgP0KMutKLYhGp6pe9w==/oat/arm64/base.odex) is kOatUpToDate with filter 'speed-profile' executable 'false'
+11-10 11:27:58.239 I/artd    (10499): GetBestInfo: odex next to the dex file (/data/app/~~HnzzLaiBuc7-NXyIH9kwVQ==/ru.yota.android-AeFVgP0KMutKLYhGp6pe9w==/oat/arm64/base.odex) is kOatUpToDate with filter 'speed-profile' executable 'false'
+11-10 11:27:58.258 I/artd    (10499): GetBestInfo: odex next to the dex file (/data/app/~~kDq9nmtvKQfaPbE1gO154g==/com.lg.magic.remote-Musq0wVQ1Z46RqNt6dxxZA==/oat/arm64/base.odex) is kOatUpToDate with filter 'speed-profile' executable 'false'
+11-10 11:27:58.258 I/artd    (10499): GetBestInfo: odex next to the dex file (/data/app/~~kDq9nmtvKQfaPbE1gO154g==/com.lg.magic.remote-Musq0wVQ1Z46RqNt6dxxZA==/oat/arm64/base.odex) is kOatUpToDate with filter 'speed-profile' executable 'false'
+11-10 11:27:58.260 I/artd    (10499): GetBestInfo: vdex next to the dex file (/data/user/0/com.lg.magic.remote/app_pccache/5/FCA0BF52AC6325643D5029EB0445E265E8586A98/oat/arm64/pcam.vdex) is kOatUpToDate with filter 'verify' executable 'false'
+11-10 11:27:58.278 W/Finsky  (29835): [2] STU: Failed to get storage stats for package 'com.google.android.ipsec' (1601: Error getting stats: android.content.pm.PackageManager.NameNotFoundException)
+11-10 11:27:58.288 W/Finsky  (29835): [2] STU: Failed to get storage stats for package 'com.transsion.performance' (1601: Error getting stats: android.content.pm.PackageManager.NameNotFoundException)
+11-10 11:27:58.331 I/artd    (10499): GetBestInfo: odex next to the dex file (/data/app/~~u3rI0gr3T8dYMtLW87Xy1A==/com.vidure.app-yIfdJxcrhkQfu9PmZH9oyA==/oat/arm64/base.odex) is kOatUpToDate with filter 'speed-profile' executable 'false'
+11-10 11:27:58.332 I/artd    (10499): GetBestInfo: odex next to the dex file (/data/app/~~u3rI0gr3T8dYMtLW87Xy1A==/com.vidure.app-yIfdJxcrhkQfu9PmZH9oyA==/oat/arm64/base.odex) is kOatUpToDate with filter 'speed-profile' executable 'false'
+11-10 11:27:58.365 I/artd    (10499): GetBestInfo: odex next to the dex file (/data/app/~~fyUH5v1b6_icb1DtEx-zSg==/com.google.android.as.oss-tLh6urvK0AgTJngbQEuhGw==/oat/arm64/base.odex) is kOatUpToDate with filter 'speed-profile' executable 'false'
+11-10 11:27:58.365 I/artd    (10499): GetBestInfo: odex next to the dex file (/data/app/~~fyUH5v1b6_icb1DtEx-zSg==/com.google.android.as.oss-tLh6urvK0AgTJngbQEuhGw==/oat/arm64/base.odex) is kOatUpToDate with filter 'speed-profile' executable 'false'
+11-10 11:27:58.376 W/Finsky  (29835): [2] STU: Failed to get storage stats for package 'com.google.android.ondevicepersonalization' (1601: Error getting stats: android.content.pm.PackageManager.NameNotFoundException)
+11-10 11:27:58.389 I/artd    (10499): GetBestInfo: odex next to the dex file (/data/app/~~Vj7BxlPmszI-HmVOWGJMTw==/com.transsion.plat.appupdate-Yv-Eg0aVHIlWzLsTXK8Orw==/oat/arm64/base.odex) is kOatUpToDate with filter 'speed-profile' executable 'false'
+11-10 11:27:58.390 I/artd    (10499): GetBestInfo: odex next to the dex file (/data/app/~~Vj7BxlPmszI-HmVOWGJMTw==/com.transsion.plat.appupdate-Yv-Eg0aVHIlWzLsTXK8Orw==/oat/arm64/base.odex) is kOatUpToDate with filter 'speed-profile' executable 'false'
+11-10 11:27:58.402 W/Finsky  (29835): [2] STU: Failed to get storage stats for package 'com.google.android.healthfitness' (1601: Error getting stats: android.content.pm.PackageManager.NameNotFoundException)
+11-10 11:27:58.402 W/Finsky  (29835): [2] STU: Failed to get storage stats for package 'com.transsion.appservices' (1601: Error getting stats: android.content.pm.PackageManager.NameNotFoundException)
+11-10 11:27:58.463 I/artd    (10499): GetBestInfo: odex next to the dex file (/system_ext/app/MobileClonerUI/oat/arm64/MobileClonerUI.odex) is kOatCannotOpen: In oat file '/system_ext/app/MobileClonerUI/oat/arm64/MobileClonerUI.odex': invalid oat header: Invalid oat version, expected 0x32373900, got 0x32353900.
+11-10 11:27:58.469 I/artd    (10499): GetBestInfo: vdex next to the dex file (/system_ext/app/MobileClonerUI/oat/arm64/MobileClonerUI.vdex) is kOatUpToDate with filter 'verify' executable 'false'
+11-10 11:27:58.520 I/artd    (10499): GetBestInfo: dm (/data/app/~~hqNeQt5eBcletys80FMMyw==/www.metro.com-rZujW7HHt2YjsIU1gG4bkQ==/base.dm) is kOatCannotOpen: No primary.vdex file in DexMetadata archive. Not doing fast verification: Failed to find entry 'primary.vdex': Entry not found
+11-10 11:27:58.520 I/artd    (10499): GetBestInfo: /data/app/~~hqNeQt5eBcletys80FMMyw==/www.metro.com-rZujW7HHt2YjsIU1gG4bkQ==/base.apk has no usable artifacts
+11-10 11:27:58.552 I/artd    (10499): GetBestInfo: odex next to the dex file (/data/app/~~h0HEadlsfii1VyFB3jmCqw==/ru.pay.flip-rthq17KsWqOOAYNIDg8lFQ==/oat/arm64/base.odex) is kOatUpToDate with filter 'speed-profile' executable 'false'
+11-10 11:27:58.553 I/artd    (10499): GetBestInfo: odex next to the dex file (/data/app/~~h0HEadlsfii1VyFB3jmCqw==/ru.pay.flip-rthq17KsWqOOAYNIDg8lFQ==/oat/arm64/base.odex) is kOatUpToDate with filter 'speed-profile' executable 'false'
+11-10 11:27:58.565 I/artd    (10499): GetBestInfo: odex next to the dex file (/data/app/~~XMgmtNMYinIWihYAA0GX3g==/com.colizeumarena.colizeum-vfPQnpFqJFdQYZiGGa72tA==/oat/arm64/base.odex) is kOatUpToDate with filter 'speed-profile' executable 'false'
+11-10 11:27:58.566 I/artd    (10499): GetBestInfo: odex next to the dex file (/data/app/~~XMgmtNMYinIWihYAA0GX3g==/com.colizeumarena.colizeum-vfPQnpFqJFdQYZiGGa72tA==/oat/arm64/base.odex) is kOatUpToDate with filter 'speed-profile' executable 'false'
+11-10 11:27:58.599 I/artd    (10499): GetBestInfo: odex next to the dex file (/data/app/~~tz92iQibS4R6PG4Zp-AgQA==/com.drive2-5R-uloTMWvizRFkhDvT_RQ==/oat/arm64/base.odex) is kOatUpToDate with filter 'speed-profile' executable 'false'
+11-10 11:27:58.600 I/artd    (10499): GetBestInfo: odex next to the dex file (/data/app/~~tz92iQibS4R6PG4Zp-AgQA==/com.drive2-5R-uloTMWvizRFkhDvT_RQ==/oat/arm64/base.odex) is kOatUpToDate with filter 'speed-profile' executable 'false'
+11-10 11:27:58.619 I/artd    (10499): GetBestInfo: odex in dalvik-cache (/data/dalvik-cache/arm64/product@operator@app@Weather@Weather.apk@classes.dex) is kOatUpToDate with filter 'speed-profile' executable 'false'
+11-10 11:27:58.619 I/artd    (10499): GetBestInfo: odex in dalvik-cache (/data/dalvik-cache/arm64/product@operator@app@Weather@Weather.apk@classes.dex) is kOatUpToDate with filter 'speed-profile' executable 'false'
+11-10 11:27:58.629 W/Finsky  (29835): [2] STU: Failed to get storage stats for package 'com.google.android.extservices' (1601: Error getting stats: android.content.pm.PackageManager.NameNotFoundException)
+11-10 11:27:58.651 I/artd    (10499): GetBestInfo: odex in dalvik-cache (/data/dalvik-cache/arm64/data@app@~~b-Fb8DxqU8oXrxwdrohYig==@com.playrix.fishdomdd.gplay-qwMiF1YREKMTIR7PvuII0w==@base.apk@classes.dex) is kOatUpToDate with filter 'speed-profile' executable 'false'
+11-10 11:27:58.652 I/artd    (10499): GetBestInfo: odex in dalvik-cache (/data/dalvik-cache/arm64/data@app@~~b-Fb8DxqU8oXrxwdrohYig==@com.playrix.fishdomdd.gplay-qwMiF1YREKMTIR7PvuII0w==@base.apk@classes.dex) is kOatUpToDate with filter 'speed-profile' executable 'false'
+11-10 11:27:58.669 I/artd    (10499): GetBestInfo: odex in dalvik-cache (/data/dalvik-cache/arm64/data@app@~~b-Fb8DxqU8oXrxwdrohYig==@com.playrix.fishdomdd.gplay-qwMiF1YREKMTIR7PvuII0w==@split_gpdeku.apk@classes.dex) is kOatUpToDate with filter 'speed-profile' executable 'false'
+11-10 11:27:58.669 I/artd    (10499): GetBestInfo: odex in dalvik-cache (/data/dalvik-cache/arm64/data@app@~~b-Fb8DxqU8oXrxwdrohYig==@com.playrix.fishdomdd.gplay-qwMiF1YREKMTIR7PvuII0w==@split_gpdeku.apk@classes.dex) is kOatUpToDate with filter 'speed-profile' executable 'false'
+11-10 11:27:58.679 W/Finsky  (29835): [2] STU: Failed to get storage stats for package 'com.transsion.connectivity' (1601: Error getting stats: android.content.pm.PackageManager.NameNotFoundException)
+11-10 11:27:58.709 I/artd    (10499): GetBestInfo: dm (/data/app/~~xJbmwpSx0S1gdZkWVqT8Bw==/ru.myspar-e5o_9Q6t1sxLfspBcP9RTQ==/base.dm) is kOatUpToDate with filter 'verify' executable 'false'
+11-10 11:27:58.745 I/artd    (10499): GetBestInfo: vdex next to the dex file (/data/app/~~U5CuTnVEZTtnKQcmdg3x0A==/com.kirill_skibin.going_deeper-soZ-xZjhuTwy7kTsyOSR8w==/oat/arm64/base.vdex) is kOatUpToDate with filter 'verify' executable 'false'
+11-10 11:27:58.777 I/artd    (10499): GetBestInfo: vdex in dalvik-cache (/data/dalvik-cache/arm64/product@operator@app@TranssionNotes@TranssionNotes.apk@classes.vdex) is kOatUpToDate with filter 'verify' executable 'false'
+11-10 11:27:58.803 I/artd    (10499): GetBestInfo: odex next to the dex file (/data/app/~~M89W-TEMadpitMEBne_0IQ==/com.android.vending-iq0pGX1vqtEpYnk3ZHj2kg==/oat/arm64/base.odex) is kOatUpToDate with filter 'speed-profile' executable 'false'
+11-10 11:27:58.803 I/artd    (10499): GetBestInfo: odex next to the dex file (/data/app/~~M89W-TEMadpitMEBne_0IQ==/com.android.vending-iq0pGX1vqtEpYnk3ZHj2kg==/oat/arm64/base.odex) is kOatUpToDate with filter 'speed-profile' executable 'false'
+11-10 11:27:58.808 E/artd    (10499): Unable to resolve path '/data/app/~~ut2Z-GK4nmNNRS5NJF8d0A==/com.android.vending-Bk-btFvdWQ94IQn13I2Y8Q==/base.apk': No such file or directory
+11-10 11:27:58.809 W/artd    (10499): ClassLoaderContext classpath element mismatch. expected=/data/app/~~ut2Z-GK4nmNNRS5NJF8d0A==/com.android.vending-Bk-btFvdWQ94IQn13I2Y8Q==/base.apk, found=/data/app/~~M89W-TEMadpitMEBne_0IQ==/com.android.vending-iq0pGX1vqtEpYnk3ZHj2kg==/base.apk (PCL[];PCL[/data/app/~~ut2Z-GK4nmNNRS5NJF8d0A==/com.android.vending-Bk-btFvdWQ94IQn13I2Y8Q==/base.apk*1034273247]{PCL[/system/framework/org.apache.http.legacy.jar*437079508]#PCL[/system_ext/framework/androidx.window.extensions.jar*2684042391]#PCL[/system_ext/framework/androidx.window.sidecar.jar*1643987811]} | PCL[];PCL[/data/app/~~M89W-TEMadpitMEBne_0IQ==/com.android.vending-iq0pGX1vqtEpYnk3ZHj2kg==/base.apk*474857392]{PCL[/system/framework/org.apache.http.legacy.jar*437079508]#PCL[/system_ext/framework/androidx.window.extensions.jar*2684042391]#PCL[/system_ext/framework/androidx.window.sidecar.jar*1643987811]})
+11-10 11:27:58.809 I/artd    (10499): GetBestInfo: odex next to the dex file (/data/user/0/com.android.vending/app_dg_cache/8766F79F473FC241DBEBF844C31741CD635957A7/oat/arm64/the.odex) is kOatContextOutOfDate with filter 'verify' executable 'false': ClassLoaderContext check failed. Context was PCL[];PCL[/data/app/~~ut2Z-GK4nmNNRS5NJF8d0A==/com.android.vending-Bk-btFvdWQ94IQn13I2Y8Q==/base.apk*1034273247]{PCL[/system/framework/org.apache.http.legacy.jar*437079508]#PCL[/system_ext/framework/androidx.window.extensions.jar*2684042391]#PCL[/system_ext/framework/androidx.window.sidecar.jar*1643987811]}. The expected context is PCL[];PCL[/data/app/~~M89W-TEMadpitMEBne_0IQ==/com.android.vending-iq0pGX1vqtEpYnk3ZHj2kg==/base.apk*474857392]{PCL[/system/framework/org.apache.http.legacy.jar*437079508]#PCL[/system_ext/framework/androidx.window.extensions.jar*2684042391]#PCL[/system_ext/framework/androidx.window.sidecar.jar*1643987811]}
+11-10 11:27:58.809 I/artd    (10499): GetBestInfo: vdex next to the dex file (/data/user/0/com.android.vending/app_dg_cache/8766F79F473FC241DBEBF844C31741CD635957A7/oat/arm64/the.vdex) is kOatUpToDate with filter 'verify' executable 'false'
+11-10 11:27:58.812 I/artd    (10499): GetBestInfo: vdex next to the dex file (/data/user/0/com.android.vending/app_dg_cache/AAEF584C0030E52846AF790022AA2BF836A591DF/oat/arm64/the.vdex) is kOatUpToDate with filter 'verify' executable 'false'
+11-10 11:27:58.826 I/artd    (10499): GetBestInfo: odex next to the dex file (/product/operator/app/TranssionSoundRecorder/oat/arm64/TranssionSoundRecorder.odex) is kOatCannotOpen: In oat file '/product/operator/app/TranssionSoundRecorder/oat/arm64/TranssionSoundRecorder.odex': invalid oat header: Invalid oat version, expected 0x32373900, got 0x32353900.
+11-10 11:27:58.836 I/artd    (10499): GetBestInfo: vdex next to the dex file (/product/operator/app/TranssionSoundRecorder/oat/arm64/TranssionSoundRecorder.vdex) is kOatUpToDate with filter 'verify' executable 'false'
+11-10 11:27:58.900 I/artd    (10499): GetBestInfo: odex next to the dex file (/data/app/~~Acn5geIXjezSaswPBN3VGg==/com.imo.android.imoim-QfR3_j5QhjMsVXky08PChg==/oat/arm64/base.odex) is kOatUpToDate with filter 'speed-profile' executable 'false'
+11-10 11:27:58.900 I/artd    (10499): GetBestInfo: odex next to the dex file (/data/app/~~Acn5geIXjezSaswPBN3VGg==/com.imo.android.imoim-QfR3_j5QhjMsVXky08PChg==/oat/arm64/base.odex) is kOatUpToDate with filter 'speed-profile' executable 'false'
+11-10 11:27:58.912 I/artd    (10499): GetBestInfo: dm (/data/app/~~Acn5geIXjezSaswPBN3VGg==/com.imo.android.imoim-QfR3_j5QhjMsVXky08PChg==/split_AdSDKFBGG.dm) is kOatUpToDate with filter 'verify' executable 'false'
+11-10 11:27:58.923 I/artd    (10499): GetBestInfo: dm (/data/app/~~Acn5geIXjezSaswPBN3VGg==/com.imo.android.imoim-QfR3_j5QhjMsVXky08PChg==/split_AdSDKPangle.dm) is kOatUpToDate with filter 'verify' executable 'false'
+11-10 11:27:58.932 I/artd    (10499): GetBestInfo: dm (/data/app/~~Acn5geIXjezSaswPBN3VGg==/com.imo.android.imoim-QfR3_j5QhjMsVXky08PChg==/split_AdSDKVungle.dm) is kOatUpToDate with filter 'verify' executable 'false'
+11-10 11:27:58.940 I/artd    (10499): GetBestInfo: dm (/data/app/~~Acn5geIXjezSaswPBN3VGg==/com.imo.android.imoim-QfR3_j5QhjMsVXky08PChg==/split_FaceSDK.dm) is kOatUpToDate with filter 'verify' executable 'false'
+11-10 11:27:58.946 I/artd    (10499): GetBestInfo: dm (/data/app/~~Acn5geIXjezSaswPBN3VGg==/com.imo.android.imoim-QfR3_j5QhjMsVXky08PChg==/split_Music.dm) is kOatUpToDate with filter 'verify' executable 'false'
+11-10 11:27:58.953 I/artd    (10499): GetBestInfo: dm (/data/app/~~Acn5geIXjezSaswPBN3VGg==/com.imo.android.imoim-QfR3_j5QhjMsVXky08PChg==/split_Record.dm) is kOatUpToDate with filter 'verify' executable 'false'
+11-10 11:27:58.960 I/artd    (10499): GetBestInfo: dm (/data/app/~~Acn5geIXjezSaswPBN3VGg==/com.imo.android.imoim-QfR3_j5QhjMsVXky08PChg==/split_SoLibs.dm) is kOatUpToDate with filter 'verify' executable 'false'
+11-10 11:27:58.970 I/artd    (10499): GetBestInfo: odex next to the dex file (/data/app/~~Acn5geIXjezSaswPBN3VGg==/com.imo.android.imoim-QfR3_j5QhjMsVXky08PChg==/oat/arm64/split_Websocket.odex) is kOatUpToDate with filter 'speed-profile' executable 'false'
+11-10 11:27:58.970 I/artd    (10499): GetBestInfo: odex next to the dex file (/data/app/~~Acn5geIXjezSaswPBN3VGg==/com.imo.android.imoim-QfR3_j5QhjMsVXky08PChg==/oat/arm64/split_Websocket.odex) is kOatUpToDate with filter 'speed-profile' executable 'false'
+11-10 11:27:58.973 I/artd    (10499): GetBestInfo: vdex next to the dex file (/data/user/0/com.imo.android.imoim/app_pccache/5/EEE20DEE2B9E8FD13D3BD7940C93E19263473270/oat/arm64/pcam.vdex) is kOatUpToDate with filter 'verify' executable 'false'
+11-10 11:27:58.977 I/artd    (10499): GetBestInfo: vdex next to the dex file (/data/user/0/com.imo.android.imoim/app_pccache/5/CE6F273D78E52497128F4B1536E4041972E94FE8/oat/arm64/pcam.vdex) is kOatUpToDate with filter 'verify' executable 'false'
+11-10 11:27:59.106 I/artd    (10499): GetBestInfo: odex next to the dex file (/data/app/~~DLFJGEWNte9POUXSJOJuMw==/com.google.android.youtube-B0z7DYSmmx19nBdLkEXnLA==/oat/arm64/base.odex) is kOatUpToDate with filter 'speed-profile' executable 'false'
+11-10 11:27:59.107 I/artd    (10499): GetBestInfo: odex next to the dex file (/data/app/~~DLFJGEWNte9POUXSJOJuMw==/com.google.android.youtube-B0z7DYSmmx19nBdLkEXnLA==/oat/arm64/base.odex) is kOatUpToDate with filter 'speed-profile' executable 'false'
+11-10 11:27:59.115 I/artd    (10499): GetBestInfo: vdex next to the dex file (/data/user/0/com.google.android.youtube/app_pccache2/5/7F4D878FDE1BC005BD654BCE73F77A6D6143E514/oat/arm64/pcam.vdex) is kOatUpToDate with filter 'verify' executable 'false'
+11-10 11:27:59.120 I/artd    (10499): GetBestInfo: vdex next to the dex file (/data/user/0/com.google.android.youtube/app_dg_cache/F43216EC192C66BFB5A30C3CDD57E8C5C9005730/oat/arm64/the.vdex) is kOatUpToDate with filter 'verify' executable 'false'
+11-10 11:27:59.123 I/artd    (10499): GetBestInfo: vdex next to the dex file (/data/user/0/com.google.android.youtube/app_pccache2/5/CE6F273D78E52497128F4B1536E4041972E94FE8/oat/arm64/pcam.vdex) is kOatUpToDate with filter 'verify' executable 'false'
+11-10 11:27:59.147 W/Finsky  (29835): [2] STU: Failed to get storage stats for package 'com.google.android.os.statsd' (1601: Error getting stats: android.content.pm.PackageManager.NameNotFoundException)
+11-10 11:27:59.177 I/artd    (10499): GetBestInfo: odex next to the dex file (/data/app/~~9YBJiRHIWmc-2OCzqygS3g==/ru.yandex.telemost-EySSz2IHb0qWzx2x_J2xxQ==/oat/arm64/base.odex) is kOatUpToDate with filter 'speed-profile' executable 'false'
+11-10 11:27:59.178 I/artd    (10499): GetBestInfo: odex next to the dex file (/data/app/~~9YBJiRHIWmc-2OCzqygS3g==/ru.yandex.telemost-EySSz2IHb0qWzx2x_J2xxQ==/oat/arm64/base.odex) is kOatUpToDate with filter 'speed-profile' executable 'false'
+11-10 11:27:59.255 I/artd    (10499): GetBestInfo: odex next to the dex file (/data/app/~~z3vlS7m9KjzLFGv-bpWeKg==/com.huawei.health-597mqIxWJ_IgwYV_OKmkiQ==/oat/arm64/base.odex) is kOatUpToDate with filter 'speed-profile' executable 'false'
+11-10 11:27:59.255 I/artd    (10499): GetBestInfo: odex next to the dex file (/data/app/~~z3vlS7m9KjzLFGv-bpWeKg==/com.huawei.health-597mqIxWJ_IgwYV_OKmkiQ==/oat/arm64/base.odex) is kOatUpToDate with filter 'speed-profile' executable 'false'
+11-10 11:27:59.305 I/artd    (10499): GetBestInfo: odex next to the dex file (/data/app/~~FTgOHG5ZiSSbcDcq9N_9Vw==/com.yandex.yamb-fI5o0ZY7GLu_a9S3NXdZTQ==/oat/arm64/base.odex) is kOatUpToDate with filter 'speed-profile' executable 'false'
+11-10 11:27:59.305 I/artd    (10499): GetBestInfo: odex next to the dex file (/data/app/~~FTgOHG5ZiSSbcDcq9N_9Vw==/com.yandex.yamb-fI5o0ZY7GLu_a9S3NXdZTQ==/oat/arm64/base.odex) is kOatUpToDate with filter 'speed-profile' executable 'false'
+11-10 11:27:59.362 I/artd    (10499): GetBestInfo: odex next to the dex file (/data/app/~~6J_WYwydr8D08BKMNzKfkQ==/ru.angelsit.parking-mFs-WIERLz2Z9FMG3iCXdw==/oat/arm64/base.odex) is kOatUpToDate with filter 'speed-profile' executable 'false'
+11-10 11:27:59.362 I/artd    (10499): GetBestInfo: odex next to the dex file (/data/app/~~6J_WYwydr8D08BKMNzKfkQ==/ru.angelsit.parking-mFs-WIERLz2Z9FMG3iCXdw==/oat/arm64/base.odex) is kOatUpToDate with filter 'speed-profile' executable 'false'
+11-10 11:27:59.393 I/artd    (10499): GetBestInfo: odex next to the dex file (/data/app/~~7LOxQS_7X73H6cwgF6Bn4A==/ru.gdebenz.app.gde_benz_app-E_ucuhgPSE9MiZVQEN9-Aw==/oat/arm64/base.odex) is kOatUpToDate with filter 'speed-profile' executable 'false'
+11-10 11:27:59.394 I/artd    (10499): GetBestInfo: odex next to the dex file (/data/app/~~7LOxQS_7X73H6cwgF6Bn4A==/ru.gdebenz.app.gde_benz_app-E_ucuhgPSE9MiZVQEN9-Aw==/oat/arm64/base.odex) is kOatUpToDate with filter 'speed-profile' executable 'false'
+11-10 11:27:59.424 I/artd    (10499): GetBestInfo: odex next to the dex file (/data/app/~~4wOk5eKbMTfmZ-FqWgFsxA==/com.icemobile.lenta.prod-bSLRjrZopCd9y8hawi7mjg==/oat/arm64/base.odex) is kOatUpToDate with filter 'speed-profile' executable 'false'
+11-10 11:27:59.424 I/artd    (10499): GetBestInfo: odex next to the dex file (/data/app/~~4wOk5eKbMTfmZ-FqWgFsxA==/com.icemobile.lenta.prod-bSLRjrZopCd9y8hawi7mjg==/oat/arm64/base.odex) is kOatUpToDate with filter 'speed-profile' executable 'false'
+11-10 11:27:59.447 W/Finsky  (29835): [2] STU: Failed to get storage stats for package 'com.google.android.scheduling' (1601: Error getting stats: android.content.pm.PackageManager.NameNotFoundException)
+11-10 11:27:59.486 I/artd    (10499): GetBestInfo: odex next to the dex file (/data/app/~~3TQPDwSOdfpXxwtgt_ArCA==/com.google.android.gm-qqLZ8l7CDZFc4emNhNy91g==/oat/arm64/base.odex) is kOatUpToDate with filter 'speed-profile' executable 'false'
+11-10 11:27:59.487 I/artd    (10499): GetBestInfo: odex next to the dex file (/data/app/~~3TQPDwSOdfpXxwtgt_ArCA==/com.google.android.gm-qqLZ8l7CDZFc4emNhNy91g==/oat/arm64/base.odex) is kOatUpToDate with filter 'speed-profile' executable 'false'
+11-10 11:27:59.498 W/Finsky  (29835): [2] STU: Failed to get storage stats for package 'com.scorpio.sc.core' (1601: Error getting stats: android.content.pm.PackageManager.NameNotFoundException)
+11-10 11:27:59.680 I/Finsky  (29835): [2] App states replicator found 80 unowned apps
+11-10 11:27:59.713 E/ApplicationHelper( 2110): Fail to get PackageManager
+11-10 11:27:59.713 E/ApplicationHelper( 2110): Fail to get PackageManager
+11-10 11:27:59.718 E/ApplicationHelper( 2110): Fail to get PackageManager
+11-10 11:27:59.718 E/ApplicationHelper( 2110): Fail to get PackageManager
+11-10 11:27:59.735 W/Auth    (21959): [RequestTokenManager] getToken() -> BAD_AUTHENTICATION. App: com.android.vending, Service: oauth2:https://www.googleapis.com/auth/googleplay [CONTEXT service_id=343 ]
+11-10 11:27:59.735 W/Auth    (21959): brvy: Long live credential not available.
+11-10 11:27:59.735 W/Auth    (21959): 	at anaq.b(:com.google.android.gms@264330035@26.43.30 (260400-1006944126):1170)
+11-10 11:27:59.735 W/Auth    (21959): 	at anax.b(:com.google.android.gms@264330035@26.43.30 (260400-1006944126):26)
+11-10 11:27:59.735 W/Auth    (21959): 	at anav.a(:com.google.android.gms@264330035@26.43.30 (260400-1006944126):640)
+11-10 11:27:59.735 W/Auth    (21959): 	at anau.b(:com.google.android.gms@264330035@26.43.30 (260400-1006944126):133)
+11-10 11:27:59.735 W/Auth    (21959): 	at affu.d(:com.google.android.gms@264330035@26.43.30 (260400-1006944126):971)
+11-10 11:27:59.735 W/Auth    (21959): 	at amtu.getAuthToken(:com.google.android.gms@264330035@26.43.30 (260400-1006944126):354)
+11-10 11:27:59.735 W/Auth    (21959): 	at android.accounts.AbstractAccountAuthenticator$Transport.getAuthToken(AbstractAccountAuthenticator.java:248)
+11-10 11:27:59.735 W/Auth    (21959): 	at android.accounts.IAccountAuthenticator$Stub.onTransact(IAccountAuthenticator.java:250)
+11-10 11:27:59.735 W/Auth    (21959): 	at android.os.Binder.transact(Binder.java:1361)
+11-10 11:27:59.735 W/Auth    (21959): 	at dfdc.onTransact(:com.google.android.gms@264330035@26.43.30 (260400-1006944126):8)
+11-10 11:27:59.735 W/Auth    (21959): 	at android.os.Binder.transact(Binder.java:1361)
+11-10 11:27:59.735 W/Auth    (21959): 	at cojq.onTransact(:com.google.android.gms@264330035@26.43.30 (260400-1006944126):168)
+11-10 11:27:59.735 W/Auth    (21959): 	at android.os.Binder.execTransactInternal(Binder.java:1534)
+11-10 11:27:59.735 W/Auth    (21959): 	at android.os.Binder.execTransact(Binder.java:1460)
+11-10 11:27:59.735 W/Auth    (21959): [RequestTokenManager] Message is Long live credential not available. [CONTEXT service_id=343 ]
+11-10 11:27:59.752 I/Auth    (21959): (REDACTED) [GetToken] GetToken failed for app=%s with userRecoverable status: %s 
+11-10 11:27:59.752 W/Auth    (21959): [ChimeraGetToken] exception while trying to fetch auth tokens for app=com.google.android.gms, scope=oauth2:https://www.googleapis.com/auth/googleplay [CONTEXT service_id=153 ]
+11-10 11:27:59.752 W/Auth    (21959): anap: GetToken failed with status code and recovery intent: BadAuthentication
+11-10 11:27:59.752 W/Auth    (21959): 	at anau.b(:com.google.android.gms@264330035@26.43.30 (260400-1006944126):322)
+11-10 11:27:59.752 W/Auth    (21959): 	at affu.d(:com.google.android.gms@264330035@26.43.30 (260400-1006944126):971)
+11-10 11:27:59.752 W/Auth    (21959): 	at amtu.getAuthToken(:com.google.android.gms@264330035@26.43.30 (260400-1006944126):354)
+11-10 11:27:59.752 W/Auth    (21959): 	at android.accounts.AbstractAccountAuthenticator$Transport.getAuthToken(AbstractAccountAuthenticator.java:248)
+11-10 11:27:59.752 W/Auth    (21959): 	at android.accounts.IAccountAuthenticator$Stub.onTransact(IAccountAuthenticator.java:250)
+11-10 11:27:59.752 W/Auth    (21959): 	at android.os.Binder.transact(Binder.java:1361)
+11-10 11:27:59.752 W/Auth    (21959): 	at dfdc.onTransact(:com.google.android.gms@264330035@26.43.30 (260400-1006944126):8)
+11-10 11:27:59.752 W/Auth    (21959): 	at android.os.Binder.transact(Binder.java:1361)
+11-10 11:27:59.752 W/Auth    (21959): 	at cojq.onTransact(:com.google.android.gms@264330035@26.43.30 (260400-1006944126):168)
+11-10 11:27:59.752 W/Auth    (21959): 	at android.os.Binder.execTransactInternal(Binder.java:1534)
+11-10 11:27:59.752 W/Auth    (21959): 	at android.os.Binder.execTransact(Binder.java:1460)
+11-10 11:27:59.753 W/Auth    (21959): [GmsAccountAuthenticatorImpl] error status while fetching token:BadAuthentication [CONTEXT service_id=343 ]
+11-10 11:27:59.757 E/ApplicationHelper( 2110): Fail to get PackageManager
+11-10 11:27:59.757 E/ApplicationHelper( 2110): Fail to get PackageManager
+11-10 11:27:59.758 E/ApplicationHelper( 2110): Fail to get PackageManager
+11-10 11:27:59.758 E/ApplicationHelper( 2110): Fail to get PackageManager
+11-10 11:27:59.759 I/Finsky  (29835): [82471] Completed 1 account content syncs with 0 successful.
+11-10 11:27:59.759 I/Finsky  (29835): [2] [ContentSync] Installation state replication failed, parameters=Id: 12-1, CT: 1794299155954, Constraints: [{ L: 100000, D: 86400000, C: CHARGING_NONE, I: IDLE_NONE, N: NET_ANY, B: BATTERY_ANY }].
+11-10 11:27:59.759 I/Finsky  (29835): [2] [ContentSync] Giving up after 5 failures.
+11-10 11:27:59.760 I/Finsky  (29835): [2] SCH: jobFinished: 12-1. TimeElapsed: 7061ms.
+11-10 11:27:59.760 I/Finsky  (29835): [2] WM::SCH: Logging work end for 12-1
+11-10 11:27:59.771 I/Finsky  (29835): [82294] SCH: Scheduling phonesky job Id: 1-1337, CT: 1794267032735, Constraints: [{ L: 43071999, D: 86271999, C: CHARGING_NONE, I: IDLE_NONE, N: NET_ANY, B: BATTERY_ANY }]
+11-10 11:27:59.771 I/Finsky  (29835): [82294] SCH: Scheduling phonesky job Id: 34-4018, CT: 1794267049915, Constraints: [{ L: 604800000, D: 2505727620, C: CHARGING_NONE, I: IDLE_NONE, N: NET_ANY, B: BATTERY_ANY }]
+11-10 11:27:59.771 I/Finsky  (29835): [82294] SCH: Scheduling phonesky job Id: 34-4027, CT: 1794267049916, Constraints: [{ L: 604800000, D: 2585019550, C: CHARGING_NONE, I: IDLE_NONE, N: NET_ANY, B: BATTERY_ANY }]
+11-10 11:27:59.771 I/Finsky  (29835): [82294] SCH: Scheduling phonesky job Id: 34-4033, CT: 1794267049915, Constraints: [{ L: 72213387, D: 1368213387, C: CHARGING_NONE, I: IDLE_NONE, N: NET_ANY, B: BATTERY_ANY }]
+11-10 11:27:59.775 I/Finsky  (29835): [82299] SCH: Scheduling 1 system job(s)
+11-10 11:27:59.775 I/Finsky  (29835): [82299] SCH: Scheduling system job Id: 9130, L: 10824959, D: 54024959, C: false, I: false, N: 1
+11-10 11:27:59.783 I/Finsky  (29835): [82469] SCH: job service finished with id 9125.
+11-10 11:27:59.787 E/ApplicationHelper( 2110): Fail to get PackageManager
+11-10 11:27:59.789 W/JobScheduler.Concurrency( 2110): Had fewer than 16 in existence
+11-10 11:27:59.789 E/ApplicationHelper( 2110): Fail to get PackageManager
+11-10 11:27:59.790 W/JobScheduler.Concurrency( 2110): Had fewer than 16 in existence
+11-10 11:27:59.792 I/tranpm/ServicePolicy( 2110): isBlockHsB1 true
+11-10 11:27:59.792 I/tranpm/ServicePolicy( 2110): limitBindServiceLocked by hs&job - cold: callingPackage = android, targetPkg = ru.rostel
+11-10 11:27:59.793 W/ActivityManager( 2110): Unbind failed: could not find connection for android.app.LoadedApk$ServiceDispatcher$InnerConnection@15fe34a
+11-10 11:27:59.794 E/JobScheduler.Concurrency( 2110): Error executing JobStatus{8ebacb0 #u0a276/88123556 ru.rostel/ru.rustore.sdk.metrics.internal.presentation.SendMetricsEventJobService u=0 s=10276 TIME=-9h24m15s764ms:+14h35m44s236ms PERIODIC PERSISTED READY}
+11-10 11:27:59.796 I/tranpm/ServicePolicy( 2110): isBlockHsB1 true
+11-10 11:27:59.797 I/tranpm/ServicePolicy( 2110): limitBindServiceLocked by hs&job - cold: callingPackage = android, targetPkg = ru.yota.android
+11-10 11:27:59.798 W/ActivityManager( 2110): Unbind failed: could not find connection for android.app.LoadedApk$ServiceDispatcher$InnerConnection@bbed3d8
+11-10 11:27:59.798 E/JobScheduler.Concurrency( 2110): Error executing JobStatus{c7fe9d2 #u0a337/88123556 ru.yota.android/ru.rustore.sdk.metrics.internal.presentation.SendMetricsEventJobService u=0 s=10337 TIME=-15h39m28s236ms:+8h20m31s764ms PERIODIC PERSISTED READY}
+11-10 11:28:00.257 E/frs     ( 5119): Failed to open /sys/kernel/thermal/frs_nl_id: No such file or directory
+11-10 11:28:00.257 I/frs     ( 5119): read netlink id fail, reason:No such file or directory
+11-10 11:28:00.366 I/TranHBMManagerService( 2110): processValuesLocked normal temperature=279,Threshold=410
+11-10 11:28:00.366 I/TranHBMComponentImpl( 2110): updateBatteryLevel:99
+11-10 11:28:00.373 I/ChargeAnima(11305): TrSysChargeUtils-updateNativeCharge pumpstat Not fast charge}
+11-10 11:28:00.378 I/TranTele/TranPhoneInterfaceManager(13096): [onReceive] action: android.intent.action.BATTERY_CHANGED
+11-10 11:28:00.382 W/BatteryLabPowerSaveUtils(30095): isPowerSaveOpen: false
+11-10 11:28:00.384 I/TranClouldConfigObserver( 3424): onReceive called: Intent.action = android.intent.action.BATTERY_CHANGED
+11-10 11:28:01.103 I/thermal_repeater( 1822): [recvMdThermalInfo] ret=28, strLen=127,  3, 22, -50, 0, 32767, 10453
+11-10 11:28:01.949 W/MTK_FG_FUEL(10506): fd < 0, init first!
+11-10 11:28:01.949 W/MTK_FG_FUEL(10506): init failed, return!
+11-10 11:28:02.612 I/Hiber/stateManager( 2110): unfreeze uid: 10319 org.telegram.messenger pids:[23996]  reason:wakelock   cpninfo: costTime=3ms ,last freeze 11s ago
+11-10 11:28:02.612 I/Hiber/appStateMachine( 2110): uid=10319, pkg=org.telegram.messenger, transition from Frozen to Running, reason=wakelock
+11-10 11:28:02.612 I/Hiber/appStateMachine( 2110): uid:10319 exit FrozenState
+11-10 11:28:02.613 I/Hiber/proxyManager( 2110): up_service: 10319
+11-10 11:28:02.613 I/Hiber/proxyManager( 2110): un_job: 10319
+11-10 11:28:02.614 I/Hiber/proxyManager( 2110): up_sensor: uid=10319, pkgName=org.telegram.messenger
+11-10 11:28:02.617 I/Choreographer(23996): Skipped 681 frames!  The application may be doing too much work on its main thread.
+11-10 11:28:02.618 I/AlarmManager(21959): setExactAndAllowWhileIdle [name: FcmRetry type: 2 triggerAtMillis: 1157261312]
+11-10 11:28:02.627 E/ApplicationHelper( 2110): Fail to get PackageManager
+11-10 11:28:02.643 E/ApplicationHelper( 2110): Fail to get PackageManager
+11-10 11:28:02.643 E/ApplicationHelper( 2110): Fail to get PackageManager
+11-10 11:28:02.644 E/ApplicationHelper( 2110): Fail to get PackageManager
+11-10 11:28:02.644 E/ApplicationHelper( 2110): Fail to get PackageManager
+11-10 11:28:02.648 E/ApplicationHelper( 2110): Fail to get PackageManager
+11-10 11:28:03.201 I/PlayCommon(29835): [82319] Preparing logs for uploading
+11-10 11:28:03.209 E/ApplicationHelper( 2110): Fail to get PackageManager
+11-10 11:28:03.209 E/ApplicationHelper( 2110): Fail to get PackageManager
+11-10 11:28:03.215 E/ApplicationHelper( 2110): Fail to get PackageManager
+11-10 11:28:03.216 E/ApplicationHelper( 2110): Fail to get PackageManager
+11-10 11:28:03.267 I/android.hardware.thermal-service.mediatek( 1455): getTemperaturesWithType TemperatureType: 3
+11-10 11:28:03.267 W/android.hardware.thermal-service.mediatek( 1455): i=0 tz_data[i].tz_idx[0]=1
+11-10 11:28:03.267 W/android.hardware.thermal-service.mediatek( 1455): i=1 tz_data[i].tz_idx[0]=1
+11-10 11:28:03.267 W/android.hardware.thermal-service.mediatek( 1455): i=2 tz_data[i].tz_idx[0]=4
+11-10 11:28:03.267 W/android.hardware.thermal-service.mediatek( 1455): i=3 tz_data[i].tz_idx[0]=5
+11-10 11:28:03.268 I/android.hardware.thermal-service.mediatek( 1455): fill_temperatures filterType1 name: SKIN type: SKIN throttlingStatus: NONE value: 29.639 ret_temps size 0
+11-10 11:28:03.268 W/android.hardware.thermal-service.mediatek( 1455): i=4 tz_data[i].tz_idx[0]=-1
+11-10 11:28:03.268 W/android.hardware.thermal-service.mediatek( 1455): i=5 tz_data[i].tz_idx[0]=6
+11-10 11:28:03.268 W/android.hardware.thermal-service.mediatek( 1455): i=6 tz_data[i].tz_idx[0]=-1
+11-10 11:28:03.268 W/android.hardware.thermal-service.mediatek( 1455): i=7 tz_data[i].tz_idx[0]=-1
+11-10 11:28:03.268 W/android.hardware.thermal-service.mediatek( 1455): i=8 tz_data[i].tz_idx[0]=-1
+11-10 11:28:03.268 W/android.hardware.thermal-service.mediatek( 1455): i=9 tz_data[i].tz_idx[0]=1
+11-10 11:28:03.268 W/android.hardware.thermal-service.mediatek( 1455): i=10 tz_data[i].tz_idx[0]=1
+11-10 11:28:03.268 W/android.hardware.thermal-service.mediatek( 1455): i=11 tz_data[i].tz_idx[0]=-1
+11-10 11:28:03.268 W/android.hardware.thermal-service.mediatek( 1455): i=12 tz_data[i].tz_idx[0]=-1
+11-10 11:28:03.268 W/android.hardware.thermal-service.mediatek( 1455): i=13 tz_data[i].tz_idx[0]=1
+11-10 11:28:03.280 E/ApplicationHelper( 2110): Fail to get PackageManager
+11-10 11:28:03.280 E/ApplicationHelper( 2110): Fail to get PackageManager
+11-10 11:28:03.280 I/PlayCommon(29835): [82319] Connecting to server: https://play.googleapis.com/play/log?format=raw&proto_v2=true
+11-10 11:28:03.281 E/ApplicationHelper( 2110): Fail to get PackageManager
+11-10 11:28:03.281 E/ApplicationHelper( 2110): Fail to get PackageManager
+11-10 11:28:03.283 I/resolv  ( 1415): GetAddrInfoHandler::run: {423 262567 423 983463 10107 0}
+11-10 11:28:03.285 I/resolv  ( 1415): res_nmkquery: (QUERY, IN, AAAA)
+11-10 11:28:03.285 I/resolv  ( 1415): res_nmkquery: (QUERY, IN, A)
+11-10 11:28:03.286 I/resolv  ( 1415): res_stats_usable_server: too many resolution errors, ignoring server
+11-10 11:28:03.286 I/resolv  ( 1415): res_stats_usable_server: too many resolution errors, ignoring server
+11-10 11:28:03.288 I/resolv  ( 1415): res_stats_usable_server: too many resolution errors, ignoring server
+11-10 11:28:03.288 I/resolv  ( 1415): res_stats_usable_server: too many resolution errors, ignoring server
+11-10 11:28:03.298 I/resolv  ( 1415): res_nsend: used send_dg 261 terrno: 0
+11-10 11:28:03.298 I/resolv  ( 1415): res_nsend: used send_dg 165 terrno: 0
+11-10 11:28:03.299 I/resolv  ( 1415): doQuery: rcode=0, ancount=8, return value=261
+11-10 11:28:03.299 I/resolv  ( 1415): doQuery: rcode=0, ancount=8, return value=165
+11-10 11:28:03.792 E/ApplicationHelper( 2110): Fail to get PackageManager
+11-10 11:28:03.821 I/PlayCommon(29835): [82319] Successfully uploaded logs.
+11-10 11:28:05.258 E/frs     ( 5119): Failed to open /sys/kernel/thermal/frs_nl_id: No such file or directory
+11-10 11:28:05.258 I/frs     ( 5119): read netlink id fail, reason:No such file or directory
+11-10 11:28:05.364 I/TranHBMManagerService( 2110): processValuesLocked normal temperature=278,Threshold=410
+11-10 11:28:05.364 I/TranHBMComponentImpl( 2110): updateBatteryLevel:99
+11-10 11:28:05.377 I/ChargeAnima(11305): TrSysChargeUtils-updateNativeCharge pumpstat Not fast charge}
+11-10 11:28:05.382 I/TranTele/TranPhoneInterfaceManager(13096): [onReceive] action: android.intent.action.BATTERY_CHANGED
+11-10 11:28:05.385 W/BatteryLabPowerSaveUtils(30095): isPowerSaveOpen: false
+11-10 11:28:05.386 I/TranClouldConfigObserver( 3424): onReceive called: Intent.action = android.intent.action.BATTERY_CHANGED
+11-10 11:28:06.965 W/MTK_FG_FUEL(10519): fd < 0, init first!
+11-10 11:28:06.965 W/MTK_FG_FUEL(10519): init failed, return!
+11-10 11:28:07.068 I/DataStorageManager( 5704): batchSaveRunnable  isBatchSaveRunning true
+11-10 11:28:07.068 I/DataStorageManager( 5704): postBatchSave skip and call next 10s
+11-10 11:28:07.618 I/Hiber/importantScene( 2110): isTrafficActive uid:10319 speed :0
+11-10 11:28:07.619 I/Hiber/appStateMachine( 2110): uid:10319 enter FrozenState
+11-10 11:28:07.624 I/Hiber/stateManager( 2110): freeze uid: 10319 org.telegram.messenger costTime=6ms ,last unfreeze 5s ago
+11-10 11:28:07.624 I/Hiber/restrictionPolicy( 2110): uid:10319  pkgName:org.telegram.messenger isAllowedNet
+11-10 11:28:07.625 I/Hiber/nativeServiceClient( 2110): watch app network uid=10319, persistent=0
+11-10 11:28:07.625 I/Hiber/hiber( 2110): msg for start proxy frozen state
+11-10 11:28:07.626 I/Hiber/proxyManager( 2110): p_service: 10319
+11-10 11:28:07.626 I/Hiber/proxyManager( 2110): p_job: 10319 pkgName=org.telegram.messenger which=2
+11-10 11:28:07.626 I/Hiber/hiber( 2110): proxy alarm (uid=10319, pkgName=org.telegram.messenger)
+11-10 11:28:07.626 I/Hiber/proxyManager( 2110): p_alarm: uid=10319, pkgName=org.telegram.messenger
+11-10 11:28:07.627 I/Hiber/proxyManager( 2110): p_sensor: uid=10319, pkgName=org.telegram.messenger
+11-10 11:28:07.740 I/netd    ( 1415): setProcSysNet(4, 2, wlan1, retrans_time_ms, 750) <0.74ms>
+11-10 11:28:07.741 I/netd    ( 1415): setProcSysNet(4, 2, wlan1, ucast_solicit, 10) <0.33ms>
+11-10 11:28:07.743 I/netd    ( 1415): setProcSysNet(6, 2, wlan1, retrans_time_ms, 750) <0.47ms>
+11-10 11:28:07.744 I/netd    ( 1415): setProcSysNet(6, 2, wlan1, ucast_solicit, 10) <0.25ms>
+11-10 11:28:08.627 I/Hiber/nativeServiceClient( 2110): check binder uid=10319
+11-10 11:28:10.258 E/frs     ( 5119): Failed to open /sys/kernel/thermal/frs_nl_id: No such file or directory
+11-10 11:28:10.259 I/frs     ( 5119): read netlink id fail, reason:No such file or directory
+11-10 11:28:11.123 I/thermal_repeater( 1822): [recvMdThermalInfo] ret=28, strLen=127,  3, 21, -50, 0, 32767, 10453
+11-10 11:28:11.990 W/MTK_FG_FUEL(10520): fd < 0, init first!
+11-10 11:28:11.990 W/MTK_FG_FUEL(10520): init failed, return!
+11-10 11:28:12.022 I/Hiber/stateManager( 2110): unfreeze uid: 10275 com.vkontakte.android pids:[6911]  reason:packet   cpninfo:TRANSACTION_-1 costTime=2ms ,last freeze 19s ago
+11-10 11:28:12.022 I/Hiber/appStateMachine( 2110): uid=10275, pkg=com.vkontakte.android, transition from Frozen to Running, reason=packet
+11-10 11:28:12.023 I/Hiber/appStateMachine( 2110): uid:10275 exit FrozenState
+11-10 11:28:12.024 I/Hiber/proxyManager( 2110): up_service: 10275
+11-10 11:28:12.024 I/Hiber/proxyManager( 2110): un_job: 10275
+11-10 11:28:12.027 I/Hiber/proxyManager( 2110): up_sensor: uid=10275, pkgName=com.vkontakte.android
+11-10 11:28:13.306 I/android.hardware.thermal-service.mediatek( 1455): getTemperaturesWithType TemperatureType: 3
+11-10 11:28:13.307 W/android.hardware.thermal-service.mediatek( 1455): i=0 tz_data[i].tz_idx[0]=1
+11-10 11:28:13.307 W/android.hardware.thermal-service.mediatek( 1455): i=1 tz_data[i].tz_idx[0]=1
+11-10 11:28:13.308 W/android.hardware.thermal-service.mediatek( 1455): i=2 tz_data[i].tz_idx[0]=4
+11-10 11:28:13.308 W/android.hardware.thermal-service.mediatek( 1455): i=3 tz_data[i].tz_idx[0]=5
+11-10 11:28:13.308 I/android.hardware.thermal-service.mediatek( 1455): fill_temperatures filterType1 name: SKIN type: SKIN throttlingStatus: NONE value: 29.595 ret_temps size 0
+11-10 11:28:13.308 W/android.hardware.thermal-service.mediatek( 1455): i=4 tz_data[i].tz_idx[0]=-1
+11-10 11:28:13.308 W/android.hardware.thermal-service.mediatek( 1455): i=5 tz_data[i].tz_idx[0]=6
+11-10 11:28:13.308 W/android.hardware.thermal-service.mediatek( 1455): i=6 tz_data[i].tz_idx[0]=-1
+11-10 11:28:13.308 W/android.hardware.thermal-service.mediatek( 1455): i=7 tz_data[i].tz_idx[0]=-1
+11-10 11:28:13.308 W/android.hardware.thermal-service.mediatek( 1455): i=8 tz_data[i].tz_idx[0]=-1
+11-10 11:28:13.308 W/android.hardware.thermal-service.mediatek( 1455): i=9 tz_data[i].tz_idx[0]=1
+11-10 11:28:13.308 W/android.hardware.thermal-service.mediatek( 1455): i=10 tz_data[i].tz_idx[0]=1
+11-10 11:28:13.308 W/android.hardware.thermal-service.mediatek( 1455): i=11 tz_data[i].tz_idx[0]=-1
+11-10 11:28:13.308 W/android.hardware.thermal-service.mediatek( 1455): i=12 tz_data[i].tz_idx[0]=-1
+11-10 11:28:13.308 W/android.hardware.thermal-service.mediatek( 1455): i=13 tz_data[i].tz_idx[0]=1
+11-10 11:28:13.668 I/Hiber/importantScene( 2110): wallpaper: packageName=com.transsion.livewallpaper.template
+11-10 11:28:13.668 I/Hiber/appStateMachine( 2110): uid:10118, pkg=com.transsion.livewallpaper.template  can't transition from R to F ,importantcase is : wall-paper
+11-10 11:28:15.259 E/frs     ( 5119): Failed to open /sys/kernel/thermal/frs_nl_id: No such file or directory
+11-10 11:28:15.259 I/frs     ( 5119): read netlink id fail, reason:No such file or directory
+11-10 11:28:15.979 I/adbd    ( 1621): adbd service requested 'shell,v2,TERM=xterm-256color:export ANDROID_LOG_TAGS=''; exec logcat '-d' '-v' 'time''
