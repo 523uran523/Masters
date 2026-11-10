@@ -36,7 +36,7 @@
 | release-04427 | docs/specs/2026-11-09-release-04427.md | senior | **готов к публикации** (Э4: депозиты/абонементы/сертификаты, отложенная выручка по §12.1; 0.4.4+27, code 27) |
 | release-04528 | docs/specs/2026-11-10-release-04528.md | senior | **опубликовано** (8062f9e; 0.4.5+28, code 28, SHA 47c2abe0…; Э5: точки, партии/FEFO, приёмка; сервер поднят с code 22 сразу до 28 — 23…27 не заливались, их изменения в changelog) |
 | startup-hang-diagnosis (зависание на старте Android) | docs/specs/2026-11-10-startup-hang-diagnosis.md | senior | **принято** (160aec5: CREATE TABLE attribute_types в _ensureHotfixColumns — путь v23-миграции; 247/247, analyze 0 ошибок; на телефоне старт ОК) |
-| release-04629 (hotfix после startup-hang) | — | senior | **выдано** (0.4.6+29, code 29; фикс старта + публикации на сервер) |
+| release-04629 (hotfix после startup-hang) | docs/specs/2026-11-10-startup-hang-diagnosis.md | senior | **принято/опубликовано** (d604a4c; 0.4.6+29, code 29, SHA d1db087b…; APK для sideload в Documents/Downloads; зеркало 192.168.1.112 недоступно — не обновлено) |
 
 ## План 0.4.x: универсальный учёт (общее ТЗ — `docs/confectionery-use-cases-analysis.md`)
 
