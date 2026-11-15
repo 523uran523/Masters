@@ -172,6 +172,29 @@ void main() {
   });
 
   group('списание материалов заказа по составу', () {
+    test('дробный расход сохраняется в остатке и движении', () async {
+      final wood = await store.createInventoryItem(name: 'Доска', unit: 'м');
+      await store.receiveStock(itemId: wood.id, qty: 2);
+      final shelf = await store.createInventoryItem(name: 'Полка');
+      await store.saveItemComposition(shelf.id, [
+        InventoryCompositionLine(
+          id: '',
+          itemId: shelf.id,
+          componentId: wood.id,
+          qty: 0.75,
+          priceCents: 10000,
+        ),
+      ]);
+      final job = await store.createJob(clientId: clientId, title: 'Полка');
+      final line = await store.addCatalogLine(jobId: job.id, itemId: shelf.id);
+      await store.writeOffJobMaterials(job.id, lineIds: [line.id]);
+      expect(store.movementsForItem(wood.id).first.qty, 0.75);
+      expect(store.inventoryItems.firstWhere((item) => item.id == wood.id).stockQty, 1.25);
+      await store.load();
+      expect(store.movementsForItem(wood.id).first.qty, 0.75);
+      expect(store.inventoryItems.firstWhere((item) => item.id == wood.id).stockQty, 1.25);
+    });
+
     test('расход = количество строки × количество компонента', () async {
       final flour = await store.createInventoryItem(
         name: 'Мука',

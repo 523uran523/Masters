@@ -138,6 +138,76 @@ void main() {
   });
 
   group('store unified events (integration)', () {
+    test('concurrent lead conversion returns the same order', () async {
+      final (db, store) = await openStore();
+      try {
+        final lead = await store.createLead(name: 'Заявка', budgetCents: 10000);
+        final jobs = await Future.wait([
+          store.convertLeadToJob(lead.id, title: 'Заказ'),
+          store.convertLeadToJob(lead.id, title: 'Заказ'),
+        ]);
+        expect(jobs.first.id, jobs.last.id);
+        await store.load();
+        expect(store.jobs.where((job) => job.leadId == lead.id), hasLength(1));
+        expect(store.obligationsForJob(jobs.first.id), hasLength(1));
+        expect(store.leadById(lead.id)?.convertedJobId, jobs.first.id);
+      } finally {
+        await db.close();
+      }
+    });
+
+    test('failed lead conversion rolls back the client and order', () async {
+      final (db, store) = await openStore();
+      try {
+        final lead = await store.createLead(name: 'Заявка', budgetCents: 10000);
+        await db.database.execute('''
+          CREATE TRIGGER reject_lead_obligation BEFORE INSERT ON obligations
+          BEGIN SELECT RAISE(ABORT, 'test failure'); END
+        ''');
+        await expectLater(store.convertLeadToJob(lead.id, title: 'Заказ'), throwsException);
+        await store.load();
+        expect(store.jobs.where((job) => job.leadId == lead.id), isEmpty);
+        expect(store.clients.where((client) => client.name == 'Заявка'), isEmpty);
+        expect(store.leadById(lead.id)?.convertedJobId, isNull);
+        await db.database.execute('DROP TRIGGER reject_lead_obligation');
+        final job = await store.convertLeadToJob(lead.id, title: 'Заказ');
+        expect(store.obligationsForJob(job.id), hasLength(1));
+      } finally {
+        await db.close();
+      }
+    });
+    test('booking handles adjacent slots, cancellation and reactivation', () async {
+      final (db, store) = await openStore();
+      try {
+        final start = DateTime(2026, 6, 15, 10);
+        final first = await store.createAppointment(title: 'Первый', startAt: start);
+        final second = await store.createAppointment(
+          title: 'Второй',
+          startAt: start.add(const Duration(hours: 1)),
+        );
+        await expectLater(
+          store.updateAppointment(second.copyWith(
+            startAt: start.add(const Duration(minutes: 30)),
+            endAt: start.add(const Duration(hours: 1, minutes: 30)),
+          )),
+          throwsStateError,
+        );
+        expect(store.appointmentById(second.id)!.startAt, second.startAt);
+        await store.setAppointmentStatus(first.id, AppointmentStatus.cancelled);
+        final replacement = await store.createAppointment(title: 'Замена', startAt: start);
+        await expectLater(
+          store.setAppointmentStatus(first.id, AppointmentStatus.scheduled),
+          throwsStateError,
+        );
+        expect(store.appointmentById(first.id)!.status, AppointmentStatus.cancelled);
+        await store.load();
+        expect(store.appointmentById(replacement.id), isNotNull);
+        expect(store.appointmentById(first.id)!.status, AppointmentStatus.cancelled);
+      } finally {
+        await db.close();
+      }
+    });
+
     test('week with 5 appointments + 5 jobs shows in both views', () async {
       final (db, store) = await openStore();
       try {

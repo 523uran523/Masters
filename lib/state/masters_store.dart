@@ -1425,7 +1425,7 @@ class MastersStore extends ChangeNotifier {
         if (part.isLabor) continue;
         final componentId = part.componentId;
         if (componentId == null) continue;
-        final qty = (line.quantity * part.qty).roundToDouble();
+        final qty = line.quantity * part.qty;
         if (qty <= 0) continue;
         await adjustStock(
           itemId: componentId,
@@ -1832,19 +1832,16 @@ class MastersStore extends ChangeNotifier {
           : receiptPath?.trim(),
       createdAt: DateTime.now(),
     );
-    await _moneyTxRepo.save(tx);
-    _moneyTransactions = [tx, ..._moneyTransactions];
-    // Прямая оплата/возврат заказа в обход payObligation (kind=payment из
-    // старых экранов, возвраты операций) двигает прогресс обязательства,
-    // иначе долг клиента разойдётся с фактическими поступлениями.
-    if (obligationId == null &&
-        jobId != null &&
-        (kind == 'payment' || kind == 'sale')) {
-      await _applyJobPaymentToObligation(
-        jobId,
-        direction == 'in' ? amountCents : -amountCents,
-      );
+    final updatesOrder =
+        tx.isOrderPayment &&
+        (obligationId == null || tx.isOrderRefund || tx.reversesId != null);
+    if (jobId != null && updatesOrder) {
+      final updated = await _saveOrderPayment(tx, jobId);
+      if (updated != null) _cacheJobPaymentProgress(updated);
+    } else {
+      await _moneyTxRepo.save(tx);
     }
+    _moneyTransactions = [tx, ..._moneyTransactions];
     try {
       await _appDatabase.audit(
         action: 'money.transaction.add',
@@ -1855,6 +1852,76 @@ class MastersStore extends ChangeNotifier {
     } catch (_) {}
     notifyListeners();
     return tx;
+  }
+
+  Future<Obligation?> _saveOrderPayment(MoneyTransaction tx, String jobId) {
+    return _appDatabase.database.transaction((txn) async {
+      final money = MoneyTransactionRepository(txn);
+      final reversalOf = tx.reversesId;
+      if (reversalOf != null && await money.hasReversal(reversalOf)) {
+        throw StateError('Эта операция уже сторнирована.');
+      }
+      final obligations = ObligationRepository(txn);
+      final orderObligations = await obligations.forJob(jobId);
+      final eligible = orderObligations.where(
+        (o) =>
+            o.direction == 'receivable' &&
+            o.kind == 'client_payment' &&
+            o.status != 'cancelled',
+      );
+      final target = tx.obligationId == null
+          ? eligible.where((o) => !o.isClosed).firstOrNull ?? eligible.firstOrNull
+          : eligible.where((o) => o.id == tx.obligationId).firstOrNull;
+      final previousPaid = (await money.forJob(jobId))
+          .where(
+            (payment) =>
+                target == null ||
+                payment.obligationId == null ||
+                payment.obligationId == target.id,
+          )
+          .fold<int>(0, (sum, p) => sum + p.orderPaymentCents);
+      final nextPaid = previousPaid + tx.orderPaymentCents;
+      await money.save(tx);
+
+      if (target != null) {
+        // Apply the change in capped cash payments to the stored progress,
+        // which can also include customer credit and historical allocations.
+        final before = previousPaid.clamp(0, target.amountCents);
+        final after = nextPaid.clamp(0, target.amountCents);
+        final updated = _jobPaymentProgress(target, after - before);
+        if (updated != null) await obligations.save(updated);
+        return updated;
+      }
+
+      final job = jobById(jobId);
+      // Legacy payments can exist without a stored receivable.
+      if (!tx.isOrderRefund ||
+          orderObligations.isNotEmpty ||
+          job == null ||
+          job.priceCents <= 0 ||
+          previousPaid <= 0 ||
+          nextPaid >= job.priceCents) {
+        return null;
+      }
+      final paid = nextPaid.clamp(0, job.priceCents);
+      final created = Obligation(
+        id: newId(),
+        direction: 'receivable',
+        kind: 'client_payment',
+        counterpartyType: 'client',
+        counterpartyId: job.clientId,
+        jobId: job.id,
+        title: 'Оплата заказа: ${job.title}',
+        amountCents: job.priceCents,
+        paidCents: paid,
+        dueAt: job.dueDate ?? tx.createdAt,
+        status: paid > 0 ? 'partial' : 'planned',
+        createdAt: tx.createdAt,
+        updatedAt: tx.createdAt,
+      );
+      await obligations.save(created);
+      return created;
+    });
   }
 
   Future<void> _applyJobPaymentToObligation(
@@ -1872,21 +1939,34 @@ class MastersStore extends ChangeNotifier {
       }
     }
     if (target == null) return;
+    final updated = _jobPaymentProgress(target, deltaCents);
+    if (updated == null) return;
+    await _obligationRepo.save(updated);
+    _cacheJobPaymentProgress(updated);
+  }
+
+  Obligation? _jobPaymentProgress(Obligation target, int deltaCents) {
     final paid = (target.paidCents + deltaCents).clamp(0, target.amountCents);
-    if (paid == target.paidCents) return;
+    if (paid == target.paidCents) return null;
     final status = paid >= target.amountCents
         ? 'paid'
         : paid > 0
             ? 'partial'
             : 'planned';
-    final updated = target.copyWith(
+    return target.copyWith(
       paidCents: paid,
       status: status,
       updatedAt: DateTime.now(),
     );
-    await _obligationRepo.save(updated);
-    final idx = _obligations.indexWhere((o) => o.id == target!.id);
-    if (idx != -1) _obligations[idx] = updated;
+  }
+
+  void _cacheJobPaymentProgress(Obligation updated) {
+    final idx = _obligations.indexWhere((o) => o.id == updated.id);
+    if (idx == -1) {
+      _obligations = [updated, ..._obligations];
+    } else {
+      _obligations[idx] = updated;
+    }
   }
 
   Future<void> revertTransaction(String txId) async {
@@ -1914,6 +1994,7 @@ class MastersStore extends ChangeNotifier {
       shiftId: origin.shiftId,
       relatedTransactionId: origin.relatedTransactionId,
       reversesId: origin.id,
+      obligationId: origin.isOrderPayment ? origin.obligationId : null,
     );
 
     try {
@@ -2092,8 +2173,8 @@ class MastersStore extends ChangeNotifier {
   int paidForJob(String jobId) => _intCache.putIfAbsent(
     'paid:$jobId',
     () => _moneyTransactions
-        .where((t) => !t.voided && t.jobId == jobId && t.direction == 'in')
-        .fold(0, (s, t) => s + t.amountCents),
+        .where((t) => t.jobId == jobId)
+        .fold(0, (s, t) => s + t.orderPaymentCents),
   );
 
   /// Себестоимость заказа по строкам.
@@ -2525,11 +2606,13 @@ class MastersStore extends ChangeNotifier {
             .where((j) => j.clientId == clientId && !j.archived)
             .fold(0, (s, j) => s + j.priceCents);
         final paid = _moneyTransactions
-            .where(
-              (t) => !t.voided && t.clientId == clientId && t.direction == 'in',
-            )
-            .fold(0, (s, t) => s + t.amountCents);
-        return price - paid;
+            .where((t) => !t.voided && t.clientId == clientId)
+            .fold(0, (sum, t) {
+              if (t.jobId != null) return sum + t.orderPaymentCents;
+              return t.direction == 'in' ? sum + t.amountCents : sum;
+            });
+        final remaining = price - paid;
+        return remaining > 0 ? remaining : 0;
       });
 
   // Inventory
@@ -3741,14 +3824,6 @@ class MastersStore extends ChangeNotifier {
     final s = startAt ?? now;
     final e = endAt ?? s.add(const Duration(hours: 1));
     final r = resourceId ?? defaultResource()?.id;
-    final conflicts = _appointments.where(
-      (a) => a.resourceId == r && !a.endAt.isBefore(s) && !a.startAt.isAfter(e),
-    );
-    if (conflicts.isNotEmpty) {
-      throw StateError(
-        'Ресурс уже занят в это время. Выберите другое время.',
-      );
-    }
     final appt = Appointment(
       id: newId(),
       clientId: clientId,
@@ -3761,6 +3836,7 @@ class MastersStore extends ChangeNotifier {
       createdAt: now,
       updatedAt: now,
     );
+    _validateAppointment(appt);
     await _appointmentRepo.save(appt);
     _appointments = [..._appointments, appt];
     try {
@@ -3774,6 +3850,7 @@ class MastersStore extends ChangeNotifier {
   }
 
   Future<void> updateAppointment(Appointment a) async {
+    _validateAppointment(a);
     await ReminderService.cancelAppointmentReminder(a.id);
     final updated = a.copyWith(updatedAt: DateTime.now());
     await _appointmentRepo.save(updated);
@@ -3783,11 +3860,31 @@ class MastersStore extends ChangeNotifier {
     } else {
       _appointments[idx] = updated;
     }
-    await ReminderService.scheduleAppointmentReminder(
-      updated.title,
-      updated.startAt,
-    );
+    if (updated.status == AppointmentStatus.scheduled ||
+        updated.status == AppointmentStatus.confirmed) {
+      await ReminderService.scheduleAppointmentReminder(updated.title, updated.startAt);
+    }
     notifyListeners();
+  }
+
+  void _validateAppointment(Appointment appointment) {
+    if (!appointment.endAt.isAfter(appointment.startAt)) {
+      throw StateError('Время окончания должно быть позже времени начала.');
+    }
+    if (appointment.status != AppointmentStatus.scheduled &&
+        appointment.status != AppointmentStatus.confirmed) {
+      return;
+    }
+    final conflicts = _appointments.where((other) =>
+        other.id != appointment.id &&
+        other.resourceId == appointment.resourceId &&
+        (other.status == AppointmentStatus.scheduled ||
+            other.status == AppointmentStatus.confirmed) &&
+        other.startAt.isBefore(appointment.endAt) &&
+        appointment.startAt.isBefore(other.endAt));
+    if (conflicts.isNotEmpty) {
+      throw StateError('Ресурс уже занят в это время. Выберите другое время.');
+    }
   }
 
   Future<void> deleteAppointment(String id) async {
@@ -3805,6 +3902,7 @@ class MastersStore extends ChangeNotifier {
       status: status,
       updatedAt: DateTime.now(),
     );
+    _validateAppointment(updated);
     await ReminderService.cancelAppointmentReminder(id);
     await _appointmentRepo.save(updated);
     _appointments[idx] = updated;
@@ -5707,30 +5805,42 @@ class MastersStore extends ChangeNotifier {
     int priceCents = 0,
     DateTime? dueAt,
   }) async {
-    final lead =
-        leadById(leadId) ??
-        (throw ArgumentError('Заявка $leadId не найдена'));
-    var clientId = lead.clientId;
-    if (clientId == null || clientById(clientId) == null) {
-      final client = await createClient(name: lead.name, phone: lead.phone);
-      clientId = client.id;
-    }
-    final job = await createJob(
-      clientId: clientId,
-      title: title.trim().isEmpty ? (lead.request ?? lead.name) : title,
-      priceCents: priceCents > 0 ? priceCents : lead.budgetCents,
-      dueDate: dueAt,
-      note: lead.request,
-      leadId: lead.id,
-    );
-    await updateLead(
-      lead.copyWith(
-        status: 'converted',
-        clientId: clientId,
-        convertedJobId: job.id,
-      ),
-    );
-    return job;
+    ensurePeriodOpen();
+    final result = await _appDatabase.database.transaction((txn) async {
+      final rows = await txn.query('leads', where: 'id = ? AND deleted_at IS NULL', whereArgs: [leadId]);
+      if (rows.isEmpty) throw ArgumentError('Заявка $leadId не найдена');
+      final lead = Lead.fromMap(rows.single);
+      if (lead.convertedJobId != null) {
+        final existing = await txn.query('jobs', where: 'id = ? AND deleted_at IS NULL', whereArgs: [lead.convertedJobId]);
+        if (existing.isEmpty) throw StateError('Связанный заказ недоступен.');
+        return (job: Job.fromMap(existing.single), client: null as Client?, lead: lead, obligation: null as Obligation?);
+      }
+      var clientId = lead.clientId;
+      final clients = clientId == null ? [] : await txn.query('clients', columns: ['id'], where: 'id = ? AND deleted_at IS NULL', whereArgs: [clientId]);
+      Client? client;
+      final now = DateTime.now();
+      if (clients.isEmpty) {
+        client = Client(id: newId(), name: lead.name.trim(), phone: lead.phone.trim(), createdAt: now, updatedAt: now);
+        clientId = client.id;
+        await txn.insert('clients', client.toMap());
+      }
+      final job = Job(id: newId(), clientId: clientId!, title: title.trim().isEmpty ? (lead.request ?? lead.name) : title.trim(), priceCents: priceCents > 0 ? priceCents : lead.budgetCents, dueDate: dueAt, note: lead.request, leadId: lead.id, createdAt: now, updatedAt: now);
+      await txn.insert('jobs', job.toMap());
+      Obligation? obligation;
+      if (job.priceCents > 0) {
+        obligation = Obligation(id: newId(), direction: 'receivable', kind: 'client_payment', counterpartyType: 'client', counterpartyId: clientId, jobId: job.id, title: 'Оплата заказа: ${job.title}', amountCents: job.priceCents, dueAt: dueAt ?? now, createdAt: now, updatedAt: now);
+        await txn.insert('obligations', obligation.toMap());
+      }
+      final updatedLead = lead.copyWith(status: 'converted', clientId: clientId, convertedJobId: job.id, updatedAt: now);
+      await txn.update('leads', updatedLead.toMap(), where: 'id = ?', whereArgs: [leadId]);
+      return (job: job, client: client, lead: updatedLead, obligation: obligation);
+    });
+    if (result.client != null && clientById(result.client!.id) == null) _clients = [result.client!, ..._clients];
+    if (jobById(result.job.id) == null) _jobs = [result.job, ..._jobs];
+    _leads = [for (final lead in _leads) if (lead.id == leadId) result.lead else lead];
+    if (result.obligation != null) _obligations = [result.obligation!, ..._obligations];
+    notifyListeners();
+    return result.job;
   }
 
   /// Воронка: сколько заявок на каждом этапе и по каким источникам (§5.9).
@@ -6027,20 +6137,20 @@ class MastersStore extends ChangeNotifier {
         .fold(0, (sum, c) => sum + c.deltaCents);
   }
 
-  /// Признанная выручка за период `[from, to)` (§12.1): Σ поступлений − Δ Σ
-  /// `remaining_cents`. Граница «до» исключается, чтобы соседние периоды не
-  /// считали одну операцию дважды.
+  /// Признанная выручка за период `[from, to)` (§12.1): поступления за вычетом
+  /// возвратов по заказам и изменения отложенной выручки. Исключение верхней
+  /// границы защищает от двойного учёта на стыке соседних периодов.
   int recognizedRevenueCents(DateTime from, DateTime to) {
-    final inflow = _moneyTransactions
+    final netInflow = _moneyTransactions
         .where(
           (t) =>
               !t.voided &&
-              t.direction == 'in' &&
+              (t.direction == 'in' || t.isOrderRefund) &&
               !t.createdAt.isBefore(from) &&
               t.createdAt.isBefore(to),
         )
-        .fold(0, (sum, t) => sum + t.amountCents);
-    return inflow - deferredDeltaCents(from, to);
+        .fold(0, (sum, t) => sum + t.signedAmount);
+    return netInflow - deferredDeltaCents(from, to);
   }
 
   /// Счёт для клиентских денег: первый неархивированный, иначе любой, иначе null.

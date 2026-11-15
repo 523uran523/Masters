@@ -242,6 +242,228 @@ void main() {
     expect(store.clientDebtCents(client.id), 3000);
   });
 
+  test('reversal of a direct payment restores the balance and full debt', () async {
+    final client = await store.createClient(name: 'Client');
+    final job = await store.createJob(
+      clientId: client.id,
+      title: 'Order',
+      priceCents: 100000,
+    );
+    final payment = await store.addTransaction(
+      accountId: store.accounts.single.id,
+      kind: 'payment',
+      direction: 'in',
+      amountCents: 45000,
+      clientId: client.id,
+      jobId: job.id,
+    );
+    await store.revertTransaction(payment.id);
+    expect(store.totalBalanceCents(), 0);
+    expect(store.receivableForJob(job.id), 100000);
+    expect(store.paidForJob(job.id), 0);
+  });
+
+  test('reversing a linked payment restores debt and reduces revenue once', () async {
+    final client = await store.createClient(name: 'Client');
+    final job = await store.createJob(
+      clientId: client.id,
+      title: 'Order',
+      priceCents: 100000,
+    );
+    final account = store.accounts.single;
+    final obligation = store.openJobPaymentObligation(job.id)!;
+    for (final amount in [45000, 55000]) {
+      await store.payObligation(obligation.id, amountCents: amount, accountId: account.id);
+    }
+    final partial = store.moneyTransactions.singleWhere((t) => t.amountCents == 45000);
+    await appDb.database.update(
+      'money_transactions',
+      {'created_at': DateTime(2026, 6, 15).millisecondsSinceEpoch},
+      where: 'id = ?',
+      whereArgs: [partial.id],
+    );
+    await store.load();
+    expect(store.paidForJob(job.id), 100000);
+    expect(store.clientDebtCents(client.id), 0);
+
+    final outcomes = await Future.wait([
+      for (var attempt = 0; attempt < 2; attempt++)
+        () async {
+          try {
+            await store.revertTransaction(partial.id);
+            return true;
+          } on StateError {
+            return false;
+          }
+        }(),
+    ]);
+    expect(outcomes, unorderedEquals([true, false]));
+    await store.load();
+    final reversal = store.moneyTransactions.singleWhere((t) => t.reversesId == partial.id);
+    expect(reversal.obligationId, obligation.id);
+    expect(store.balanceCents(account.id), 55000);
+    expect(store.paidForJob(job.id), 55000);
+    expect(store.receivableForJob(job.id), 45000);
+    expect(store.clientDebtCents(client.id), 45000);
+    final historicalDay = DateTime(2026, 6, 15);
+    final historicalEnd = DateTime(2026, 6, 16);
+    final end = reversal.createdAt.add(const Duration(seconds: 1));
+    expect(store.recognizedRevenueCents(historicalDay, historicalEnd), 45000);
+    expect(store.recognizedRevenueCents(historicalEnd, end), 10000);
+    expect(store.recognizedRevenueCents(historicalDay, end), 55000);
+  });
+
+  test('returning only the overpayment keeps the order fully paid', () async {
+    final client = await store.createClient(name: 'Client');
+    final job = await store.createJob(
+      clientId: client.id,
+      title: 'Order',
+      priceCents: 100000,
+    );
+    final account = store.accounts.single;
+    Future<void> record(String direction, int amount) => store.addTransaction(
+      accountId: account.id,
+      kind: direction == 'in' ? 'payment' : 'refund',
+      direction: direction,
+      amountCents: amount,
+      clientId: client.id,
+      jobId: job.id,
+    );
+
+    await record('in', 125000);
+    expect(store.paidForJob(job.id), 125000);
+    expect(store.receivableForJob(job.id), 0);
+    expect(store.clientDebtCents(client.id), 0);
+
+    await record('out', 25000);
+    expect(store.balanceCents(account.id), 100000);
+    expect(store.paidForJob(job.id), 100000);
+    expect(store.receivableForJob(job.id), 0);
+    expect(store.clientDebtCents(client.id), 0);
+
+    await record('out', 20000);
+    expect(store.balanceCents(account.id), 80000);
+    expect(store.paidForJob(job.id), 80000);
+    expect(store.receivableForJob(job.id), 20000);
+    expect(store.clientDebtCents(client.id), 20000);
+  });
+
+  test('reversal restores a receivable on an old partially paid order', () async {
+    final client = await store.createClient(name: 'Client');
+    final job = await store.createJob(
+      clientId: client.id,
+      title: 'Old order',
+      priceCents: 100000,
+    );
+    final payment = await store.addTransaction(
+      accountId: store.accounts.single.id,
+      kind: 'client_payment',
+      direction: 'in',
+      amountCents: 60000,
+      clientId: client.id,
+      jobId: job.id,
+    );
+    await appDb.database.delete('obligations', where: 'job_id = ?', whereArgs: [job.id]);
+    await store.load();
+    expect(store.obligationsForJob(job.id), isEmpty);
+
+    await store.revertTransaction(payment.id);
+    await store.load();
+    expect(store.paidForJob(job.id), 0);
+    expect(store.receivableForJob(job.id), 100000);
+    expect(store.clientDebtCents(client.id), 100000);
+    expect(store.openJobPaymentObligation(job.id)?.status, 'planned');
+  });
+
+  test('reversing a refund restores the same receivable', () async {
+    final client = await store.createClient(name: 'Client');
+    final job = await store.createJob(
+      clientId: client.id,
+      title: 'Order',
+      priceCents: 100000,
+    );
+    final account = store.accounts.single;
+    final original = store.openJobPaymentObligation(job.id)!;
+    await store.payObligation(original.id, amountCents: 45000);
+    final other = Obligation.fromMap(original.toMap()
+      ..['id'] = 'earlier-receivable'
+      ..['due_at'] = original.dueAt.subtract(const Duration(days: 1)).millisecondsSinceEpoch);
+    await appDb.database.insert('obligations', other.toMap());
+    await store.load();
+
+    final refund = await store.addTransaction(
+      accountId: account.id,
+      kind: 'refund',
+      direction: 'out',
+      amountCents: 15000,
+      clientId: client.id,
+      jobId: job.id,
+      obligationId: original.id,
+    );
+    expect(store.obligationById(original.id)?.paidCents, 30000);
+    await store.revertTransaction(refund.id);
+    expect(store.obligationById(original.id)?.paidCents, 45000);
+    expect(store.obligationById(other.id)?.paidCents, 0);
+    expect(store.paidForJob(job.id), 45000);
+  });
+
+  test('a soft-deleted historical refund is excluded after loading', () async {
+    final client = await store.createClient(name: 'Client');
+    final job = await store.createJob(clientId: client.id, title: 'Order', priceCents: 100000);
+    final account = store.accounts.single;
+    final payment = await store.addTransaction(
+      accountId: account.id,
+      kind: 'payment',
+      direction: 'in',
+      amountCents: 45000,
+      clientId: client.id,
+      jobId: job.id,
+    );
+    await appDb.database.insert('money_transactions', payment.toMap()
+      ..['id'] = 'deleted-refund'
+      ..['kind'] = 'refund'
+      ..['direction'] = 'out'
+      ..['deleted_at'] = payment.createdAt.millisecondsSinceEpoch);
+    await store.load();
+    expect(store.moneyTransactions.single.id, payment.id);
+    expect(store.paidForJob(job.id), 45000);
+    expect(store.recognizedRevenueCents(DateTime(2000), payment.createdAt.add(const Duration(seconds: 1))), 45000);
+  });
+
+  test('failure to save debt rolls back the reversal', () async {
+    final client = await store.createClient(name: 'Client');
+    final job = await store.createJob(
+      clientId: client.id,
+      title: 'Order',
+      priceCents: 100000,
+    );
+    final payment = await store.addTransaction(
+      accountId: store.accounts.single.id,
+      kind: 'payment',
+      direction: 'in',
+      amountCents: 45000,
+      clientId: client.id,
+      jobId: job.id,
+    );
+    await appDb.database.execute('''
+      CREATE TRIGGER block_order_debt BEFORE INSERT ON obligations
+      BEGIN
+        SELECT RAISE(ABORT, 'test: debt write failed');
+      END
+    ''');
+
+    await expectLater(store.revertTransaction(payment.id), throwsException);
+    await store.load();
+    expect(store.moneyTransactions.single.id, payment.id);
+    expect(store.paidForJob(job.id), 45000);
+    expect(store.receivableForJob(job.id), 55000);
+
+    await appDb.database.execute('DROP TRIGGER block_order_debt');
+    await store.revertTransaction(payment.id);
+    expect(store.paidForJob(job.id), 0);
+    expect(store.receivableForJob(job.id), 100000);
+  });
+
   test('updateJob price change resyncs untouched obligation', () async {
     final client = await store.createClient(name: 'Client');
     final job = await store.createJob(

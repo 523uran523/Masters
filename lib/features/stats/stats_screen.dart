@@ -178,15 +178,16 @@ class _StatsScreenState extends State<StatsScreen> {
     final tx = store.moneyTransactions.where(inRange).toList();
     final txPrev = store.moneyTransactions.where(inPrev).toList();
 
-    // §12.1: выручка — одна формула в сторе (Σ поступлений − Δ обязательств),
-    // иначе депозит заедет в P&L дважды: как приход и как отработанная услуга.
+    // §12.1: выручка учитывает отложенные суммы и возвраты заказов.
     final revenue = store.recognizedRevenueCents(start, now);
     final revenuePrev = store.recognizedRevenueCents(prevStart, start);
+    bool isExpense(MoneyTransaction t) =>
+        t.direction == 'out' && !t.isOrderRefund;
     final expense = tx
-        .where((t) => t.direction == 'out')
+        .where(isExpense)
         .fold(0, (s, t) => s + t.amountCents);
     final expensePrev = txPrev
-        .where((t) => t.direction == 'out')
+        .where(isExpense)
         .fold(0, (s, t) => s + t.amountCents);
     final profit = revenue - expense;
     final profitPrev = revenuePrev - expensePrev;
@@ -227,7 +228,7 @@ class _StatsScreenState extends State<StatsScreen> {
       incomeCats[key] = (incomeCats[key] ?? 0) + t.amountCents;
     }
     final expenseCats = <String, int>{};
-    for (final t in tx.where((t) => t.direction == 'out')) {
+    for (final t in tx.where(isExpense)) {
       final key = t.category.isEmpty ? 'Без категории' : t.category;
       expenseCats[key] = (expenseCats[key] ?? 0) + t.amountCents;
     }
@@ -264,7 +265,7 @@ class _StatsScreenState extends State<StatsScreen> {
     }
     final topServicesList = topServices.entries.toList()
       ..sort((a, b) => b.value.compareTo(a.value));
-    for (final t in tx.where((t) => t.direction == 'out')) {
+    for (final t in tx.where(isExpense)) {
       final acc = store.accountById(t.accountId);
       final label = acc?.name ?? (t.accountId.isEmpty ? 'Счёт' : t.accountId);
       expenseByAccount[label] = (expenseByAccount[label] ?? 0) + t.amountCents;

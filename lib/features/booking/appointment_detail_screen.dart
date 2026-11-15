@@ -114,6 +114,10 @@ class _AppointmentDetailScreenState extends State<AppointmentDetailScreen> {
         ),
       );
       if (mounted) setState(() => _editing = false);
+    } on StateError catch (error) {
+      if (mounted) {
+        await showAppAlert(context, title: 'Проверьте запись', message: error.message);
+      }
     } finally {
       if (mounted) setState(() => _saving = false);
     }

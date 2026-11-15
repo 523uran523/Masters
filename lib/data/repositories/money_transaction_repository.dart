@@ -3,10 +3,21 @@ import '../models/money_transaction.dart';
 
 class MoneyTransactionRepository {
   MoneyTransactionRepository(this._db);
-  final Database _db;
+  final DatabaseExecutor _db;
+
+  Future<bool> hasReversal(String id) async {
+    final rows = await _db.query(
+      'money_transactions',
+      columns: ['id'],
+      where: 'reverses_id = ? AND voided = 0 AND deleted_at IS NULL',
+      whereArgs: [id],
+      limit: 1,
+    );
+    return rows.isNotEmpty;
+  }
 
   Future<List<MoneyTransaction>> getAll({bool includeVoided = false}) async {
-    final where = includeVoided ? null : 'voided = 0';
+    final where = includeVoided ? 'deleted_at IS NULL' : 'deleted_at IS NULL AND voided = 0';
     final rows = await _db.query('money_transactions',
         where: where, orderBy: 'created_at DESC');
     return rows.map(MoneyTransaction.fromMap).toList();
@@ -22,7 +33,7 @@ class MoneyTransactionRepository {
 
   Future<List<MoneyTransaction>> forJob(String jobId) async {
     final rows = await _db.query('money_transactions',
-        where: 'job_id = ? AND voided = 0',
+        where: 'job_id = ? AND voided = 0 AND deleted_at IS NULL',
         whereArgs: [jobId],
         orderBy: 'created_at DESC');
     return rows.map(MoneyTransaction.fromMap).toList();

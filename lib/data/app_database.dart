@@ -2153,11 +2153,13 @@ class AppDatabase {
             merged['deleted_at'] = local['deleted_at'];
           }
 
-          await txn.insert(
-            table,
-            merged,
-            conflictAlgorithm: ConflictAlgorithm.replace,
-          );
+          if (local == null) {
+            await txn.insert(table, merged);
+          } else {
+            // SQLite REPLACE deletes the existing row before inserting it.
+            // Update in place so foreign keys on dependent rows are preserved.
+            await txn.update(table, merged, where: 'id = ?', whereArgs: [id]);
+          }
           affected++;
         }
       }
@@ -2425,6 +2427,7 @@ class AppDatabase {
     var skipped = 0;
 
     await database.transaction((txn) async {
+      final pendingLeadLinks = <String, String>{};
       for (final table in _syncApplyOrder) {
         final rows = grouped[table];
         if (rows == null) continue;
@@ -2462,6 +2465,33 @@ class AppDatabase {
             }
           }
 
+          const financialTables = {
+            'money_transactions',
+            'obligations',
+            'employee_payments',
+            'client_credits',
+          };
+          if (local != null && financialTables.contains(table)) {
+            final pending = await txn.query(
+              'sync_outbox',
+              columns: ['id'],
+              where: 'table_name = ? AND row_id = ?',
+              whereArgs: [table, row.id],
+              limit: 1,
+            );
+            final source = row.data ?? const <String, Object?>{};
+            const metadata = {'updated_at', 'device_id'};
+            final differs = source.entries.any((entry) =>
+                !metadata.contains(entry.key) &&
+                local.containsKey(entry.key) &&
+                local[entry.key] != entry.value) ||
+                (row.deleted && local['deleted_at'] == null);
+            if (pending.isNotEmpty && differs) {
+              skipped++;
+              continue;
+            }
+          }
+
           final source = row.data ?? <String, Object?>{};
           final scanned = _mojibakeScanColumns[table] ?? const <String>[];
           final merged = <String, Object?>{};
@@ -2489,6 +2519,19 @@ class AppDatabase {
           if (row.deviceId.isNotEmpty) merged['device_id'] = row.deviceId;
           if (row.deleted && merged['deleted_at'] == null) {
             merged['deleted_at'] = stamp;
+          }
+
+          if (table == 'leads' && merged['converted_job_id'] is String) {
+            final jobId = merged['converted_job_id'] as String;
+            final job = await txn.query('jobs', columns: ['id'], where: 'id = ?', whereArgs: [jobId]);
+            if (job.isEmpty) {
+              if (!(grouped['jobs'] ?? const <SyncRow>[]).any((item) => item.id == jobId)) {
+                skipped++;
+                continue;
+              }
+              pendingLeadLinks[row.id] = jobId;
+              merged['converted_job_id'] = null;
+            }
           }
 
           try {
@@ -2519,6 +2562,12 @@ class AppDatabase {
             whereArgs: [table, row.id],
           );
         }
+      }
+      for (final entry in pendingLeadLinks.entries) {
+        final job = await txn.query('jobs', columns: ['id'], where: 'id = ?', whereArgs: [entry.value]);
+        if (job.isEmpty) throw StateError('Не удалось применить заказ связанной заявки.');
+        await txn.update('leads', {'converted_job_id': entry.value}, where: 'id = ?', whereArgs: [entry.key]);
+        await txn.delete('sync_outbox', where: 'table_name = ? AND row_id = ?', whereArgs: ['leads', entry.key]);
       }
     });
 

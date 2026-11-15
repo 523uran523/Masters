@@ -3,7 +3,7 @@ import '../models/obligation.dart';
 
 class ObligationRepository {
   ObligationRepository(this._db);
-  final Database _db;
+  final DatabaseExecutor _db;
 
   Future<List<Obligation>> getAll({bool includeCancelled = false}) async {
     final where = includeCancelled

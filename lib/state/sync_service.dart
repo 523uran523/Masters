@@ -35,7 +35,11 @@ class SyncService extends ChangeNotifier {
     required this.database,
     required this.settings,
     required this.store,
-  });
+    SyncClient Function(String)? clientFactory,
+  }) : _clientFactory = clientFactory ?? _defaultClient;
+
+  static SyncClient _defaultClient(String baseUrl) => SyncClient(baseUrl: baseUrl);
+  final SyncClient Function(String) _clientFactory;
 
   static const int _pushBatch = 200;
   static const int _pullBatch = 500;
@@ -232,7 +236,7 @@ class SyncService extends ChangeNotifier {
     _message = null;
     notifyListeners();
 
-    final client = SyncClient(baseUrl: settings.syncBaseUrl);
+    final client = _clientFactory(settings.syncBaseUrl);
     var pushed = 0;
     var received = 0;
     var applied = 0;
@@ -259,20 +263,31 @@ class SyncService extends ChangeNotifier {
           spaceId: spaceId,
           rows: batch.rows,
         );
+        final unresolved = result.conflicts.where((remote) {
+          final original = batch.rows.where(
+            (local) => local.table == remote.table && local.id == remote.id,
+          ).firstOrNull;
+          return original == null ||
+              original.updatedAt != remote.updatedAt ||
+              original.deviceId != remote.deviceId ||
+              original.deleted != remote.deleted ||
+              !mapEquals(original.data, remote.data);
+        });
+        if (unresolved.isNotEmpty) {
+          throw StateError(
+            'Обнаружен конфликт изменений. Локальные изменения сохранены. '
+            'Проверьте данные на устройствах перед повторным обменом.',
+          );
+        }
         await database.confirmSyncBatch(batch);
         pushed += batch.rows.length;
-
-        if (result.conflicts.isNotEmpty) {
-          final outcome = await database.applySyncRows(result.conflicts);
-          applied += outcome.applied;
-          keptLocal += outcome.keptLocal;
-          skipped += outcome.skipped;
-        }
         if (batch.rows.length < _pushBatch) break;
       }
 
       var since = settings.syncLastSeq;
       var cursor = '';
+      final pendingRows = <SyncRow>[];
+      var pullComplete = false;
       for (var round = 0; round < _maxRounds; round++) {
         final result = await client.pull(
           token: token,
@@ -284,16 +299,28 @@ class SyncService extends ChangeNotifier {
         if (result.reset) reset = true;
         received += result.rows.length;
 
-        if (result.rows.isNotEmpty) {
-          final outcome = await database.applySyncRows(result.rows);
-          applied += outcome.applied;
-          keptLocal += outcome.keptLocal;
-          skipped += outcome.skipped;
-        }
-
+        pendingRows.addAll(result.rows);
         since = result.next;
         cursor = result.cursor;
-        if (!result.more || result.rows.isEmpty) break;
+        if (!result.more) {
+          pullComplete = true;
+          break;
+        }
+        if (result.rows.isEmpty) {
+          throw StateError('Сервер вернул пустую страницу при незавершённой синхронизации.');
+        }
+      }
+      if (!pullComplete) {
+        throw StateError('Не удалось получить все страницы синхронизации.');
+      }
+      if (pendingRows.isNotEmpty) {
+        final outcome = await database.applySyncRows(pendingRows);
+        applied += outcome.applied;
+        keptLocal += outcome.keptLocal;
+        skipped += outcome.skipped;
+        if (outcome.skipped > 0) {
+          throw StateError('Не удалось применить все данные синхронизации. Повторите обмен.');
+        }
       }
       await settings.setSyncLastSeq(since);
 
@@ -323,6 +350,7 @@ class SyncService extends ChangeNotifier {
       if (!silent) notifyListeners();
       return null;
     } catch (error) {
+      if (applied > 0) await store.load();
       _error = 'Не удалось синхронизироваться: $error';
       return null;
     } finally {

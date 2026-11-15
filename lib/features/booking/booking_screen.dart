@@ -522,8 +522,9 @@ class _BookingScreenState extends State<BookingScreen> {
                                           ),
                                           CupertinoButton(
                                             padding: EdgeInsets.zero,
-                                            onPressed: () =>
-                                                store.updateAppointment(
+                                            onPressed: () async {
+                                              try {
+                                                await store.updateAppointment(
                                                   a.copyWith(
                                                     status:
                                                         a.status ==
@@ -534,7 +535,13 @@ class _BookingScreenState extends State<BookingScreen> {
                                                         : AppointmentStatus
                                                               .done,
                                                   ),
-                                                ),
+                                                );
+                                              } on StateError catch (error) {
+                                                if (context.mounted) {
+                                                  await showAppAlert(context, title: 'Проверьте запись', message: error.message);
+                                                }
+                                              }
+                                            },
                                             child: Icon(
                                               CupertinoIcons.checkmark_circle,
                                               size: 20,

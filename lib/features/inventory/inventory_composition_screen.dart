@@ -82,7 +82,114 @@ class _CompositionRow {
 class _InventoryCompositionScreenState
     extends State<InventoryCompositionScreen> {
   final List<_CompositionRow> _rows = [];
+  final _batchController = TextEditingController(text: '1');
   bool _saving = false;
+
+  Widget _batchPreview(MastersStore store, InventoryItem item) {
+    final count = int.tryParse(_batchController.text) ?? 0;
+    final quantities = <String, double>{};
+    for (final row in _rows) {
+      if (row.isLabor || row.componentId == null) continue;
+      final qty = row.qty;
+      if (!qty.isFinite || qty <= 0) continue;
+      quantities.update(
+        row.componentId!,
+        (value) => value + qty * count,
+        ifAbsent: () => qty * count,
+      );
+    }
+    final maxUnits = _maxProducibleUnits(store);
+    return AppCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text('План партии', style: TextStyle(fontWeight: FontWeight.w600)),
+          const Text('Расчёт по прямым компонентам текущего состава.'),
+          const SizedBox(height: 8),
+          CupertinoTextField(
+            controller: _batchController,
+            keyboardType: TextInputType.number,
+            prefix: const Padding(padding: EdgeInsets.only(left: 8), child: Text('Количество')),
+            onChanged: (_) => setState(() {}),
+          ),
+          if (count <= 0)
+            const Text('Укажите целое количество больше нуля.')
+          else ...[
+            const SizedBox(height: 8),
+            Text('Затраты по составу: ${_money(_totalCents * count)}'),
+            Text('Выручка по цене каталога: ${_money(item.sellPriceCents * count)}'),
+            for (final entry in quantities.entries)
+              for (final component in store.inventoryItems.where((value) => value.id == entry.key))
+                if (component.trackStock)
+                  Text('${component.name}: нужно ${_CompositionRow._fmtQty(entry.value)} ${component.unit}, '
+                      'на складе ${_CompositionRow._fmtQty(component.stockQty)} ${component.unit}'
+                      '${entry.value > component.stockQty ? ' · не хватает ${_CompositionRow._fmtQty(entry.value - component.stockQty)} ${component.unit} (примерно ${_money(((entry.value - component.stockQty) * component.costCents).round())})' : ' · останется ${_CompositionRow._fmtQty(component.stockQty - entry.value)} ${component.unit}'}'),
+          ],
+          const SizedBox(height: 8),
+          if (maxUnits == null)
+            const Text(
+              'Оценка недоступна: проверьте состав и остатки.',
+              style: TextStyle(fontSize: 13),
+            )
+          else
+            Text(
+              'Максимум по складу: $maxUnits ${item.unit}',
+              style: const TextStyle(fontWeight: FontWeight.w600),
+            ),
+        ],
+      ),
+    );
+  }
+
+  /// Оценка «сколько целых готовых изделий можно произвести из текущего
+  /// складского остатка». Только чтение: склад и БД не меняются.
+  ///
+  /// Дубли компонентов суммируются на одно изделие, ручной труд и
+  /// неотслеживаемые позиции игнорируются, отрицательный остаток
+  /// трактуется как ноль. Возвращает null, если нет отслеживаемого
+  /// компонента с положительной конечной потребностью — тогда оценка
+  /// не показывается, чтобы не вводить в заблуждение. Также возвращает
+  /// null, если у отслеживаемого компонента неконечная потребность,
+  /// переполнение агрегата, неконечный остаток или неконечное деление:
+  /// такие случаи нельзя пропускать, иначе оценка завышается.
+  int? _maxProducibleUnits(MastersStore store) {
+    final perUnit = <String, double>{};
+    for (final row in _rows) {
+      if (row.isLabor) continue;
+      final id = row.componentId;
+      if (id == null) continue;
+      final qty = row.qty;
+      if (qty <= 0) continue;
+      final component = _findComponent(id, store);
+      if (component == null || !component.trackStock) continue;
+      if (!qty.isFinite) return null;
+      final total = (perUnit[id] ?? 0) + qty;
+      if (!total.isFinite) return null;
+      perUnit[id] = total;
+    }
+
+    int? minUnits;
+    for (final entry in perUnit.entries) {
+      final requirement = entry.value;
+      final component = _findComponent(entry.key, store);
+      if (component == null || !component.trackStock) continue;
+      final rawStock = component.stockQty;
+      if (!rawStock.isFinite) return null;
+      final stock = rawStock <= 0 ? 0.0 : rawStock;
+      final ratio = stock / requirement;
+      if (!ratio.isFinite) return null;
+      final units = ratio.floor();
+      if (minUnits == null || units < minUnits) minUnits = units;
+    }
+    return minUnits;
+  }
+
+  InventoryItem? _findComponent(String id, MastersStore store) {
+    for (final item in store.inventoryItems) {
+      if (item.id == id) return item;
+    }
+    return null;
+  }
 
   @override
   void initState() {
@@ -98,6 +205,7 @@ class _InventoryCompositionScreenState
     for (final row in _rows) {
       row.dispose();
     }
+    _batchController.dispose();
     super.dispose();
   }
 
@@ -340,6 +448,7 @@ class _InventoryCompositionScreenState
             placeholder: 'Кол-во',
             keyboardType: const TextInputType.numberWithOptions(decimal: true),
             style: const TextStyle(fontSize: 13),
+            onChanged: (_) => setState(() {}),
           ),
         ),
         const SizedBox(width: 8),
@@ -362,6 +471,7 @@ class _InventoryCompositionScreenState
               ),
             ),
             style: const TextStyle(fontSize: 13),
+            onChanged: (_) => setState(() {}),
           ),
         ),
         const SizedBox(width: 10),
@@ -431,6 +541,8 @@ class _InventoryCompositionScreenState
                       ],
                     ),
                   ),
+                  const SizedBox(height: 16),
+                  _batchPreview(context.watch<MastersStore>(), item),
                   const SizedBox(height: 16),
                   Row(
                     children: [

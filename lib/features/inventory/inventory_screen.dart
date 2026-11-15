@@ -1053,7 +1053,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
                           _invQuery.isEmpty
                               ? '${_filteredInventory(store).length} '
                                     '${itemsWord(_filteredInventory(store).length)} · '
-                                    'себестоимость ${_money(store.inventoryItems.fold(0, (sum, i) => sum + (i.trackStock ? i.costCents * i.stockQty.round() : 0)))}'
+                                    'себестоимость ${_money(store.inventoryItems.fold<int>(0, (sum, i) => sum + (i.trackStock ? (i.costCents * i.stockQty).round() : 0)))}'
                               : 'Поиск: $_invQuery',
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,

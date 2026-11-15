@@ -53,7 +53,15 @@ class UnifiedKanbanView extends StatelessWidget {
     Widget buildColumn(_KanbanGroup group, double? width) {
       return DragTarget<_KanbanEventDrag>(
         onWillAcceptWithDetails: (_) => true,
-        onAcceptWithDetails: (details) => _drop(details.data, group, store),
+        onAcceptWithDetails: (details) async {
+          try {
+            await _drop(details.data, group, store);
+          } on StateError catch (error) {
+            if (context.mounted) {
+              await showAppAlert(context, title: 'Проверьте запись', message: error.message);
+            }
+          }
+        },
         builder: (context, candidateData, rejectedData) {
           final highlight = candidateData.isNotEmpty;
           final tint = _columnColor(colors, group.key);
@@ -403,12 +411,18 @@ class _UnifiedKanbanCard extends StatelessWidget {
           ),
         );
       case 'done':
-        store.setAppointmentStatus(
-          a.id,
-          a.status == AppointmentStatus.done
-              ? AppointmentStatus.scheduled
-              : AppointmentStatus.done,
-        );
+        try {
+          await store.setAppointmentStatus(
+            a.id,
+            a.status == AppointmentStatus.done
+                ? AppointmentStatus.scheduled
+                : AppointmentStatus.done,
+          );
+        } on StateError catch (error) {
+          if (context.mounted) {
+            await showAppAlert(context, title: 'Проверьте запись', message: error.message);
+          }
+        }
       case 'job':
         actions.convertAppointmentToJob(a.id);
       case 'delete':

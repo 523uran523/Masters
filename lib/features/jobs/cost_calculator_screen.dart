@@ -42,15 +42,18 @@ class _ResourceLine {
     required this.qtyUnit,
     required this.priceUnit,
     String price = '0',
+    String loss = '0',
     this.inventoryItemId,
     this.writeOff = false,
   }) : nameController = TextEditingController(text: name),
        qtyController = TextEditingController(text: qty),
-       priceController = TextEditingController(text: price);
+       priceController = TextEditingController(text: price),
+       lossController = TextEditingController(text: loss);
 
   final TextEditingController nameController;
   final TextEditingController qtyController;
   final TextEditingController priceController;
+  final TextEditingController lossController;
   String qtyUnit;
   String priceUnit;
   final String? inventoryItemId;
@@ -58,25 +61,47 @@ class _ResourceLine {
   /// Списывать ли эту строку со склада при применении.
   bool writeOff;
 
+  /// Нетто-количество (без учёта потерь) в исходной единице.
   double get qty => _parse(qtyController.text);
+
+  /// Эффективное (брутто) количество с учётом технологических потерь.
+  /// null — если количество или процент потерь некорректны.
+  double? get effectiveQty => effectiveQuantity(
+        qtyText: qtyController.text,
+        lossText: lossController.text,
+      );
+
+  bool get lossValid => effectiveQty != null;
 
   int get priceCents => (_parse(priceController.text) * 100).round();
 
-  int get totalCents => resourceLineTotalCents(
-    qty: qty,
-    qtyUnit: qtyUnit,
-    priceCents: priceCents,
-    priceUnit: priceUnit,
-  );
+  int get totalCents {
+    final effective = effectiveQty;
+    if (effective == null) return 0;
+    return resourceLineTotalCents(
+      qty: effective,
+      qtyUnit: qtyUnit,
+      priceCents: priceCents,
+      priceUnit: priceUnit,
+    );
+  }
 
-  /// Количество в единице склада (если единицы совместимы).
-  double? qtyInStockUnit(InventoryItem item) =>
+  /// Эффективное количество в единице склада (для списания/расчёта).
+  double? qtyInStockUnit(InventoryItem item) {
+    final effective = effectiveQty;
+    if (effective == null) return null;
+    return convertQty(effective, qtyUnit, item.unit);
+  }
+
+  /// Нетто-количество в единице склада (для пополнения/создания позиции).
+  double? netQtyInStockUnit(InventoryItem item) =>
       convertQty(qty, qtyUnit, item.unit);
 
   void dispose() {
     nameController.dispose();
     qtyController.dispose();
     priceController.dispose();
+    lossController.dispose();
   }
 
   static double _parse(String value) =>
@@ -95,9 +120,23 @@ class _CostCalculatorScreenState extends State<CostCalculatorScreen> {
   final List<_ResourceLine> _resources = [];
   final _laborHoursController = TextEditingController(text: '0');
   final _laborRateController = TextEditingController(text: '0');
+  final _pieceworkController = TextEditingController(text: '0');
   final _overheadController = TextEditingController(text: '0');
+  final _overheadFixedController = TextEditingController(text: '0');
   final _otherController = TextEditingController(text: '0');
+  final _finishedDefectController = TextEditingController(text: '0');
   final _marginController = TextEditingController(text: '30');
+  final _targetMarginController = TextEditingController(text: '30');
+  final _fixedPriceController = TextEditingController(text: '0');
+  final _packagingController = TextEditingController(text: '0');
+  final _shippingController = TextEditingController(text: '0');
+  final _storageController = TextEditingController(text: '0');
+  final _returnShippingController = TextEditingController(text: '0');
+  final _buyoutController = TextEditingController(text: '100');
+  final _commissionController = TextEditingController(text: '0');
+  final _advertisingController = TextEditingController(text: '0');
+  final _acquiringController = TextEditingController(text: '0');
+  PricingMode _pricingMode = PricingMode.markup;
   bool _busy = false;
 
   InventoryItem? get _stockTarget {
@@ -236,6 +275,7 @@ class _CostCalculatorScreenState extends State<CostCalculatorScreen> {
             qtyUnit: qtyUnit,
             price: (map['price'] as String?) ?? '0',
             priceUnit: priceUnit,
+            loss: (map['loss'] as String?) ?? '0',
             inventoryItemId: map['inventoryItemId'] as String?,
             writeOff: map['writeOff'] == true,
           ),
@@ -247,9 +287,25 @@ class _CostCalculatorScreenState extends State<CostCalculatorScreen> {
         : null;
     _laborHoursController.text = (labor?['hours'] as String?) ?? '0';
     _laborRateController.text = (labor?['rate'] as String?) ?? '0';
+    _pieceworkController.text = (data['piecework'] as String?) ?? '0';
     _overheadController.text = (data['overhead'] as String?) ?? '0';
+    _overheadFixedController.text =
+        (data['overheadFixed'] as String?) ?? '0';
     _otherController.text = (data['other'] as String?) ?? '0';
+    _finishedDefectController.text = (data['finishedDefect'] as String?) ?? '0';
     _marginController.text = (data['margin'] as String?) ?? '30';
+    _targetMarginController.text = (data['targetMargin'] as String?) ?? '30';
+    _fixedPriceController.text = (data['fixedPrice'] as String?) ?? '0';
+    _packagingController.text = (data['packaging'] as String?) ?? '0';
+    _shippingController.text = (data['shipping'] as String?) ?? '0';
+    _storageController.text = (data['storage'] as String?) ?? '0';
+    _returnShippingController.text =
+        (data['returnShipping'] as String?) ?? '0';
+    _buyoutController.text = (data['buyout'] as String?) ?? '100';
+    _commissionController.text = (data['commission'] as String?) ?? '0';
+    _advertisingController.text = (data['advertising'] as String?) ?? '0';
+    _acquiringController.text = (data['acquiring'] as String?) ?? '0';
+    _pricingMode = PricingMode.values.where((mode) => mode.name == data['pricingMode']).firstOrNull ?? PricingMode.markup;
   }
 
   @override
@@ -259,9 +315,22 @@ class _CostCalculatorScreenState extends State<CostCalculatorScreen> {
     }
     _laborHoursController.dispose();
     _laborRateController.dispose();
+    _pieceworkController.dispose();
     _overheadController.dispose();
+    _overheadFixedController.dispose();
     _otherController.dispose();
+    _finishedDefectController.dispose();
     _marginController.dispose();
+    _targetMarginController.dispose();
+    _fixedPriceController.dispose();
+    _packagingController.dispose();
+    _shippingController.dispose();
+    _storageController.dispose();
+    _returnShippingController.dispose();
+    _buyoutController.dispose();
+    _commissionController.dispose();
+    _advertisingController.dispose();
+    _acquiringController.dispose();
     final jobId = widget.jobId;
     if (jobId != null) {
       unawaited(
@@ -277,15 +346,35 @@ class _CostCalculatorScreenState extends State<CostCalculatorScreen> {
   double _d(String value) =>
       double.tryParse(value.trim().replaceAll(',', '.')) ?? 0;
 
+  double _percent(String value) =>
+      double.tryParse(value.trim().replaceAll(',', '.')) ?? double.nan;
+
   int get _materialsCents => _resources.fold(0, (sum, r) => sum + r.totalCents);
+
+  /// Все строки имеют корректное количество и процент потерь.
+  bool get _resourcesValid => _resources.every((r) => r.lossValid);
 
   CalculatorTotals get _totals => computeCalculatorTotals(
     materialsCents: _materialsCents,
     laborHours: _d(_laborHoursController.text),
     laborRateCents: (_d(_laborRateController.text) * 100).round(),
+    pieceworkCents: (_d(_pieceworkController.text) * 100).round(),
     otherCents: (_d(_otherController.text) * 100).round(),
     overheadPercent: _d(_overheadController.text),
+    overheadFixedCents: (_d(_overheadFixedController.text) * 100).round(),
+    finishedDefectPercent: _percent(_finishedDefectController.text),
     marginPercent: _d(_marginController.text),
+    pricingMode: _pricingMode,
+    targetMarginPercent: _d(_targetMarginController.text),
+    fixedPriceCents: (_d(_fixedPriceController.text) * 100).round(),
+    packagingCents: (_d(_packagingController.text) * 100).round(),
+    shippingCents: (_d(_shippingController.text) * 100).round(),
+    storageCents: (_d(_storageController.text) * 100).round(),
+    returnShippingCents: (_d(_returnShippingController.text) * 100).round(),
+    buyoutPercent: _percent(_buyoutController.text),
+    commissionPercent: _d(_commissionController.text),
+    advertisingPercent: _d(_advertisingController.text),
+    acquiringPercent: _d(_acquiringController.text),
   );
 
   void _markDirty() {
@@ -308,6 +397,7 @@ class _CostCalculatorScreenState extends State<CostCalculatorScreen> {
         'qtyUnit': r.qtyUnit,
         'price': r.priceController.text,
         'priceUnit': r.priceUnit,
+        'loss': r.lossController.text,
         if (r.inventoryItemId != null) 'inventoryItemId': r.inventoryItemId,
         if (r.writeOff) 'writeOff': true,
       };
@@ -317,9 +407,23 @@ class _CostCalculatorScreenState extends State<CostCalculatorScreen> {
       'hours': _laborHoursController.text,
       'rate': _laborRateController.text,
     },
+    'piecework': _pieceworkController.text,
     'overhead': _overheadController.text,
+    'overheadFixed': _overheadFixedController.text,
     'other': _otherController.text,
+    'finishedDefect': _finishedDefectController.text,
     'margin': _marginController.text,
+    'pricingMode': _pricingMode.name,
+    'targetMargin': _targetMarginController.text,
+    'fixedPrice': _fixedPriceController.text,
+    'packaging': _packagingController.text,
+    'shipping': _shippingController.text,
+    'storage': _storageController.text,
+    'returnShipping': _returnShippingController.text,
+    'buyout': _buyoutController.text,
+    'commission': _commissionController.text,
+    'advertising': _advertisingController.text,
+    'acquiring': _acquiringController.text,
   };
 
   String _money(int cents) => money(cents);
@@ -479,7 +583,7 @@ class _CostCalculatorScreenState extends State<CostCalculatorScreen> {
     setState(() => _busy = true);
     try {
       if (existing != null) {
-        final stockQty = convertQty(line.qty, line.qtyUnit, existing.unit);
+        final stockQty = line.netQtyInStockUnit(existing);
         await store.updateInventoryItem(
           existing.copyWith(
             name: name,
@@ -531,6 +635,15 @@ class _CostCalculatorScreenState extends State<CostCalculatorScreen> {
     final store = context.read<MastersStore>();
     final item = _lineItem(store, line);
     if (item == null) return;
+    if (line.effectiveQty == null) {
+      await showAppAlert(
+        context,
+        title: 'Проверьте потери',
+        message:
+            'Укажите количество и процент потерь от 0 до 100% (не включая 100%).',
+      );
+      return;
+    }
     final qty = line.qtyInStockUnit(item);
     if (qty == null || qty <= 0) {
       await showAppAlert(
@@ -559,7 +672,7 @@ class _CostCalculatorScreenState extends State<CostCalculatorScreen> {
     final store = context.read<MastersStore>();
     final item = _lineItem(store, line);
     if (item == null) return;
-    final qty = line.qtyInStockUnit(item);
+    final qty = line.netQtyInStockUnit(item);
     if (qty == null || qty <= 0) {
       await showAppAlert(
         context,
@@ -655,6 +768,15 @@ class _CostCalculatorScreenState extends State<CostCalculatorScreen> {
   Future<void> _addToJob() async {
     final jobId = widget.jobId;
     if (jobId == null) return;
+    if (!_resourcesValid) {
+      await showAppAlert(
+        context,
+        title: 'Проверьте потери',
+        message:
+            'У одной из строк некорректное количество или процент потерь от 0 до 100% (не включая 100%).',
+      );
+      return;
+    }
     final totals = _totals;
     final store = context.read<MastersStore>();
     setState(() => _busy = true);
@@ -700,6 +822,15 @@ class _CostCalculatorScreenState extends State<CostCalculatorScreen> {
   }
 
   Future<void> _apply() async {
+    if (!_resourcesValid) {
+      await showAppAlert(
+        context,
+        title: 'Проверьте потери',
+        message:
+            'У одной из строк некорректное количество или процент потерь от 0 до 100% (не включая 100%).',
+      );
+      return;
+    }
     final totals = _totals;
     final store = context.read<MastersStore>();
     final stockTarget = _stockTarget;
@@ -765,7 +896,9 @@ class _CostCalculatorScreenState extends State<CostCalculatorScreen> {
         middle: Text(title),
         trailing: CupertinoButton(
           padding: EdgeInsets.zero,
-          onPressed: _busy ? null : _apply,
+          onPressed: _busy || !totals.validPrice || !_resourcesValid
+              ? null
+              : _apply,
           child: Text(_isStockMode ? 'Сохранить' : 'Применить'),
         ),
       ),
@@ -851,6 +984,13 @@ class _CostCalculatorScreenState extends State<CostCalculatorScreen> {
                         suffix: '/ч',
                         onChanged: _markDirty,
                       ),
+                      const SizedBox(height: 10),
+                      _NumberRow(
+                        label: 'Сдельная оплата',
+                        controller: _pieceworkController,
+                        suffix: moneySymbol,
+                        onChanged: _markDirty,
+                      ),
                       const SizedBox(height: 12),
                       _AmountRow(
                         label: 'Затраты на работу',
@@ -860,7 +1000,49 @@ class _CostCalculatorScreenState extends State<CostCalculatorScreen> {
                   ),
                 ),
                 const SizedBox(height: 16),
-                const SectionLabel('Накладные и маржа'),
+                const SectionLabel('Расходы на продажу'),
+                AppCard(
+                  child: Column(
+                    children: [
+                      _NumberRow(label: 'Упаковка', controller: _packagingController, suffix: moneySymbol, onChanged: _markDirty),
+                      const SizedBox(height: 10),
+                      _NumberRow(label: 'Доставка', controller: _shippingController, suffix: moneySymbol, onChanged: _markDirty),
+                      const SizedBox(height: 10),
+                      _NumberRow(label: 'Хранение', controller: _storageController, suffix: moneySymbol, onChanged: _markDirty),
+                      const SizedBox(height: 10),
+                      _NumberRow(label: 'Возвратная доставка', controller: _returnShippingController, suffix: moneySymbol, onChanged: _markDirty),
+                      const SizedBox(height: 10),
+                      _NumberRow(label: 'Прогноз выкупа', controller: _buyoutController, suffix: '%', onChanged: _markDirty),
+                      if (!totals.buyoutValid)
+                        Text(
+                          'Прогноз выкупа: укажите конечное число больше 0 и не более 100%.',
+                          style: TextStyle(color: colors.red),
+                        ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'Прогноз на одну успешную продажу: (доставка + возвратная доставка × (1 − выкуп)) / выкуп. Финансовые записи и движения склада не создаются.',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: colors.tertiaryLabel,
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      _NumberRow(label: 'Комиссия', controller: _commissionController, suffix: '%', onChanged: _markDirty),
+                      const SizedBox(height: 10),
+                      _NumberRow(label: 'Реклама', controller: _advertisingController, suffix: '%', onChanged: _markDirty),
+                      const SizedBox(height: 10),
+                      _NumberRow(label: 'Эквайринг', controller: _acquiringController, suffix: '%', onChanged: _markDirty),
+                      const SizedBox(height: 10),
+                      _AmountRow(label: 'Доставка с учётом возвратов', value: _money(totals.effectiveShippingCents)),
+                      const SizedBox(height: 8),
+                      _AmountRow(label: 'Итого расходы на продажу', value: _money(totals.sellingCostCents)),
+                      const SizedBox(height: 8),
+                      const Text('Оценка на единицу. Комиссия, реклама и эквайринг рассчитываются от цены продажи.'),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 16),
+                const SectionLabel('Накладные и цена'),
                 AppCard(
                   child: Column(
                     children: [
@@ -879,14 +1061,63 @@ class _CostCalculatorScreenState extends State<CostCalculatorScreen> {
                       ),
                       const SizedBox(height: 10),
                       _NumberRow(
-                        label: 'Маржа',
-                        controller: _marginController,
+                        label: 'Накладные на единицу',
+                        controller: _overheadFixedController,
+                        prefix: '$moneySymbol',
+                        onChanged: _markDirty,
+                      ),
+                      const SizedBox(height: 10),
+                      _NumberRow(
+                        label: 'Брак готовых изделий',
+                        controller: _finishedDefectController,
                         suffix: '%',
                         onChanged: _markDirty,
                       ),
+                      if (!totals.finishedDefectValid)
+                        const Text('Укажите процент брака от 0 до 100%, не включая 100%.'),
+                      const SizedBox(height: 10),
+                      _AmountRow(label: 'Затраты из-за брака', value: _money(totals.finishedDefectCents)),
+                      const SizedBox(height: 10),
+                      CupertinoSlidingSegmentedControl<PricingMode>(
+                        groupValue: _pricingMode,
+                        children: const {
+                          PricingMode.markup: Text('Наценка'),
+                          PricingMode.targetMargin: Text('Маржа'),
+                          PricingMode.fixedPrice: Text('Цена'),
+                        },
+                        onValueChanged: (mode) {
+                          if (mode == null) return;
+                          _pricingMode = mode;
+                          _markDirty();
+                        },
+                      ),
+                      const SizedBox(height: 10),
+                      _NumberRow(
+                        label: switch (_pricingMode) {
+                          PricingMode.markup => 'Наценка к себестоимости',
+                          PricingMode.targetMargin => 'Доля прибыли в цене',
+                          PricingMode.fixedPrice => 'Цена продажи',
+                        },
+                        controller: switch (_pricingMode) {
+                          PricingMode.markup => _marginController,
+                          PricingMode.targetMargin => _targetMarginController,
+                          PricingMode.fixedPrice => _fixedPriceController,
+                        },
+                        suffix: _pricingMode == PricingMode.fixedPrice ? moneySymbol : '%',
+                        onChanged: _markDirty,
+                      ),
+                      if (!totals.validPrice &&
+                          totals.finishedDefectValid &&
+                          totals.buyoutValid)
+                        const Text('Сумма процентов расходов и целевой маржи должна быть меньше 100%.'),
                       const SizedBox(height: 14),
                       _AmountRow(
-                        label: 'Себестоимость',
+                        label: 'Производственная себестоимость',
+                        value: _money(totals.productionCostCents),
+                      ),
+                      const SizedBox(height: 6),
+                      _AmountRow(
+                        label: 'Затраты с продажей',
                         value: _money(totals.costCents),
                       ),
                       const SizedBox(height: 6),
@@ -894,6 +1125,20 @@ class _CostCalculatorScreenState extends State<CostCalculatorScreen> {
                         label: 'Цена',
                         value: _money(totals.priceCents),
                         strong: true,
+                      ),
+                      const SizedBox(height: 6),
+                      _AmountRow(
+                        label: 'Безубыточная цена',
+                        value: totals.breakEvenCents == null
+                            ? '—'
+                            : _money(totals.breakEvenCents!),
+                      ),
+                      const SizedBox(height: 6),
+                      _AmountRow(
+                        label: 'ROI',
+                        value: totals.roiPercent == null
+                            ? '—'
+                            : '${totals.roiPercent!.toStringAsFixed(1)}%',
                       ),
                     ],
                   ),
@@ -903,7 +1148,9 @@ class _CostCalculatorScreenState extends State<CostCalculatorScreen> {
                   SecondaryButton(
                     label: 'Добавить в заказ строкой',
                     icon: CupertinoIcons.plus_circle,
-                    onPressed: _busy ? null : _addToJob,
+                    onPressed: _busy || !totals.validPrice || !_resourcesValid
+                        ? null
+                        : _addToJob,
                   ),
                   const SizedBox(height: 10),
                 ],
@@ -990,6 +1237,49 @@ class _CostCalculatorScreenState extends State<CostCalculatorScreen> {
                     child: Text('${moneySymbol}', style: TextStyle(color: colors.secondaryLabel)),
                   ),
                   onChanged: (_) => _markDirty(),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Padding(
+            padding: const EdgeInsets.only(left: 2, bottom: 4),
+            child: Text(
+              'Потери %',
+              style: TextStyle(
+                fontSize: 12,
+                color: colors.secondaryLabel,
+              ),
+            ),
+          ),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                flex: 2,
+                child: CupertinoTextField(
+                  controller: line.lossController,
+                  placeholder: 'Потери, %',
+                  keyboardType: const TextInputType.numberWithOptions(
+                    decimal: true,
+                  ),
+                  onChanged: (_) => _markDirty(),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                flex: 3,
+                child: Padding(
+                  padding: const EdgeInsets.only(top: 7),
+                  child: Text(
+                    line.lossValid
+                        ? 'С учётом потерь: ${formatQty(line.effectiveQty!)} ${line.qtyUnit}'
+                        : 'Укажите количество и потери от 0 до 100% (без 100%).',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: line.lossValid ? colors.tertiaryLabel : colors.red,
+                    ),
+                  ),
                 ),
               ),
             ],
@@ -1115,15 +1405,13 @@ class _SummaryCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
-    String money(int cents) => '${money(cents)}';
-
     return AppCard(
       padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
       child: Row(
         children: [
           Expanded(
             child: _SummaryValue(
-              label: 'Себестоимость',
+              label: 'Затраты всего',
               value: money(totals.costCents),
               color: colors.label,
             ),

@@ -50,6 +50,25 @@ class MoneyTransaction {
 
   int get signedAmount => direction == 'in' ? amountCents : -amountCents;
 
+  bool get isOrderPayment =>
+      jobId != null &&
+      (kind == 'payment' ||
+          kind == 'sale' ||
+          kind == 'client_payment' ||
+          kind == 'refund' ||
+          (kind == 'income' && reversesId != null));
+
+  bool get isOrderRefund => isOrderPayment && direction == 'out';
+
+  int get orderPaymentCents {
+    if (voided || jobId == null) return 0;
+    if (isOrderRefund) return -amountCents;
+    if (direction == 'in' && (reversesId == null || isOrderPayment)) {
+      return amountCents;
+    }
+    return 0;
+  }
+
   Map<String, Object?> toMap() => {
     'id': id,
     'account_id': accountId,
