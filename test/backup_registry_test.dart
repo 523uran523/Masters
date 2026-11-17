@@ -50,7 +50,7 @@ void main() {
 
       final backup = store.backupData();
       expect(backup['format'], 'masters-backup');
-      expect(backup['version'], 9);
+      expect(backup['version'], 10);
 
       // Каждая таблица реестра должна быть представлена ключом в JSON.
       final existing = await appDb.existingTables();

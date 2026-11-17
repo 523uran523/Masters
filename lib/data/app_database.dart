@@ -4,10 +4,16 @@ import 'package:path_provider/path_provider.dart';
 import 'package:sqflite/sqflite.dart';
 import 'dart:io';
 
+import '../core/payroll_calc.dart' show periodEndExclusive;
+import '../core/payroll_engine.dart' show buildAccrualLines;
 import '../core/sync_client.dart' show SyncRow;
 import '../core/text_encoding.dart' show repairMojibake;
 import '../core/utils/app_utils.dart';
 import 'models/credit_change.dart';
+import 'models/employee.dart';
+import 'models/job.dart';
+import 'models/pay_condition.dart';
+import 'models/time_entry.dart';
 import 'schema_tables.dart';
 
 import 'dart:convert';
@@ -104,13 +110,15 @@ class AppDatabase {
       resolved = p.join(directory.path, 'masters.db');
     }
 
-    // Флаг ставится из onUpgrade: бэкап нужен только при переходе через v22.
+    // Флаг ставится из onConfigure: копия нужна при переходе через v22 и при
+    // содержательном бэкфилле v25 → v26 (история начислений).
     var needsBackup = false;
+    var backupPrefix = 'pre_v22';
 
     try {
       final database = await openDatabase(
         resolved,
-        version: 25,
+        version: 26,
         onConfigure: (db) async {
           if (!kIsWeb) await db.execute('PRAGMA foreign_keys = ON');
           // §1.1: узнаём версию ДО транзакции апгрейда. onConfigure —
@@ -120,22 +128,30 @@ class AppDatabase {
           final version =
               (await db.rawQuery('PRAGMA user_version')).first.values.first
                   as int?;
-          needsBackup = version != null && version > 0 && version < 22;
-          if (!needsBackup) return;
+          if (version == null || version <= 0) return;
+          if (version < 22) {
+            needsBackup = true;
+            backupPrefix = 'pre_v22';
+          } else if (version == 25) {
+            needsBackup = true;
+            backupPrefix = 'pre_v26';
+          } else {
+            return;
+          }
           // WAL пишется отдельно от основного файла: без чекпойнта копия
           // файла потеряла бы последние транзакции.
           await db.execute('PRAGMA wal_checkpoint(TRUNCATE)');
         },
         onCreate: _createSchema,
         onUpgrade: (db, oldVersion, newVersion) async {
-          if (needsBackup) await _writePreV22Backup(resolved);
+          if (needsBackup) await _writePreMigrationBackup(resolved, backupPrefix);
           testHaltHook?.call(oldVersion);
           await _upgradeSchema(db, oldVersion, newVersion);
         },
       );
       // Миграция прошла успешно — помечаем копию и чистим старые (§1.1).
       if (needsBackup && !kIsWeb) {
-        await _markBackupMigrated();
+        await _markBackupMigrated(backupPrefix);
         await _pruneOldBackups();
       }
       return AppDatabase._(database);
@@ -144,7 +160,7 @@ class AppDatabase {
       // поэтому `user_version` и данные остались прежними.
       // Копия — вторая страховка на случай, если откат не помог.
       if (!kIsWeb) {
-        final restored = await _restoreFromPreV22Backup(resolved);
+        final restored = await _restoreFromPreMigrationBackup(resolved);
         if (restored != null) {
           return AppDatabase._(restored, migrationHalted: true);
         }
@@ -153,24 +169,27 @@ class AppDatabase {
     }
   }
 
-  /// Кладёт копию файла БД в `backups/pre_v22_<timestamp>.db` (§1.1).
+  /// Кладёт копию файла БД в `backups/<prefix>_<timestamp>.db` (§1.1).
   ///
   /// Ошибка копирования не должна срывать апгрейд: штатный откат sqflite
   /// всё равно защищает данные, копия — только дополнительная страховка.
-  static Future<void> _writePreV22Backup(String dbPath) async {
+  static Future<void> _writePreMigrationBackup(
+    String dbPath,
+    String prefix,
+  ) async {
     try {
       final root = await _backupsRoot();
       if (root == null) return;
       final backupsDir = Directory(p.join(root, 'backups'));
       await backupsDir.create(recursive: true);
       final stamp = DateTime.now().millisecondsSinceEpoch;
-      await File(dbPath).copy(p.join(backupsDir.path, 'pre_v22_$stamp.db'));
+      await File(dbPath).copy(p.join(backupsDir.path, '${prefix}_$stamp.db'));
     } catch (_) {
       // См. docstring: копия не блокирует миграцию.
     }
   }
 
-  /// Восстанавливает базу из последней копии `pre_v22_*` (§1.1).
+  /// Восстанавливает базу из последней копии `pre_v22_*` / `pre_v26_*`.
   ///
   /// Возвращает открытую базу прежней схемы либо `null`, если копий нет или
   /// восстановление не удалось.
@@ -178,7 +197,7 @@ class AppDatabase {
   /// База открывается **без** параметра `version`: sqflite при несовпадении
   /// версии вызвал бы `PRAGMA user_version = N` и сам сбежал бы схему, а нам
   /// нужна база ровно в том состоянии, в каком её застал сбой.
-  static Future<Database?> _restoreFromPreV22Backup(String dbPath) async {
+  static Future<Database?> _restoreFromPreMigrationBackup(String dbPath) async {
     try {
       final root = await _backupsRoot();
       if (root == null) return null;
@@ -188,7 +207,11 @@ class AppDatabase {
       final copies = backupsDir
           .listSync()
           .whereType<File>()
-          .where((f) => p.basename(f.path).startsWith('pre_v22_'))
+          .where((f) {
+            final name = p.basename(f.path);
+            return name.startsWith('pre_v22_') ||
+                name.startsWith('pre_v26_');
+          })
           .toList()
         ..sort((a, b) => b.path.compareTo(a.path));
       if (copies.isEmpty) return null;
@@ -213,7 +236,7 @@ class AppDatabase {
   }
 
   /// Помечает свежую копию как «миграция прошла» (§1.1).
-  static Future<void> _markBackupMigrated() async {
+  static Future<void> _markBackupMigrated(String prefix) async {
     try {
       final root = await _backupsRoot();
       if (root == null) return;
@@ -224,7 +247,7 @@ class AppDatabase {
           .whereType<File>()
           .where(
             (f) =>
-                p.basename(f.path).startsWith('pre_v22_') &&
+                p.basename(f.path).startsWith('${prefix}_') &&
                 !p.basename(f.path).contains('.migrated.'),
           )
           .toList()
@@ -249,11 +272,14 @@ class AppDatabase {
           DateTime.now().subtract(const Duration(days: 7)).millisecondsSinceEpoch;
       for (final file in backupsDir.listSync().whereType<File>()) {
         final name = p.basename(file.path);
-        if (!name.startsWith('pre_v22_') || !name.contains('.migrated.')) {
+        final isV22 = name.startsWith('pre_v22_');
+        final isV26 = name.startsWith('pre_v26_');
+        if ((!isV22 && !isV26) || !name.contains('.migrated.')) {
           continue;
         }
+        final prefix = isV22 ? 'pre_v22_' : 'pre_v26_';
         final stamp = int.tryParse(
-          name.substring('pre_v22_'.length).split('.').first,
+          name.substring(prefix.length).split('.').first,
         );
         if (stamp == null || stamp > cutoff) continue;
         await file.delete();
@@ -637,6 +663,297 @@ class AppDatabase {
     await db.execute(
       'CREATE INDEX idx_payroll_periods_start ON payroll_periods(start_at)',
     );
+
+    await _createPayrollHistorySchema(db);
+  }
+
+  /// Таблицы v26 «история начислений»: условия оплаты, ведомости, строки
+  /// начислений. Вызывается и из `_createSchema` (чистая установка), и из
+  /// миграции v26, чтобы схема не раздваивалась.
+  static Future<void> _createPayrollHistorySchema(Database db) async {
+    // Обмен между устройствами не подтверждён — таблицы есть только в копии,
+    // в sync_outbox они не попадают (kSyncedTables их не содержит).
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS pay_conditions (
+        id TEXT PRIMARY KEY,
+        employee_id TEXT NOT NULL REFERENCES employees(id) ON DELETE CASCADE,
+        pay_type TEXT NOT NULL,
+        rate_cents INTEGER NOT NULL DEFAULT 0,
+        percent REAL NOT NULL DEFAULT 0,
+        valid_from INTEGER NOT NULL,
+        created_at INTEGER NOT NULL,
+        updated_at INTEGER,
+        deleted_at INTEGER,
+        device_id TEXT
+      )
+    ''');
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_pay_conditions_emp ON pay_conditions(employee_id)',
+    );
+    await db.execute(
+      'CREATE UNIQUE INDEX IF NOT EXISTS uq_pay_conditions_emp_from ON pay_conditions(employee_id, valid_from) WHERE deleted_at IS NULL',
+    );
+
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS payslips (
+        id TEXT PRIMARY KEY,
+        period_id TEXT NOT NULL REFERENCES payroll_periods(id) ON DELETE CASCADE,
+        employee_id TEXT NOT NULL REFERENCES employees(id) ON DELETE CASCADE,
+        version INTEGER NOT NULL DEFAULT 1,
+        status TEXT NOT NULL DEFAULT 'confirmed',
+        needs_review INTEGER NOT NULL DEFAULT 0,
+        accrued_cents INTEGER NOT NULL DEFAULT 0,
+        bonus_cents INTEGER NOT NULL DEFAULT 0,
+        penalty_cents INTEGER NOT NULL DEFAULT 0,
+        advance_cents INTEGER NOT NULL DEFAULT 0,
+        payout_cents INTEGER NOT NULL DEFAULT 0,
+        net_cents INTEGER NOT NULL DEFAULT 0,
+        review_note TEXT,
+        note TEXT,
+        frozen_at INTEGER,
+        created_at INTEGER NOT NULL,
+        updated_at INTEGER,
+        deleted_at INTEGER,
+        device_id TEXT
+      )
+    ''');
+    // Колонки, добавленные позже (v26+): для существующих БД, где таблица
+    // уже создана без них — ALTER идемпотентен (try/catch).
+    for (final col in const [
+      'minutes INTEGER NOT NULL DEFAULT 0',
+    ]) {
+      try {
+        await db.execute('ALTER TABLE payslips ADD COLUMN $col');
+      } catch (_) {
+        // Колонка уже есть.
+      }
+    }
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_payslips_period ON payslips(period_id)',
+    );
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_payslips_employee ON payslips(employee_id)',
+    );
+    await db.execute(
+      'CREATE UNIQUE INDEX IF NOT EXISTS uq_payslips_period_emp_version ON payslips(period_id, employee_id, version) WHERE deleted_at IS NULL',
+    );
+
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS accrual_entries (
+        id TEXT PRIMARY KEY,
+        payslip_id TEXT NOT NULL REFERENCES payslips(id) ON DELETE CASCADE,
+        employee_id TEXT NOT NULL REFERENCES employees(id) ON DELETE CASCADE,
+        source_kind TEXT NOT NULL,
+        source_id TEXT NOT NULL,
+        accrual_kind TEXT NOT NULL,
+        pay_condition_id TEXT REFERENCES pay_conditions(id) ON DELETE SET NULL,
+        rate_cents INTEGER NOT NULL DEFAULT 0,
+        minutes INTEGER NOT NULL DEFAULT 0,
+        basis_price_cents INTEGER NOT NULL DEFAULT 0,
+        qty REAL NOT NULL DEFAULT 0,
+        percent REAL NOT NULL DEFAULT 0,
+        amount_cents INTEGER NOT NULL DEFAULT 0,
+        is_fallback INTEGER NOT NULL DEFAULT 0,
+        missing_condition INTEGER NOT NULL DEFAULT 0,
+        needs_review INTEGER NOT NULL DEFAULT 0,
+        pay_type TEXT NOT NULL DEFAULT 'hourly',
+        occurred_at INTEGER NOT NULL,
+        created_at INTEGER NOT NULL,
+        updated_at INTEGER,
+        deleted_at INTEGER,
+        device_id TEXT
+      )
+    ''');
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_accrual_entries_payslip ON accrual_entries(payslip_id)',
+    );
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_accrual_entries_emp ON accrual_entries(employee_id)',
+    );
+    await db.execute(
+      'CREATE UNIQUE INDEX IF NOT EXISTS uq_accrual_entries_source ON accrual_entries(source_kind, source_id, accrual_kind, employee_id) WHERE deleted_at IS NULL',
+    );
+  }
+
+  /// Бэкфилл v26 из данных v25.
+  ///
+  /// 1. По строке условий оплаты на сотрудника с `valid_from = created_at`:
+  ///    до v26 карточка не хранила историю, поэтому единственная честная дата
+  ///    начала действия — дата создания сотрудника.
+  /// 2. Для каждого **закрытого** периода — ведомость v1 `preliminary` и
+  ///    строки начислений, пересчитанные по текущим условиям. Суммы прошлого
+  ///    закрытия не сохранены, поэтому они не могут считаться подтверждёнными:
+  ///    `needs_review = 1`, статус «предварительно», мастер сверяет вручную.
+  ///
+  /// Идемпотентно: условия защищены частичным уникальным индексом, а
+  /// ведомость пропускается, если у периода и сотрудника уже есть строка.
+  static Future<void> _backfillPayrollHistory(DatabaseExecutor db) async {
+    final now = DateTime.now();
+    final nowMs = now.millisecondsSinceEpoch;
+
+    final employeeRows = await db.query(
+      'employees',
+      where: 'archived = 0 AND deleted_at IS NULL',
+      orderBy: 'created_at ASC',
+    );
+    final employees = employeeRows.map(Employee.fromMap).toList();
+
+    for (final emp in employees) {
+      final validFrom = emp.createdAt.millisecondsSinceEpoch;
+      final existing = await db.query(
+        'pay_conditions',
+        columns: ['id'],
+        where: 'employee_id = ? AND valid_from = ?',
+        whereArgs: [emp.id, validFrom],
+        limit: 1,
+      );
+      if (existing.isNotEmpty) continue;
+      await db.insert(
+        'pay_conditions',
+        PayCondition(
+          id: newId(),
+          employeeId: emp.id,
+          payType: emp.payType,
+          rateCents: emp.rateCents,
+          percent: emp.percent,
+          validFrom: emp.createdAt,
+          createdAt: emp.createdAt,
+        ).toMap(),
+        conflictAlgorithm: ConflictAlgorithm.ignore,
+      );
+    }
+
+    // Условия читаем после вставки — в них уже есть и восстановленные строки.
+    final conditionRows = await db.query(
+      'pay_conditions',
+      where: 'deleted_at IS NULL',
+      orderBy: 'valid_from ASC',
+    );
+    final conditions = conditionRows.map(PayCondition.fromMap).toList();
+
+    final periodRows = await db.query(
+      'payroll_periods',
+      where: 'closed_at IS NOT NULL AND deleted_at IS NULL',
+      orderBy: 'start_at ASC',
+    );
+
+    for (final row in periodRows) {
+      final periodId = row['id'] as String;
+      final start = DateTime.fromMillisecondsSinceEpoch(
+        (row['start_at'] as num?)?.toInt() ?? 0,
+      );
+      final end = DateTime.fromMillisecondsSinceEpoch(
+        (row['end_at'] as num?)?.toInt() ?? 0,
+      );
+      final closedAt = DateTime.fromMillisecondsSinceEpoch(
+        (row['closed_at'] as num).toInt(),
+      );
+      final endExclusive = periodEndExclusive(end);
+
+      for (final emp in employees) {
+        final already = await db.query(
+          'payslips',
+          columns: ['id'],
+          where: 'period_id = ? AND employee_id = ?',
+          whereArgs: [periodId, emp.id],
+          limit: 1,
+        );
+        if (already.isNotEmpty) continue;
+
+        final timeRows = await db.query(
+          'time_entries',
+          where: 'employee_id = ? AND deleted_at IS NULL',
+          whereArgs: [emp.id],
+        );
+        final jobRows = await db.query(
+          'jobs',
+          where: 'assignee_id = ? AND deleted_at IS NULL',
+          whereArgs: [emp.id],
+        );
+        final lines = buildAccrualLines(
+          start: start,
+          endExclusive: endExclusive,
+          conditions:
+              conditions.where((c) => c.employeeId == emp.id).toList(),
+          timeEntries: timeRows.map(TimeEntry.fromMap).toList(),
+          jobs: jobRows.map(Job.fromMap).toList(),
+          defaultPayType: emp.payType,
+        );
+
+        var bonus = 0;
+        var penalty = 0;
+        var advance = 0;
+        var payout = 0;
+        final sums = await db.rawQuery(
+          'SELECT type, SUM(amount_cents) AS total FROM employee_payments '
+          'WHERE employee_id = ? AND deleted_at IS NULL '
+          'AND created_at >= ? AND created_at <= ? GROUP BY type',
+          [emp.id, start.millisecondsSinceEpoch, end.millisecondsSinceEpoch],
+        );
+        for (final sum in sums) {
+          final total = (sum['total'] as num?)?.toInt() ?? 0;
+          switch (sum['type']) {
+            case 'bonus':
+              bonus = total;
+            case 'penalty':
+              penalty = total;
+            case 'advance':
+              advance = total;
+            case 'payout':
+              payout = total;
+          }
+        }
+
+        final accrued = lines.fold<int>(0, (s, l) => s + l.amountCents);
+        final minutes = lines.fold<int>(0, (s, l) => s + l.minutes);
+        final net = accrued + bonus - penalty - advance - payout;
+        final payslipId = newId();
+
+        await db.insert('payslips', {
+          'id': payslipId,
+          'period_id': periodId,
+          'employee_id': emp.id,
+          'version': 1,
+          'status': 'preliminary',
+          'needs_review': 1,
+          'minutes': minutes,
+          'accrued_cents': accrued,
+          'bonus_cents': bonus,
+          'penalty_cents': penalty,
+          'advance_cents': advance,
+          'payout_cents': payout,
+          'net_cents': net,
+          'review_note':
+              'Перенесено из v25: суммы пересчитаны по текущим условиям, '
+              'требуется сверка с прежней ведомостью.',
+          'frozen_at': closedAt.millisecondsSinceEpoch,
+          'created_at': nowMs,
+          'updated_at': nowMs,
+        });
+
+        for (final line in lines) {
+          await db.insert('accrual_entries', {
+            'id': newId(),
+            'payslip_id': payslipId,
+            'employee_id': emp.id,
+            'source_kind': line.sourceKind,
+            'source_id': line.sourceId,
+            'accrual_kind': line.accrualKind,
+            'pay_condition_id': line.payConditionId,
+            'rate_cents': line.rateCents,
+            'minutes': line.minutes,
+            'basis_price_cents': line.basisPriceCents,
+            'percent': line.percent,
+            'amount_cents': line.amountCents,
+            'needs_review': 1,
+            'pay_type': line.payType,
+            'occurred_at': line.occurredAt.millisecondsSinceEpoch,
+            'created_at': nowMs,
+            'updated_at': nowMs,
+          });
+        }
+      }
+    }
   }
 
   static Future<void> _ensureSyncColumns(Database db) async {
@@ -1233,6 +1550,25 @@ class AppDatabase {
         final sample = violations.first;
         throw StateError(
           'v25: foreign_key_check нашёл нарушения '
+          '(${sample['table']}.rowid=${sample['rowid']} -> '
+          '${sample['parent']}). Миграция отменена, восстановите копию.',
+        );
+      }
+    }
+    if (oldVersion < 26 && newVersion >= 26) {
+      // v26 «история начислений»: условия оплаты, ведомости, строки начислений.
+      // Обмен между устройствами не подтверждён — таблицы есть только в копии,
+      // в sync_outbox они не попадают (kSyncedTables их не содержит).
+      await _createPayrollHistorySchema(db);
+      await _backfillPayrollHistory(db);
+      await _ensureSyncColumns(db);
+      await _createAuditTriggers(db);
+      await _createSyncTriggers(db);
+      final violations = await db.rawQuery('PRAGMA foreign_key_check');
+      if (violations.isNotEmpty) {
+        final sample = violations.first;
+        throw StateError(
+          'v26: foreign_key_check нашёл нарушения '
           '(${sample['table']}.rowid=${sample['rowid']} -> '
           '${sample['parent']}). Миграция отменена, восстановите копию.',
         );
@@ -1998,8 +2334,10 @@ class AppDatabase {
     Object? before,
     Object? after,
     String? deviceId,
+    DatabaseExecutor? txn,
   }) async {
-    await database.insert('audit_log', {
+    final db = txn ?? database;
+    await db.insert('audit_log', {
       'id': newId(),
       'action': action,
       'entity': entity,

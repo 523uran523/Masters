@@ -113,7 +113,7 @@ void main() {
       expect(app.migrationHalted, isFalse);
       expect(
         (await app.database.rawQuery('PRAGMA user_version')).first.values.first,
-        25,
+        26,
       );
     } finally {
       await app.database.close();
@@ -139,7 +139,7 @@ void main() {
       expect(second.migrationHalted, isFalse);
       expect(
         (await second.database.rawQuery('PRAGMA user_version')).first.values.first,
-        25,
+        26,
       );
     } finally {
       await second.database.close();
@@ -216,7 +216,7 @@ void main() {
       expect(fixed.migrationHalted, isFalse);
       expect(
         (await fixed.database.rawQuery('PRAGMA user_version')).first.values.first,
-        25,
+        26,
       );
       final jobs = await fixed.database.query('jobs');
       expect(jobs, hasLength(1), reason: 'данные пережили падение и миграцию');

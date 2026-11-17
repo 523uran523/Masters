@@ -113,7 +113,7 @@ class DocumentService {
                     ),
                   ),
                   pw.Text(
-                    '${money(job.priceCents)}',
+                    money(job.priceCents),
                     style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
                   ),
                 ],
@@ -121,14 +121,14 @@ class DocumentService {
               pw.Row(
                 children: [
                   pw.Expanded(child: pw.Text('Уже оплачено')),
-                  pw.Text('${money(paid)}'),
+                  pw.Text(money(paid)),
                 ],
               ),
               pw.Row(
                 children: [
                   pw.Expanded(child: pw.Text('Остаток')),
                   pw.Text(
-                    '${money((job.priceCents - paid))}',
+                    money((job.priceCents - paid)),
                   ),
                 ],
               ),
@@ -148,9 +148,12 @@ class DocumentService {
 
   static Future<Uint8List> buildPayrollPdf({
     required String title,
+    String? subtitle,
     required List<Map<String, Object?>> summary,
   }) async {
     final pdf = pw.Document();
+    // Статус печатаем только для закрытых периодов: у живой сводки его нет.
+    final hasStatus = summary.any((row) => row['status'] != null);
     pdf.addPage(
       pw.Page(
         pageFormat: PdfPageFormat.a4,
@@ -165,9 +168,16 @@ class DocumentService {
                   fontWeight: pw.FontWeight.bold,
                 ),
               ),
+              if (subtitle != null) ...[
+                pw.SizedBox(height: 6),
+                pw.Text(
+                  subtitle,
+                  style: const pw.TextStyle(fontSize: 10),
+                ),
+              ],
               pw.SizedBox(height: 10),
               pw.TableHelper.fromTextArray(
-                headers: const [
+                headers: [
                   'Сотрудник',
                   'Зарплата',
                   'Бонусы',
@@ -175,6 +185,7 @@ class DocumentService {
                   'Аванс',
                   'Выплата',
                   'К выплате',
+                  if (hasStatus) 'Статус',
                 ],
                 data: [
                   for (final row in summary)
@@ -183,12 +194,13 @@ class DocumentService {
                               row['employee']?.toString() ??
                               '?')
                           .toString(),
-                      (row['earned'] as int? ?? 0).toString(),
-                      (row['bonus'] as int? ?? 0).toString(),
-                      (row['penalty'] as int? ?? 0).toString(),
-                      (row['advance'] as int? ?? 0).toString(),
-                      (row['payout'] as int? ?? 0).toString(),
-                      (row['net'] as int? ?? 0).toString(),
+                      money((row['earned'] as int?) ?? 0),
+                      money((row['bonus'] as int?) ?? 0),
+                      money((row['penalty'] as int?) ?? 0),
+                      money((row['advance'] as int?) ?? 0),
+                      money((row['payout'] as int?) ?? 0),
+                      money((row['net'] as int?) ?? 0),
+                      if (hasStatus) (row['status'] ?? '').toString(),
                     ],
                 ],
                 cellStyle: const pw.TextStyle(fontSize: 9),
@@ -260,12 +272,12 @@ class DocumentService {
               pw.TableHelper.fromTextArray(
                 headers: const ['Показатель', 'Значение'],
                 data: [
-                  ['Выручка', '${money(revenue)}'],
-                  ['Расходы', '${money(expense)}'],
-                  ['Прибыль', '${money(profit)}'],
-                  ['Выручка заказов', '${money(jobRevenue)}'],
-                  ['Расход заказов', '${money(jobCost)}'],
-                  ['Маржа заказов', '${money(jobMargin)}'],
+                  ['Выручка', money(revenue)],
+                  ['Расходы', money(expense)],
+                  ['Прибыль', money(profit)],
+                  ['Выручка заказов', money(jobRevenue)],
+                  ['Расход заказов', money(jobCost)],
+                  ['Маржа заказов', money(jobMargin)],
                   ['Завершённых заказов', completedCount.toString()],
                 ],
                 cellStyle: const pw.TextStyle(fontSize: 10),
@@ -286,7 +298,7 @@ class DocumentService {
               pw.TableHelper.fromTextArray(
                 headers: const ['Название', 'Сумма'],
                 data: [
-                  for (final e in incSorted) [e.key, '${money(e.value)}'],
+                  for (final e in incSorted) [e.key, money(e.value)],
                 ],
                 cellStyle: const pw.TextStyle(fontSize: 9),
                 headerStyle: pw.TextStyle(
@@ -306,7 +318,7 @@ class DocumentService {
               pw.TableHelper.fromTextArray(
                 headers: const ['Название', 'Сумма'],
                 data: [
-                  for (final e in expSorted) [e.key, '${money(e.value)}'],
+                  for (final e in expSorted) [e.key, money(e.value)],
                 ],
                 cellStyle: const pw.TextStyle(fontSize: 9),
                 headerStyle: pw.TextStyle(

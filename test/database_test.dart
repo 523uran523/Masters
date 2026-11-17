@@ -46,7 +46,7 @@ void main() {
       final ver = (await appDb.database.rawQuery(
         'PRAGMA user_version',
       ))[0]['user_version'];
-      expect(ver, 25);
+      expect(ver, 26);
     } finally {
       await appDb.close();
     }
@@ -95,7 +95,7 @@ void main() {
       final version = (await db.rawQuery(
         'PRAGMA user_version',
       ))[0]['user_version'];
-      expect(version, 25);
+      expect(version, 26);
     } finally {
       await appDb.close();
     }
@@ -122,7 +122,7 @@ void main() {
         final ver = (await reopened.database.rawQuery(
           'PRAGMA user_version',
         ))[0]['user_version'];
-        expect(ver, 25);
+        expect(ver, 26);
         final cols = (await reopened.database.rawQuery(
           'PRAGMA table_info(jobs)',
         )).map((r) => r['name'] as String).toSet();
@@ -181,7 +181,7 @@ void main() {
       final ver = (await db12.database.rawQuery(
         'PRAGMA user_version',
       ))[0]['user_version'];
-      expect(ver, 25);
+      expect(ver, 26);
     } finally {
       await db12.close();
       try {
@@ -222,7 +222,7 @@ void main() {
         final ver = (await db.database.rawQuery(
           'PRAGMA user_version',
         ))[0]['user_version'];
-        expect(ver, 25);
+        expect(ver, 26);
       } finally {
         await db.close();
         try {
@@ -250,7 +250,7 @@ void main() {
       final ver = (await db.database.rawQuery(
         'PRAGMA user_version',
       ))[0]['user_version'];
-      expect(ver, 25);
+      expect(ver, 26);
       final indexes = (await db.database.rawQuery(
         "SELECT name FROM sqlite_master WHERE type='index'",
       )).map((r) => r['name'] as String).toSet();
@@ -298,7 +298,7 @@ void main() {
       final ver = (await db.database.rawQuery(
         'PRAGMA user_version',
       ))[0]['user_version'];
-      expect(ver, 25);
+      expect(ver, 26);
       final tables = (await db.database.rawQuery(
         "SELECT name FROM sqlite_master WHERE type='table'",
       )).map((r) => r['name'] as String).toSet();

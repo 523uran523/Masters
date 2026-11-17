@@ -149,13 +149,18 @@ class PrimaryButton extends StatelessWidget {
               ),
               const SizedBox(width: 8),
             ],
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 17,
-                fontWeight: FontWeight.w600,
-                letterSpacing: -0.2,
-                color: active ? const Color(0xFFFFFFFF) : colors.tertiaryLabel,
+            Flexible(
+              child: Text(
+                label,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 17,
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: -0.2,
+                  color: active
+                      ? const Color(0xFFFFFFFF)
+                      : colors.tertiaryLabel,
+                ),
               ),
             ),
           ],
@@ -262,14 +267,12 @@ class KeyValueRow extends StatelessWidget {
     final row = Padding(
       padding: EdgeInsets.symmetric(vertical: dense ? 2.5 : 4),
       child: Row(
-        crossAxisAlignment: CrossAxisAlignment.baseline,
-        textBaseline: TextBaseline.alphabetic,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Expanded(
+            flex: 4,
             child: Text(
               label,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
               style: TextStyle(
                 fontSize: dense ? 13 : 14.5,
                 color: colors.secondaryLabel,
@@ -277,14 +280,17 @@ class KeyValueRow extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 10),
-          Text(
-            value,
-            maxLines: 1,
-            style: TextStyle(
-              fontSize: dense ? 13.5 : 15,
-              fontWeight: emphasis ? FontWeight.w700 : FontWeight.w600,
-              color: valueColor ?? colors.label,
-              fontFeatures: const [FontFeature.tabularFigures()],
+          Expanded(
+            flex: 6,
+            child: Text(
+              value,
+              textAlign: TextAlign.right,
+              style: TextStyle(
+                fontSize: dense ? 13.5 : 15,
+                fontWeight: emphasis ? FontWeight.w700 : FontWeight.w600,
+                color: valueColor ?? colors.label,
+                fontFeatures: const [FontFeature.tabularFigures()],
+              ),
             ),
           ),
         ],
@@ -494,13 +500,16 @@ class ChipButton extends StatelessWidget {
               ),
               const SizedBox(width: 4),
             ],
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 12.5,
-                fontWeight: FontWeight.w600,
-                color: enabled ? tint : colors.tertiaryLabel,
-                letterSpacing: -0.1,
+            Flexible(
+              child: Text(
+                label,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.w600,
+                  color: enabled ? tint : colors.tertiaryLabel,
+                  letterSpacing: -0.1,
+                ),
               ),
             ),
           ],

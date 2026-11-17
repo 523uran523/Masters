@@ -1,9 +1,10 @@
 import 'package:sqflite/sqflite.dart';
 import '../models/recurring_payment.dart';
+import 'upsert.dart';
 
 class RecurringPaymentRepository {
   RecurringPaymentRepository(this._db);
-  final Database _db;
+  final DatabaseExecutor _db;
 
   Future<List<RecurringPayment>> getAll({bool includeInactive = true}) async {
     final where = includeInactive ? null : 'active = 1';
@@ -34,15 +35,22 @@ class RecurringPaymentRepository {
 
 class PayrollPeriodRepository {
   PayrollPeriodRepository(this._db);
-  final Database _db;
+  final DatabaseExecutor _db;
 
   Future<List<PayrollPeriod>> getAll() async {
     final rows = await _db.query('payroll_periods', where: 'deleted_at IS NULL', orderBy: 'start_at DESC');
     return rows.map(PayrollPeriod.fromMap).toList();
   }
 
-  Future<void> save(PayrollPeriod period) async {
-    await _db.insert('payroll_periods', period.toMap(), conflictAlgorithm: ConflictAlgorithm.replace);
+  Future<void> save(
+    PayrollPeriod period, {
+    DatabaseExecutor? txn,
+  }) async {
+    final db = txn ?? _db;
+    // `ConflictAlgorithm.replace` — это DELETE + INSERT: с включёнными
+    // внешними ключами закрытие периода каскадно удаляло бы его ведомости и
+    // строки начислений. upsertRow обновляет строку на месте.
+    await upsertRow(db, 'payroll_periods', period.toMap());
   }
 
   Future<void> delete(String id) async {

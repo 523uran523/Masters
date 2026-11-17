@@ -1,5 +1,6 @@
 import 'package:sqflite/sqflite.dart';
 import '../models/employee.dart';
+import 'upsert.dart';
 
 class EmployeeRepository {
   EmployeeRepository(this._db);
@@ -19,7 +20,10 @@ class EmployeeRepository {
   }
 
   Future<void> save(Employee e) async {
-    await _db.insert('employees', e.toMap(), conflictAlgorithm: ConflictAlgorithm.replace);
+    // Замена строки (INSERT OR REPLACE) — это DELETE + INSERT: каскад внешних
+    // ключей удалял бы условия оплаты, ведомости и строки начислений при
+    // обычном переименовании сотрудника. upsertRow обновляет на месте.
+    await upsertRow(_db, 'employees', e.toMap());
   }
 
   Future<void> delete(String id) async {

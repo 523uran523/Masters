@@ -85,6 +85,11 @@ const List<String> kBackupApplyOrder = <String>[
   'attribute_types',
   'work_sessions',
   'recipe_lines',
+  // v26 «история начислений»: только в резервной копии, обмен между
+  // устройствами не подтверждён до решения о формате (§12.4).
+  'pay_conditions',
+  'payslips',
+  'accrual_entries',
 ];
 
 /// Соответствие «ключ резервной копии → таблица», в порядке восстановления.
@@ -125,6 +130,10 @@ const List<BackupTable> kBackupTables = <BackupTable>[
   BackupTable('recurring_payments', 'recurring_payments'),
   BackupTable('payroll_periods', 'payroll_periods'),
   BackupTable('period_closures', 'period_closures'),
+  // v26: история начислений — только в копии, не в обмене.
+  BackupTable('pay_conditions', 'pay_conditions'),
+  BackupTable('payslips', 'payslips'),
+  BackupTable('accrual_entries', 'accrual_entries'),
   // v22
   BackupTable('obligations', 'obligations'),
   BackupTable('client_credits', 'client_credits'),
@@ -178,6 +187,10 @@ const List<String> kAuditedTables = <String>[
   'stock_batches',
   'transfers',
   'transfer_lines',
+  // v26: правки истории начислений видны в журнале.
+  'pay_conditions',
+  'payslips',
+  'accrual_entries',
 ];
 
 /// Таблицы, которые нужно пересоздавать при обновлении схемы добавлением
@@ -211,6 +224,11 @@ const List<String> kSyncColumnTables = <String>[
   'employee_payments',
   'recurring_payments',
   'payroll_periods',
+  // v26: история начислений — колонки синхронизации есть, но сам обмен
+  // между устройствами не подтверждён (таблицы не в kSyncedTables).
+  'pay_conditions',
+  'payslips',
+  'accrual_entries',
 ];
 
 /// Текстовые колонки, где живут пользовательские строки на русском.
@@ -305,5 +323,19 @@ const Map<String, List<List<String>>> kTableDependencies =
   'transfer_lines': <List<String>>[
     <String>['transfer_id', 'transfers'],
     <String>['item_id', 'inventory_items'],
+  ],
+  // v26: ведомость привязана к периоду и сотруднику, строка начисления —
+  // к условиям оплаты, ведомости и сотрудникам. Сироты пропускаются.
+  'pay_conditions': <List<String>>[
+    <String>['employee_id', 'employees'],
+  ],
+  'payslips': <List<String>>[
+    <String>['period_id', 'payroll_periods'],
+    <String>['employee_id', 'employees'],
+  ],
+  'accrual_entries': <List<String>>[
+    <String>['employee_id', 'employees'],
+    <String>['pay_condition_id', 'pay_conditions'],
+    <String>['payslip_id', 'payslips'],
   ],
 };

@@ -58,6 +58,14 @@ import '../data/repositories/time_entry_repository.dart';
 import '../data/repositories/client_reminder_repository.dart';
 import '../data/repositories/client_repository.dart';
 import '../data/repositories/inventory_composition_repository.dart';
+import '../data/repositories/accrual_entry_repository.dart';
+import '../data/repositories/pay_condition_repository.dart';
+import '../data/repositories/payslip_repository.dart';
+import '../data/models/accrual_entry.dart';
+import '../data/models/pay_condition.dart';
+import '../data/models/payslip.dart';
+import '../core/payroll_engine.dart';
+import '../core/payroll_calc.dart';
 import '../data/repositories/inventory_item_repository.dart';
 import '../data/repositories/job_repository.dart';
 import '../data/repositories/stock_movement_repository.dart';
@@ -165,6 +173,9 @@ class MastersStore extends ChangeNotifier {
     _bookingResourceRepo = BookingResourceRepository(_appDatabase.database);
     _recurringRepo = RecurringPaymentRepository(_appDatabase.database);
     _payrollRepo = PayrollPeriodRepository(_appDatabase.database);
+    _accrualEntryRepo = AccrualEntryRepository(_appDatabase.database);
+    _payConditionRepo = PayConditionRepository(_appDatabase.database);
+    _payslipRepo = PayslipRepository(_appDatabase.database);
     _attributeRepo = EntityAttributeRepository(_appDatabase.database);
     _attributeTypeRepo = AttributeTypeRepository(_appDatabase.database);
     _obligationRepo = ObligationRepository(_appDatabase.database);
@@ -201,6 +212,13 @@ class MastersStore extends ChangeNotifier {
   late final PurchaseRepository _purchaseRepo;
   late final RecurringPaymentRepository _recurringRepo;
   late final PayrollPeriodRepository _payrollRepo;
+  late final AccrualEntryRepository _accrualEntryRepo;
+  late final PayConditionRepository _payConditionRepo;
+  late final PayslipRepository _payslipRepo;
+  final _payConditionCache = <String, List<PayCondition>>{};
+  List<Payslip> _payslips = [];
+  List<PayCondition> _payConditions = [];
+  List<AccrualEntry> _accrualEntries = [];
   late final EntityAttributeRepository _attributeRepo;
   late final AttributeTypeRepository _attributeTypeRepo;
   late final ObligationRepository _obligationRepo;
@@ -678,6 +696,21 @@ class MastersStore extends ChangeNotifier {
       await _scheduleRecurringReminder();
     } catch (_) {}
     _payrollPeriods = await _payrollRepo.getAll();
+    // Если миграция v26 упала, база восстановлена на v25, и таблиц истории
+    // начислений ещё нет. Экран должен открыться, а не падать: данные пустые,
+    // пользователь увидит предложение восстановить копию.
+    final tables = await _appDatabase.existingTables();
+    if (tables.contains('payslips') &&
+        tables.contains('pay_conditions') &&
+        tables.contains('accrual_entries')) {
+      _payslips = await _payslipRepo.getAll();
+      _payConditions = await _payConditionRepo.getAll();
+      _accrualEntries = await _accrualEntryRepo.getAllIncludingDeleted();
+    } else {
+      _payslips = const [];
+      _payConditions = const [];
+      _accrualEntries = const [];
+    }
     _obligations = await _obligationRepo.getAll();
     _leads = await _leadRepo.getAll();
     _quotes = await _quoteRepo.getAll();
@@ -2100,8 +2133,9 @@ class MastersStore extends ChangeNotifier {
   }) async {
     if (amountCents <= 0) throw ArgumentError('Сумма должна быть больше 0.');
     ensurePeriodOpen();
-    if (fromAccountId == toAccountId)
+    if (fromAccountId == toAccountId) {
       throw ArgumentError('Счета должны различаться.');
+    }
     final from = await addTransaction(
       accountId: fromAccountId,
       kind: 'transfer',
@@ -4066,6 +4100,7 @@ class MastersStore extends ChangeNotifier {
     int rateCents = 0,
     double percent = 0,
   }) async {
+    final now = DateTime.now();
     final e = Employee(
       id: newId(),
       name: name.trim(),
@@ -4073,21 +4108,69 @@ class MastersStore extends ChangeNotifier {
       payType: payType,
       rateCents: rateCents,
       percent: percent,
-      createdAt: DateTime.now(),
+      createdAt: now,
     );
     await _employeeRepo.save(e);
+    final firstCondition = PayCondition(
+      id: newId(),
+      employeeId: e.id,
+      payType: payType,
+      rateCents: rateCents,
+      percent: percent,
+      validFrom: _nextValidFrom(e.id, now),
+      createdAt: now,
+    );
+    await _payConditionRepo.save(firstCondition);
+    _payConditions = [..._payConditions, firstCondition];
+    _payConditionCache.remove(e.id);
     _employees = [..._employees, e];
     notifyListeners();
     return e;
   }
 
+  /// Следующая дата действия условия: строго позже последней у сотрудника,
+  /// чтобы пакетные правки в одном ms не ломали UNIQUE (employee_id, valid_from).
+  DateTime _nextValidFrom(String employeeId, DateTime at) {
+    final existing = _payConditions
+        .where((c) => c.employeeId == employeeId && c.deletedAt == null)
+        .toList();
+    if (existing.isEmpty) return at;
+    final latest = existing.reduce(
+      (a, b) => a.validFrom.isAfter(b.validFrom) ? a : b,
+    );
+    return at.isAfter(latest.validFrom) ? at : latest.validFrom.add(const Duration(milliseconds: 1));
+  }
+
   Future<void> updateEmployee(Employee e) async {
+    final now = DateTime.now();
+    final existing = conditionsForEmployee(e.id);
+    final current = existing.isEmpty
+        ? null
+        : existing.reduce((a, b) => a.validFrom.isAfter(b.validFrom) ? a : b);
+    final changed = current == null ||
+        current.payType != e.payType ||
+        current.rateCents != e.rateCents ||
+        current.percent != e.percent;
     await _employeeRepo.save(e);
     final idx = _employees.indexWhere((x) => x.id == e.id);
     if (idx == -1) {
       _employees = [..._employees, e];
     } else {
       _employees[idx] = e;
+    }
+    if (changed) {
+      final newCondition = PayCondition(
+        id: newId(),
+        employeeId: e.id,
+        payType: e.payType,
+        rateCents: e.rateCents,
+        percent: e.percent,
+        validFrom: _nextValidFrom(e.id, now),
+        createdAt: now,
+      );
+      await _payConditionRepo.save(newCondition);
+      _payConditions = [..._payConditions, newCondition];
+      _payConditionCache.remove(e.id);
     }
     notifyListeners();
   }
@@ -4443,7 +4526,7 @@ class MastersStore extends ChangeNotifier {
   Map<String, dynamic> backupData() {
     return {
       'format': 'masters-backup',
-      'version': 9,
+      'version': 10,
       'exported_at': DateTime.now().toIso8601String(),
       for (final mapping in kBackupTables)
         mapping.key: _tableRows(mapping.table),
@@ -4502,6 +4585,12 @@ class MastersStore extends ChangeNotifier {
         return _payrollPeriods.map((p) => p.toMap()).toList();
       case 'period_closures':
         return _closedPeriods.map((p) => p.toMap()).toList();
+      case 'pay_conditions':
+        return _payConditions.map((c) => c.toMap()).toList();
+      case 'payslips':
+        return _payslips.map((p) => p.toMap()).toList();
+      case 'accrual_entries':
+        return _accrualEntries.map((a) => a.toMap()).toList();
       default:
         // Таблица из реестра ещё не загружена в store (например, v22) —
         // возвращаем пустой список, чтобы не ломать формат.
@@ -4514,7 +4603,7 @@ class MastersStore extends ChangeNotifier {
       throw const FormatException('Это не резервная копия Masters.');
     }
     final version = data['version'];
-    if (version is! int || version > 9) {
+    if (version is! int || version > 10) {
       throw const FormatException('Неподдерживаемая версия копии.');
     }
 
@@ -4651,7 +4740,7 @@ class MastersStore extends ChangeNotifier {
       throw const FormatException('Это не копия Masters.');
     }
     final version = data['version'];
-    if (version is! int || version > 9) {
+    if (version is! int || version > 10) {
       throw const FormatException('Неподдерживаемая версия копии.');
     }
     final result = await _appDatabase.mergeSnapshot(
@@ -5250,8 +5339,224 @@ class MastersStore extends ChangeNotifier {
     return period;
   }
 
-  Future<void> reopenPayrollPeriod(String id) async {
+  /// Строки начислений сотрудника (живые, без мягко удалённых).
+  List<AccrualEntry> accrualEntriesForEmployee(String employeeId) {
+    return _accrualEntries
+        .where((e) => e.employeeId == employeeId && e.deletedAt == null)
+        .toList();
+  }
+
+  /// Все условия оплаты (история изменений ставок).
+  List<PayCondition> get payConditions => List.unmodifiable(_payConditions);
+
+  /// Все ведомости (история версий).
+  List<Payslip> get payslips => List.unmodifiable(_payslips);
+
+  /// Условия оплаты сотрудника (все строки, включая мягко удалённые).
+  List<PayCondition> conditionsForEmployee(String employeeId) {
+    return _payConditionCache.putIfAbsent(employeeId, () {
+      return _payConditions
+          .where((c) => c.employeeId == employeeId)
+          .toList();
+    });
+  }
+
+  /// Ведомости по периоду (последние версии по сотруднику).
+  List<Payslip> payslipsForPeriod(String periodId) {
+    final byEmp = <String, Payslip>{};
+    for (final s in _payslips) {
+      if (s.periodId != periodId) continue;
+      final cur = byEmp[s.employeeId];
+      if (cur == null || s.version > cur.version) {
+        byEmp[s.employeeId] = s;
+      }
+    }
+    return byEmp.values.toList();
+  }
+
+  /// Все версии ведомостей периода, новые сверху (история пересчётов).
+  List<Payslip> payslipHistoryForPeriod(String periodId) {
+    final list = _payslips.where((s) => s.periodId == periodId).toList()
+      ..sort((a, b) => b.version.compareTo(a.version));
+    return list;
+  }
+
+  /// Все ведомости сотрудника (история версий).
+  List<Payslip> payslipsForEmployee(String employeeId) {
+    return _payslips
+        .where((s) => s.employeeId == employeeId)
+        .toList()
+      ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+  }
+
+  /// Последняя ведомость сотрудника в периоде (или null).
+  Payslip? latestPayslipFor(String periodId, String employeeId) {
+    Payslip? best;
+    for (final s in _payslips) {
+      if (s.employeeId != employeeId || s.periodId != periodId) continue;
+      if (best == null || s.version > best.version) best = s;
+    }
+    return best;
+  }
+
+  /// Строки начислений по ведомости (включая мягко удалённые при пересчёте).
+  Future<List<AccrualEntry>> accrualEntriesForPayslip(String payslipId) async {
+    final live = _accrualEntries
+        .where((e) => e.payslipId == payslipId && e.deletedAt == null)
+        .toList();
+    if (live.isNotEmpty) return live;
+    return _accrualEntryRepo.forPayslipIncludingDeleted(payslipId);
+  }
+
+  /// Условия оплаты сотрудника (все строки, включая мягко удалённые).
+
+  /// Живой предпросмотр начислений по открытому периоду (не фиксирует данные).
+  List<AccrualLine> previewAccrualLines(
+    String employeeId,
+    DateTime start,
+    DateTime end,
+  ) {
+    final emp = employeeById(employeeId);
+    if (emp == null) return const [];
+    final endExclusive = periodEndExclusive(end);
+    return buildAccrualLines(
+      start: start,
+      endExclusive: endExclusive,
+      conditions: conditionsForEmployee(employeeId),
+      timeEntries: _timeEntries
+          .where((t) => t.employeeId == employeeId)
+          .toList(),
+      jobs: _jobs.where((j) => j.assigneeId == employeeId).toList(),
+      defaultPayType: emp.payType,
+    );
+  }
+
+  /// Сводка по периоду: одна строка на сотрудника (в_live_по_каждому_сотруднику).
+  /// Закрытый период — по ведомостям, открытый — по движку вживую.
+  List<Map<String, Object?>> payrollSummaryForPeriod(PayrollPeriod period) {
+    final slips = payslipsForPeriod(period.id);
+    if (slips.isNotEmpty) {
+      return slips
+          .map(
+            (s) => <String, Object?>{
+              'employee': employeeById(s.employeeId),
+              'earned': s.accruedCents,
+              'net': s.netCents,
+              'bonus': s.bonusCents,
+              'penalty': s.penaltyCents,
+              'advance': s.advanceCents,
+              'payout': s.payoutCents,
+              'payslip': s,
+            },
+          )
+          .toList();
+    }
+    // Открытый период: считаем вживую по каждому сотруднику.
+    return _payrollSummaryLive(period.startAt, period.endAt);
+  }
+
+  /// Живая сводка по интервалу: тот же движок, что и у закрытия, поэтому
+  /// предварительные суммы не расходятся с зафиксированными.
+  List<Map<String, Object?>> _payrollSummaryLive(
+    DateTime start,
+    DateTime end,
+  ) {
+    final endExclusive = periodEndExclusive(end);
+    final rows = <Map<String, Object?>>[];
+    for (final emp in _employees.where((e) => !e.archived)) {
+      final lines = buildAccrualLines(
+        start: start,
+        endExclusive: endExclusive,
+        conditions: conditionsForEmployee(emp.id),
+        timeEntries: _timeEntries
+            .where((t) => t.employeeId == emp.id)
+            .toList(),
+        jobs: _jobs.where((j) => j.assigneeId == emp.id).toList(),
+        defaultPayType: emp.payType,
+      );
+      final totals = paymentTotalsForPeriod(emp.id, start, end);
+      final earned = lines.fold<int>(0, (s, l) => s + l.amountCents);
+      final net = earned +
+          (totals['bonus'] ?? 0) -
+          (totals['penalty'] ?? 0) -
+          (totals['advance'] ?? 0) -
+          (totals['payout'] ?? 0);
+      rows.add({
+        'employee': emp,
+        'earned': earned,
+        'net': net,
+        'bonus': totals['bonus'] ?? 0,
+        'penalty': totals['penalty'] ?? 0,
+        'advance': totals['advance'] ?? 0,
+        'payout': totals['payout'] ?? 0,
+        'payslip': null,
+      });
+    }
+    return rows;
+  }
+
+  /// Подтверждение предварительной ведомости: статус → confirmed,
+  /// сброс review_note, аудит сохраняет историю.
+  Future<void> confirmPayslip(String payslipId) async {
+    final slip = _payslips.firstWhere((s) => s.id == payslipId, orElse: () => throw ArgumentError('Ведомость не найдена'));
+    if (slip.status == 'confirmed') return;
+    final updated = slip.copyWith(
+      status: 'confirmed',
+      needsReview: false,
+      reviewNote: null,
+      updatedAt: DateTime.now(),
+    );
+    await _payslipRepo.save(updated);
+    final idx = _payslips.indexWhere((s) => s.id == payslipId);
+    if (idx != -1) _payslips[idx] = updated;
+    await auditAction(
+      action: 'payslip.confirm',
+      entity: 'payslip',
+      entityId: payslipId,
+      before: slip.toMap(),
+      after: updated.toMap(),
+    );
+    notifyListeners();
+  }
+
+  /// Подтвердить все предварительные ведомости периода.
+  Future<int> confirmPreliminaryPayslips(String periodId) async {
+    final slips = payslipsForPeriod(periodId).where((s) => s.status == 'preliminary').toList();
+    for (final s in slips) {
+      await confirmPayslip(s.id);
+    }
+    return slips.length;
+  }
+
+  /// Записи аудита по сущности (для отображения причины переоткрытия и т.п.).
+  Future<List<Map<String, Object?>>> auditEntriesFor(
+    String entity,
+    String? entityId, {
+    int limit = 50,
+  }) async {
+    final where = StringBuffer('entity = ?');
+    final args = <Object?>[entity];
+    if (entityId != null) {
+      where.write(' AND entity_id = ?');
+      args.add(entityId);
+    }
+    final rows = await _appDatabase.database.query(
+      'audit_log',
+      where: where.toString(),
+      whereArgs: args,
+      orderBy: 'at DESC',
+      limit: limit,
+    );
+    return rows;
+  }
+
+  Future<void> reopenPayrollPeriod(String id, {required String reason}) async {
+    final trimmed = reason.trim();
+    if (trimmed.isEmpty) {
+      throw ArgumentError('Причина переоткрытия обязательна.');
+    }
     final period = _payrollPeriods.firstWhere((p) => p.id == id);
+    if (!period.isClosed) return;
     final now = DateTime.now();
     final updated = PayrollPeriod(
       id: period.id,
@@ -5263,19 +5568,29 @@ class MastersStore extends ChangeNotifier {
       createdAt: period.createdAt,
       updatedAt: now,
     );
-    await _payrollRepo.save(updated);
+    await _appDatabase.database.transaction((txn) async {
+      await _payrollRepo.save(updated, txn: txn);
+      await _appDatabase.audit(
+        action: 'payroll_period.reopen',
+        entity: 'payroll_period',
+        entityId: id,
+        after: {'reason': trimmed, 'closedAt': period.closedAt?.millisecondsSinceEpoch},
+        txn: txn,
+      );
+    });
     final idx = _payrollPeriods.indexWhere((p) => p.id == id);
     if (idx != -1) _payrollPeriods[idx] = updated;
-    await auditAction(
-      action: 'payroll_period.reopen',
-      entity: 'payroll_period',
-      entityId: id,
-    );
     notifyListeners();
   }
 
-  Future<void> closePayrollPeriod(String id, {DateTime? at}) async {
+  /// Закрытие периода: ведомости фиксируются одной транзакцией.
+  /// Повторное закрытие возвращает уже сохранённый результат (идемпотентность).
+  Future<List<Payslip>> closePayrollPeriod(String id, {DateTime? at}) async {
     final period = _payrollPeriods.firstWhere((p) => p.id == id);
+    if (period.isClosed) {
+      return await _payslipRepo.forPeriod(id);
+    }
+    final endExclusive = periodEndExclusive(period.endAt);
     final now = at ?? DateTime.now();
     final updated = PayrollPeriod(
       id: period.id,
@@ -5287,16 +5602,108 @@ class MastersStore extends ChangeNotifier {
       createdAt: period.createdAt,
       updatedAt: now,
     );
-    await _payrollRepo.save(updated);
-    final idx = _payrollPeriods.indexWhere((p) => p.id == id);
-    if (idx != -1) _payrollPeriods[idx] = updated;
-    await auditAction(
-      action: 'payroll_period.close',
-      entity: 'payroll_period',
-      entityId: id,
-    );
-    notifyListeners();
-  }
+    final employees = _employees.where((e) => !e.archived).toList();
+    final created = <Payslip>[];
+    final oldSlips = await _payslipRepo.forPeriodIds(id);
+    await _appDatabase.database.transaction((txn) async {
+        // При повторном закрытии (после переоткрытия) старые строки начислений
+        // мягко удаляем ДО вставки новых: они остаются в расшифровке v1,
+        // но освобождают уникальный ключ (source_kind, source_id, accrual_kind,
+        // employee_id). Список ведомостей снят до транзакции, поэтому новые
+        // строки под удаление не попадают.
+        if (oldSlips.isNotEmpty) {
+          await _accrualEntryRepo.softDeleteBoundToPayslips(
+            oldSlips.map((s) => s.id).toList(),
+            now,
+            txn: txn,
+          );
+        }
+        for (final emp in employees) {
+          final lines = buildAccrualLines(
+            start: period.startAt,
+            endExclusive: endExclusive,
+            conditions: conditionsForEmployee(emp.id),
+            timeEntries: _timeEntries
+                .where((t) => t.employeeId == emp.id)
+                .toList(),
+            jobs: _jobs
+                .where((j) => j.assigneeId == emp.id)
+                .toList(),
+            defaultPayType: emp.payType,
+          );
+          final totals = paymentTotalsForPeriod(emp.id, period.startAt, period.endAt);
+          final earned = lines.fold<int>(0, (s, l) => s + l.amountCents);
+          final net = earned +
+              (totals['bonus'] ?? 0) -
+              (totals['penalty'] ?? 0) -
+              (totals['advance'] ?? 0) -
+              (totals['payout'] ?? 0);
+          final needsReview = lines.any((l) => l.needsReview);
+          final version = (await _payslipRepo.maxVersionFor(period.id, emp.id, txn: txn)) + 1;
+          final slip = Payslip(
+            id: newId(),
+            periodId: period.id,
+            employeeId: emp.id,
+            version: version,
+            status: needsReview ? 'preliminary' : 'confirmed',
+            needsReview: needsReview,
+            minutes: lines.fold<int>(0, (s, l) => s + l.minutes),
+            accruedCents: earned,
+            bonusCents: totals['bonus'] ?? 0,
+            penaltyCents: totals['penalty'] ?? 0,
+            advanceCents: totals['advance'] ?? 0,
+            payoutCents: totals['payout'] ?? 0,
+            netCents: net,
+            reviewNote: needsReview
+                ? 'Строки с фолбэком ставки или без условия — проверьте.'
+                : null,
+            frozenAt: now,
+            createdAt: now,
+          );
+          await _payslipRepo.save(slip, txn: txn);
+          created.add(slip);
+          for (final line in lines) {
+            final entry = AccrualEntry(
+              id: newId(),
+              payslipId: slip.id,
+              employeeId: emp.id,
+              sourceKind: line.sourceKind,
+              sourceId: line.sourceId,
+              accrualKind: line.accrualKind,
+              payConditionId: line.payConditionId,
+              rateCents: line.rateCents,
+              minutes: line.minutes,
+              basisPriceCents: line.basisPriceCents,
+              percent: line.percent,
+              amountCents: line.amountCents,
+              needsReview: line.needsReview,
+              payType: line.payType,
+              occurredAt: line.occurredAt,
+              createdAt: now,
+            );
+            final inserted = await _accrualEntryRepo.insertIgnore(entry, txn: txn);
+            if (!inserted) {
+              throw StateError('insertIgnore failed for ${entry.sourceKind}:${entry.sourceId}');
+            }
+          }
+        }
+        await _payrollRepo.save(updated, txn: txn);
+        await _appDatabase.audit(
+          action: 'payroll_period.close',
+          entity: 'payroll_period',
+          entityId: id,
+          before: period.toMap(),
+          after: updated.toMap(),
+          txn: txn,
+        );
+      });
+      final idx = _payrollPeriods.indexWhere((p) => p.id == id);
+      if (idx != -1) _payrollPeriods[idx] = updated;
+      _payslips = [..._payslips, ...created];
+      _accrualEntries = await _accrualEntryRepo.getAllIncludingDeleted();
+      notifyListeners();
+      return created;
+    }
 
   Future<void> deletePayrollPeriod(String id) async {
     await _payrollRepo.delete(id);
@@ -5392,57 +5799,8 @@ class MastersStore extends ChangeNotifier {
     };
   }
 
-  Map<String, int> payslipDataForEmployee(
-    String employeeId,
-    DateTime start,
-    DateTime end,
-  ) {
-    final earned = earnedCentsForPeriod(employeeId, start, end);
-    int advances = 0;
-    int payouts = 0;
-    int bonuses = 0;
-    int penalties = 0;
-    for (final p in paymentsForEmployee(employeeId)) {
-      if (p.createdAt.isBefore(start) || p.createdAt.isAfter(end)) continue;
-      if (p.type == 'advance') advances += p.amountCents;
-      if (p.type == 'payout') payouts += p.amountCents;
-      if (p.type == 'bonus') bonuses += p.amountCents;
-      if (p.type == 'penalty') penalties += p.amountCents;
-    }
-    final owed = employeeBalanceOwed(employeeId);
-    return <String, int>{
-      'earned': earned,
-      'advances': advances,
-      'payouts': payouts,
-      'bonuses': bonuses,
-      'penalties': penalties,
-      'owed': owed,
-    };
-  }
-
   List<Map<String, Object?>> payrollSummary(DateTime start, DateTime end) {
-    final rows = _employees.where((e) => !e.archived).map((employee) {
-      final earned = earnedCentsForPeriod(employee.id, start, end);
-      final totals = paymentTotalsForPeriod(employee.id, start, end);
-      final advances = totals['advance'] ?? 0;
-      final payouts = totals['payout'] ?? 0;
-      final net =
-          earned +
-          (totals['bonus'] ?? 0) -
-          (totals['penalty'] ?? 0) -
-          advances -
-          payouts;
-      return <String, Object?>{
-        'employee': employee,
-        'earned': earned,
-        'bonus': totals['bonus'],
-        'penalty': totals['penalty'],
-        'advance': advances,
-        'payout': payouts,
-        'net': net,
-      };
-    }).toList();
-    return rows;
+    return _payrollSummaryLive(start, end);
   }
 
   List<Supplier> get suppliers => List.unmodifiable(_suppliers);
@@ -5535,8 +5893,9 @@ class MastersStore extends ChangeNotifier {
       }
     }
 
-    if (purchaseLines.isEmpty)
+    if (purchaseLines.isEmpty) {
       throw ArgumentError('Закупка не содержит строк.');
+    }
     if (total <= 0) throw ArgumentError('Сумма закупки должна быть больше 0.');
     final purchase = Purchase(
       id: purchaseId,
@@ -5584,8 +5943,9 @@ class MastersStore extends ChangeNotifier {
     }
     int paid = 0;
     for (final transaction in _moneyTransactions) {
-      if (transaction.voided || transaction.kind != 'purchase_payment')
+      if (transaction.voided || transaction.kind != 'purchase_payment') {
         continue;
+      }
       if (supplierId != null) {
         final purchase = _purchases.firstWhere(
           (p) => p.id == transaction.relatedTransactionId,

@@ -40,6 +40,35 @@ class TimeEntry {
         note: m['note'] as String?,
         createdAt: DateTime.fromMillisecondsSinceEpoch(m['created_at'] as int? ?? 0),
       );
+
+  static const Object _unset = Object();
+
+  TimeEntry copyWith({
+    Object? id = _unset,
+    Object? employeeId = _unset,
+    Object? jobId = _unset,
+    Object? startedAt = _unset,
+    Object? endedAt = _unset,
+    Object? minutes = _unset,
+    Object? note = _unset,
+  }) {
+    return TimeEntry(
+      id: id == _unset ? this.id : id as String,
+      employeeId: employeeId == _unset ? this.employeeId : employeeId as String,
+      jobId:
+          jobId == _unset
+              ? this.jobId
+              : (jobId == null ? null : jobId as String),
+      startedAt: startedAt == _unset ? this.startedAt : startedAt as DateTime,
+      endedAt:
+          endedAt == _unset
+              ? this.endedAt
+              : (endedAt == null ? null : endedAt as DateTime),
+      minutes: minutes == _unset ? this.minutes : minutes as int,
+      note: note == _unset ? this.note : (note == null ? null : note as String),
+      createdAt: createdAt,
+    );
+  }
 }
 
 class EmployeePayment {

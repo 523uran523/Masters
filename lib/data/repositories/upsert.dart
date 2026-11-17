@@ -9,7 +9,7 @@ import 'package:sqflite/sqflite.dart';
 /// дочерних строк (`purchase_lines`, `stock_levels`, `stock_batches`).
 /// Первое роняло приёмку закупки, второе — переписывало склад.
 Future<void> upsertRow(
-  Database db,
+  DatabaseExecutor db,
   String table,
   Map<String, Object?> row,
 ) async {
